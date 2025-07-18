@@ -52,10 +52,17 @@ const Features: React.FC = () => {
               <Image
                 src={feature.gif}
                 alt={feature.title}
-                className="w-full h-40 object-cover rounded-md mb-4"
+                width={400}
+                height={160}
+                unoptimized
+                className="object-cover rounded-md mb-4"
               />
-              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">{feature.title}</h3>
-              <p className="text-gray-600 dark:text-gray-300">{feature.description}</p>
+              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
+                {feature.title}
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                {feature.description}
+              </p>
             </motion.div>
           ))}
         </div>
