@@ -2,6 +2,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 
 interface Feature {
   title: string;
@@ -48,7 +49,7 @@ const Features: React.FC = () => {
               transition={{ duration: 0.5, delay: index * 0.2 }}
               className="bg-gray-100 dark:bg-gray-700 p-6 rounded-xl shadow-lg text-center hover:shadow-2xl transition"
             >
-              <img
+              <Image
                 src={feature.gif}
                 alt={feature.title}
                 className="w-full h-40 object-cover rounded-md mb-4"

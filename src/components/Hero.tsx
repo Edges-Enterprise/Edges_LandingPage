@@ -1,6 +1,4 @@
 'use client';
-
-import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 const Hero: React.FC = () => {
