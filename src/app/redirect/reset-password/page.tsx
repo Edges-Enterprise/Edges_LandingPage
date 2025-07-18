@@ -163,8 +163,8 @@
 // //     color: "#aaa",
 // //   },
 // // };
-
-
+//////////////////////////////////////
+////////////////////////////////
 // "use client";
 
 // import { useEffect, Suspense } from "react";
@@ -178,9 +178,41 @@
 //     const token = searchParams.get("token");
 //     const type = searchParams.get("type");
 
-//     if (token && type === "recovery") {
-//       const encodedToken = encodeURIComponent(token);
-//       window.location.href = `edges-network://reset-password?token=${encodedToken}&type=recovery`;
+//     // Validate that we have the required parameters
+//     if (!token || type !== "recovery") {
+//       console.error("Missing or invalid parameters for password reset");
+//       return;
+//     }
+
+//     const encodedToken = encodeURIComponent(token);
+//     const deepLink = `edges-network://reset-password?token=${encodedToken}&type=recovery`;
+
+//     // Log the deep link for debugging
+//     console.log("Attempting to open deep link:", deepLink);
+
+//     // Detect if user is on mobile
+//     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+//     if (isMobile) {
+//       // Mobile deep link handling
+//       try {
+//         window.location.href = deepLink;
+//       } catch (error) {
+//         console.log("Mobile deep link failed:", error);
+//       }
+
+//       // Fallback: Try creating a temporary link
+//       setTimeout(() => {
+//         const link = document.createElement("a");
+//         link.href = deepLink;
+//         document.body.appendChild(link);
+//         link.click();
+//         document.body.removeChild(link);
+//       }, 500);
+//     } else {
+//       // Desktop: might need different handling or show instructions
+//       console.log("Desktop detected - deep link might not work");
+//       // You could show different UI for desktop users
 //     }
 //   }, [searchParams]);
 
@@ -194,8 +226,11 @@
 //           height={150}
 //           style={styles.logo}
 //         />
-//         <p style={styles.title}>Redirecting...</p>
-//         <p style={styles.text}>please wait.</p>
+//         <p style={styles.title}>Redirecting to App...</p>
+//         <p style={styles.text}>
+//           If you are not redirected, open your app manually or retry from your
+//           mobile.
+//         </p>
 //       </div>
 //     </div>
 //   );
@@ -277,41 +312,9 @@ function RedirectResetPasswordContent() {
     const token = searchParams.get("token");
     const type = searchParams.get("type");
 
-    // Validate that we have the required parameters
-    if (!token || type !== "recovery") {
-      console.error("Missing or invalid parameters for password reset");
-      return;
-    }
-
-    const encodedToken = encodeURIComponent(token);
-    const deepLink = `edges-network://reset-password?token=${encodedToken}&type=recovery`;
-
-    // Log the deep link for debugging
-    console.log("Attempting to open deep link:", deepLink);
-
-    // Detect if user is on mobile
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-    if (isMobile) {
-      // Mobile deep link handling
-      try {
-        window.location.href = deepLink;
-      } catch (error) {
-        console.log("Mobile deep link failed:", error);
-      }
-
-      // Fallback: Try creating a temporary link
-      setTimeout(() => {
-        const link = document.createElement("a");
-        link.href = deepLink;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }, 500);
-    } else {
-      // Desktop: might need different handling or show instructions
-      console.log("Desktop detected - deep link might not work");
-      // You could show different UI for desktop users
+    if (token && type === "recovery") {
+      const encodedToken = encodeURIComponent(token);
+      window.location.href = `edges-network://reset-password?token=${encodedToken}&type=recovery`;
     }
   }, [searchParams]);
 
@@ -325,11 +328,8 @@ function RedirectResetPasswordContent() {
           height={150}
           style={styles.logo}
         />
-        <p style={styles.title}>Redirecting to App...</p>
-        <p style={styles.text}>
-          If you are not redirected, open your app manually or retry from your
-          mobile.
-        </p>
+        <p style={styles.title}>Redirecting...</p>
+        <p style={styles.text}>please wait.</p>
       </div>
     </div>
   );
