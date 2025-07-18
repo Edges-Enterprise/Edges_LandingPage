@@ -169,6 +169,7 @@
 
 import { useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 
 function RedirectResetPasswordContent() {
   const searchParams = useSearchParams();
@@ -186,11 +187,15 @@ function RedirectResetPasswordContent() {
   return (
     <div style={styles.wrapper}>
       <div style={styles.container}>
-        <img src="edgesnetworkicon.png" alt="Logo" style={styles.logo} />
+        <Image
+          src="/edgesnetworkicon.png"
+          alt="Edges Network Logo"
+          width={150}
+          height={150}
+          style={styles.logo}
+        />
         <p style={styles.title}>Redirecting...</p>
-        <p style={styles.text}>
-          please wait.
-        </p>
+        <p style={styles.text}>please wait.</p>
       </div>
     </div>
   );
@@ -208,7 +213,13 @@ function LoadingFallback() {
   return (
     <div style={styles.wrapper}>
       <div style={styles.container}>
-        <img src="edgesnetworkicon.png" alt="Logo" style={styles.logo} />
+        <Image
+          src="/edgesnetworkicon.png"
+          alt="Edges Network Logo"
+          width={150}
+          height={150}
+          style={styles.logo}
+        />
         <p style={styles.title}>Loading...</p>
       </div>
     </div>
