@@ -101,7 +101,7 @@ export const DataTable: React.FC = () => {
     { id: 68, network: 'MTN', type: 'SME', volume: '5.0GB', price: '₦3,450.00', validity: '1 Month' },
   ];
 
-  const filteredPlans = useMemo(() => {
+  const _filteredPlans = useMemo(() => {
     return {
       MTN: dataPlans.filter((plan) => plan.network === 'MTN'),
       AIRTEL: dataPlans.filter((plan) => plan.network === 'AIRTEL'),
