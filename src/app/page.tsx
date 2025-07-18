@@ -8,13 +8,13 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Edges Network - Data Reselling Platform</title>
-        <meta name="description" content="Buy and sell data seamlessly with Edges Network's secure platform." />
+        <title>Edges Network - Cheap airtime/Data Reselling Platform</title>
+        <meta name="description" content="Buy airtime/data bundles at cheaper rate fast with Edges Network's secure platform." />
       </Head>
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
         <Hero />
         <Features />
-        <Pricing />
+        {/* <Pricing /> */}
         <Footer />
       </div>
     </>
