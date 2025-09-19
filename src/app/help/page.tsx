@@ -12,12 +12,12 @@ const Help = () => {
         <p className="text-gray-400">
           Reach out to us at{" "}
           <a
-            href="mailto:support@edgesnetwork.com"
+            href="mailto:edgesnetwork@gmail.com"
             className="text-[#D7A77F] hover:underline"
           >
-            support@edgesnetwork.com
+            edgesnetwork@gmail.com
           </a>{" "}
-          or use our Help form below.
+          .
         </p>
         {/* Add a Help form or other content here */}
       </main>
