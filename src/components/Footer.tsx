@@ -48,7 +48,7 @@ const Footer: React.FC = () => {
             Contact Us
           </Link>
           <Link href="/help" className="hover:text-white transition-colors">
-            F.A.Q.
+            Help Center
           </Link>
         </div>
 
