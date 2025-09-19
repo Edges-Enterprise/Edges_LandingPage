@@ -2,6 +2,9 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
+// import InstallationGuide from '@/components/InstallationGuide';
+
+// Then add <InstallationGuide /> after <Features />
 
 const Hero: React.FC = () => {
   return (
@@ -43,10 +46,11 @@ const Hero: React.FC = () => {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="text-md text-gray-400 my-8 max-w-xl mx-auto"
         >
-          Nigeria's most trusted platform for{" "}
-          <strong className="text-[#D7A77F]">cheap data bundles</strong>, discounted airtime, utility
-          payments, and educational services. Get up to{" "}
-          <strong className="text-[#D7A77F]">60% discount</strong> on all networks with{" "}
+          Nigeria&apos;s most trusted platform for{" "}
+          <strong className="text-[#D7A77F]">cheap data bundles</strong>,
+          discounted airtime, utility payments, and educational services. Get up
+          to <strong className="text-[#D7A77F]">60% discount</strong> on all
+          networks with{" "}
           <strong className="text-[#D7A77F]">instant delivery</strong>.
         </motion.div>
 
@@ -77,8 +81,8 @@ const Hero: React.FC = () => {
           </h2>
           <p className="text-gray-400 text-sm mb-8 max-w-2xl mx-auto">
             This video shows how to install Edges Network on your{" "}
-            <strong className="text-[#D7A77F]">Android</strong> device. Follow these simple steps to start
-            saving money on data and airtime.
+            <strong className="text-[#D7A77F]">Android</strong> device. Follow
+            these simple steps to start saving money on data and airtime.
           </p>
 
           {/* Video/Image Placeholder */}
@@ -116,12 +120,28 @@ const Hero: React.FC = () => {
             </a>
           </div> */}
 
+          {/* // installation guide */}
+          {/* <div className="bg-gray-50 p-6 rounded-lg max-w-md mx-auto">
+            <p className="text-gray-700 mb-4">
+              Need help with installation?
+              <br />
+              Check our step-by-step guide below.
+            </p>
+            <a
+              href="#installation-guide"
+              className="text-blue-600 hover:text-blue-800 font-semibold transition-colors"
+            >
+              View Installation Instructions
+            </a>
+          </div> */}
+
           {/* Security Note */}
           <div className="mt-8 text-sm text-gray-400 max-w-xl mx-auto">
             Edges Network is secured with industry-standard encryption and
             trusted by thousands of Nigerians. We guarantee the{" "}
             <strong className="text-[#D7A77F]">cheapest rates</strong> and{" "}
-            <strong className="text-[#D7A77F]">instant delivery</strong> across all networks.
+            <strong className="text-[#D7A77F]">instant delivery</strong> across
+            all networks.
           </div>
         </motion.div>
       </div>
