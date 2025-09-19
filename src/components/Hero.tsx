@@ -79,7 +79,7 @@ const Hero: React.FC = () => {
           <h2 className="text-3xl font-bold mb-4 text-[#D7A77F]">
             How to Install Edges Network?
           </h2>
-          <p className="text-gray-400 text-sm mb-8 max-w-2xl mx-auto">
+          <p className="text-gray-400 text-xs md:text-sm mb-8 max-w-2xl mx-auto">
             This video shows how to install Edges Network on your{" "}
             <strong className="text-[#D7A77F]">Android</strong> device. Follow
             these simple steps to start saving money on data and airtime.
