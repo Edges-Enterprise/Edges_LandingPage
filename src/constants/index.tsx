@@ -28,21 +28,21 @@ export const socialLinks = [
   {
     name: "Twitter",
     icon: TwitterIcon,
-    url: "https://twitter.com/edgesnetwork",
+    url: "https://twitter.com/edges_network",
   },
   {
     name: "TikTok",
     icon: TikTokIcon,
-    url: "https://tiktok.com/@edgesnetwork",
+    url: "https://tiktok.com/@edges_network",
   },
   {
     name: "Instagram",
     icon: InstagramIcon,
-    url: "https://instagram.com/edgesnetwork",
+    url: "https://instagram.com/official_edgesnetwork",
   },
   {
     name: "WhatsApp",
     icon: WhatsAppIcon,
-    url: "https://wa.me/2347000000000",
+    url: "https://whatsapp.com/channel/0029VbBMfPHGU3BEpnO42o2a",
   },
 ];
