@@ -47,7 +47,7 @@ export default function Terms() {
       const matches = [...trimmedLine.matchAll(phoneRegex)];
 
       if (matches.length > 0) {
-        const segments: (string | JSX.Element)[] = [];
+        const segments: (string | React.ReactElement)[] = [];
         let lastIndex = 0;
 
         matches.forEach((match, i) => {
