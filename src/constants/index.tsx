@@ -141,7 +141,7 @@ export const testimonials = [
     name: "Chidi M.",
     location: "Port Harcourt",
     comment:
-      "Trusted platform! Been using for 2 years, never disappointed. Highly recommended.",
+      "Trusted platform! Been using for 2 months, never disappointed. Highly recommended.",
   },
 ];
 
