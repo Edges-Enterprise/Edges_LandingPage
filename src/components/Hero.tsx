@@ -44,7 +44,7 @@ const Hero: React.FC = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-md text-gray-400 my-8 max-w-xl mx-auto"
+          className="text-sm md:text-md text-gray-400 my-8 max-w-xl mx-auto"
         >
           Nigeria&apos;s most trusted platform for{" "}
           <strong className="text-[#D7A77F]">cheap data bundles</strong>,
