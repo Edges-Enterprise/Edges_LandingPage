@@ -1,14 +1,60 @@
+import Image from "next/image";
+import { socialLinks } from "@/constants";
+import Link from "next/link";
 
 const Footer: React.FC = () => {
   return (
-    <footer className="py-12 bg-gray-900 text-white text-center">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <p className="text-lg mb-4">Edges Network © 2025. All rights reserved.</p>
-        <div className="flex justify-center space-x-4">
-          <a href="/privacy" className="hover:text-blue-400">Privacy Policy</a>
-          <a href="/terms" className="hover:text-blue-400">Terms of Service</a>
-          <a href="/contact" className="hover:text-blue-400">Contact Us</a>
+    <footer className="bg-black text-white py-12">
+      <div className="max-w-6xl mx-auto px-4 text-center">
+        <div className="mb-8">
+          <div className="flex flex-row items-center justify-center gap-2">
+            <Image
+              src="/edgesnetworkicon.png" // <- replace with your logo file path
+              alt="Edges Network Logo"
+              width={40}
+              height={40}
+            />
+            <h3 className="text-2xl font-bold ">Edges Network</h3>
+          </div>
+          <p className="text-gray-400 max-w-xl mx-auto text-sm py-4">
+            Nigeria's most trusted platform for cheap data bundles, discounted
+            airtime, utility payments, and educational services.
+          </p>
         </div>
+
+        <div className="flex justify-center space-x-8 mb-8">
+          {socialLinks.map((social) => (
+            <a
+              key={social.name}
+              href={social.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
+            >
+              <social.icon />
+              <span className="hidden sm:inline">{social.name}</span>
+            </a>
+          ))}
+        </div>
+
+        <div className="flex justify-center space-x-6 text-sm text-gray-400 mb-6">
+          <Link href="/privacy" className="hover:text-white transition-colors">
+            Privacy Policy
+          </Link>
+          <Link href="/terms" className="hover:text-white transition-colors">
+            Terms of Service
+          </Link>
+          <Link href="/contact" className="hover:text-white transition-colors">
+            Contact Us
+          </Link>
+          <Link href="/help" className="hover:text-white transition-colors">
+            Help Center
+          </Link>
+        </div>
+
+        <p className="text-gray-500 text-xs">
+          © 2025 Edges Network. All rights reserved. | Made with ❤️ for Nigeria
+        </p>
       </div>
     </footer>
   );
