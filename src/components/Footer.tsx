@@ -17,8 +17,8 @@ const Footer: React.FC = () => {
             <h3 className="text-2xl font-bold ">Edges Network</h3>
           </div>
           <p className="text-gray-400 max-w-xl mx-auto text-sm py-4">
-            Nigeria's most trusted platform for cheap data bundles, discounted
-            airtime, utility payments, and educational services.
+            Nigeria&apos;s most trusted platform for cheap data bundles,
+            discounted airtime, utility payments, and educational services.
           </p>
         </div>
 
@@ -37,7 +37,7 @@ const Footer: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex justify-center space-x-6 text-sm text-gray-400 mb-6">
+        <div className="flex justify-center space-x-6 text-xs text-gray-400 mb-6">
           <Link href="/privacy" className="hover:text-white transition-colors">
             Privacy Policy
           </Link>
@@ -48,12 +48,13 @@ const Footer: React.FC = () => {
             Contact Us
           </Link>
           <Link href="/help" className="hover:text-white transition-colors">
-            Help Center
+            F.A.Q.
           </Link>
         </div>
 
-        <p className="text-gray-500 text-xs">
-          © 2025 Edges Network. All rights reserved. | Made with ❤️ for Nigeria
+        <p className="text-gray-500 text-[10px]">
+          &copy; 2025 Edges Network. All rights reserved. | Made with &#10084;
+          for Nigeria
         </p>
       </div>
     </footer>
