@@ -18,8 +18,8 @@ const Features: React.FC = () => {
             Why Choose Edges Network?
           </h2>
           <p className="text-lg text-gray-400 max-w-2xl mx-auto">
-            Nigeria's #1 platform for cheap data, airtime, and utility payments.
-            Trusted by thousands of satisfied customers nationwide.
+            Nigeria&apos;s #1 platform for cheap data, airtime, and utility
+            payments. Trusted by thousands of satisfied customers nationwide.
           </p>
         </motion.div>
 
@@ -108,7 +108,7 @@ const Features: React.FC = () => {
                   className="bg-gray-900 p-6 rounded-lg shadow-md"
                 >
                   <p className="text-gray-300 italic mb-4">
-                    "{testimonial.comment}"
+                    &ldquo;{testimonial.comment}&rdquo;
                   </p>
                   <div className="font-semibold text-white">
                     {testimonial.name}
