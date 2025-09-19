@@ -36,7 +36,14 @@ const Hero: React.FC = () => {
           >
             Edges Network
           </motion.h2>
-          <p className=" text-xs">only for Android</p>
+          <motion.p
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className=" text-xs"
+          >
+            only for Android
+          </motion.p>
         </div>
 
         {/* Description */}
