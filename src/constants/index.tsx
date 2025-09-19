@@ -46,3 +46,101 @@ export const socialLinks = [
     url: "https://whatsapp.com/channel/0029VbBMfPHGU3BEpnO42o2a",
   },
 ];
+
+interface Feature {
+  title: string;
+  description: string;
+  icon: string;
+  benefits: string[];
+}
+
+export const features: Feature[] = [
+  {
+    title: "Cheapest Data Bundles",
+    description:
+      "Get up to 60% discount on data across all Nigerian networks - MTN, Airtel, Glo, and 9mobile.",
+    icon: "📶",
+    benefits: ["MTN Data", "Airtel Data", "Glo Data", "9mobile Data"],
+  },
+  {
+    title: "Discounted Airtime",
+    description:
+      "Buy airtime at cheaper rates with instant delivery to any Nigerian phone number.",
+    icon: "📞",
+    benefits: [
+      "Up to 5% discount",
+      "Instant delivery",
+      "All networks supported",
+      "24/7 availability",
+    ],
+  },
+  {
+    title: "Fast Utility Payments",
+    description:
+      "Pay your electricity bills, cable TV subscriptions, and other utilities quickly and securely.",
+    icon: "⚡",
+    benefits: [
+      "PHCN/EEDC bills",
+      "DStv/GOtv/StarTimes",
+      "WAEC/NECO/NABTEB pins",
+      "Instant confirmation",
+    ],
+  },
+  {
+    title: "Educational Services",
+    description:
+      "Get the cheapest WAEC, NECO, and NABTEB result checker pins in Nigeria.",
+    icon: "🎓",
+    benefits: [
+      "WAEC pins",
+      "NECO pins",
+      "NABTEB pins",
+      "Valid and authentic",
+    ],
+  },
+  {
+    title: "Secure Transactions",
+    description:
+      "All transactions are protected with bank-level security and SSL encryption.",
+    icon: "🔒",
+    benefits: [
+      "SSL encryption",
+      "Secure payment gateway",
+      "Transaction history",
+      "Money-back guarantee",
+    ],
+  },
+  {
+    title: "24/7 Customer Support",
+    description:
+      "Get help anytime with our dedicated customer support team via WhatsApp and phone.",
+    icon: "🎧",
+    benefits: [
+      "WhatsApp support",
+      "Phone support",
+      "Email support",
+      "Fast response time",
+    ],
+  },
+];
+
+export const testimonials = [
+  {
+    name: "Adebayo O.",
+    location: "Lagos",
+    comment:
+      "Best data prices in Nigeria! I save over ₦2,000 monthly with Edges Network.",
+  },
+  {
+    name: "Fatima A.",
+    location: "Abuja",
+    comment:
+      "Fast delivery and excellent customer service. My go-to platform for airtime and data.",
+  },
+  {
+    name: "Chidi M.",
+    location: "Port Harcourt",
+    comment:
+      "Trusted platform! Been using for 2 years, never disappointed. Highly recommended.",
+  },
+];
