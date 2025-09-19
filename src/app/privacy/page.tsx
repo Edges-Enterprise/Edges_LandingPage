@@ -2,7 +2,7 @@ import React from "react";
 import { Metadata } from "next";
 import { privacyPolicy } from "@/constants";
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+
 
 export const metadata: Metadata = {
   title: "Privacy Policy - Edges Network",
