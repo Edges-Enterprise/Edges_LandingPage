@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import { Metadata } from "next";
 import Hero from '@/components/Hero';
 import Features from '@/components/Features';
 import Footer from '@/components/Footer';
@@ -6,6 +7,10 @@ import Header from '@/components/Header';
 // import InstallationGuide from '@/components/InstallationGuide';
 
 // Then add <InstallationGuide /> after <Features />
+export const metadata: Metadata = {
+  title: "Edges Network - Nigeria's Cheapest Data & Airtime Platform | Download Now",
+  description: "Download Edges Network app for the cheapest MTN, Airtel, Glo, and 9mobile data bundles in Nigeria. Get discounted airtime, pay utility bills, and buy WAEC/NECO pins instantly. Save up to 60% with guaranteed delivery.",
+};
 
 export default function Home() {
   return (
@@ -33,7 +38,7 @@ export default function Home() {
           content="Save money on data bundles, airtime, and utility bills. Trusted by thousands of Nigerians for the best prices and instant delivery."
         />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://edgesnetwork.com" />
+        <meta property="og:url" content="https://edges-landing-page.vercel.app/" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta
           name="twitter:title"
@@ -43,7 +48,7 @@ export default function Home() {
           name="twitter:description"
           content="Get up to 60% discount on data bundles and airtime across all networks. Instant delivery guaranteed!"
         />
-        <link rel="canonical" href="https://edgesnetwork.com" />
+        <link rel="canonical" href="https://edges-landing-page.vercel.app/" />
       </Head>
       <div className="min-h-screen bg-black dark:bg-black text-gray-900 dark:text-white transition-colors duration-300">
         <Header />
