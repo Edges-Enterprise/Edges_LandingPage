@@ -94,20 +94,25 @@ const Hero: React.FC = () => {
 
           {/* Video/Image Placeholder */}
           <div className="max-w-md mx-auto mb-8">
-            <div className="bg-gray-100 rounded-lg overflow-hidden shadow-lg">
-              <div className="aspect-video bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <div className="text-center text-white">
-                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg
-                      className="w-8 h-8"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                  <p className="text-sm">Installation Guide Video</p>
-                </div>
+            <div className="relative w-full flex justify-center">
+              {/* Phone Frame */}
+              <Image
+                src="/frame1.png"
+                alt="Phone Frame"
+                width={280}
+                height={360}
+                className="object-contain"
+              />
+
+              {/* GIF inside frame */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Image
+                  src="/howtoinstall.gif"
+                  alt="How to Install GIF"
+                  width={240}
+                  height={470}
+                  className="object-contain"
+                />
               </div>
             </div>
           </div>
