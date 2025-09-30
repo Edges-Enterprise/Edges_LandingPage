@@ -69,11 +69,11 @@ const Hero: React.FC = () => {
           className="mb-12"
         >
           <Link
-            href="https://tinyurl.com/Edges-Network3"
-            className="inline-block bg-blue-800 text-white px-12 py-2 rounded-3xl text-lg font-semibold hover:bg-blue-700 "
-          >
-            Download Now
-          </Link>
+    href="https://github.com/Edges-Enterprise/edges_network/releases/download/v1.1.3/application-6fe7e81a-82b2-4982-bcef-5dba8c969850.apk"
+    className="inline-block bg-blue-800 text-white px-12 py-2 rounded-3xl text-lg font-semibold hover:bg-blue-700"
+  >
+    Download Now
+  </Link>
         </motion.div>
 
         {/* How to Install Section */}
