@@ -69,7 +69,7 @@ const Hero: React.FC = () => {
           className="mb-12"
         >
           <Link
-    href="https://github.com/Edges-Enterprise/edges_network/releases/download/v1.1.3/Edges-Network.apk"
+    href="https://github.com/Edges-Enterprise/Edges-Network-App/releases/download/v1.1.3/Edges-Network.apk"
     className="inline-block bg-blue-800 text-white px-12 py-2 rounded-3xl text-lg font-semibold hover:bg-blue-700"
   >
     Download Now
