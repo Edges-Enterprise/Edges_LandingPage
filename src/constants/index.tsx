@@ -33,7 +33,7 @@ export const socialLinks = [
   {
     name: "TikTok",
     icon: TikTokIcon,
-    url: "https://tiktok.com/@edges_network",
+    url: "https://tiktok.com/@edgesnetwork113",
   },
   {
     name: "Instagram",
