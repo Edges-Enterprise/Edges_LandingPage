@@ -4,9 +4,7 @@ import Hero from '@/components/Hero';
 import Features from '@/components/Features';
 import Footer from '@/components/Footer';
 import Header from '@/components/Header';
-// import InstallationGuide from '@/components/InstallationGuide';
 
-// Then add <InstallationGuide /> after <Features />
 export const metadata: Metadata = {
   title: "Edges Network - Nigeria's Cheapest Data & Airtime Platform | Download Now",
   description: "Download Edges Network app for the cheapest MTN, Airtel, Glo, and 9mobile data bundles in Nigeria. Get discounted airtime, pay utility bills, and buy WAEC/NECO pins instantly. Save up to 60% with guaranteed delivery.",
@@ -54,7 +52,6 @@ export default function Home() {
         <Header />
         <Hero />
         <Features />
-        {/* <InstallationGuide /> */}
         <Footer />
       </div>
     </>
