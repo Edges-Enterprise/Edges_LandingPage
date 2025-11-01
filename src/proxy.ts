@@ -31,7 +31,7 @@ export async function proxy(request: NextRequest) {
   const isProtected = pathname.startsWith('/home');
   const isAuth = pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password');
   const isPublic = pathname === '/';
-  // const isPublic = pathname === '/(app)/welcome' || pathname === '/';
+ 
 
   if (!user && isProtected) {
     // Redirect to welcome if not auth'd
