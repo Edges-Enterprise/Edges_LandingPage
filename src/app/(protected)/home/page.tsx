@@ -17,7 +17,7 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-black text-white p-4">
-      <h1 className="text-2xl text-[#D7A77F]">Welcome, {profile?.username || user.email}!</h1>
+      <h1 className="text-2xl text-[#D7A77F]">Welcome, {profile?.username || user.email}! to home page</h1>
       {/* Your protected UI */}
     </div>
   );
