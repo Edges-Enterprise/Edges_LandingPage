@@ -1,4 +1,4 @@
-// app/sign-in/page.tsx
+// app/(auth)/sign-in/page.tsx
 import SignInForm from '@/components/sign-in-form'; // Client Component below
 
 export default function SignInPage() {
