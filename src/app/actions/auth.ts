@@ -1,22 +1,20 @@
-// // // app/actions/auth.ts
 
+// app/actions/auth.ts
 
 "use server";
-import { redirect } from "next/navigation"; // Keep if needed elsewhere
-import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase";
-import { cookies, headers } from "next/headers"; // Add headers import
-import type { Database } from "@/types/supabase";
+import { redirect } from "next/navigation";
+import { createServerClient } from "@/lib/supabase/server";
+import { cookies, headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 export async function signInAction(
-  prevState: { error?: string } = {},
+  prevState: { error?: string } | null,
   formData: FormData
 ) {
-  const supabase = await createServerClient<Database>();
+  const supabase = await createServerClient();
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const rememberMe = formData.get("rememberMe") === "on";
+  const rememberMe = formData.get("rememberMe") === "true";
 
   if (!email || !password) return { error: "Email and password required" };
 
@@ -30,37 +28,32 @@ export async function signInAction(
   if (data.user && data.session) {
     const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7;
 
-    // ✅ FIX: await the headers
-    const headersList = await headers();
-
-    const host = headersList.get("host");
-    const protocol =
-      headersList.get("x-forwarded-proto") ||
-      (process.env.NODE_ENV === "development" ? "http" : "https");
-    const baseUrl = `${protocol}://${host}`;
-
-    const response = NextResponse.redirect(`${baseUrl}/home`);
-    response.cookies.set("rememberMe", rememberMe.toString(), {
+    // Set cookie using cookies() API
+    const cookieStore = await cookies();
+    cookieStore.set("rememberMe", rememberMe.toString(), {
       maxAge,
       path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     });
 
-    return response;
+    // Use redirect() instead of NextResponse
+    redirect("/home");
   }
 
   return { error: "Sign in failed" };
 }
 
-
 export async function signUpAction(
-  prevState: { error?: string } = {},
+  prevState: { error?: string } | null,
   formData: FormData
 ) {
-  const supabase = await createServerClient<Database>();
+  const supabase = await createServerClient();
   const username = (formData.get("username") as string)?.trim();
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const rememberMe = formData.get("rememberMe") === "on";
+  const rememberMe = formData.get("rememberMe") === "true";
 
   if (
     !username ||
@@ -95,67 +88,57 @@ export async function signUpAction(
   }
 
   if (data.user) {
-    // Upsert profile (from RN logic)
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .upsert([
-        {
-          id: data.user.id,
-          username,
-          email: email.trim(),
-          created_at: new Date().toISOString(),
-        },
-      ]);
+    // Upsert profile - match actual table structure
+    const { error: profileError } = await supabase.from("profiles").upsert([
+      {
+        id: data.user.id,
+        username,
+        email: email.trim(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        notifications_enabled: true,
+        is_admin: false,
+      },
+    ]);
 
     if (profileError) {
-      // Rollback
-      await supabase.auth.admin.deleteUser(data.user.id); // Requires service role; use Edge Function if needed
+      // Rollback - Note: admin.deleteUser requires service role key
+      // Consider using an Edge Function for this
       return { error: "Failed to save user profile." };
     }
 
-    // Set rememberMe cookie via NextResponse
+    // Set rememberMe cookie
     const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7;
-    // const headersList = headers();
-    const headersList = await headers();
-
-    const host = headersList.get("host");
-    const protocol =
-      headersList.get("x-forwarded-proto") ||
-      (process.env.NODE_ENV === "development" ? "http" : "https");
-    const baseUrl = `${protocol}://${host}`;
-    const response = NextResponse.redirect(`${baseUrl}/home`);
-    response.cookies.set("rememberMe", rememberMe.toString(), {
+    const cookieStore = await cookies();
+    cookieStore.set("rememberMe", rememberMe.toString(), {
       maxAge,
       path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
     });
 
-    // Optional: Request push permissions (adapt for web)
-
-    return response; // Return Response for redirect + cookie
+    // Use redirect() instead of NextResponse
+    redirect("/home");
   }
 
   return { error: "Sign up failed" };
 }
 
 export async function signOutAction() {
-  const supabase = await createServerClient<Database>();
+  const supabase = await createServerClient();
   await supabase.auth.signOut();
 
-  // Delete rememberMe cookie via NextResponse
-  // const headersList = headers();
-  const headersList = await headers();
-  const host = headersList.get("host");
-  const protocol =
-    headersList.get("x-forwarded-proto") ||
-    (process.env.NODE_ENV === "development" ? "http" : "https");
-  const baseUrl = `${protocol}://${host}`;
-  const response = NextResponse.redirect(`${baseUrl}/`);
-  response.cookies.delete("rememberMe");
-  return response; // Return Response for redirect + cookie delete
+  // Delete rememberMe cookie
+  const cookieStore = await cookies();
+  cookieStore.delete("rememberMe");
+
+  // Use redirect() instead of NextResponse
+  redirect("/");
 }
 
 export async function deleteOwnAccountAction() {
-  const supabase = await createServerClient<Database>();
+  const supabase = await createServerClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -179,7 +162,7 @@ export async function deleteOwnAccountAction() {
     throw new Error(result.error || "Delete failed");
   }
 
-  // Chain to signOutAction (now returns Response, so return it directly)
+  // Chain to signOutAction
   return signOutAction();
 }
 
@@ -187,7 +170,7 @@ export async function updateTransactionPinAction(
   currentPin: string,
   newPin: string
 ) {
-  const supabase = await createServerClient<Database>();
+  const supabase = await createServerClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -214,5 +197,5 @@ export async function updateTransactionPinAction(
   if (updateError) throw updateError;
 
   // Revalidate profile cache
-  revalidatePath("/profile"); // Or your profile page
+  revalidatePath("/profile");
 }
