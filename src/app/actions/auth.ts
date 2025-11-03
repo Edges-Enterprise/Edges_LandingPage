@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies, headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/client";
 
 export async function signInAction(
   prevState: { error?: string } | null,
@@ -136,6 +137,21 @@ export async function signOutAction() {
   // Use redirect() instead of NextResponse
   redirect("/");
 }
+
+// export async function signOutAction() {
+//   const supabase = createClient(); // Use your server client factory
+//   const { error } = await supabase.auth.signOut();
+
+//   if (error) {
+//     throw new Error("Failed to sign out: " + error.message);
+//   }
+
+//   // Delete rememberMe cookie
+//   const cookieStore = cookies();
+//   cookieStore.delete("rememberMe");
+
+//   return { success: true }; // Signal success to client
+// }
 
 export async function deleteOwnAccountAction() {
   const supabase = await createServerClient();

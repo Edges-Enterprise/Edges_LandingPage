@@ -9,35 +9,25 @@ export const ICONS = {
   EDUCATION: "school-outline",
 } as const;
 
+
 export const sections = [
   {
     title: "Account",
     items: [
-      // "Edit Profile",
-      "Change Password",
       "Change Email",
+      "Change Password",
+      "Change Transaction PIN",
+      "Delete Account",
     ],
   },
   {
     title: "Preferences",
-    items: ["Notifications", "Themes", "Fonts"],
-  },
-  {
-    title: "Security",
-    items: ["Change Transaction PIN"],
+    items: ["Notifications"],
   },
 
   {
-    title: "Updates",
-    items: ["Check for Update", "App Version"],
-  },
-  {
-    title: "Privacy",
-    items: [
-      "Privacy Policy",
-      "Terms of Service",
-      // "User Agreement",
-    ],
+    title: "Legal",
+    items: ["Privacy Policy", "Terms of Service"],
   },
 ];
 
