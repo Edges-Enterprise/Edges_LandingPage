@@ -1,11 +1,10 @@
 // components/sign-up-form.tsx (Client Component)
 'use client';
-import { useState, useTransition } from 'react';
-import { useActionState } from 'react';
-import { motion } from 'framer-motion'; // For fade animation (from dependencies)
-import { signUpAction } from '@/app/actions/auth';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useState, useTransition, useActionState } from "react";
+import { motion } from 'framer-motion'; // For fade animation (from dependencies)
+import { signUpAction } from '@/app/actions/auth';
 import { HiEye, HiEyeSlash } from 'react-icons/hi2';
 
 export default function SignUpForm() {
@@ -16,8 +15,8 @@ export default function SignUpForm() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const [state, formAction] = useActionState(signUpAction, { error: null });
-  const pending = isPending || state.pending;
+  const [state, formAction] = useActionState(signUpAction, null );
+  const pending = isPending;
 
   // Validation (from RN)
   const isEmailValid = (email: string) => {
@@ -128,7 +127,7 @@ export default function SignUpForm() {
         <span className="text-[#aaa] text-sm">Remember Me</span>
       </div>
 
-      {state.error && <p className="text-red-500 text-sm text-center">{state.error}</p>}
+      {state?.error && <p className="text-red-500 text-sm text-center">{state.error}</p>}
 
       {/* Sign Up Button */}
       <button
