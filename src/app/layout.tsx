@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     siteName: "Edges Network",
     images: [
       {
-        url: "https://edges-landing-page.vercel.app/og-image.png",
+        url: "https://edges-landing-page.vercel.app/edgesnetworkicon.png",
         width: 1200,
         height: 630,
         alt: "Edges Network - Cheap Data and Airtime Platform",
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     title: "Edges Network - Cheapest Data & Airtime in Nigeria",
     description:
       "Get up to 60% discount on data bundles and airtime across all networks. Instant delivery guaranteed!",
-    images: ["https://edges-landing-page.vercel.app/twitter-image.png"],
+    images: ["https://edges-landing-page.vercel.app/edgesnetworkicon.png"],
     creator: "@edgesnetwork",
   },
   alternates: {
@@ -93,10 +93,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>
+        {/* <AuthProvider> */}
 
         {children}
-        </AuthProvider>
+        {/* </AuthProvider> */}
 
         {/* ✅ Place structured data inside body to avoid hydration mismatch */}
         <script
