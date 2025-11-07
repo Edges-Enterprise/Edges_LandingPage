@@ -212,3 +212,90 @@ export const actions = [
   route: `/${string}` | `../${string}`;
 }>;
 
+
+// Cable TV providers (static)
+export interface CableProvider {
+  id: number;
+  name: string;
+  image: string;
+  code: string;
+}
+
+export const CABLE_PROVIDER_IMAGES: { [key: string]: string } = {
+  DSTV: "/sc-dstv-logo.png",
+  GOTV: "/sc-gotv-logo.png",
+  STARTIMES:
+    "/sc-time-logo.jpg",
+};
+
+export const CABLE_PROVIDER_CONFIG: {
+  [key: string]: {
+    code: string;
+    lizzyCableId: number;
+  };
+} = {
+  GOTV: {
+    code: "gotv",
+    lizzyCableId: 1,
+  },
+  DSTV: {
+    code: "dstv",
+    lizzyCableId: 2,
+  },
+  STARTIMES: {
+    code: "startimes",
+    lizzyCableId: 3,
+  },
+};
+
+export const CABLE_PROVIDERS: CableProvider[] = [
+  {
+    id: 1,
+    name: "GOTV",
+    image: CABLE_PROVIDER_IMAGES.GOTV,
+    code: CABLE_PROVIDER_CONFIG.GOTV.code,
+  },
+  {
+    id: 2,
+    name: "DSTV",
+    image: CABLE_PROVIDER_IMAGES.DSTV,
+    code: CABLE_PROVIDER_CONFIG.DSTV.code,
+  },
+  {
+    id: 3,
+    name: "STARTIMES",
+    image: CABLE_PROVIDER_IMAGES.STARTIMES,
+    code: CABLE_PROVIDER_CONFIG.STARTIMES.code,
+  },
+];
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price: number;
+  duration: string;
+}
+
+
+// Mock plans data (replace with actual API call)
+export const mockPlans: { [key: string]: SubscriptionPlan[] } = {
+  GOTV: [
+    { id: "gotv-1", name: "GOtv Smallie", price: 1575, duration: "1 Month" },
+    { id: "gotv-2", name: "GOtv Jinja", price: 3300, duration: "1 Month" },
+    { id: "gotv-3", name: "GOtv Jolli", price: 4850, duration: "1 Month" },
+    { id: "gotv-4", name: "GOtv Max", price: 7200, duration: "1 Month" },
+  ],
+  DSTV: [
+    { id: "dstv-1", name: "DStv Padi", price: 2500, duration: "1 Month" },
+    { id: "dstv-2", name: "DStv Yanga", price: 4200, duration: "1 Month" },
+    { id: "dstv-3", name: "DStv Confam", price: 7400, duration: "1 Month" },
+    { id: "dstv-4", name: "DStv Compact", price: 12500, duration: "1 Month" },
+    { id: "dstv-5", name: "DStv Premium", price: 29500, duration: "1 Month" },
+  ],
+  STARTIMES: [
+    { id: "star-1", name: "Nova", price: 1200, duration: "1 Month" },
+    { id: "star-2", name: "Basic", price: 2400, duration: "1 Month" },
+    { id: "star-3", name: "Smart", price: 3600, duration: "1 Month" },
+    { id: "star-4", name: "Classic", price: 4900, duration: "1 Month" },
+  ],
+};
