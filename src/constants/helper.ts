@@ -32,7 +32,6 @@ export const sections = [
 ];
 
 export const availableThemes = [
-  // "light",
   "dark",
 ];
 
@@ -53,94 +52,111 @@ export const DEFAULT_PROVIDER_IMAGE = "/edgesnetworkicon.png";
 
 interface DiscosProvider {
   id: number;
+  title: string;
   name: string;
   image: any;
   code: string;
   discoCode: string;
 }
 
+export const METER_TYPES = [
+  { label: "Prepaid", value: "prepaid" },
+  { label: "Postpaid", value: "postpaid" },
+];
+
 // Disco providers configuration
 export const DISCO_PROVIDERS: DiscosProvider[] = [
   {
     id: 1,
-    name: "IKEDC",
-    image: "https://asset.brandfetch.io/idOw3g-pG6/idHFnOXwNA.png",
+    title: "IKEDC",
+    name:"IKEDC",
+    image: "/sp-ikedc-logo.png",
     code: "ikedc",
     discoCode: "ikeja_electric",
   },
   {
     id: 2,
-    name: "Eko Electricity",
+    title: "Eko Electricity",
+    name:"EKO",
     image:
-      "https://cdn.brandfetch.io/idzLCSOXXk/w/600/h/600/theme/dark/icon.jpeg?c=1bxideym1bCk82mxFsjUw",
+      "/sp-eeedc-logo.jpeg",
     code: "EKO",
     discoCode: "2",
   },
   {
     id: 3,
-    name: "Kano Electricity",
+    title: "Kano Electricity",
+    name:"KANO",
     image:
-      "https://cdn.brandfetch.io/idcsdEcy1X/w/1070/h/1053/theme/dark/icon.jpeg?c=1bxideym1bCk82mxFsjUw",
+      "/sp-kedco-logo.jpeg",
     code: "KANO",
     discoCode: "3",
   },
   {
     id: 4,
-    name: "Port Harcourt Electricity",
-    image: "https://phed.com.ng/assets/image001.png",
+    title: "Port Harcourt Electricity",
+    name:"PH",
+    image: "/sp-phedc-logo.png",
     code: "PH",
     discoCode: "4",
   },
   {
     id: 5,
-    name: "Jos Electricity",
-    image: "https://asset.brandfetch.io/idjO0Tab3U/id4n6HL2V1.jpeg",
+    title: "Jos Electricity",
+    name:"JOS",
+    image: "/sp-jedc-logo.jpeg",
     code: "JOS",
     discoCode: "5",
   },
   {
     id: 6,
-    name: "Ibadan Electricity",
-    image: "https://www.ibedc.com/assets/img/logo.png",
+    title: "Ibadan Electricity",
+    name:"IBADAN",
+    image: "/sp-ibedc2-logo.png",
     code: "IBADAN",
     discoCode: "6",
   },
   {
     id: 7,
-    name: "Kaduna Electric",
+    title: "Kaduna Electric",
+    name:"KADUNA",
     image:
-      "https://cdn.brandfetch.io/idOe0sCI5j/w/600/h/523/theme/dark/logo.png?c=1bxideym1bCk82mxFsjUw",
+      "/sp-kdedc-logo.png",
     code: "KADUNA",
     discoCode: "7",
   },
   {
     id: 8,
-    name: "Abuja Electricity",
+    title: "Abuja Electricity",
+    name:"ABUJA",
     image:
-      "https://cdn.brandfetch.io/idansu164B/w/400/h/400/theme/dark/icon.jpeg?c=1bxideym1bCk82mxFsjUw",
+      "/sp-aedc-logo.jpeg",
     code: "ABUJA",
     discoCode: "8",
   },
   {
     id: 9,
-    name: "Enugu",
+    title: "Enugu",
+    name:"ENUGU",
     image:
-      "https://cdn.brandfetch.io/id7rRpOe2k/w/400/h/400/theme/dark/icon.jpeg?c=1bxideym1bCk82mxFsjUw",
+      "/sp-eedc-logo.jpeg",
     code: "ENUGU",
     discoCode: "9",
   },
   {
     id: 10,
-    name: "YEDC",
-    image: "https://www.yedc.com.ng/assets/images/logo.png",
+    title: "YEDC",
+    name:"YEDC",
+    image: "/sp-yedc-logo.png",
     code: "YEDC",
     discoCode: "10",
   },
   {
     id: 11,
-    name: "BEDC",
+    title: "BEDC",
+    name:"BEDC",
     image:
-      "https://cdn.brandfetch.io/iduapK6_IF/w/400/h/400/theme/dark/icon.jpeg?c=1bxideym1bCk82mxFsjUw",
+      "/sp-bedc-logo.jpeg",
     code: "bedc",
     discoCode: "benin_electric",
   },
@@ -175,7 +191,7 @@ export const actions = [
     title: "Customer Care",
     icon: ICONS.SUPPORT,
     color: "#3B82F6",
-    route: "../customer" as const,
+    route: "../support" as const,
   },
   {
     title: "Education",
