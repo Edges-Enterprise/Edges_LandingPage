@@ -299,3 +299,27 @@ export const mockPlans: { [key: string]: SubscriptionPlan[] } = {
     { id: "star-4", name: "Classic", price: 4900, duration: "1 Month" },
   ],
 };
+
+export const EXAM_PROVIDERS = [
+  {
+    id: 1,
+    name: "WAEC",
+    image: "/ex-waec_logo.png",
+    price: 3500,
+    sellingPrice: 3800,
+  },
+  {
+    id: 2,
+    name: "NECO",
+    image: "/ex-neco-logo.png",
+    price: 1300,
+    sellingPrice: 1500,
+  },
+  {
+    id: 3,
+    name: "NABTEB",
+    image: "/ex-nabteb-logo.png",
+    price: 880,
+    sellingPrice: 900,
+  },
+];
