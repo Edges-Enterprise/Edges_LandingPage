@@ -1,279 +1,352 @@
-import React from 'react'
+"use client";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { IoClose, IoArrowBackOutline, IoDocumentText } from "react-icons/io5";
 
-const HistoryPage = () => {
-  return (
-    <div>History Page</div>
-  )
+interface HistoryItem {
+  id: string;
+  provider: string;
+  data: string;
+  price: number;
+  date: string;
+  status: "Success" | "Failed" | "Pending" | "Unknown";
+  phoneNumber: string;
+  reference: string;
+  metadata: {
+    payment_date?: string;
+    payment_method?: string;
+    phone_number?: string;
+    fees?: {
+      transfer_fee: number;
+      wallet_management_fee: number;
+      api_network_fee: number;
+      vat: number;
+      total_fee: number;
+      net_amount: number;
+    };
+    provider?: string;
+    plan?: string;
+    purchase?: string;
+    validity?: string;
+    actual_cost?: number;
+    plan_id?: number;
+    network_id?: number;
+    sold_at?: number;
+    bought_at?: number;
+    profit?: number;
+    gross_amount?: number;
+    error_message?: string;
+  };
+  type: string;
 }
 
-export default HistoryPage
+const statusColors: { [key: string]: string } = {
+  Success: "#22c55e",
+  Failed: "#ef4444",
+  Pending: "#eab308",
+  Unknown: "#888",
+};
 
-// // app/(protected)/history/page.tsx
-// 'use client';
+// Mock data for demonstration
+const mockHistory: HistoryItem[] = [
+  {
+    id: "1",
+    provider: "MTN",
+    data: "5GB Data Plan",
+    price: 2500,
+    date: "2025-11-08T10:30:00Z",
+    status: "Success",
+    phoneNumber: "08012345678",
+    reference: "TXN123456789",
+    metadata: {
+      payment_method: "Wallet",
+      validity: "30 days",
+      gross_amount: 2500,
+    },
+    type: "data",
+  },
+  {
+    id: "2",
+    provider: "Glo",
+    data: "Wallet Funding",
+    price: 9000,
+    date: "2025-11-07T14:20:00Z",
+    status: "Success",
+    phoneNumber: "N/A",
+    reference: "TXN987654321",
+    metadata: {
+      payment_method: "Card Payment",
+      gross_amount: 10000,
+      fees: {
+        transfer_fee: 200,
+        wallet_management_fee: 400,
+        api_network_fee: 200,
+        vat: 200,
+        total_fee: 1000,
+        net_amount: 9000,
+      },
+    },
+    type: "deposit",
+  },
+  {
+    id: "3",
+    provider: "Airtel",
+    data: "2GB Data Plan",
+    price: 1200,
+    date: "2025-11-06T09:15:00Z",
+    status: "Failed",
+    phoneNumber: "08098765432",
+    reference: "TXN456789123",
+    metadata: {
+      payment_method: "Wallet",
+      validity: "7 days",
+      error_message: "Insufficient balance",
+    },
+    type: "data",
+  },
+];
 
-// import { useState, useEffect, useCallback } from 'react';
-// import { useRouter, usePathname } from 'next/navigation';
-// import { FaArrowLeft, FaCheck, FaTimes, FaClock, FaQuestion, FaFileText } from 'react-icons/fa';
-// import { motion, AnimatePresence } from 'framer-motion';
-// import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-// import moment from 'moment-timezone';
+export default function TransactionHistory() {
+    const router = useRouter();
+  const [filter, setFilter] = useState<
+    "All" | "Success" | "Failed" | "Pending"
+  >("All");
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<HistoryItem | null>(null);
+  const [history] = useState<HistoryItem[]>(mockHistory);
 
-// interface HistoryItem {
-//   id: string;
-//   provider: string;
-//   data: string;
-//   price: number;
-//   date: string;
-//   status: 'Success' | 'Failed' | 'Pending' | 'Unknown';
-//   phoneNumber: string;
-//   reference: string;
-//   metadata: any;
-//   type: string;
-// }
+  const filteredHistory =
+    filter === "All" ? history : history.filter((h) => h.status === filter);
 
-// const statusColors: { [key: string]: string } = {
-//   Success: '#22c55e',
-//   Failed: '#ef4444',
-//   Pending: '#eab308',
-//   Unknown: '#888',
-// };
+  const formatAmount = (amount: number) => {
+    return `₦${amount.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
+  };
 
-// export default function HistoryPage() {
-//   const pathname = usePathname();
-//   const router = useRouter();
-//   const supabase = createClientComponentClient();
-//   const [filter, setFilter] = useState<'All' | 'Success' | 'Failed' | 'Pending'>('All');
-//   const [history, setHistory] = useState<HistoryItem[]>([]);
-//   const [selectedTransaction, setSelectedTransaction] = useState<HistoryItem | null>(null);
-//   const [refreshing, setRefreshing] = useState(false);
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString("en-NG", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
 
-//   const fetchHistory = useCallback(async () => {
-//     try {
-//       setRefreshing(true);
-//       const { data: { user } } = await supabase.auth.getUser();
-//       if (!user?.email) {
-//         alert('Please log in to view your transaction history.');
-//         router.replace('/sign-in');
-//         return;
-//       }
+  const renderReceipt = () => {
+    if (!selectedTransaction) return null;
+    const {
+      price,
+      reference,
+      metadata,
+      date,
+      status,
+      provider,
+      phoneNumber,
+      type,
+      data,
+    } = selectedTransaction;
 
-//       const { data: txData, error: txError } = await supabase
-//         .from('transactions')
-//         .select('id, amount, status, metadata, created_at, reference, type, user_email')
-//         .eq('user_email', user.email)
-//         .order('created_at', { ascending: false });
+    const fees = metadata.fees || {
+      transfer_fee: 0,
+      wallet_management_fee: 0,
+      api_network_fee: 0,
+      vat: 0,
+      total_fee: 0,
+      net_amount: 0,
+    };
 
-//       if (txError) throw new Error('Failed to fetch transaction history');
+    const grossAmount = metadata?.gross_amount || 0;
+    const paymentMethod = metadata?.payment_method || "Not Available";
+    const validity = metadata?.validity || "N/A";
 
-//       if (txData.length === 0) {
-//         alert('No transactions found for this account.');
-//         setHistory([]);
-//         return;
-//       }
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-[#2A3A3B] rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <button
+            onClick={() => setSelectedTransaction(null)}
+            className="ml-auto block p-2 text-white hover:bg-gray-900 rounded-lg hover:text-gray-300 transition-colors"
+          >
+            <IoClose size={24} />
+          </button>
 
-//       const knownProviders = ['glo', 'mtn', 'airtel', '9mobile'];
+          <h2 className="text-xl font-bold text-white mb-2">
+            {type.toLowerCase() === "deposit"
+              ? "Deposit Receipt"
+              : "Purchase Receipt"}
+          </h2>
 
-//       const formattedHistory: HistoryItem[] = txData.map((tx: any) => {
-//         let provider = 'Unknown Provider';
-//         let data = 'Unknown Transaction';
-//         let phoneNumber = 'N/A';
+          <div className="h-px bg-gray-600 my-4" />
 
-//         const transactionType = (tx.type || 'unknown').toLowerCase().trim();
+          <div className="space-y-2 text-white text-sm">
+            <p>Reference: {reference}</p>
 
-//         const parseProviderFromString = (input: string): { provider: string; data: string } | null => {
-//           const inputLower = input.toLowerCase();
-//           const matchedProvider = knownProviders.find((p) => inputLower.includes(p));
-//           if (matchedProvider) {
-//             const cleanedData = input
-//               .replace(new RegExp(`\\b${matchedProvider}\\b`, 'i'), '')
-//               .replace(/\s+/g, ' ')
-//               .trim();
-//             return {
-//               provider: matchedProvider.charAt(0).toUpperCase() + matchedProvider.slice(1),
-//               data: cleanedData || `${transactionType.charAt(0).toUpperCase() + transactionType.slice(1)} Purchase`,
-//             };
-//           }
-//           return null;
-//         };
+            {type.toLowerCase() === "deposit" ? (
+              <>
+                {status === "Success" && grossAmount > 0 ? (
+                  <>
+                    <p>Amount Received: {formatAmount(grossAmount)}</p>
+                    <p>Fees:</p>
+                    <p className="ml-4">
+                      - Transfer Fee:{" "}
+                      {formatAmount(fees.transfer_fee || grossAmount * 0.02)}
+                    </p>
+                    <p className="ml-4">
+                      - Wallet Management Fee:{" "}
+                      {formatAmount(
+                        fees.wallet_management_fee || grossAmount * 0.04
+                      )}
+                    </p>
+                    <p className="ml-4">
+                      - API & Network Fee:{" "}
+                      {formatAmount(fees.api_network_fee || grossAmount * 0.02)}
+                    </p>
+                    <p className="ml-4">
+                      - SC: {formatAmount(fees.vat || grossAmount * 0.02)}
+                    </p>
+                    <p>
+                      Total Fees:{" "}
+                      {formatAmount(fees.total_fee || grossAmount * 0.1)}
+                    </p>
+                    <p>Amount Credited: {formatAmount(price)}</p>
+                  </>
+                ) : status === "Success" ? (
+                  <>
+                    <p>
+                      Amount Received:{" "}
+                      {formatAmount(metadata.gross_amount || price)}
+                    </p>
+                    <p>Fees:</p>
+                    <p className="ml-4">
+                      - Transfer Fee: {formatAmount(fees.transfer_fee)}
+                    </p>
+                    <p className="ml-4">
+                      - Wallet Management Fee:{" "}
+                      {formatAmount(fees.wallet_management_fee)}
+                    </p>
+                    <p className="ml-4">
+                      - API & Network Fee: {formatAmount(fees.api_network_fee)}
+                    </p>
+                    <p className="ml-4">- SC: {formatAmount(fees.vat)}</p>
+                    <p>Total Fees: {formatAmount(fees.total_fee)}</p>
+                    <p>Amount Credited: {formatAmount(price)}</p>
+                  </>
+                ) : (
+                  <>
+                    <p>Amount: {formatAmount(price)}</p>
+                    <p>Transaction Status: {status}</p>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <p>Plan: {data}</p>
+                <p>Provider: {provider}</p>
+                <p>Amount: {formatAmount(price)}</p>
+                <p>Phone Number: {phoneNumber}</p>
+                <p>Validity: {validity}</p>
+              </>
+            )}
 
-//         if (transactionType === 'data') {
-//           provider = tx.metadata?.provider || 'Unknown Provider';
-//           data = tx.metadata?.plan || tx.metadata?.purchase || 'Data Purchase';
-//           phoneNumber = tx.metadata?.phone_number || 'N/A';
-//           if (provider === 'Unknown Provider') {
-//             const parsed = (tx.metadata?.plan && parseProviderFromString(tx.metadata.plan)) ||
-//               (tx.metadata?.purchase && parseProviderFromString(tx.metadata.purchase));
-//             if (parsed) {
-//               provider = parsed.provider;
-//               data = parsed.data;
-//             }
-//           }
-//         } else if (transactionType === 'deposit') {
-//           data = 'Wallet Funding';
-//           provider = tx.metadata?.payment_method || 'Payment Gateway';
-//           phoneNumber = tx.metadata?.phone_number || 'N/A';
-//         } else {
-//           data = tx.metadata?.plan || tx.metadata?.purchase || (transactionType.charAt(0).toUpperCase() + transactionType.slice(1));
-//           provider = tx.metadata?.provider || 'Unknown Provider';
-//           phoneNumber = tx.metadata?.phone_number || 'N/A';
-//           if (provider === 'Unknown Provider') {
-//             const parsed = (tx.metadata?.plan && parseProviderFromString(tx.metadata.plan)) ||
-//               (tx.metadata?.purchase && parseProviderFromString(tx.metadata.purchase));
-//             if (parsed) {
-//               provider = parsed.provider;
-//               data = parsed.data;
-//             }
-//           }
-//         }
+            <p>Date: {formatDate(date)}</p>
+            <p>Status: {status}</p>
+            <p>Payment Method: {paymentMethod}</p>
 
-//         const normalizedStatus = (tx.status || 'unknown').toLowerCase();
-//         const status = ['success', 'failed', 'pending'].includes(normalizedStatus)
-//           ? (normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1) as 'Success' | 'Failed' | 'Pending')
-//           : 'Unknown';
+            {status === "Failed" && (
+              <div className="mt-4 p-2 bg-red-500/10 rounded border-l-4 border-red-500">
+                <p>❌ This transaction was not completed successfully.</p>
+                {metadata?.error_message && (
+                  <p>Error: {metadata.error_message}</p>
+                )}
+              </div>
+            )}
 
-//         return {
-//           id: tx.id,
-//           provider,
-//           data,
-//           price: Math.abs(tx.amount || 0),
-//           date: tx.created_at,
-//           status,
-//           phoneNumber,
-//           reference: tx.reference || 'N/A',
-//           metadata: tx.metadata || {},
-//           type: tx.type || 'Unknown',
-//         };
-//       });
+            {status === "Pending" && (
+              <div className="mt-4 p-2 bg-yellow-500/10 rounded border-l-4 border-yellow-500">
+                <p>⏳ This transaction is still being processed.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
-//       setHistory(formattedHistory);
-//     } catch (error) {
-//       console.error('Error fetching history:', error);
-//       alert('Failed to load transaction history. Please try again.');
-//     } finally {
-//       setRefreshing(false);
-//     }
-//   }, [supabase, router]);
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="flex items-center justify-between py-6 sm:py-8">
+          <button
+            onClick={() => router.back()}
+            className="p-2 text-white hover:text-gray-300 hover:bg-gray-900 rounded-lg transition-colors"
+          >
+            <IoArrowBackOutline size={24} />
+          </button>
+          <h1 className="text-lg sm:text-xl font-bold">Transaction History</h1>
+          <div className="w-6" />
+        </div>
 
-//   useEffect(() => {
-//     fetchHistory();
-//   }, [fetchHistory]);
+        {/* Filter Tabs */}
+        <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
+          {["All", "Success", "Failed", "Pending"].map((item) => (
+            <button
+              key={item}
+              onClick={() => setFilter(item as typeof filter)}
+              className={`px-3 sm:px-4 py-2 rounded-lg border transition-colors text-sm sm:text-base ${
+                filter === item
+                  ? "bg-[#8B4513] border-[#8B4513] text-white font-bold"
+                  : "bg-black border-[#3A4A4B] text-white hover:border-[#8B4513]"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
 
-//   const onRefresh = useCallback(() => {
-//     fetchHistory();
-//   }, [fetchHistory]);
+        {/* Transaction List */}
+        <div className="space-y-4 pb-10">
+          {filteredHistory.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+              <IoDocumentText size={48} />
+              <p className="mt-2">No history to show</p>
+            </div>
+          ) : (
+            filteredHistory.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedTransaction(item)}
+                className="w-full bg-black border border-[#8B4513] rounded-xl p-4 hover:bg-[#1a1a1a] transition-colors text-left"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-white font-bold text-sm sm:text-base">
+                    {item.provider} - {item.data}
+                  </h3>
+                  <span
+                    className="text-xs sm:text-sm font-bold"
+                    style={{ color: statusColors[item.status] }}
+                  >
+                    {item.status}
+                  </span>
+                </div>
+                <p className="text-white text-sm sm:text-base mb-1">
+                  {formatAmount(item.price)}
+                </p>
+                <p className="text-gray-500 text-xs sm:text-sm">
+                  Phone: {item.phoneNumber}
+                </p>
+                <p className="text-gray-500 text-xs sm:text-sm mt-1">
+                  Date: {formatDate(item.date)}
+                </p>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
 
-//   const filteredHistory = filter === 'All' ? history : history.filter((h) => h.status === filter);
-
-//   const formatAmount = (amount: number) => `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
-
-//   const renderReceipt = () => (
-//     <AnimatePresence>
-//       {selectedTransaction && (
-//         <motion.div
-//           initial={{ opacity: 0, y: 50 }}
-//           animate={{ opacity: 1, y: 0 }}
-//           exit={{ opacity: 0, y: -50 }}
-//           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-//           onClick={() => setSelectedTransaction(null)}
-//         >
-//           <motion.div
-//             initial={{ scale: 0.9 }}
-//             animate={{ scale: 1 }}
-//             className="bg-gray-800 rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto"
-//             onClick={(e) => e.stopPropagation()}
-//           >
-//             <div className="flex justify-between items-center mb-4">
-//               <h2 className="text-xl font-bold text-white">Receipt</h2>
-//               <button onClick={() => setSelectedTransaction(null)} className="text-gray-400">
-//                 <FaTimes />
-//               </button>
-//             </div>
-//             <div className="space-y-2 text-white">
-//               <p><strong>Type:</strong> {selectedTransaction.type}</p>
-//               <p><strong>Provider:</strong> {selectedTransaction.provider}</p>
-//               <p><strong>Plan:</strong> {selectedTransaction.data}</p>
-//               <p><strong>Amount:</strong> {formatAmount(selectedTransaction.price)}</p>
-//               <p><strong>Phone:</strong> {selectedTransaction.phoneNumber}</p>
-//               <p><strong>Date:</strong> {moment(selectedTransaction.date).tz('Africa/Lagos').format('MMM D, YYYY h:mm A')}</p>
-//               <p><strong>Status:</strong> <span style={{ color: statusColors[selectedTransaction.status] }}>{selectedTransaction.status}</span></p>
-//               {selectedTransaction.status === 'Failed' && selectedTransaction.metadata?.error_message && (
-//                 <div className="bg-red-900 p-2 rounded mt-2">
-//                   <p>Error: {selectedTransaction.metadata.error_message}</p>
-//                 </div>
-//               )}
-//               {selectedTransaction.status === 'Pending' && (
-//                 <div className="bg-yellow-900 p-2 rounded mt-2">
-//                   <p>This transaction is still being processed.</p>
-//                 </div>
-//               )}
-//             </div>
-//           </motion.div>
-//         </motion.div>
-//       )}
-//     </AnimatePresence>
-//   );
-
-//   return (
-//     <div className="min-h-screen bg-black p-4">
-//       <div className="flex items-center justify-between mb-6 pt-4">
-//         <button onClick={() => router.back()} className="text-white">
-//           <FaArrowLeft size={24} />
-//         </button>
-//         <h1 className="text-2xl font-bold text-white">Transaction History</h1>
-//         <div className="w-6" />
-//       </div>
-
-//       <div className="flex space-x-2 mb-4 overflow-x-auto pb-2">
-//         {['All', 'Success', 'Failed', 'Pending'].map((item) => (
-//           <button
-//             key={item}
-//             onClick={() => setFilter(item as any)}
-//             className={`px-4 py-2 rounded-lg border ${
-//               filter === item
-//                 ? 'bg-[#8B4513] border-[#8B4513]'
-//                 : 'bg-black border-gray-600'
-//             } text-white text-sm`}
-//           >
-//             {item}
-//           </button>
-//         ))}
-//       </div>
-
-//       <div className="space-y-4">
-//         {filteredHistory.map((item) => (
-//           <motion.button
-//             key={item.id}
-//             onClick={() => setSelectedTransaction(item)}
-//             className="w-full bg-black border border-[#8B4513] rounded-lg p-4 hover:bg-gray-800 transition-colors"
-//             whileTap={{ scale: 0.98 }}
-//           >
-//             <div className="flex justify-between items-center mb-2">
-//               <span className="text-white font-bold text-lg">{item.provider} - {item.data}</span>
-//               <span
-//                 className="text-sm font-bold px-2 py-1 rounded"
-//                 style={{ color: statusColors[item.status], backgroundColor: statusColors[item.status] + '20' }}
-//               >
-//                 {item.status}
-//               </span>
-//             </div>
-//             <p className="text-white text-sm">{formatAmount(item.price)}</p>
-//             <p className="text-gray-400 text-sm">Phone: {item.phoneNumber}</p>
-//             <p className="text-gray-400 text-xs mt-1">
-//               Date: {moment(item.date).tz('Africa/Lagos').format('MMM D, YYYY h:mm A')}
-//             </p>
-//           </motion.button>
-//         ))}
-//         {filteredHistory.length === 0 && (
-//           <div className="flex flex-col items-center justify-center mt-20">
-//             <FaFileText size={48} className="text-gray-500 mb-4" />
-//             <p className="text-gray-400">No history to show</p>
-//           </div>
-//         )}
-//       </div>
-
-//       {refreshing && <div className="fixed top-4 right-4">Refreshing...</div>}
-
-//       {renderReceipt()}
-//     </div>
-//   );
-// }
+      {/* Receipt Modal */}
+      {renderReceipt()}
+    </div>
+  );
+}
