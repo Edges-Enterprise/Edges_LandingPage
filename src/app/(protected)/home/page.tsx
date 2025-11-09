@@ -1,5 +1,5 @@
 // app/(protected)/home/page.tsx
-import { createServerClient } from "@/lib/supabase/server";
+// import { createServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import {
@@ -25,88 +25,89 @@ interface Purchase {
 }
 
 export default async function HomePage() {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  // const supabase = await createServerClient();
+  // const {
+  //   data: { user },
+  //   error,
+  // } = await supabase.auth.getUser();
 
-  if (error || !user) {
-    redirect("/sign-in");
-  }
+  // if (error || !user) {
+  //   redirect("/sign-in");
+  // }
 
   // Fetch profile - only select columns that exist
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, transaction_pin")
-    .eq("id", user.id)
-    .single();
+  // const { data: profile } = await supabase
+  //   .from("profiles")
+  //   .select("username, transaction_pin")
+  //   .eq("id", user.id)
+  //   .single();
 
-  // Fetch purchase history
-  const now = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { data: purchaseHistory = [] } = await supabase
-    .from("data_purchases")
-    .select(
-      "plan_name, provider_name, validity, mobile_number, network_id, plan_id, created_at, user_email"
-    )
-    .eq("user_email", user.email)
-    .gte("created_at", now)
-    .order("created_at", { ascending: false });
+  // // Fetch purchase history
+  // const now = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // const { data: purchaseHistory = [] } = await supabase
+  //   .from("data_purchases")
+  //   .select(
+  //     "plan_name, provider_name, validity, mobile_number, network_id, plan_id, created_at, user_email"
+  //   )
+  //   .eq("user_email", user.email)
+  //   .gte("created_at", now)
+  //   .order("created_at", { ascending: false });
 
-  // Fetch new notification count
-  const { count: newNotificationCount = 0 } = await supabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("is_read", false)
-    .gte("created_at", now);
+  // // Fetch new notification count
+  // const { count: newNotificationCount = 0 } = await supabase
+  //   .from("notifications")
+  //   .select("id", { count: "exact", head: true })
+  //   .eq("user_id", user.id)
+  //   .eq("is_read", false)
+  //   .gte("created_at", now);
 
-  // Server-side popular plans computation
-  const popularPlans = purchaseHistory?.map((p: Purchase) => {
-    const amountMatch = p.plan_name?.match(/₦(\d+)/);
-    const provider = p.provider_name || getProviderFromPlan(p.plan_name || "");
-    const displayPlanName = p.plan_name?.includes(provider)
-      ? p.plan_name
-      : `${provider} ${p.plan_name || "Unknown Plan"}`;
-    return {
-      plan_name: displayPlanName,
-      provider,
-      image: NETWORK_IMAGES[provider.toLowerCase()] || DEFAULT_PROVIDER_IMAGE,
-      amount: amountMatch ? parseInt(amountMatch[1], 10) : 300,
-      validity: p.validity || "N/A",
-      phone_number:
-        p.mobile_number || user.user_metadata?.phone || user.phone || "",
-      network_id: p.network_id?.toString() || "0",
-      plan_id: p.plan_id?.toString() || "0",
-    };
-  });
+  // // Server-side popular plans computation
+  // const popularPlans = purchaseHistory?.map((p: Purchase) => {
+  //   const amountMatch = p.plan_name?.match(/₦(\d+)/);
+  //   const provider = p.provider_name || getProviderFromPlan(p.plan_name || "");
+  //   const displayPlanName = p.plan_name?.includes(provider)
+  //     ? p.plan_name
+  //     : `${provider} ${p.plan_name || "Unknown Plan"}`;
+  //   return {
+  //     plan_name: displayPlanName,
+  //     provider,
+  //     image: NETWORK_IMAGES[provider.toLowerCase()] || DEFAULT_PROVIDER_IMAGE,
+  //     amount: amountMatch ? parseInt(amountMatch[1], 10) : 300,
+  //     validity: p.validity || "N/A",
+  //     phone_number:
+  //       p.mobile_number || user.user_metadata?.phone || user.phone || "",
+  //     network_id: p.network_id?.toString() || "0",
+  //     plan_id: p.plan_id?.toString() || "0",
+  //   };
+  // });
 
-  const hasPlans = popularPlans.length > 0;
-  const phoneNumber = hasPlans
-    ? popularPlans[0].phone_number
-    : user.user_metadata?.phone || user.phone || "";
+  // const hasPlans = popularPlans.length > 0;
+  const hasPlans = 5;
+  // const phoneNumber = hasPlans
+  //   ? popularPlans[0].phone_number
+  //   : user.user_metadata?.phone || user.phone || "";
 
-  // Get username from user_metadata (where it's actually stored)
-  const username =
-    user.user_metadata?.username ||
-    profile?.username ||
-    user.email?.split("@")[0] ||
-    "User";
+  // // Get username from user_metadata (where it's actually stored)
+  // const username =
+  //   user.user_metadata?.username ||
+  //   profile?.username ||
+  //   user.email?.split("@")[0] ||
+  //   "User";
 
-  const userEmail = user.email ?? "";
-  const hasTransactionPin = !!(
-    profile?.transaction_pin || user.user_metadata?.transaction_pin_created
-  );
-  const notificationsEnabled = true;
+  // const userEmail = user.email ?? "";
+  // const hasTransactionPin = !!(
+  //   profile?.transaction_pin || user.user_metadata?.transaction_pin_created
+  // );
+  // const notificationsEnabled = true;
 
   return (
     <div className="min-h-screen bg-black text-white px-4 pt-4 md:pt-6 pb-20">
       {/* Header Notification - Client for interaction */}
       <Suspense fallback={null}>
         <ClientNotificationBadge
-          count={newNotificationCount}
-          notificationsEnabled={notificationsEnabled}
-          userEmail={userEmail}
+          count={2}
+          notificationsEnabled={true}
+          userEmail={'user@mail.com'}
         />
       </Suspense>
 
@@ -114,7 +115,7 @@ export default async function HomePage() {
       <div className="flex flex-row items-center gap-2 mb-4 md:mb-6 mt-4 md:mt-6">
         <h1 className="text-2xl md:text-3xl font-bold text-white">Hi,</h1>
         <h1 className="text-2xl md:text-3xl font-bold text-white capitalize">
-          {username} 👋
+          {'username'} 👋
         </h1>
       </div>
       <p className="text-sm md:text-base text-gray-400 mb-4 md:mb-6">
@@ -144,7 +145,7 @@ export default async function HomePage() {
             </div>
           }
         >
-          <ClientQuickActions actions={actions} user={user} />
+          <ClientQuickActions actions={actions} user={'newuser'} />
         </Suspense>
       </section>
 
@@ -162,11 +163,11 @@ export default async function HomePage() {
             }
           >
             <ClientRecentPlans
-              plans={popularPlans}
-              phoneNumber={phoneNumber}
-              userEmail={userEmail}
-              hasTransactionPin={hasTransactionPin}
-              user={user}
+              plans={[]}
+              phoneNumber={'0908753234'}
+              userEmail={'userEmail@mail.com'}
+              hasTransactionPin={true}
+              user={'user'}
             />
           </Suspense>
         ) : (
@@ -179,7 +180,7 @@ export default async function HomePage() {
       </section>
 
       {/* PIN Modal - Client, conditional render */}
-      <ClientPinModal visible={!hasTransactionPin} user={user} />
+      <ClientPinModal visible={false} user={'user'} />
     </div>
   );
 }
