@@ -92,9 +92,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        
         {children}
-       
 
         {/* ✅ Place structured data inside body to avoid hydration mismatch */}
         <script
@@ -111,7 +109,7 @@ export default function RootLayout({
               logo: "https://edges-landing-page.vercel.app/edgesnetworkicon.png",
               image: "https://edges-landing-page.vercel.app/hero.png",
               telephone: "+2347057517841",
-              email: "edgesenterprise@outlook.com",
+              email: "edgesnetwork@gmail.com",
               address: {
                 "@type": "PostalAddress",
                 addressCountry: "NG",
@@ -150,6 +148,24 @@ export default function RootLayout({
                     "@type": "Offer",
                     itemOffered: {
                       "@type": "Service",
+                      name: "Glo Data Bundles",
+                      description: "Cheap Glo data bundles for all devices",
+                      areaServed: "Nigeria",
+                    },
+                  },
+                  {
+                    "@type": "Offer",
+                    itemOffered: {
+                      "@type": "Service",
+                      name: "9Mobile Data Bundles",
+                      description: "Cheap 9Mobile data bundles for all devices",
+                      areaServed: "Nigeria",
+                    },
+                  },
+                  {
+                    "@type": "Offer",
+                    itemOffered: {
+                      "@type": "Service",
                       name: "Discounted Airtime",
                       description:
                         "Airtime top-up at discounted rates for all networks",
@@ -179,7 +195,7 @@ export default function RootLayout({
                 "Cheapest data bundles and airtime vendor in Nigeria",
               url: "https://edges-landing-page.vercel.app/",
               telephone: "+2347057517841",
-              email: "edgesenterprise@outlook.com",
+              email: "edgesnetwork@gmail.com",
               address: { "@type": "PostalAddress", addressCountry: "NG" },
               openingHoursSpecification: {
                 "@type": "OpeningHoursSpecification",
