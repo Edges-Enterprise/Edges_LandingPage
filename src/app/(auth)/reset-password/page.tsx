@@ -1,9 +1,9 @@
 import React from 'react'
+import { ResetPasswordClient } from '@/components/reset-password'
 
 const ResetPassword = () => {
-  return (
-    <div>ResetPassword</div>
-  )
+  return <ResetPasswordClient/>
+  
 }
 
 export default ResetPassword
