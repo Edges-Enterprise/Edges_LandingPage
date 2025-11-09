@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies, headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/client";
+// import { createClient } from "@/lib/supabase/client";
 
 export async function signInAction(
   prevState: { error?: string } | null,
