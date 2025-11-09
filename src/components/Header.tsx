@@ -5,10 +5,10 @@ import { useState, useEffect } from "react";
 import { HiMenu, HiX } from "react-icons/hi";
 import { socialLinks } from "@/constants";
 // import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { useAuth } from "@/app/providers/AuthProvider";
+// import { useAuth } from "@/app/providers/AuthProvider";
 
 export default function Header() {
-  const { user, loading } = useAuth();
+  // const { user, loading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   // const [user, setUser] = useState<any>(null);
   // const supabase = createClientComponentClient();
@@ -73,14 +73,14 @@ export default function Header() {
 
             {/* Login Button/Link (Visible on All Devices) */}
             {/* Login Button/Link (Only visible when NOT logged in) */}
-            {!user && (
+            {/* {!user && ( */}
               <Link
                 href="/sign-in"
                 className="text-[#D7A77F] hover:text-[#744925] transition-colors duration-200 font-medium px-3 py-1 rounded-md border border-[#D7A77F] hover:border-[#744925]"
               >
                 Login
               </Link>
-            )}
+            {/* )} */}
 
             {/* Mobile menu button */}
             <button
