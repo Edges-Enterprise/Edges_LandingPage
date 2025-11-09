@@ -1,6 +1,7 @@
 // Header Component
-import { IoWifi,IoSearch,IoGift,IoClose,IoEye,IoEyeOff, IoArrowBackOutline,IoFlash, IoReloadOutline,IoCalendar, IoArrowForwardOutline } from "react-icons/io5";
 import Image from "next/image";
+import { IoSearch, IoClose, IoArrowBackOutline } from "react-icons/io5";
+
 const categories = [
   "Hot",
   "Daily Plans",
