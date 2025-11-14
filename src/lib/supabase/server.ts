@@ -1,5 +1,5 @@
 // ========================================
-// FILE 2: lib/supabase/server.ts
+//  lib/supabase/server.ts
 // ========================================
 import { createServerClient as _createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
