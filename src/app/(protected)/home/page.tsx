@@ -1,7 +1,8 @@
 // app/(protected)/home/page.tsx
-// import { createServerClient } from "@/lib/supabase/server";
+
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { createServerClient, getUser } from "@/lib/supabase/server";
 import {
   actions,
   DEFAULT_PROVIDER_IMAGE,
@@ -13,101 +14,121 @@ import ClientQuickActions from "./ClientQuickActions";
 import ClientRecentPlans from "./ClientRecentPlans";
 import ClientPinModal from "./ClientPinModal";
 
-interface Purchase {
-  plan_name: string;
-  provider_name: string;
-  validity: string;
-  mobile_number: string;
-  network_id: string;
-  plan_id: string;
-  created_at: string;
+interface TransactionMetadata {
+  plan_name?: string;
+  provider_name?: string;
+  validity?: string;
+  mobile_number?: string;
+  network_id?: string;
+  plan_id?: string;
+  [key: string]: any;
+}
+
+interface Transaction {
+  id: string;
   user_email: string;
+  amount: number;
+  reference: string;
+  status: string;
+  metadata: TransactionMetadata | null;
+  created_at: string;
+  type: string | null;
+}
+
+interface Profile {
+  username: string;
+  email: string;
+  notifications_enabled: boolean;
+  transaction_pin: string;
 }
 
 export default async function HomePage() {
-  // const supabase = await createServerClient();
-  // const {
-  //   data: { user },
-  //   error,
-  // } = await supabase.auth.getUser();
+  // ============================================
+  // 1. AUTH CHECK
+  // ============================================
+  const user = await getUser();
+  if (!user) {
+    redirect("/sign-in");
+  }
 
-  // if (error || !user) {
-  //   redirect("/sign-in");
-  // }
+  // ============================================
+  // 2. FETCH USER PROFILE
+  // ============================================
+  const supabase = await createServerClient();
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("username, email, notifications_enabled, transaction_pin")
+    .eq("id", user.id)
+    .single();
 
-  // Fetch profile - only select columns that exist
-  // const { data: profile } = await supabase
-  //   .from("profiles")
-  //   .select("username, transaction_pin")
-  //   .eq("id", user.id)
-  //   .single();
+  if (profileError || !profile) {
+    console.error("Profile fetch error:", profileError);
+    redirect("/sign-in");
+  }
 
-  // // Fetch purchase history
-  // const now = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  // const { data: purchaseHistory = [] } = await supabase
-  //   .from("data_purchases")
-  //   .select(
-  //     "plan_name, provider_name, validity, mobile_number, network_id, plan_id, created_at, user_email"
-  //   )
-  //   .eq("user_email", user.email)
-  //   .gte("created_at", now)
-  //   .order("created_at", { ascending: false });
+  // ============================================
+  // 3. FETCH NOTIFICATIONS COUNT
+  // ============================================
+  const { count: unreadCount } = await supabase
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("is_read", false);
 
-  // // Fetch new notification count
-  // const { count: newNotificationCount = 0 } = await supabase
-  //   .from("notifications")
-  //   .select("id", { count: "exact", head: true })
-  //   .eq("user_id", user.id)
-  //   .eq("is_read", false)
-  //   .gte("created_at", now);
+  // ============================================
+  // 4. FETCH RECENT PURCHASES (Last 24 hours)
+  // ============================================
+  const twentyFourHoursAgo = new Date(
+    Date.now() - 24 * 60 * 60 * 1000
+  ).toISOString();
 
-  // // Server-side popular plans computation
-  // const popularPlans = purchaseHistory?.map((p: Purchase) => {
-  //   const amountMatch = p.plan_name?.match(/₦(\d+)/);
-  //   const provider = p.provider_name || getProviderFromPlan(p.plan_name || "");
-  //   const displayPlanName = p.plan_name?.includes(provider)
-  //     ? p.plan_name
-  //     : `${provider} ${p.plan_name || "Unknown Plan"}`;
-  //   return {
-  //     plan_name: displayPlanName,
-  //     provider,
-  //     image: NETWORK_IMAGES[provider.toLowerCase()] || DEFAULT_PROVIDER_IMAGE,
-  //     amount: amountMatch ? parseInt(amountMatch[1], 10) : 300,
-  //     validity: p.validity || "N/A",
-  //     phone_number:
-  //       p.mobile_number || user.user_metadata?.phone || user.phone || "",
-  //     network_id: p.network_id?.toString() || "0",
-  //     plan_id: p.plan_id?.toString() || "0",
-  //   };
-  // });
+  const { data: recentPurchases, error: purchasesError } = await supabase
+    .from("transactions")
+    .select("id, user_email, amount, reference, status, metadata, created_at, type")
+    .eq("user_email", profile.email)
+    .eq("status", "completed")
+    .in("type", ["data", "airtime"]) // Only show data/airtime purchases
+    .gte("created_at", twentyFourHoursAgo)
+    .order("created_at", { ascending: false })
+    .limit(5);
 
-  // const hasPlans = popularPlans.length > 0;
-  const hasPlans = 5;
-  // const phoneNumber = hasPlans
-  //   ? popularPlans[0].phone_number
-  //   : user.user_metadata?.phone || user.phone || "";
+  // ============================================
+  // 5. TRANSFORM PURCHASES FOR CLIENT
+  // ============================================
+  const popularPlans =
+    recentPurchases
+      ?.filter((tx: Transaction) => tx.metadata) // Only include transactions with metadata
+      .map((tx: Transaction) => {
+        const meta = tx.metadata!;
+        return {
+          plan_name: meta.plan_name || "Unknown Plan",
+          provider: meta.provider_name || getProviderFromPlan(meta.plan_name || ""),
+          image:
+            NETWORK_IMAGES[
+              (meta.provider_name?.toUpperCase() || "") as keyof typeof NETWORK_IMAGES
+            ] || DEFAULT_PROVIDER_IMAGE,
+          amount: tx.amount,
+          validity: meta.validity || "N/A",
+          phone_number: meta.mobile_number || "",
+          network_id: meta.network_id || "",
+          plan_id: meta.plan_id || tx.id,
+        };
+      }) || [];
 
-  // // Get username from user_metadata (where it's actually stored)
-  // const username =
-  //   user.user_metadata?.username ||
-  //   profile?.username ||
-  //   user.email?.split("@")[0] ||
-  //   "User";
-
-  // const userEmail = user.email ?? "";
-  // const hasTransactionPin = !!(
-  //   profile?.transaction_pin || user.user_metadata?.transaction_pin_created
-  // );
-  // const notificationsEnabled = true;
+  // ============================================
+  // 6. DETERMINE IF PIN MODAL SHOULD SHOW
+  // ============================================
+  // Check if transaction_pin is empty string or null
+  const shouldShowPinModal = !profile.transaction_pin || profile.transaction_pin === "";
 
   return (
     <div className="min-h-screen bg-black text-white px-4 pt-4 md:pt-6 pb-20">
       {/* Header Notification - Client for interaction */}
       <Suspense fallback={null}>
         <ClientNotificationBadge
-          count={2}
-          notificationsEnabled={true}
-          userEmail={'user@mail.com'}
+          count={unreadCount || 0}
+          notificationsEnabled={profile.notifications_enabled}
+          userEmail={profile.email}
         />
       </Suspense>
 
@@ -115,7 +136,7 @@ export default async function HomePage() {
       <div className="flex flex-row items-center gap-2 mb-4 md:mb-6 mt-4 md:mt-6">
         <h1 className="text-2xl md:text-3xl font-bold text-white">Hi,</h1>
         <h1 className="text-2xl md:text-3xl font-bold text-white capitalize">
-          {'username'} 👋
+          {profile.username} 👋
         </h1>
       </div>
       <p className="text-sm md:text-base text-gray-400 mb-4 md:mb-6">
@@ -145,7 +166,7 @@ export default async function HomePage() {
             </div>
           }
         >
-          <ClientQuickActions actions={actions} user={'newuser'} />
+          <ClientQuickActions actions={actions} user={user} />
         </Suspense>
       </section>
 
@@ -154,7 +175,7 @@ export default async function HomePage() {
         <h2 className="text-lg md:text-xl font-semibold text-white mb-3 md:mb-4">
           🔥 Recent Plans
         </h2>
-        {hasPlans ? (
+        {popularPlans.length > 0 ? (
           <Suspense
             fallback={
               <div className="space-y-4">
@@ -163,11 +184,11 @@ export default async function HomePage() {
             }
           >
             <ClientRecentPlans
-              plans={[]}
-              phoneNumber={'0908753234'}
-              userEmail={'userEmail@mail.com'}
-              hasTransactionPin={true}
-              user={'user'}
+              plans={popularPlans}
+              phoneNumber={user.phone || ""}
+              userEmail={profile.email}
+              hasTransactionPin={!shouldShowPinModal}
+              user={user}
             />
           </Suspense>
         ) : (
@@ -179,13 +200,15 @@ export default async function HomePage() {
         )}
       </section>
 
-      {/* PIN Modal - Client, conditional render */}
-      <ClientPinModal visible={false} user={'user'} />
+      {/* PIN Modal - Show only if user doesn't have a transaction PIN */}
+      {shouldShowPinModal && <ClientPinModal visible={true} user={user} />}
     </div>
   );
 }
 
-// Server-side getProviderFromPlan (exact RN)
+// ============================================
+// HELPER: Extract provider from plan name
+// ============================================
 function getProviderFromPlan(plan: string): string {
   const planUpper = plan.toUpperCase();
   if (planUpper.includes("MTN")) return "MTN";
@@ -193,5 +216,5 @@ function getProviderFromPlan(plan: string): string {
   if (planUpper.includes("AIRTEL")) return "AIRTEL";
   if (planUpper.includes("9MOBILE") || planUpper.includes("ETISALAT"))
     return "9MOBILE";
-  return "";
+  return "UNKNOWN";
 }
