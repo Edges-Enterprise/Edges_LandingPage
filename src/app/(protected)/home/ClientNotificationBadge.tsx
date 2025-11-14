@@ -28,7 +28,7 @@ export default function ClientNotificationBadge({
       >
         <IoNotificationsOutline size={24} className="text-gray-600" />
         {count > 0 && (
-          <span className="absolute top-4 right-3 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center min-w-[20px] md:h-6 md:w-6 md:text-sm">
+          <span className="absolute top-4 right-4 md:right-3 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center min-w-[20px] md:h-6 md:w-6 md:text-sm">
             {count > 99 ? "99+" : count}
           </span>
         )}
