@@ -269,13 +269,15 @@
 
 // export default ResetPasswordScreen
 
-// app/(auth)/reset-password/ResetPasswordClient.tsx
+// src/components/reset-password.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { IoEye, IoEyeOff } from "react-icons/io5";
+import { resetPasswordAction } from "@/app/actions/auth";
+
 
 export function ResetPasswordClient() {
   const router = useRouter();
@@ -297,11 +299,39 @@ export function ResetPasswordClient() {
     }
   }, [token, type]);
 
-  const handleUpdatePassword = async () => {
-    // Logic will be implemented later
-    console.log("Update password for:", email);
-    console.log("Token:", token);
-    console.log("New password:", newPassword);
+  // const handleUpdatePassword = async () => {
+  //   // Logic will be implemented later
+  //   console.log("Update password for:", email);
+  //   console.log("Token:", token);
+  //   console.log("New password:", newPassword);
+  // };
+
+const handleUpdatePassword = async () => {
+    if (!newPassword.trim() || !token || !email) return;
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const formData = new FormData();
+      formData.set("token", token);
+      formData.set("email", email);
+      formData.set("newPassword", newPassword.trim());
+
+      const result = await resetPasswordAction(null, formData);
+
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        setSuccess("Password updated successfully. Redirecting to Sign In...");
+        setTimeout(() => router.push("/sign-in"), 2000);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

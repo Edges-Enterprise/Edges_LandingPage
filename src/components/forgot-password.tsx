@@ -4,16 +4,44 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { forgotPasswordAction } from "@/app/actions/auth";
+
 
 export function ForgotPasswordClient() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleResetPassword = async () => {
-    // Logic will be implemented later
-    console.log("Reset password for:", email);
+  // const handleResetPassword = async () => {
+  //   // Logic will be implemented later
+  //   console.log("Reset password for:", email);
+  // };
+
+const handleResetPassword = async () => {
+    if (!email.trim()) return;
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const formData = new FormData();
+      formData.set("email", email.trim());
+
+      const result = await forgotPasswordAction(null, formData);
+
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        setSuccess("Check your inbox for a password reset link.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center px-5">
