@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import ClientPinModal from "./ClientPinModal";
 
 interface PopularPlan {
   plan_name: string;
@@ -33,7 +33,7 @@ export default function ClientRecentPlans({
   user,
 }: Props) {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  
   const [isPinModalVisible, setIsPinModalVisible] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState<string | null>(null);
 
