@@ -17,7 +17,10 @@ export async function createTransactionPinAction(pin: string) {
     }
 
     const supabase = await createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return { error: "Unauthorized" };
@@ -48,7 +51,10 @@ export async function createTransactionPinAction(pin: string) {
 export async function verifyTransactionPinAction(pin: string) {
   try {
     const supabase = await createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return { error: "Unauthorized", valid: false };
@@ -84,7 +90,10 @@ export async function verifyTransactionPinAction(pin: string) {
 export async function getWalletBalanceAction() {
   try {
     const supabase = await createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return { error: "Unauthorized", balance: 0 };
@@ -111,14 +120,20 @@ export async function getWalletBalanceAction() {
 /**
  * Update Transaction PIN
  */
-export async function updateTransactionPinAction(currentPin: string, newPin: string) {
+export async function updateTransactionPinAction(
+  currentPin: string,
+  newPin: string
+) {
   try {
     if (!/^\d{4,6}$/.test(newPin)) {
       return { error: "New PIN must be 4-6 digits" };
     }
 
     const supabase = await createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return { error: "Unauthorized" };
@@ -149,182 +164,156 @@ export async function updateTransactionPinAction(currentPin: string, newPin: str
   }
 }
 
+/**
+ * Create Virtual Account via PayVessel
+ */
+export async function createVirtualAccountAction(formData: {
+  email: string;
+  name: string;
+  phoneNumber: string;
+  bvn?: string;
+  nin?: string;
+}) {
+  try {
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-// "use server";
+    if (authError || !user) {
+      return { error: "Unauthorized" };
+    }
 
-// import { createServerClient } from "@/lib/supabase/server";
-// import { revalidatePath } from "next/cache";
-// import bcrypt from "bcryptjs"; // Install: npm install bcryptjs @types/bcryptjs
+    // Validate required fields
+    if (!formData.name || !formData.phoneNumber) {
+      return { error: "Name and phone number are required" };
+    }
 
-// /**
-//  * Create Transaction PIN
-//  * Hashes the PIN before storing it in the database
-//  */
-// export async function createTransactionPinAction(pin: string) {
-//   try {
-//     // Validate PIN format
-//     if (!/^\d{4,6}$/.test(pin)) {
-//       return { error: "PIN must be 4-6 digits" };
-//     }
+    // Must have either BVN or NIN (not both, not neither)
+    if (!formData.bvn && !formData.nin) {
+      return { error: "Either BVN or NIN is required" };
+    }
 
-//     const supabase = await createServerClient();
-//     const {
-//       data: { user },
-//       error: authError,
-//     } = await supabase.auth.getUser();
+    // Check if user already has virtual accounts
+    const { data: existing } = await supabase
+      .from("virtual_accounts")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(1);
 
-//     if (authError || !user) {
-//       return { error: "Unauthorized" };
-//     }
+    if (existing && existing.length > 0) {
+      return { error: "You already have virtual accounts" };
+    }
 
-//     // Hash PIN before storing (IMPORTANT for security)
-//     const hashedPin = await bcrypt.hash(pin, 10);
+    // Prepare PayVessel request
+    const payvesselPayload = {
+      email: formData.email,
+      name: formData.name,
+      phoneNumber: formData.phoneNumber,
+      bankcode: ["999991"], // PalmPay and 9Payment Service Bank / changed to only palmpay
+      account_type: "STATIC",
+      businessid: process.env.NEXT_PUBLIC_PAYVESSEL_BUSINESS_ID!,
+      ...(formData.bvn && { bvn: formData.bvn }),
+      ...(formData.nin && { nin: formData.nin }),
+    };
 
-//     // Update profile with hashed PIN
-//     const { error: updateError } = await supabase
-//       .from("profiles")
-//       .update({ transaction_pin: hashedPin })
-//       .eq("id", user.id);
+    console.log("Creating virtual account:", {
+      ...payvesselPayload,
+      bvn: formData.bvn ? "***" : undefined,
+      nin: formData.nin ? "***" : undefined,
+    });
 
-//     if (updateError) {
-//       console.error("PIN update error:", updateError);
-//       return { error: "Failed to save PIN" };
-//     }
+    // Call PayVessel API
+    const payvesselResponse = await fetch(
+      "https://api.payvessel.com/pms/api/external/request/customerReservedAccount/",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": process.env.NEXT_PUBLIC_PAYVESSEL_API_KEY!,
+          "api-secret": `Bearer ${process.env
+            .NEXT_PUBLIC_PAYVESSEL_SECRET_KEY!}`,
+        },
+        body: JSON.stringify(payvesselPayload),
+      }
+    );
 
-//     // Revalidate home page to update UI
-//     revalidatePath("/home");
-    
-//     return { success: true };
-//   } catch (error) {
-//     console.error("Create PIN error:", error);
-//     return { error: "Something went wrong" };
-//   }
-// }
+    const payvesselData = await payvesselResponse.json();
 
-// /**
-//  * Verify Transaction PIN
-//  * Compares provided PIN with stored hashed PIN
-//  */
-// export async function verifyTransactionPinAction(pin: string) {
-//   try {
-//     const supabase = await createServerClient();
-//     const {
-//       data: { user },
-//       error: authError,
-//     } = await supabase.auth.getUser();
+    console.log("PayVessel response:", {
+      status: payvesselData.status,
+      banksCount: payvesselData.banks?.length,
+    });
 
-//     if (authError || !user) {
-//       return { error: "Unauthorized", valid: false };
-//     }
+    if (!payvesselResponse.ok || !payvesselData.status) {
+      console.error("PayVessel error:", payvesselData);
+      return {
+        error: payvesselData.message || "Failed to create virtual account",
+      };
+    }
 
-//     // Fetch stored hashed PIN
-//     const { data: profile, error: profileError } = await supabase
-//       .from("profiles")
-//       .select("transaction_pin")
-//       .eq("id", user.id)
-//       .single();
+    const banks = payvesselData.banks || [];
 
-//     if (profileError || !profile?.transaction_pin) {
-//       return { error: "PIN not set", valid: false };
-//     }
+    if (banks.length === 0) {
+      return { error: "No virtual accounts were created" };
+    }
 
-//     // Compare provided PIN with hashed PIN
-//     const isValid = await bcrypt.compare(pin, profile.transaction_pin);
+    // Store virtual accounts AND customer info in database
+    const accountRecords = banks.map((bank: any) => ({
+      user_id: user.id,
+      bank_name: bank.bankName,
+      account_number: bank.accountNumber,
+      account_name: bank.accountName,
+      account_type: bank.account_type || "STATIC",
+      tracking_reference: bank.trackingReference,
+      expire_date: bank.expire_date || null,
+      provider: "payvessel",
+      // Store customer information
+      customer_email: formData.email,
+      customer_name: formData.name,
+      customer_phone: formData.phoneNumber,
+      customer_bvn: formData.bvn || null,
+      customer_nin: formData.nin || null,
+      created_at: new Date().toISOString(),
+    }));
 
-//     if (!isValid) {
-//       return { error: "Incorrect PIN", valid: false };
-//     }
+    const { error: insertError } = await supabase
+      .from("virtual_accounts")
+      .insert(accountRecords);
 
-//     return { success: true, valid: true };
-//   } catch (error) {
-//     console.error("Verify PIN error:", error);
-//     return { error: "Something went wrong", valid: false };
-//   }
-// }
+    if (insertError) {
+      console.error("Insert error:", insertError);
+      return { error: "Failed to save virtual accounts" };
+    }
 
-// /**
-//  * Get Wallet Balance
-//  * Fetches user's wallet balance from profiles table
-//  */
-// export async function getWalletBalanceAction() {
-//   try {
-//     const supabase = await createServerClient();
-//     const {
-//       data: { user },
-//       error: authError,
-//     } = await supabase.auth.getUser();
+    // Create notification
+    await supabase.from("notifications").insert({
+      user_id: user.id,
+      notification_type: "deposit",
+      message: `Virtual accounts created successfully! You can now fund your wallet via bank transfer.`,
+      is_read: false,
+      metadata: {
+        accounts_count: banks.length,
+        banks: banks.map((b: any) => b.bankName).join(", "),
+      },
+    });
 
-//     if (authError || !user) {
-//       return { error: "Unauthorized", balance: 0 };
-//     }
+    revalidatePath("/wallet");
+    revalidatePath("/home");
 
-//     const { data: profile, error: profileError } = await supabase
-//       .from("profiles")
-//       .select("wallet_balance")
-//       .eq("id", user.id)
-//       .single();
+    return {
+      success: true,
+      accounts: banks.map((bank: any) => ({
+        bankName: bank.bankName,
+        accountNumber: bank.accountNumber,
+        accountName: bank.accountName,
+      })),
+      message: `${banks.length} virtual accounts created successfully!`,
+    };
+  } catch (error) {
+    console.error("Create virtual account error:", error);
+    return { error: "Something went wrong. Please try again." };
+  }
+}
 
-//     if (profileError) {
-//       console.error("Wallet balance error:", profileError);
-//       return { error: "Failed to fetch balance", balance: 0 };
-//     }
-
-//     return { success: true, balance: profile.wallet_balance || 0 };
-//   } catch (error) {
-//     console.error("Get wallet balance error:", error);
-//     return { error: "Something went wrong", balance: 0 };
-//   }
-// }
-
-// /**
-//  * Update Transaction PIN
-//  * Changes existing PIN to a new one
-//  */
-// export async function updateTransactionPinAction(
-//   currentPin: string,
-//   newPin: string
-// ) {
-//   try {
-//     // Validate new PIN format
-//     if (!/^\d{4,6}$/.test(newPin)) {
-//       return { error: "New PIN must be 4-6 digits" };
-//     }
-
-//     const supabase = await createServerClient();
-//     const {
-//       data: { user },
-//       error: authError,
-//     } = await supabase.auth.getUser();
-
-//     if (authError || !user) {
-//       return { error: "Unauthorized" };
-//     }
-
-//     // Verify current PIN first
-//     const verifyResult = await verifyTransactionPinAction(currentPin);
-//     if (!verifyResult.valid) {
-//       return { error: "Current PIN is incorrect" };
-//     }
-
-//     // Hash new PIN
-//     const hashedNewPin = await bcrypt.hash(newPin, 10);
-
-//     // Update with new hashed PIN
-//     const { error: updateError } = await supabase
-//       .from("profiles")
-//       .update({ transaction_pin: hashedNewPin })
-//       .eq("id", user.id);
-
-//     if (updateError) {
-//       console.error("PIN update error:", updateError);
-//       return { error: "Failed to update PIN" };
-//     }
-
-//     revalidatePath("/changepin");
-    
-//     return { success: true };
-//   } catch (error) {
-//     console.error("Update PIN error:", error);
-//     return { error: "Something went wrong" };
-//   }
-// }
