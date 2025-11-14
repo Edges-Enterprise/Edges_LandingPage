@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies, headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-// import { createClient } from "@/lib/supabase/client";
 
 export async function signInAction(
   prevState: { error?: string } | null,
@@ -26,7 +25,7 @@ export async function signInAction(
 
   if (error) return { error: error.message };
 
-  if (data.user && data.session) {
+  if (data.user) {
     const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7;
 
     // Set cookie using cookies() API
@@ -214,4 +213,82 @@ export async function updateTransactionPinAction(
 
   // Revalidate profile cache
   revalidatePath("/profile");
+}
+
+
+/**
+ * Forgot Password Action
+ * Sends a password recovery email with redirect to /reset-password
+ */
+export async function forgotPasswordAction(formData: FormData) {
+  const email = (formData.get("email") as string)?.trim();
+  if (!email) return { error: "Email is required." };
+
+  const supabase = await createServerClient();
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/reset-password`,
+  });
+
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+/**
+ * Reset Password Action
+ * Updates the password using the recovery token from Supabase
+ */
+// export async function resetPasswordAction(formData: FormData) {
+//   const token = (formData.get("token") as string)?.trim();
+//   const email = (formData.get("email") as string)?.trim();
+//   const newPassword = (formData.get("newPassword") as string)?.trim();
+
+//   if (!token || !email || !newPassword) {
+//     return { error: "Missing required fields." };
+//   }
+
+//   const supabase = await createServerClient();
+
+//   // Supabase expects a token + new password
+//   const { error } = await supabase.auth.updateUser({
+//     access_token: token,
+//     password: newPassword,
+//   });
+
+//   if (error) return { error: error.message };
+//   return { success: true };
+// }
+
+export async function resetPasswordAction(formData: FormData) {
+  const token = (formData.get("token") as string)?.trim();
+  const email = (formData.get("email") as string)?.trim();
+  const newPassword = (formData.get("newPassword") as string)?.trim();
+
+  if (!token || !email || !newPassword) {
+    return { error: "Missing required fields." };
+  }
+
+  const supabase = await createServerClient();
+
+  // Verify the recovery token to temporarily authenticate the user
+  const { error: verifyError } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: "recovery" as const,
+  });
+
+  if (verifyError) {
+    return { error: verifyError.message };
+  }
+
+  // Update the user's password
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: newPassword,
+  });
+
+  if (updateError) {
+    return { error: updateError.message };
+  }
+
+  return { success: true };
 }
