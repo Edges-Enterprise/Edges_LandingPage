@@ -15,10 +15,7 @@ export default function SignInLayout({
   children: React.ReactNode;
 }) {
   return (
-    // No <html> or <body> here—just your layout content
     <main className={inter.className}>
-      {" "}
-      {/* Optional: Wrap in a semantic element */}
       {children}
     </main>
   );
