@@ -1,4 +1,4 @@
-// app/(protected)/electricity/electricity-client.tsx
+// app/(protected)/electric/electricity-client.tsx
 "use client";
 
 import { useState, useEffect } from "react";
