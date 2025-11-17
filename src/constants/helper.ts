@@ -323,3 +323,14 @@ export const EXAM_PROVIDERS = [
     sellingPrice: 900,
   },
 ];
+
+
+
+// Remove mockPlans – we'll fetch real ones server-side
+// Keep other constants (e.g., cleanPlanName function)
+export const cleanPlanName = (name: string): string => {
+  return name
+    .replace(/\s*\d+(?:,\d+)*\s*$/, "")
+    .replace(/\s*-\s*(1\s*Month|monthly)/i, "")
+    .trim();
+};
