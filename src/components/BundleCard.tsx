@@ -4,6 +4,18 @@
 import React, { useState } from "react";
 import { IoWifi,IoSearch,IoGift,IoClose,IoEye,IoEyeOff, IoArrowBackOutline,IoFlash, IoReloadOutline,IoCalendar, IoArrowForwardOutline } from "react-icons/io5";
 
+// Types
+interface DataBundle {
+  id: number;
+  data: string;
+  price: number;
+  validity: string;
+  category: string;
+  description?: string;
+  variation_code?: string;
+  planType: string;
+}
+
 export const BundleCard = ({
   bundle,
   onPurchase,
