@@ -127,7 +127,7 @@ export default function ElectricityClient({
   const getFinalAmount = () => {
     if (selectedAmount) return selectedAmount;
     const custom = parseFloat(customAmount);
-    if (!isNaN(custom) && custom >= 1000) return custom;
+    if (!isNaN(custom) && custom >= 500) return custom;
     return null;
   };
 
@@ -349,7 +349,7 @@ export default function ElectricityClient({
         {/* Custom Amount */}
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-2">
-            Custom Amount (min ₦1,000)
+            Custom Amount (min ₦500)
           </label>
           <input
             type="text"
@@ -454,7 +454,7 @@ export default function ElectricityClient({
             • For prepaid meters, you'll receive a token
           </p>
           <p className="text-xs text-gray-400">
-            • Minimum purchase amount is ₦1,000
+            • Minimum purchase amount is ₦500
           </p>
         </div>
       </div>
