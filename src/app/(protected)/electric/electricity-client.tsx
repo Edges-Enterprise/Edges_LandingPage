@@ -138,7 +138,7 @@ export default function ElectricityClient({
     selectedProvider &&
     (bypassVerification || (isMeterValid && !meterVerificationError)) &&
     finalAmount &&
-    finalAmount >= 1000 &&
+    finalAmount >= 500 &&
     transactionPin.length >= 4;
 
   // Handle purchase
