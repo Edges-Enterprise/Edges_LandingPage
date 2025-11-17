@@ -151,15 +151,15 @@ export const DISCO_PROVIDERS: DiscosProvider[] = [
     code: "YEDC",
     discoCode: "10",
   },
-  {
-    id: 11,
-    title: "BEDC",
-    name:"BEDC",
-    image:
-      "/sp-bedc-logo.jpeg",
-    code: "bedc",
-    discoCode: "benin_electric",
-  },
+  // {
+  //   id: 11,
+  //   title: "BEDC",
+  //   name:"BEDC",
+  //   image:
+  //     "/sp-bedc-logo.jpeg",
+  //   code: "bedc",
+  //   discoCode: "benin_electric",
+  // },
 ];
 
 export const actions = [
