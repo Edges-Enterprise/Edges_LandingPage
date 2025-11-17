@@ -8,15 +8,15 @@ import { useRouter } from "next/navigation";
 import { ImSpinner9 } from "react-icons/im";
 import { NETWORK_IMAGES } from "@/constants/helper";
 
-const DEFAULT_PROVIDER_IMAGE = "/default-provider.png";
+const DEFAULT_PROVIDER_IMAGE = "/edgesnetworkicon.png";
 
 const SUPPORTED_PROVIDERS = ["MTN", "AIRTEL", "GLO", "9MOBILE"];
 
 const NETWORK_ID_MAPPING = {
-  MTN: { ebenk: 1, lizzysub: 1 },
-  AIRTEL: { ebenk: 4, lizzysub: 2 },
-  GLO: { ebenk: 2, lizzysub: 3 },
-  "9MOBILE": { ebenk: 3, lizzysub: 4 },
+  MTN: { lizzysub: 1 },
+  AIRTEL: { lizzysub: 2 },
+  GLO: { lizzysub: 3 },
+  "9MOBILE": { lizzysub: 4 },
 };
 
 interface Provider {
@@ -26,7 +26,6 @@ interface Provider {
   code: string;
   imageKey?: string;
   availablePlanTypes?: string[];
-  ebenkId: number;
   lizzysubId: number;
 }
 
@@ -42,7 +41,7 @@ export default function BuyDataProvider() {
   const providers: Provider[] = SUPPORTED_PROVIDERS.map((name) => {
     const mapping = NETWORK_ID_MAPPING[name as keyof typeof NETWORK_ID_MAPPING];
     return {
-      id: mapping.ebenk,
+      id: mapping.lizzysub,
       name,
       image:
         NETWORK_IMAGES[name as keyof typeof NETWORK_IMAGES] ||
@@ -57,7 +56,6 @@ export default function BuyDataProvider() {
         "STANDARD",
         "HOTPLAN",
       ],
-      ebenkId: mapping.ebenk,
       lizzysubId: mapping.lizzysub,
     };
   });
@@ -70,7 +68,6 @@ export default function BuyDataProvider() {
       imageKey: provider.imageKey,
       image: provider.image,
       availablePlanTypes: provider.availablePlanTypes,
-      ebenkId: provider.ebenkId,
       lizzysubId: provider.lizzysubId,
     };
 
@@ -142,7 +139,7 @@ export default function BuyDataProvider() {
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-3xl mx-auto">
             {providers.map((provider) => (
               <button
-                key={`${provider.name}-${provider.ebenkId}`}
+                key={`${provider.name}-${provider.lizzysubId}`}
                 onClick={() => selectProvider(provider)}
                 className="bg-gray-900 hover:bg-gray-800 rounded-full p-4 sm:p-6 lg:p-8
                          flex flex-col items-center justify-center
