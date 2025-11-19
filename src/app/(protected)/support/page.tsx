@@ -1,5 +1,5 @@
 import { SupportClient } from "@/components/SupportClient";
 
-export function SupportPage() {
+export default async function SupportPage() {
   return <SupportClient />
 }
