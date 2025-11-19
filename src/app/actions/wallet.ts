@@ -167,6 +167,430 @@ export async function updateTransactionPinAction(
 /**
  * Create Virtual Account via PayVessel
  */
+// export async function createVirtualAccountAction(formData: {
+//   email: string;
+//   name: string;
+//   phoneNumber: string;
+//   bvn?: string;
+//   nin?: string;
+// }) {
+//   try {
+//     const supabase = await createServerClient();
+//     const {
+//       data: { user },
+//       error: authError,
+//     } = await supabase.auth.getUser();
+
+//     if (authError || !user) {
+//       return { error: "Unauthorized" };
+//     }
+
+//     // Validate required fields
+//     if (!formData.name || !formData.phoneNumber) {
+//       return { error: "Name and phone number are required" };
+//     }
+
+//     // Must have either BVN or NIN (not both, not neither)
+//     if (!formData.bvn && !formData.nin) {
+//       return { error: "Either BVN or NIN is required" };
+//     }
+
+//     // Check if user already has virtual accounts
+//     const { data: existing } = await supabase
+//       .from("virtual_accounts")
+//       .select("id")
+//       .eq("user_id", user.id)
+//       .limit(1);
+
+//     if (existing && existing.length > 0) {
+//       return { error: "You already have virtual accounts" };
+//     }
+
+//     // Prepare PayVessel request
+//     const payvesselPayload = {
+//       email: formData.email,
+//       name: formData.name,
+//       phoneNumber: formData.phoneNumber,
+//       bankcode: ["999991"], // PalmPay and 9Payment Service Bank / changed to only palmpay
+//       account_type: "STATIC",
+//       businessid: process.env.NEXT_PUBLIC_PAYVESSEL_BUSINESS_ID!,
+//       ...(formData.bvn && { bvn: formData.bvn }),
+//       ...(formData.nin && { nin: formData.nin }),
+//     };
+
+//     console.log("Creating virtual account:", {
+//       ...payvesselPayload,
+//       bvn: formData.bvn ? "***" : undefined,
+//       nin: formData.nin ? "***" : undefined,
+//     });
+
+//     // Call PayVessel API
+//     const payvesselResponse = await fetch(
+//       "https://api.payvessel.com/pms/api/external/request/customerReservedAccount/",
+//       {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           "api-key": process.env.NEXT_PUBLIC_PAYVESSEL_API_KEY!,
+//           "api-secret": `Bearer ${process.env
+//             .NEXT_PUBLIC_PAYVESSEL_SECRET_KEY!}`,
+//         },
+//         body: JSON.stringify(payvesselPayload),
+//       }
+//     );
+
+//     const payvesselData = await payvesselResponse.json();
+
+//     console.log("PayVessel response:", {
+//       status: payvesselData.status,
+//       banksCount: payvesselData.banks?.length,
+//     });
+
+//     if (!payvesselResponse.ok || !payvesselData.status) {
+//       console.error("PayVessel error:", payvesselData);
+//       return {
+//         error: payvesselData.message || "Failed to create virtual account",
+//       };
+//     }
+
+//     const banks = payvesselData.banks || [];
+
+//     if (banks.length === 0) {
+//       return { error: "No virtual accounts were created" };
+//     }
+
+//     // Store virtual accounts AND customer info in database
+//     const accountRecords = banks.map((bank: any) => ({
+//       user_id: user.id,
+//       bank_name: bank.bankName,
+//       account_number: bank.accountNumber,
+//       account_name: bank.accountName,
+//       account_type: bank.account_type || "STATIC",
+//       tracking_reference: bank.trackingReference,
+//       expire_date: bank.expire_date || null,
+//       provider: "payvessel",
+//       // Store customer information
+//       customer_email: formData.email,
+//       customer_name: formData.name,
+//       customer_phone: formData.phoneNumber,
+//       customer_bvn: formData.bvn || null,
+//       customer_nin: formData.nin || null,
+//       created_at: new Date().toISOString(),
+//     }));
+
+//     const { error: insertError } = await supabase
+//       .from("virtual_accounts")
+//       .insert(accountRecords);
+
+//     if (insertError) {
+//       console.error("Insert error:", insertError);
+//       return { error: "Failed to save virtual accounts" };
+//     }
+
+//     // Create notification
+//     await supabase.from("notifications").insert({
+//       user_id: user.id,
+//       notification_type: "deposit",
+//       message: `Virtual accounts created successfully! You can now fund your wallet via bank transfer.`,
+//       is_read: false,
+//       metadata: {
+//         accounts_count: banks.length,
+//         banks: banks.map((b: any) => b.bankName).join(", "),
+//       },
+//     });
+
+//     revalidatePath("/wallet");
+//     revalidatePath("/home");
+
+//     return {
+//       success: true,
+//       accounts: banks.map((bank: any) => ({
+//         bankName: bank.bankName,
+//         accountNumber: bank.accountNumber,
+//         accountName: bank.accountName,
+//       })),
+//       message: `${banks.length} virtual accounts created successfully!`,
+//     };
+//   } catch (error) {
+//     console.error("Create virtual account error:", error);
+//     return { error: "Something went wrong. Please try again." };
+//   }
+// }
+// export async function createVirtualAccountAction(formData: {
+//   email: string;
+//   name: string;
+//   phoneNumber: string;
+//   bvn?: string;
+//   nin?: string;
+// }) {
+//   try {
+//     const supabase = await createServerClient();
+//     const {
+//       data: { user },
+//       error: authError,
+//     } = await supabase.auth.getUser();
+
+//     if (authError || !user) {
+//       return { error: "Unauthorized" };
+//     }
+
+//     // Validate required fields
+//     if (!formData.name || !formData.phoneNumber) {
+//       return { error: "Name and phone number are required" };
+//     }
+
+//     // Must have either BVN or NIN (not both, not neither)
+//     if (!formData.bvn && !formData.nin) {
+//       return { error: "Either BVN or NIN is required" };
+//     }
+
+//     // Check if user already has virtual accounts
+//     const { data: existing } = await supabase
+//       .from("virtual_accounts")
+//       .select("id")
+//       .eq("user_id", user.id)
+//       .limit(1);
+
+//     if (existing && existing.length > 0) {
+//       return { error: "You already have virtual accounts" };
+//     }
+
+//     // Validate environment variables
+//     if (!process.env.NEXT_PUBLIC_XIXAPAY_API_KEY) {
+//       console.error("XIXAPAY_API_KEY not set");
+//       return {
+//         error: "XixaPay configuration missing. Please contact support.",
+//       };
+//     }
+
+//     if (!process.env.NEXT_PUBLIC_XIXAPAY_SECRET_KEY) {
+//       console.error("XIXAPAY_SECRET_KEY not set");
+//       return {
+//         error: "XixaPay configuration missing. Please contact support.",
+//       };
+//     }
+
+//     if (!process.env.NEXT_PUBLIC_XIXAPAY_BUSINESS_ID) {
+//       console.error("XIXAPAY_BUSINESS_ID not set");
+//       return {
+//         error: "XixaPay configuration missing. Please contact support.",
+//       };
+//     }
+
+//     // Get username for custom account name
+//     const { data: profile } = await supabase
+//       .from("profiles")
+//       .select("username")
+//       .eq("id", user.id)
+//       .single();
+
+//     const username = profile?.username || formData.name.split(" ")[0];
+
+//     // Prepare PayVessel request
+//     // const payvesselPayload = {
+//     //   email: formData.email,
+//     //   name: formData.name,
+//     //   phoneNumber: formData.phoneNumber,
+//     //   bankcode: ["999991"], // PalmPay and 9Payment Service Bank / changed to only palmpay
+//     //   account_type: "STATIC",
+//     //   businessid: process.env.NEXT_PUBLIC_PAYVESSEL_BUSINESS_ID!,
+//     //   ...(formData.bvn && { bvn: formData.bvn }),
+//     //   ...(formData.nin && { nin: formData.nin }),
+//     // };
+
+//     // Prepare XixaPay request payload
+//     const xixapayPayload = {
+//       email: formData.email,
+//       name: formData.name,
+//       phoneNumber: formData.phoneNumber,
+//       bankCode: ["20867"], // Palmpay, KOLOMONI MFB, Safehaven
+//       businessId: process.env.NEXT_PUBLIC_XIXAPAY_BUSINESS_ID!,
+//       accountType: "static",
+//       id_type: formData.bvn ? "bvn" : "nin",
+//       id_number: formData.bvn || formData.nin,
+//     };
+
+//     // console.log("Creating virtual account:", {
+//     //   ...payvesselPayload,
+//     //   bvn: formData.bvn ? "***" : undefined,
+//     //   nin: formData.nin ? "***" : undefined,
+//     // });
+
+//     console.log("Creating XixaPay virtual account:", {
+//       ...xixapayPayload,
+//       id_number: "***",
+//     });
+
+//     // Call PayVessel API
+//     // const payvesselResponse = await fetch(
+//     //   "https://api.payvessel.com/pms/api/external/request/customerReservedAccount/",
+//     //   {
+//     //     method: "POST",
+//     //     headers: {
+//     //       "Content-Type": "application/json",
+//     //       "api-key": process.env.NEXT_PUBLIC_PAYVESSEL_API_KEY!,
+//     //       "api-secret": `Bearer ${process.env
+//     //         .NEXT_PUBLIC_PAYVESSEL_SECRET_KEY!}`,
+//     //     },
+//     //     body: JSON.stringify(payvesselPayload),
+//     //   }
+//     // );
+
+//     // const payvesselData = await payvesselResponse.json();
+
+//     // Call XixaPay API
+//     const xixapayResponse = await fetch(
+//       "https://api.xixapay.com/api/v1/createVirtualAccount",
+//       {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           Authorization: `Bearer ${process.env
+//             .NEXT_PUBLIC_XIXAPAY_SECRET_KEY!}`,
+//           "api-key": process.env.NEXT_PUBLIC_XIXAPAY_API_KEY!,
+//         },
+//         body: JSON.stringify(xixapayPayload),
+//       }
+//     );
+
+//     const xixapayData = await xixapayResponse.json();
+
+//     // console.log("PayVessel response:", {
+//     //   status: payvesselData.status,
+//     //   banksCount: payvesselData.banks?.length,
+//     // });
+
+//     console.log("XixaPay response:", {
+//       status: xixapayData.status,
+//       message: xixapayData.message,
+//       accountsCount: xixapayData.bankAccounts?.length,
+//     });
+
+//     // if (!payvesselResponse.ok || !payvesselData.status) {
+//     //   console.error("PayVessel error:", payvesselData);
+//     //   return {
+//     //     error: payvesselData.message || "Failed to create virtual account",
+//     //   };
+//     // }
+
+//     // const banks = payvesselData.banks || [];
+
+//     // Check for API errors
+//     if (!xixapayResponse.ok || xixapayData.status !== "success") {
+//       console.error("XixaPay error:", xixapayData);
+//       return {
+//         error: xixapayData.message || "Failed to create virtual account",
+//       };
+//     }
+
+//     const bankAccounts = xixapayData.bankAccounts || [];
+
+//     // if (banks.length === 0) {
+//     //   return { error: "No virtual accounts were created" };
+//     // }
+
+//     if (bankAccounts.length === 0) {
+//       return { error: "No virtual accounts were created" };
+//     }
+
+//     // Store virtual accounts AND customer info in database
+//     // const accountRecords = banks.map((bank: any) => ({
+//     //   user_id: user.id,
+//     //   bank_name: bank.bankName,
+//     //   account_number: bank.accountNumber,
+//     //   account_name: bank.accountName,
+//     //   account_type: bank.account_type || "STATIC",
+//     //   tracking_reference: bank.trackingReference,
+//     //   expire_date: bank.expire_date || null,
+//     //   provider: "payvessel",
+//     //   // Store customer information
+//     //   customer_email: formData.email,
+//     //   customer_name: formData.name,
+//     //   customer_phone: formData.phoneNumber,
+//     //   customer_bvn: formData.bvn || null,
+//     //   customer_nin: formData.nin || null,
+//     //   created_at: new Date().toISOString(),
+//     // }));
+
+//     // Store virtual accounts in database
+//     const accountRecords = bankAccounts.map((bank: any) => ({
+//       user_id: user.id,
+//       bank_name: bank.bankName,
+//       account_number: bank.accountNumber,
+//       account_name: bank.accountName,
+//       account_type: bank.accountType || "static",
+//       tracking_reference: bank.Reserved_Account_Id,
+//       expire_date: null,
+//       provider: "xixapay",
+//       // Store customer information
+//       customer_email: formData.email,
+//       customer_name: formData.name,
+//       customer_phone: formData.phoneNumber,
+//       customer_bvn: formData.bvn || null,
+//       customer_nin: formData.nin || null,
+//       created_at: new Date().toISOString(),
+//     }));
+
+//     const { error: insertError } = await supabase
+//       .from("virtual_accounts")
+//       .insert(accountRecords);
+
+//     if (insertError) {
+//       console.error("Insert error:", insertError);
+//       return { error: "Failed to save virtual accounts" };
+//     }
+
+//     // // Create notification
+//     // await supabase.from("notifications").insert({
+//     //   user_id: user.id,
+//     //   notification_type: "deposit",
+//     //   message: `Virtual accounts created successfully! You can now fund your wallet via bank transfer.`,
+//     //   is_read: false,
+//     //   metadata: {
+//     //     accounts_count: banks.length,
+//     //     banks: banks.map((b: any) => b.bankName).join(", "),
+//     //   },
+//     // });
+
+//     // Create notification
+//     await supabase.from("notifications").insert({
+//       user_id: user.id,
+//       notification_type: "deposit",
+//       message: `Virtual accounts created successfully! You can now fund your wallet via bank transfer.`,
+//       is_read: false,
+//       metadata: {
+//         accounts_count: bankAccounts.length,
+//         banks: bankAccounts.map((b: any) => b.bankName).join(", "),
+//         provider: "xixapay",
+//       },
+//     });
+
+//     revalidatePath("/wallet");
+//     revalidatePath("/home");
+
+//     // return {
+//     //   success: true,
+//     //   accounts: banks.map((bank: any) => ({
+//     //     bankName: bank.bankName,
+//     //     accountNumber: bank.accountNumber,
+//     //     accountName: bank.accountName,
+//     //   })),
+//     //   message: `${banks.length} virtual accounts created successfully!`,
+//     // };
+//     return {
+//       success: true,
+//       accounts: bankAccounts.map((bank: any) => ({
+//         bankName: bank.bankName,
+//         accountNumber: bank.accountNumber,
+//         accountName: bank.accountName,
+//       })),
+//       message: `${bankAccounts.length} virtual accounts created successfully via XixaPay!`,
+//     };
+//   } catch (error) {
+//     console.error("Create virtual account error:", error);
+//     return { error: "Something went wrong. Please try again." };
+//   }
+// }
 export async function createVirtualAccountAction(formData: {
   email: string;
   name: string;
@@ -206,69 +630,108 @@ export async function createVirtualAccountAction(formData: {
       return { error: "You already have virtual accounts" };
     }
 
-    // Prepare PayVessel request
-    const payvesselPayload = {
+    // Validate environment variables
+    if (!process.env.NEXT_PUBLIC_XIXAPAY_API_KEY) {
+      console.error("XIXAPAY_API_KEY not set");
+      return {
+        error: "XixaPay configuration missing. Please contact support.",
+      };
+    }
+
+    if (!process.env.NEXT_PUBLIC_XIXAPAY_SECRET_KEY) {
+      console.error("XIXAPAY_SECRET_KEY not set");
+      return {
+        error: "XixaPay configuration missing. Please contact support.",
+      };
+    }
+
+    if (!process.env.NEXT_PUBLIC_XIXAPAY_BUSINESS_ID) {
+      console.error("XIXAPAY_BUSINESS_ID not set");
+      return {
+        error: "XixaPay configuration missing. Please contact support.",
+      };
+    }
+
+    // Get username for custom account name
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .single();
+
+    const username = profile?.username || formData.name.split(" ")[0];
+
+    // Prepare XixaPay request payload - FIXED STRUCTURE
+    const xixapayPayload: any = {
       email: formData.email,
       name: formData.name,
       phoneNumber: formData.phoneNumber,
-      bankcode: ["999991"], // PalmPay and 9Payment Service Bank / changed to only palmpay
-      account_type: "STATIC",
-      businessid: process.env.NEXT_PUBLIC_PAYVESSEL_BUSINESS_ID!,
-      ...(formData.bvn && { bvn: formData.bvn }),
-      ...(formData.nin && { nin: formData.nin }),
+      bankCode: ["20867"], // Only PalmPay as requested
+      businessId: process.env.NEXT_PUBLIC_XIXAPAY_BUSINESS_ID!,
+      accountType: "static",
     };
 
-    console.log("Creating virtual account:", {
-      ...payvesselPayload,
-      bvn: formData.bvn ? "***" : undefined,
-      nin: formData.nin ? "***" : undefined,
+    // Add ID type and number at root level (NOT nested)
+    if (formData.bvn) {
+      xixapayPayload.id_type = "bvn"; // lowercase 'bvn'
+      xixapayPayload.id_number = formData.bvn;
+    } else if (formData.nin) {
+      xixapayPayload.id_type = "nin"; // lowercase 'nin'
+      xixapayPayload.id_number = formData.nin;
+    }
+
+    console.log("Creating XixaPay virtual account:", {
+      ...xixapayPayload,
+      id_number: "***", // Hide sensitive data in logs
     });
 
-    // Call PayVessel API
-    const payvesselResponse = await fetch(
-      "https://api.payvessel.com/pms/api/external/request/customerReservedAccount/",
+    // Call XixaPay API
+    const xixapayResponse = await fetch(
+      "https://api.xixapay.com/api/v1/createVirtualAccount",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "api-key": process.env.NEXT_PUBLIC_PAYVESSEL_API_KEY!,
-          "api-secret": `Bearer ${process.env
-            .NEXT_PUBLIC_PAYVESSEL_SECRET_KEY!}`,
+          Authorization: `Bearer ${process.env
+            .NEXT_PUBLIC_XIXAPAY_SECRET_KEY!}`,
+          "api-key": process.env.NEXT_PUBLIC_XIXAPAY_API_KEY!,
         },
-        body: JSON.stringify(payvesselPayload),
+        body: JSON.stringify(xixapayPayload),
       }
     );
 
-    const payvesselData = await payvesselResponse.json();
+    const xixapayData = await xixapayResponse.json();
 
-    console.log("PayVessel response:", {
-      status: payvesselData.status,
-      banksCount: payvesselData.banks?.length,
+    console.log("XixaPay response:", {
+      status: xixapayData.status,
+      message: xixapayData.message,
+      accountsCount: xixapayData.bankAccounts?.length,
     });
 
-    if (!payvesselResponse.ok || !payvesselData.status) {
-      console.error("PayVessel error:", payvesselData);
+    // Check for API errors
+    if (!xixapayResponse.ok || xixapayData.status !== "success") {
+      console.error("XixaPay error:", xixapayData);
       return {
-        error: payvesselData.message || "Failed to create virtual account",
+        error: xixapayData.message || "Failed to create virtual account",
       };
     }
 
-    const banks = payvesselData.banks || [];
+    const bankAccounts = xixapayData.bankAccounts || [];
 
-    if (banks.length === 0) {
+    if (bankAccounts.length === 0) {
       return { error: "No virtual accounts were created" };
     }
 
-    // Store virtual accounts AND customer info in database
-    const accountRecords = banks.map((bank: any) => ({
+    // Store virtual accounts in database
+    const accountRecords = bankAccounts.map((bank: any) => ({
       user_id: user.id,
       bank_name: bank.bankName,
       account_number: bank.accountNumber,
       account_name: bank.accountName,
-      account_type: bank.account_type || "STATIC",
-      tracking_reference: bank.trackingReference,
-      expire_date: bank.expire_date || null,
-      provider: "payvessel",
+      account_type: bank.accountType || "static",
+      tracking_reference: bank.Reserved_Account_Id,
+      expire_date: null,
+      provider: "xixapay",
       // Store customer information
       customer_email: formData.email,
       customer_name: formData.name,
@@ -291,11 +754,12 @@ export async function createVirtualAccountAction(formData: {
     await supabase.from("notifications").insert({
       user_id: user.id,
       notification_type: "deposit",
-      message: `Virtual accounts created successfully! You can now fund your wallet via bank transfer.`,
+      message: `Virtual account created successfully! You can now fund your wallet via PalmPay.`,
       is_read: false,
       metadata: {
-        accounts_count: banks.length,
-        banks: banks.map((b: any) => b.bankName).join(", "),
+        accounts_count: bankAccounts.length,
+        banks: bankAccounts.map((b: any) => b.bankName).join(", "),
+        provider: "xixapay",
       },
     });
 
@@ -304,12 +768,12 @@ export async function createVirtualAccountAction(formData: {
 
     return {
       success: true,
-      accounts: banks.map((bank: any) => ({
+      accounts: bankAccounts.map((bank: any) => ({
         bankName: bank.bankName,
         accountNumber: bank.accountNumber,
         accountName: bank.accountName,
       })),
-      message: `${banks.length} virtual accounts created successfully!`,
+      message: `${bankAccounts.length} virtual account created successfully via XixaPay!`,
     };
   } catch (error) {
     console.error("Create virtual account error:", error);
