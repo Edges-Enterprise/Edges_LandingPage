@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   IoChatbubbleOutline,
-  IoMailOutline,
   IoHelpCircleOutline,
 } from "react-icons/io5";
 
