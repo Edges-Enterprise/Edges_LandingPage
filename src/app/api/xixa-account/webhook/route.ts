@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing signature" }, { status: 400 });
     }
 
-    // DEBUG: Log received values
+    // DEBUG: Log received values (remove after testing)
     console.log("=== WEBHOOK DEBUG START ===");
     console.log(
       "Received rawBody (first 200 chars):",
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       .update(rawBody)
       .digest("hex");
 
-    // DEBUG: Log calculated values
+    // DEBUG: Log calculated values (remove after testing)
     console.log("Calculated signature:", calculatedSignature);
     console.log("Signatures match?", calculatedSignature === signature);
     console.log("=== WEBHOOK DEBUG END ===");
@@ -139,14 +139,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 11. Record transaction
+    // 11. Record transaction (adapted to schema: numeric amount, env="live", description in metadata)
     const { error: txError } = await supabase.from("transactions").insert({
       user_email: profile.email,
       type: "deposit",
-      amount: depositAmount.toString(),
+      amount: depositAmount, // Numeric, not string
       status: "completed",
       reference: transaction_id,
-      description: `Wallet funding via ${receiver.bank}`,
+      env: "live", // Matches your table standard
       metadata: {
         payment_method: "bank_transfer",
         bank_name: sender.bank,
@@ -159,6 +159,7 @@ export async function POST(req: NextRequest) {
         customer_name: customer.name,
         customer_email: customer.email,
         timestamp: timestamp,
+        description: `Wallet funding via ${receiver.bank}`, // Moved here
         provider: "xixapay",
       },
     });
@@ -216,11 +217,20 @@ export async function POST(req: NextRequest) {
 
 //     if (!signature) {
 //       console.error("Missing xixapay signature header");
-//       return NextResponse.json(
-//         { error: "Missing signature" },
-//         { status: 400 }
-//       );
+//       return NextResponse.json({ error: "Missing signature" }, { status: 400 });
 //     }
+
+//     // DEBUG: Log received values
+//     console.log("=== WEBHOOK DEBUG START ===");
+//     console.log(
+//       "Received rawBody (first 200 chars):",
+//       rawBody.substring(0, 200) + (rawBody.length > 200 ? "..." : "")
+//     );
+//     console.log("Received signature:", signature);
+//     console.log(
+//       "Secret key length (safe):",
+//       process.env.XIXAPAY_SECRET_KEY?.length || "MISSING"
+//     );
 
 //     // 2. Verify the signature
 //     const secretKey = process.env.XIXAPAY_SECRET_KEY!;
@@ -229,12 +239,14 @@ export async function POST(req: NextRequest) {
 //       .update(rawBody)
 //       .digest("hex");
 
+//     // DEBUG: Log calculated values
+//     console.log("Calculated signature:", calculatedSignature);
+//     console.log("Signatures match?", calculatedSignature === signature);
+//     console.log("=== WEBHOOK DEBUG END ===");
+
 //     if (calculatedSignature !== signature) {
 //       console.error("Invalid webhook signature");
-//       return NextResponse.json(
-//         { error: "Invalid signature" },
-//         { status: 401 }
-//       );
+//       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
 //     }
 
 //     // 3. Parse the webhook payload
@@ -276,10 +288,7 @@ export async function POST(req: NextRequest) {
 
 //     if (accountError || !virtualAccount) {
 //       console.error("Virtual account not found:", receiver.account_number);
-//       return NextResponse.json(
-//         { error: "Account not found" },
-//         { status: 404 }
-//       );
+//       return NextResponse.json({ error: "Account not found" }, { status: 404 });
 //     }
 
 //     // 7. Get user profile
