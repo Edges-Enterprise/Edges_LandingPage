@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Verify the signature
-    const secretKey = process.env.NEXT_PUBLIC_XIXAPAY_SECRET_KEY!;
+    const secretKey = process.env.XIXAPAY_SECRET_KEY!;
     const calculatedSignature = crypto
       .createHmac("sha256", secretKey)
       .update(rawBody)
