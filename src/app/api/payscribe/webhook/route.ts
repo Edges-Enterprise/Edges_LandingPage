@@ -1,1 +1,0 @@
-// src/app/api/payscribe/webhook
