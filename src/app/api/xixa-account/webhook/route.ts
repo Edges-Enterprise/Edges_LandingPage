@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     const { data: existingTx } = await supabase
       .from("transactions")
       .select("id")
-      .eq("reference", transaction_id)
+      .eq("reference", `Edges_Network_Web_${transaction_id}`) // Prefixed ref for consistency
       .single();
 
     if (existingTx) {
@@ -121,11 +121,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
     }
 
-    const currentBalance = parseFloat(wallet.balance || "0");
-    const depositAmount = parseFloat(settlement_amount || amount_paid);
-    const newBalance = currentBalance + depositAmount;
+    // Tiered pricing calculation - returns the FEE amount (from Paystack webhook)
+    function calculateFees(grossAmount) {
+      if (grossAmount >= 500 && grossAmount <= 999) return 50;
+      if (grossAmount >= 1000 && grossAmount <= 1499) return 70;
+      if (grossAmount >= 1500 && grossAmount <= 4999) return 100;
+      if (grossAmount >= 5000 && grossAmount <= 8999) return 150;
+  
+      // For 9000 and above
+      const base = 9000;
+      const basePrice = 200;
+      const rangeSize = 4000;
+      const increment = 50;
+      const steps = Math.floor((grossAmount - base) / rangeSize);
+      return basePrice + steps * increment;
+    }
 
-    // 10. Update wallet balance
+    // Calculate net amount by subtracting fees from gross amount
+    function calculateNetAmount(grossAmount) {
+      return grossAmount - calculateFees(grossAmount);
+    }
+
+    const grossAmount = parseFloat(amount_paid); // Xixa gross
+    const xixaSettlementAmount = parseFloat(settlement_amount || amount_paid); // After Xixa fees
+    const platformFees = calculateFees(xixaSettlementAmount); // Your tiered fees on settlement
+    const finalNetAmount = calculateNetAmount(xixaSettlementAmount); // Final net after all fees
+
+    const currentBalance = parseFloat(wallet.balance || "0");
+    const newBalance = currentBalance + finalNetAmount;
+
+    // 10. Update wallet balance (with final net)
     const { error: updateError } = await supabase
       .from("wallet")
       .update({ balance: newBalance.toString() })
@@ -139,14 +164,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 11. Record transaction (adapted to schema: numeric amount, env="live", description in metadata)
+    // 11. Record transaction (net amount, prefixed ref, fees in metadata)
     const { error: txError } = await supabase.from("transactions").insert({
       user_email: profile.email,
       type: "deposit",
-      amount: depositAmount, // Numeric, not string
+      amount: finalNetAmount.toString(), // Final net after all fees
       status: "completed",
-      reference: transaction_id,
-      env: "live", // Matches your table standard
+      reference: `Edges_Network_Web_${transaction_id}`, // Prefixed for consistency
+      description: `Wallet funding via ${receiver.bank}`,
+      env: "live",
       metadata: {
         payment_method: "bank_transfer",
         bank_name: sender.bank,
@@ -154,13 +180,17 @@ export async function POST(req: NextRequest) {
         sender_name: sender.name,
         receiver_account: receiver.account_number,
         receiver_bank: receiver.bank,
-        settlement_fee: settlement_fee,
-        raw_amount: amount_paid,
+        xixa_settlement_fee: settlement_fee,
+        xixa_raw_amount: amount_paid,
+        platform_fees: platformFees, // Your tiered fees
+        gross_after_xixa: xixaSettlementAmount, // After Xixa fees, before platform
         customer_name: customer.name,
         customer_email: customer.email,
         timestamp: timestamp,
-        description: `Wallet funding via ${receiver.bank}`, // Moved here
+        original_reference: transaction_id, // Raw Xixa ID
         provider: "xixapay",
+        verified_by: "xixapay-webhook",
+        channel: "bank_transfer",
       },
     });
 
@@ -169,17 +199,17 @@ export async function POST(req: NextRequest) {
       // Wallet was already updated, so log but don't fail
     }
 
-    // 12. Create notification
+    // 12. Create notification (use final net)
     await supabase.from("notifications").insert({
       user_id: virtualAccount.user_id,
       notification_type: "deposit",
-      message: `₦${depositAmount.toLocaleString("en-NG", {
+      message: `₦${finalNetAmount.toLocaleString("en-NG", {
         minimumFractionDigits: 2,
       })} has been added to your wallet from ${sender.bank}`,
       is_read: false,
       metadata: {
-        transaction_id: transaction_id,
-        amount: depositAmount,
+        transaction_id: `Edges_Network_Web_${transaction_id}`,
+        amount: finalNetAmount,
         sender: sender.name,
         bank: sender.bank,
       },
@@ -187,7 +217,10 @@ export async function POST(req: NextRequest) {
 
     console.log("Wallet funded successfully:", {
       user: profile.email,
-      amount: depositAmount,
+      gross: grossAmount,
+      xixa_settlement: xixaSettlementAmount,
+      platform_fees: platformFees,
+      final_net: finalNetAmount,
       new_balance: newBalance,
     });
 
@@ -220,7 +253,7 @@ export async function POST(req: NextRequest) {
 //       return NextResponse.json({ error: "Missing signature" }, { status: 400 });
 //     }
 
-//     // DEBUG: Log received values
+//     // DEBUG: Log received values (remove after testing)
 //     console.log("=== WEBHOOK DEBUG START ===");
 //     console.log(
 //       "Received rawBody (first 200 chars):",
@@ -239,7 +272,7 @@ export async function POST(req: NextRequest) {
 //       .update(rawBody)
 //       .digest("hex");
 
-//     // DEBUG: Log calculated values
+//     // DEBUG: Log calculated values (remove after testing)
 //     console.log("Calculated signature:", calculatedSignature);
 //     console.log("Signatures match?", calculatedSignature === signature);
 //     console.log("=== WEBHOOK DEBUG END ===");
@@ -345,14 +378,14 @@ export async function POST(req: NextRequest) {
 //       );
 //     }
 
-//     // 11. Record transaction
+//     // 11. Record transaction (adapted to schema: numeric amount, env="live", description in metadata)
 //     const { error: txError } = await supabase.from("transactions").insert({
 //       user_email: profile.email,
 //       type: "deposit",
-//       amount: depositAmount.toString(),
+//       amount: depositAmount, // Numeric, not string
 //       status: "completed",
-//       reference: transaction_id,
-//       description: `Wallet funding via ${receiver.bank}`,
+//       reference: `Edges_Network_Web_${transaction_id}`,
+//       env: "live", // Matches your table standard
 //       metadata: {
 //         payment_method: "bank_transfer",
 //         bank_name: sender.bank,
@@ -365,6 +398,7 @@ export async function POST(req: NextRequest) {
 //         customer_name: customer.name,
 //         customer_email: customer.email,
 //         timestamp: timestamp,
+//         description: `Wallet funding via ${receiver.bank}`, // Moved here
 //         provider: "xixapay",
 //       },
 //     });
