@@ -29,6 +29,39 @@ export function SignInForm() {
   //   console.log("Sign in with:", { email, password, rememberMe });
   // };
 
+//   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+//     e.preventDefault();
+//     if (!isSignInEnabled) return;
+
+//     setLoading(true);
+//     setError(null);
+
+//     try {
+//       const formData = new FormData();
+//       formData.set("email", email);
+//       formData.set("password", password);
+//       formData.set("rememberMe", rememberMe.toString());
+
+//       const result = await signInAction(null, formData);
+
+//           // If we get here, there was an error (redirect would have thrown)
+//     if (result?.error) {
+//       setError(result.error);
+//       setLoading(false);
+//     }
+//   } catch (err: any) {
+//     // CRITICAL: Ignore NEXT_REDIRECT errors (they're intentional)
+//     if (err?.message?.includes('NEXT_REDIRECT')) {
+//       // Success! Let the redirect happen
+//       return;
+//     }
+    
+//     console.error(err);
+//     setError("Something went wrong. Please try again.");
+//     setLoading(false);
+//   }
+  // };
+  
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!isSignInEnabled) return;
@@ -44,23 +77,24 @@ export function SignInForm() {
 
       const result = await signInAction(null, formData);
 
-          // If we get here, there was an error (redirect would have thrown)
-    if (result?.error) {
-      setError(result.error);
+      // If we reach here without redirect, there was an error
+      if (result?.error) {
+        setError(result.error);
+      }
+    } catch (err: any) {
+      // CRITICAL: Ignore NEXT_REDIRECT errors (they're intentional)
+      if (err?.digest?.startsWith("NEXT_REDIRECT")) {
+        // Success! Let the redirect happen
+        return;
+      }
+
+      console.error(err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      // Only set loading to false if we're still on the page (no redirect)
       setLoading(false);
     }
-  } catch (err: any) {
-    // CRITICAL: Ignore NEXT_REDIRECT errors (they're intentional)
-    if (err?.message?.includes('NEXT_REDIRECT')) {
-      // Success! Let the redirect happen
-      return;
-    }
-    
-    console.error(err);
-    setError("Something went wrong. Please try again.");
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <main className="min-h-screen bg-black flex flex-col items-center justify-center px-4 sm:px-6 lg:px-20 py-8">
