@@ -122,12 +122,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Tiered pricing calculation - returns the FEE amount (from Paystack webhook)
-    function calculateFees(grossAmount) {
+    function calculateFees(grossAmount: number): number {
       if (grossAmount >= 500 && grossAmount <= 999) return 50;
       if (grossAmount >= 1000 && grossAmount <= 1499) return 70;
       if (grossAmount >= 1500 && grossAmount <= 4999) return 100;
       if (grossAmount >= 5000 && grossAmount <= 8999) return 150;
-  
+
       // For 9000 and above
       const base = 9000;
       const basePrice = 200;
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Calculate net amount by subtracting fees from gross amount
-    function calculateNetAmount(grossAmount) {
+    function calculateNetAmount(grossAmount: number): number {
       return grossAmount - calculateFees(grossAmount);
     }
 
