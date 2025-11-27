@@ -1,9 +1,9 @@
 import React from 'react'
 
-const CommingsoonPage = () => {
+const ComingSoon = () => {
   return (
-    <div>Commingsoon Page</div>
+    <div>Comming Soon</div>
   )
 }
 
-export default CommingsoonPage
+export default ComingSoon
