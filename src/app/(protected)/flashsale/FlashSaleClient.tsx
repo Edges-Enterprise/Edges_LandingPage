@@ -233,7 +233,6 @@ export function FlashSaleClient({
     return null;
   };
 
-
   useEffect(() => {
     if (phoneNumber.length === 11) {
       const network = detectNetwork(phoneNumber);
@@ -627,7 +626,7 @@ export function FlashSaleClient({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredPlans.map((plan) => {
+                  {/* {filteredPlans.map((plan) => {
                     const soldPercentage =
                       (plan.stock_sold / plan.stock_available) * 100;
                     const stockLeft = plan.stock_available - plan.stock_sold;
@@ -702,7 +701,7 @@ export function FlashSaleClient({
                           </div>
                         </div>
 
-                        {/* Status Messages */}
+                        {/* Status Messages *
                         {isSuccess && (
                           <div className="mb-3 bg-green-500/20 border border-green-500 rounded-lg p-2 text-center">
                             <p className="text-green-400 text-sm font-semibold flex items-center justify-center gap-2">
@@ -738,6 +737,178 @@ export function FlashSaleClient({
                             <span>Buy Now</span>
                           )}
                         </button>
+                      </div>
+                    );
+                  })} */}
+
+                  {filteredPlans.map((plan) => {
+                    const soldPercentage =
+                      (plan.stock_sold / plan.stock_available) * 100;
+                    const stockLeft = plan.stock_available - plan.stock_sold;
+                    const isSoldOut = stockLeft <= 0;
+                    const displayPrice = plan.newprice || plan.amount;
+
+                    const isProcessing =
+                      purchaseStatus.planId === plan.planid &&
+                      purchaseStatus.status === "processing";
+                    const isSuccess =
+                      purchaseStatus.planId === plan.planid &&
+                      purchaseStatus.status === "success";
+                    const isFailed =
+                      purchaseStatus.planId === plan.planid &&
+                      purchaseStatus.status === "failed";
+
+                    return (
+                      <div
+                        key={plan.planid}
+                        className={`group relative overflow-hidden bg-white/10 backdrop-blur-lg rounded-2xl p-6 border transition-all duration-500
+        ${
+          isSoldOut
+            ? "grayscale opacity-60 border-white/10 cursor-not-allowed"
+            : "border-white/20 hover:border-white/40 hover:shadow-2xl hover:scale-105 hover:-translate-y-1"
+        }`}
+                      >
+                        {/* DIAGONAL "SOLD OUT" RIBBON */}
+                        {isSoldOut && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-100">
+                            <div className="relative">
+                              <div className="absolute inset-0 bg-red-600 transform rotate-12 scale-150 blur-xl opacity-70"></div>
+                              <div className="relative bg-gradient-to-r from-red-600 to-pink-700 text-white font-black text-4xl md:text-3xl px-16 py-6 transform -rotate-45 shadow-2xl tracking-wider">
+                                SOLD OUT
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Optional: Subtle "ghost" overlay for extra dead feel */}
+                        {isSoldOut && (
+                          <div className="absolute inset-0 bg-black/40 rounded-2xl"></div>
+                        )}
+
+                        <div className="relative z-10">
+                          {" "}
+                          {/* Content above overlay */}
+                          <div className="flex justify-between items-start mb-4">
+                            <div
+                              className={`px-3 py-1 rounded-lg font-black text-sm transition-opacity
+              ${
+                isSoldOut
+                  ? "bg-gray-600 text-gray-400"
+                  : `bg-gradient-to-r ${selectedNetworkData?.color} text-white`
+              }
+            `}
+                            >
+                              {plan.flashname || plan.planname}
+                            </div>
+                            {plan.discount_percentage && !isSoldOut && (
+                              <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-3 py-1 rounded-lg font-black text-sm">
+                                -{plan.discount_percentage} OFF
+                              </div>
+                            )}
+                          </div>
+                          <div
+                            className={`flex items-center justify-between text-sm mb-4 ${
+                              isSoldOut ? "text-gray-500" : "text-purple-200"
+                            }`}
+                          >
+                            <span>{plan.validate} Validity</span>
+                            {!isSoldOut && (
+                              <div className="flex items-center gap-1 text-yellow-400">
+                                <IoTimeOutline className="w-4 h-4" />
+                                <span className="font-semibold">
+                                  {timeLeft.hours}h {timeLeft.minutes}m
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="mb-4">
+                            <div className="flex items-baseline gap-2">
+                              <span
+                                className={`text-3xl font-black ${
+                                  isSoldOut ? "text-gray-500" : "text-white"
+                                }`}
+                              >
+                                ₦{displayPrice.toLocaleString()}
+                              </span>
+                              {plan.oldprice && !isSoldOut && (
+                                <span className="text-lg text-gray-400 line-through">
+                                  ₦{plan.oldprice.toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="mb-4">
+                            <div
+                              className={`flex items-center justify-between text-sm mb-2 ${
+                                isSoldOut ? "text-gray-500" : "text-purple-200"
+                              }`}
+                            >
+                              <div className="flex items-center gap-1">
+                                <IoGiftOutline className="w-4 h-4" />
+                                <span>Stock: {stockLeft} left</span>
+                              </div>
+                              <span>{soldPercentage.toFixed(0)}% sold</span>
+                            </div>
+                            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-1000 ${
+                                  isSoldOut
+                                    ? "bg-gray-600"
+                                    : `bg-gradient-to-r ${selectedNetworkData?.color}`
+                                }`}
+                                style={{
+                                  width: `${Math.min(soldPercentage, 100)}%`,
+                                }}
+                              ></div>
+                            </div>
+                            <div
+                              className={`text-xs mt-1 ${
+                                isSoldOut ? "text-gray-500" : "text-purple-300"
+                              }`}
+                            >
+                              {plan.stock_sold} / {plan.stock_available} sold
+                            </div>
+                          </div>
+                          {/* Status Messages */}
+                          {isSuccess && (
+                            <div className="mb-3 bg-green-500/20 border border-green-500 rounded-lg p-2 text-center">
+                              <p className="text-green-400 text-sm font-semibold flex items-center justify-center gap-2">
+                                <IoCheckmarkCircle className="w-4 h-4" />
+                                {purchaseStatus.message}
+                              </p>
+                            </div>
+                          )}
+                          {isFailed && (
+                            <div className="mb-3 bg-red-500/20 border border-red-500 rounded-lg p-2 text-center">
+                              <p className="text-red-400 text-xs">
+                                {purchaseStatus.message}
+                              </p>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => !isSoldOut && handlePurchase(plan)}
+                            disabled={isSoldOut || isProcessing || !hasPin}
+                            className={`w-full font-bold py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2
+            ${
+              isSoldOut
+                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                : `bg-gradient-to-r ${selectedNetworkData?.color} text-white hover:shadow-lg active:scale-95`
+            }`}
+                          >
+                            {isProcessing ? (
+                              <>
+                                <IoReloadOutline className="w-5 h-5 animate-spin" />
+                                Processing...
+                              </>
+                            ) : isSoldOut ? (
+                              "Sold Out"
+                            ) : !hasPin ? (
+                              "Setup PIN First"
+                            ) : (
+                              "Buy Now"
+                            )}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
