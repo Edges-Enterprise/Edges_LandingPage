@@ -13,7 +13,7 @@ export default function ClientFlashSaleBanner() {
       initial={{ opacity: 1, scale: 1 }}
     >
       <button
-        onClick={() => router.push("/commingsoon")}
+        onClick={() => router.push("/flashsale")}
         className="w-full text-left focus:outline-none"
         aria-label="Flash Sale"
       >
