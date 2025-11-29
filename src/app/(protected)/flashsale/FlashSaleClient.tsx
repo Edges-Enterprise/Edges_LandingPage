@@ -233,22 +233,6 @@ export function FlashSaleClient({
     return null;
   };
 
-  // useEffect(() => {
-  //   // Only auto-detect if user hasn't manually selected
-  //   if (phoneNumber.length === 11) {
-  //     const network = detectNetwork(phoneNumber);
-  //     if (network) {
-  //       setDetectedNetwork(network);
-  //     }
-  //   } else if (phoneNumber.length < 11) {
-  //     // Clear detection if phone number is incomplete, unless manually selected
-  //     const network = detectNetwork(phoneNumber);
-  //     if (!network && phoneNumber.length < 4) {
-  //       // Only clear if very short number
-  //       // Keep manual selection otherwise
-  //     }
-  //   }
-  // }, [phoneNumber]);
 
   useEffect(() => {
     if (phoneNumber.length === 11) {
@@ -592,14 +576,10 @@ export function FlashSaleClient({
 
             {/* Network Selector */}
             <div className="mb-12">
-              {/* <h2 className="text-white text-xl font-bold mb-4 text-center">
-                Or Select Network
-              </h2> */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 max-w-3xl mx-auto">
                 {networks.map((network) => (
                   <button
                     key={network.id}
-                    // onClick={() => setDetectedNetwork(network.id)}
                     className={`relative bg-white/10 backdrop-blur-lg rounded-2xl p-4 md:p-6 border-2 transition-all duration-300 ${
                       detectedNetwork === network.id
                         ? `${network.borderColor} shadow-lg scale-105`
