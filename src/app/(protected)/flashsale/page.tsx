@@ -35,7 +35,6 @@ export default async function FlashSalePage() {
     ]);
 
   const plans = plansResult.plans || [];
-  // const walletBalance = walletResult.balance || 0;
   const hasPin = !!(
     profileResult.data?.transaction_pin &&
     profileResult.data.transaction_pin.trim() !== ""
@@ -45,7 +44,6 @@ export default async function FlashSalePage() {
   return (
     <FlashSaleClient
       initialPlans={plans}
-      // initialWalletBalance={walletBalance}
       initialHasPin={hasPin}
       initialIsActive={isActive}
     />
