@@ -6,8 +6,10 @@ import Footer from '@/components/Footer';
 import Header from '@/components/Header';
 
 export const metadata: Metadata = {
-  title: "Edges Network - Nigeria's Cheapest Data & Airtime Platform | Download Now",
-  description: "Download Edges Network app for the cheapest MTN, Airtel, Glo, and 9mobile data bundles in Nigeria. Get discounted airtime, pay utility bills, and buy WAEC/NECO pins instantly. Save up to 60% with guaranteed delivery.",
+  title:
+    "Edges Network - Nigeria's #1 Platform for Data Bundles & Airtime | Download Now",
+  description:
+    "Download Edges Network app for MTN, Airtel, Glo, and 9mobile data bundles in Nigeria. Get discounted airtime, pay utility bills, and buy WAEC/NECO pins instantly. Save up to 60% with guaranteed delivery.",
 };
 
 export default function Home() {
@@ -15,7 +17,7 @@ export default function Home() {
     <>
       <Head>
         <title>
-          Edges Network - Cheap airtime/Data bundles Reselling Platform
+          Edges Network - Data bundles and discounted Airtime Reselling Platform
         </title>
         <meta
           name="description"
@@ -23,24 +25,27 @@ export default function Home() {
         />
         <meta
           name="keywords"
-          content="cheap data Nigeria, discounted airtime, MTN data, Airtel data, Glo data, 9mobile data, utility payments, WAEC pins, NECO pins, NABTEB pins, electricity bills, cable tv subscription"
+          content="affordable data, MTN Offers, Smartcash, discounted airtime, MTN data, Airtel data, Glo data, 9mobile data, utility payments, WAEC pins, NECO pins, NABTEB pins, electricity bills, cable tv subscription, cheap data Nigeria "
         />
         <meta name="author" content="Edges Network" />
         <meta name="robots" content="index, follow" />
         <meta
           property="og:title"
-          content="Edges Network - Nigeria's #1 Platform for Cheap Data & Airtime"
+          content="Edges Network - Nigeria's #1 Platform for Data Bundles & Airtime"
         />
         <meta
           property="og:description"
           content="Save money on data bundles, airtime, and utility bills. Trusted by thousands of Nigerians for the best prices and instant delivery."
         />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://edges-landing-page.vercel.app/" />
+        <meta
+          property="og:url"
+          content="https://edges-landing-page.vercel.app/"
+        />
         <meta name="twitter:card" content="summary_large_image" />
         <meta
           name="twitter:title"
-          content="Edges Network - Cheapest Data & Airtime in Nigeria"
+          content="Edges Network - Nigeria's #1 Platform for Data Bundles & Airtime"
         />
         <meta
           name="twitter:description"
