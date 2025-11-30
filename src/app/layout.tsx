@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     siteName: "Edges Network",
     images: [
       {
-        url: "https://edges-landing-page.vercel.app/edgesnetworkicon.png",
+        url: "https://edges-landing-page.vercel.app/og-image.png",
         width: 1200,
         height: 630,
         alt: "Edges Network - Cheap Data and Airtime Platform",
@@ -46,15 +46,15 @@ export const metadata: Metadata = {
     title: "Edges Network - Cheapest Data & Airtime in Nigeria",
     description:
       "Get up to 60% discount on data bundles and airtime across all networks. Instant delivery guaranteed!",
-    images: ["https://edges-landing-page.vercel.app/edgesnetworkicon.png"],
+    images: ["https://edges-landing-page.vercel.app/og-image.png"],
     creator: "@edgesnetwork",
   },
   alternates: {
     canonical: "https://edges-landing-page.vercel.app/",
   },
   icons: {
-    icon: "/edgesnetworkicon.png",
-    apple: "/edgesnetworkicon.png",
+    icon: "/og-image.png",
+    apple: "/og-image.png",
   },
   // themeColor removed from here
   other: {
@@ -106,7 +106,7 @@ export default function RootLayout({
               description:
                 "Nigeria's leading platform for cheap data bundles, discounted airtime, utility payments, and educational pins",
               url: "https://edges-landing-page.vercel.app/",
-              logo: "https://edges-landing-page.vercel.app/edgesnetworkicon.png",
+              logo: "https://edges-landing-page.vercel.app/og-image.png",
               image: "https://edges-landing-page.vercel.app/hero.png",
               telephone: "+2347057517841",
               email: "edgesnetwork@gmail.com",
