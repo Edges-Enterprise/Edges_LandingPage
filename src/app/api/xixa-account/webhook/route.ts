@@ -239,6 +239,11 @@ export async function POST(req: NextRequest) {
 
     // Tiered pricing calculation - returns the FEE amount (unchanged)
     function calculateFees(grossAmount: number): number {
+      if (grossAmount >= 1 && grossAmount <= 9) return 0.2;
+      if (grossAmount >= 10 && grossAmount <= 49) return 3;
+      if (grossAmount >= 50 && grossAmount <= 99) return 5;
+      if (grossAmount >= 100 && grossAmount <= 299) return 10;
+      if (grossAmount >= 300 && grossAmount <= 499) return 20;
       if (grossAmount >= 500 && grossAmount <= 999) return 50;
       if (grossAmount >= 1000 && grossAmount <= 1499) return 70;
       if (grossAmount >= 1500 && grossAmount <= 4999) return 100;
