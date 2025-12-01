@@ -18,7 +18,7 @@ const Features: React.FC = () => {
             Why Choose Edges Network?
           </h2>
           <p className="text-lg text-gray-400 max-w-2xl mx-auto">
-            The&apos;s #1 platform for cheap data, airtime, and utility
+            Nigeria&apos;s #1 platform for cheap data, airtime, and utility
             payments. Trusted by thousands of satisfied customers nationwide.
           </p>
         </motion.div>
