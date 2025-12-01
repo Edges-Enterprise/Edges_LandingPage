@@ -1,34 +1,11 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { sendAdminNotificationAction } from "@/app/actions/admin-notifications";
 import { FaBell, FaPaperPlane, FaUsers, FaChartLine } from "react-icons/fa6";
 import { IoCheckmarkCircle, IoAlertCircle } from "react-icons/io5";
+import { NOTIFICATION_TYPES, type NotificationType } from "@/constants/helper";
 
-// Define notification types locally (matching your schema)
-const NOTIFICATION_TYPES = [
-  "airtime",
-  "data",
-  "deposit",
-  "data_purchase",
-  "airtime_purchase",
-  "cable_purchase",
-  "hot_data",
-  "special_data",
-  "weekend_plan",
-  "weekly_plan",
-  "hot_plan",
-  "special_plan",
-  "promotional",
-  "gifting_plan",
-  "corporate_gifting_plan",
-  "sme_plan",
-  "sme_2_plan",
-  "app_update",
-  "test",
-] as const;
-
-type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 const targetAudienceOptions = [
   { value: "all", label: "All Users", description: "Send to everyone" },

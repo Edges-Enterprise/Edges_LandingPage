@@ -2,43 +2,10 @@
 
 
 "use server";
-
+import { SendNotificationParams } from "@/constants/helper";
 import { createServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-// Notification type options (from your schema constraint)
-export const NOTIFICATION_TYPES = [
-  "airtime",
-  "data",
-  "deposit",
-  "data_purchase",
-  "airtime_purchase",
-  "cable_purchase",
-  "hot_data",
-  "special_data",
-  "weekend_plan",
-  "weekly_plan",
-  "hot_plan",
-  "special_plan",
-  "promotional",
-  "gifting_plan",
-  "corporate_gifting_plan",
-  "sme_plan",
-  "sme_2_plan",
-  "app_update",
-  "test",
-] as const;
-
-export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
-
-interface SendNotificationParams {
-  notificationType: NotificationType;
-  title: string;
-  message: string;
-  targetAudience: "all" | "active" | "specific";
-  specificUserIds?: string[];
-  metadata?: Record<string, any>;
-}
 
 /**
  * Check if user is admin
