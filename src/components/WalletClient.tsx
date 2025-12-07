@@ -55,7 +55,7 @@ export function WalletClient({
   const [balance] = useState(initialBalance);
   const [transactions] = useState(initialTransactions);
   const [refreshing, setRefreshing] = useState(false);
-  console.log("transaction:", transactions);
+  // console.log("transaction:", transactions);
   // Virtual Account States
   const [hasVirtualAccount] = useState(initialVirtualAccounts.length > 0);
   // const [hasVirtualAccount] = useState(false);
