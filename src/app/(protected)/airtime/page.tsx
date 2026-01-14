@@ -32,11 +32,3 @@ export default async function AirtimePage() {
 
   return <AirtimePurchase initialBalance={balance} userId={user.id} />;
 }
-
-// // app/(protected)/airtime/page.tsx
-
-// import  AirtimePurchase  from '@/components/airtime-client'
-
-// export default function AirtimePage() {
-//   return <AirtimePurchase />;
-// }
