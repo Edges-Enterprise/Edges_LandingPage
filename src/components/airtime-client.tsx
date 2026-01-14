@@ -57,7 +57,7 @@ export default function AirtimePurchase({
     setSuccess(null);
 
     const formData = {
-      network: selectedProvider.code,
+      network: selectedProvider.id,
       phone: phoneNumber,
       amount: selectedAmount,
       pin,
