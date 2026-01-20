@@ -47,7 +47,7 @@ export default function AirtimePurchase({
     selectedProvider &&
     phoneNumber.length === 11 &&
     selectedAmount &&
-    pin.length === 4;
+    pin.length >= 4 && pin.length <= 6;
 
   const handlePurchase = async () => {
     if (!isPurchaseEnabled || loading) return;
@@ -197,11 +197,11 @@ export default function AirtimePurchase({
             type="password"
             value={pin}
             onChange={(e) =>
-              setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+              setPin(e.target.value.replace(/\D/g, "").slice(0, 6))
             }
-            placeholder="Enter 4-digit PIN"
+            placeholder="Enter PIN"
             className="w-full bg-gray-900 rounded-lg px-4 py-3 sm:py-4 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-green-400 placeholder-gray-500"
-            maxLength={4}
+            maxLength={6}
           />
         </section>
 
