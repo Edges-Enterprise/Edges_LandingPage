@@ -179,7 +179,7 @@ export default function EducationPurchase({
             <button
               type="button"
               onClick={() => setShowPin(!showPin)}
-              className="absolute right-3 top-3 text-gray-400 hover:text-gray-200"
+              className="absolute right-3 top-4 text-gray-400 hover:text-gray-200"
             >
               {showPin ? <HiEyeSlash size={18} /> : <HiEye size={18} />}
             </button>
