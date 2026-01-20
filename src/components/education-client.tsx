@@ -174,7 +174,7 @@ export default function EducationPurchase({
               } // Enforce digits only, max 6
               maxLength={6}
               className="w-full p-3 pr-10 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-              placeholder="Enter 6-digit PIN"
+              placeholder="Enter PIN"
             />
             <button
               type="button"
