@@ -88,7 +88,7 @@ export async function purchaseAirtimeAction(formData: {
 
     // Call via Supabase Edge Function (token is handled server-side)
     const lizzysubResponse = await fetch(
-      "https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/airtime-proxy",
+      "https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/airtime_proxy",
       {
         method: "POST",
         headers: {
