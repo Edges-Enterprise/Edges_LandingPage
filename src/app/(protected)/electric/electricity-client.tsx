@@ -139,7 +139,7 @@ export default function ElectricityClient({
     (bypassVerification || (isMeterValid && !meterVerificationError)) &&
     finalAmount &&
     finalAmount >= 500 &&
-    transactionPin.length >= 4;
+    transactionPin.length >= 4 && transactionPin.length <= 6;
 
   // Handle purchase
   const handlePurchase = async () => {
@@ -387,7 +387,7 @@ export default function ElectricityClient({
             onChange={(e) =>
               setTransactionPin(e.target.value.replace(/\D/g, "").slice(0, 6))
             }
-            placeholder="Enter 4-digit PIN"
+            placeholder="Enter PIN"
             maxLength={6}
             className={`w-full bg-zinc-900 rounded-lg px-4 py-3 text-white placeholder-gray-500 border ${
               transactionPin ? "border-yellow-500" : "border-zinc-700"
