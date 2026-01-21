@@ -1,4 +1,3 @@
-
 // app/actions/auth.ts
 
 "use server";
@@ -9,7 +8,7 @@ import { revalidatePath } from "next/cache";
 
 export async function signInAction(
   prevState: { error?: string } | null,
-  formData: FormData
+  formData: FormData,
 ) {
   const supabase = await createServerClient();
   const email = formData.get("email") as string;
@@ -47,7 +46,7 @@ export async function signInAction(
 
 export async function signUpAction(
   prevState: { error?: string } | null,
-  formData: FormData
+  formData: FormData,
 ) {
   const supabase = await createServerClient();
   const username = (formData.get("username") as string)?.trim();
@@ -169,7 +168,7 @@ export async function deleteOwnAccountAction() {
         Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ user_id: session.user.id }),
-    }
+    },
   );
 
   if (!response.ok) {
@@ -204,7 +203,7 @@ export async function getTransactionPinAction() {
 
 export async function updateTransactionPinAction(
   currentPin: string,
-  newPin: string
+  newPin: string,
 ) {
   const supabase = await createServerClient();
   const {
@@ -235,7 +234,6 @@ export async function updateTransactionPinAction(
   // Revalidate profile cache
   revalidatePath("/profile");
 }
-
 
 /**
  * Forgot Password Action
@@ -310,6 +308,45 @@ export async function resetPasswordAction(formData: FormData) {
   if (updateError) {
     return { error: updateError.message };
   }
+
+  return { success: true };
+}
+
+export async function updatePasswordAction(
+  currentPassword: string,
+  newPassword: string,
+) {
+  const supabase = await createServerClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user?.email) {
+    throw new Error("Not authenticated");
+  }
+
+  const email = session.user.email;
+
+  // Verify current password by attempting sign-in
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email,
+    password: currentPassword,
+  });
+
+  if (signInError) {
+    throw new Error("Current password is incorrect");
+  }
+
+  // Update password
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: newPassword,
+  });
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  revalidatePath("/settings"); // Revalidate if needed
 
   return { success: true };
 }
