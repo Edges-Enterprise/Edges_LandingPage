@@ -58,10 +58,10 @@ export default function SettingsClient({
         setModals((prev) => ({ ...prev, emailSupport: true }));
         break;
       case "Change Password":
-        router.push("/change-password");
+        router.push("/changepassword");
         break;
       case "Change Transaction PIN":
-        router.push("/change-pin");
+        router.push("/changepin");
         break;
       case "Privacy Policy":
         router.push("/privacy");
