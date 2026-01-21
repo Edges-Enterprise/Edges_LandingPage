@@ -5,7 +5,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { HiEye, HiEyeSlash } from "react-icons/hi2";
-import { updateTransactionPinAction } from "@/app/actions/auth"; // Import the server action from auth.ts
+import {
+  updateTransactionPinAction,
+  getTransactionPinAction,
+} from "@/app/actions/auth"; // Import the server action from auth.ts
 
 export default function ChangePinPage() {
   const router = useRouter();
@@ -20,20 +23,13 @@ export default function ChangePinPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   // Fetch current PIN on mount
+  // Fetch current PIN on mount using server action
   useEffect(() => {
     const fetchCurrentPin = async () => {
       try {
-        const response = await fetch("/api/get-transaction-pin", {
-          // Assuming you create an API route for security, or use server action directly if possible
-          method: "GET",
-          credentials: "include",
-        });
-        if (!response.ok) {
-          throw new Error("Failed to fetch PIN");
-        }
-        const data = await response.json();
-        setCurrentPin(data.pin);
-      } catch (err) {
+        const { pin } = await getTransactionPinAction();
+        setCurrentPin(pin);
+      } catch (err: any) {
         console.error("Fetch PIN error:", err);
         setError("Failed to load current PIN. Please refresh.");
       } finally {
