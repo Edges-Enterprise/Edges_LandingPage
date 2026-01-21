@@ -1,7 +1,7 @@
 // app/(protected)/change-password/page.tsx
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { HiEye, HiEyeSlash } from "react-icons/hi2";
 
 export default function ChangePasswordPage() {
@@ -17,24 +17,6 @@ export default function ChangePasswordPage() {
 
         {/* Form */}
         <form className="flex flex-col space-y-4">
-          {/* Current Password */}
-          <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Current Password
-            </label>
-            <input
-              type={showCurrent ? "text" : "password"}
-              placeholder="Enter current password"
-              className="w-full p-3 pr-10 rounded-xl border border-gray-300 text-xs text-gray-400 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => setShowCurrent(!showCurrent)}
-              className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
-            >
-              {showCurrent ? <HiEyeSlash size={18} /> : <HiEye size={18} />}
-            </button>
-          </div>
 
           {/* New Password */}
           <div className="relative">
