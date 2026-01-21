@@ -181,6 +181,27 @@ export async function deleteOwnAccountAction() {
   return signOutAction();
 }
 
+export async function getTransactionPinAction() {
+  const supabase = await createServerClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user) throw new Error("Not authenticated");
+
+  const { data: profile, error: fetchError } = await supabase
+    .from("profiles")
+    .select("transaction_pin")
+    .eq("id", session.user.id)
+    .single();
+
+  if (fetchError || !profile) {
+    throw new Error("Failed to fetch PIN");
+  }
+
+  return { pin: profile.transaction_pin };
+}
+
 export async function updateTransactionPinAction(
   currentPin: string,
   newPin: string
