@@ -10,8 +10,8 @@ import { purchaseAirtimeAction } from "@/app/actions/airtime";
 // Real providers with codes for Lizzysub
 const PROVIDERS = [
   { id: 1, name: "MTN", code: "mtn", image: NETWORK_IMAGES.MTN },
-  { id: 2, name: "GLO", code: "glo", image: NETWORK_IMAGES.GLO },
-  { id: 3, name: "AIRTEL", code: "airtel", image: NETWORK_IMAGES.AIRTEL },
+  { id: 2, name: "AIRTEL", code: "airtel", image: NETWORK_IMAGES.AIRTEL },
+  { id: 3, name: "GLO", code: "glo", image: NETWORK_IMAGES.GLO },
   { id: 4, name: "9MOBILE", code: "9mobile", image: NETWORK_IMAGES["9MOBILE"] },
 ];
 
