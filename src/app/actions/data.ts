@@ -36,7 +36,7 @@ export async function getHotDealsAction(networkName: string) {
  */
 export async function getDataPlansAction(
   networkName: string,
-  category?: string
+  category?: string,
 ) {
   try {
     const supabase = await createServerClient();
@@ -427,7 +427,7 @@ export async function purchaseDataAction(formData: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify(lizzysubPayload),
-      }
+      },
     );
 
     const lizzysubData = await lizzysubResponse.json();
@@ -439,6 +439,18 @@ export async function purchaseDataAction(formData: {
 
     // 7. Handle API response
     if (lizzysubData.status !== "success") {
+      let userErrorMessage =
+        lizzysubData.message || "Transaction failed. Please try again.";
+
+      // Check for specific provider balance error and make it generic
+      if (
+        userErrorMessage.includes(
+          "Insufficient Account Kindly Fund Your Wallet",
+        )
+      ) {
+        userErrorMessage =
+          "Service temporarily unavailable. Please try again later.";
+      }
       // Create failed transaction record
       await supabase.from("transactions").insert({
         user_email: profile.email,
