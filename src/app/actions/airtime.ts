@@ -96,7 +96,7 @@ export async function purchaseAirtimeAction(formData: {
           Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify(lizzysubPayload),
-      }
+      },
     );
 
     const lizzysubData = await lizzysubResponse.json();
@@ -107,7 +107,45 @@ export async function purchaseAirtimeAction(formData: {
     });
 
     // 7. Handle API response
+    // if (lizzysubData.status !== "success") {
+    //   // Create failed transaction record
+    //   await supabase.from("transactions").insert({
+    //     user_email: profile.email,
+    //     amount: discountedAmount,
+    //     reference: requestId,
+    //     status: "failed",
+    //     type: "airtime_purchase",
+    //     env: "live",
+    //     metadata: {
+    //       network: lizzysubData.network || "Unknown",
+    //       phone_number: formData.phone,
+    //       airtime_amount: formData.amount,
+    //       charged_amount: discountedAmount,
+    //       error_message: lizzysubData.message,
+    //       provider: "lizzysub",
+    //     },
+    //   });
+
+    //   return {
+    //     error: lizzysubData.message || "Transaction failed. Please try again.",
+    //   };
+    // }
+
+    // 7. Handle API response
     if (lizzysubData.status !== "success") {
+      let userErrorMessage =
+        lizzysubData.message || "Transaction failed. Please try again.";
+
+      // Check for specific provider balance error and make it generic
+      if (
+        userErrorMessage.includes(
+          "Insufficient Account Kindly Fund Your Wallet",
+        )
+      ) {
+        userErrorMessage =
+          "Service temporarily unavailable. Please try again later.";
+      }
+
       // Create failed transaction record
       await supabase.from("transactions").insert({
         user_email: profile.email,
@@ -121,13 +159,13 @@ export async function purchaseAirtimeAction(formData: {
           phone_number: formData.phone,
           airtime_amount: formData.amount,
           charged_amount: discountedAmount,
-          error_message: lizzysubData.message,
+          error_message: lizzysubData.message, // Keep full original message in metadata for internal logging
           provider: "lizzysub",
         },
       });
 
       return {
-        error: lizzysubData.message || "Transaction failed. Please try again.",
+        error: userErrorMessage,
       };
     }
 
