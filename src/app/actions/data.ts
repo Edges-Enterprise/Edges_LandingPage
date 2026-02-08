@@ -438,41 +438,76 @@ export async function purchaseDataAction(formData: {
     });
 
     // 7. Handle API response
-    if (lizzysubData.status !== "success") {
-      let userErrorMessage =
-        lizzysubData.message || "Transaction failed. Please try again.";
+    // if (lizzysubData.status !== "success") {
+    //   let userErrorMessage =
+    //     lizzysubData.message || "Transaction failed. Please try again.";
 
-      // Check for specific provider balance error and make it generic
-      if (
-        userErrorMessage.includes(
-          "Insufficient Account Kindly Fund Your Wallet",
-        )
-      ) {
-        userErrorMessage =
-          "Service temporarily unavailable. Please try again later.";
-      }
-      // Create failed transaction record
-      await supabase.from("transactions").insert({
-        user_email: profile.email,
-        amount: formData.amount,
-        reference: requestId,
-        status: "failed",
-        type: "data_purchase",
-        env: "live",
-        metadata: {
-          network: lizzysubData.network || "Unknown",
-          phone_number: formData.phone,
-          plan_name: formData.planName,
-          validity: formData.validity,
-          error_message: lizzysubData.message,
-          lizzysub_plan_id: formData.data_plan,
-        },
-      });
+    //   // Check for specific provider balance error and make it generic
+    //   if (
+    //     userErrorMessage.includes(
+    //       "Insufficient Account Kindly Fund Your Wallet",
+    //     )
+    //   ) {
+    //     userErrorMessage =
+    //       "Service temporarily unavailable. Please try again later.";
+    //   }
+    //   // Create failed transaction record
+    //   await supabase.from("transactions").insert({
+    //     user_email: profile.email,
+    //     amount: formData.amount,
+    //     reference: requestId,
+    //     status: "failed",
+    //     type: "data_purchase",
+    //     env: "live",
+    //     metadata: {
+    //       network: lizzysubData.network || "Unknown",
+    //       phone_number: formData.phone,
+    //       plan_name: formData.planName,
+    //       validity: formData.validity,
+    //       error_message: lizzysubData.message,
+    //       lizzysub_plan_id: formData.data_plan,
+    //     },
+    //   });
 
-      return {
-        error: lizzysubData.message || "Transaction failed. Please try again.",
-      };
-    }
+    //   return {
+    //     error: lizzysubData.message || "Transaction failed. Please try again.",
+    //   };
+    // }
+     if (lizzysubData.status !== "success") {
+       let userErrorMessage =
+         lizzysubData.message || "Transaction failed. Please try again.";
+
+       // Check for specific provider balance error and make it generic
+       if (
+         userErrorMessage.includes(
+           "Insufficient Account Kindly Fund Your Wallet",
+         )
+       ) {
+         userErrorMessage =
+           "Service temporarily unavailable. Please try again later.";
+       }
+       // Create failed transaction record
+       await supabase.from("transactions").insert({
+         user_email: profile.email,
+         amount: formData.amount,
+         reference: requestId,
+         status: "failed",
+         type: "data_purchase",
+         env: "live",
+         metadata: {
+           network: lizzysubData.network || "Unknown",
+           phone_number: formData.phone,
+           plan_name: formData.planName,
+           validity: formData.validity,
+           error_message: lizzysubData.message,
+           lizzysub_plan_id: formData.data_plan,
+         },
+       });
+
+       return {
+         error: userErrorMessage,
+       };
+     }
 
     // 8. Deduct from wallet
     const newBalance = currentBalance - formData.amount;
