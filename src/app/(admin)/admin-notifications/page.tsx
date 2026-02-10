@@ -1,8 +1,7 @@
 // app/(admin)/admin-notifications/page.tsx
 
 import { redirect } from "next/navigation";
-import { getUser } from "@/lib/supabase/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { getUser, createServerClient } from "@/lib/supabase/server";
 import AdminNotificationsPage from "./AdminNotificationPage";
 
 export default async function AdminNotificationsRoute() {
