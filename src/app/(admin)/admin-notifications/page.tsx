@@ -1,32 +1,3 @@
-// // app/(admin)/notifications/page.tsx
-
-// import { redirect } from "next/navigation";
-// import { getUser } from "@/lib/supabase/server";
-// import { createServerClient } from "@/lib/supabase/server";
-// import AdminNotificationsPage from "./AdminNotificationPage";
-
-// export default async function AdminNotificationsRoute() {
-//   // Check if user is admin
-//   const user = await getUser();
-//   if (!user) {
-//     redirect("/sign-in");
-//   }
-
-//   const supabase = await createServerClient();
-//   const { data: profile } = await supabase
-//     .from("profiles")
-//     .select("is_admin")
-//     .eq("id", user.id)
-//     .single();
-
-//   if (!profile?.is_admin) {
-//     redirect("/home"); // Non-admins can't access
-//   }
-
-//   return <AdminNotificationsPage />;
-// }
-
-
 // app/(admin)/admin-notifications/page.tsx
 
 import { redirect } from "next/navigation";
