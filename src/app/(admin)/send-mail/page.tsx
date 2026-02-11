@@ -16,7 +16,7 @@ export default async function SendMailRoute() {
     .single();
 
   if (!profile?.is_admin) {
-    redirect("/notification"); // or wherever non-admins go, yh
+    redirect("/notification"); // or wherever non-admins go
   }
 
   return <AdminEmailPage />;
