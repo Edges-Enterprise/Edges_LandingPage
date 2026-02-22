@@ -1,67 +1,299 @@
 // src/app/api/xixa-account/webhook/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
+// ─── App Registry ─────────────────────────────────────────────────────────────
+// To add App 3, App 4, etc. — just add an entry here and set the env vars.
+// App 1 is handled separately (it uses createServerClient + user_email schema).
+// All satellite apps go in this list.
+//
+// ENV VARS TO ADD IN VERCEL FOR EACH APP:
+//   APP2_SUPABASE_URL         APP3_SUPABASE_URL
+//   APP2_SUPABASE_SECRET_KEY  APP3_SUPABASE_SECRET_KEY
+
+interface AppConfig {
+  name: string; // Human-readable label for logs
+  txPrefix: string; // Reference prefix e.g. "BB_", "APP3_"
+  supabase: SupabaseClient;
+  walletTable: string; // "wallets" or "wallet"
+  walletUserColumn: string; // "user_id" or "user_email"
+}
+
+const SATELLITE_APPS: AppConfig[] = [
+  {
+    name: "App2 (Bimbo)",
+    txPrefix: "BB_",
+    supabase: createClient(
+      process.env.APP2_SUPABASE_URL!,
+      process.env.APP2_SUPABASE_SECRET_KEY!,
+    ),
+    walletTable: "wallets",
+    walletUserColumn: "user_id",
+  },
+  // ── Add App 3 here ──────────────────────────────────────────────────────────
+  // {
+  //   name: "App3 (SomeName)",
+  //   txPrefix: "APP3_",
+  //   supabase: createClient(
+  //     process.env.APP3_SUPABASE_URL!,
+  //     process.env.APP3_SUPABASE_SECRET_KEY!
+  //   ),
+  //   walletTable: "wallets",   // adjust to match App 3's schema
+  //   walletUserColumn: "user_id",
+  // },
+];
+
+// ─── Fee calculation ──────────────────────────────────────────────────────────
+function calculateFees(grossAmount: number): number {
+  if (grossAmount >= 1 && grossAmount <= 9) return 0.2;
+  if (grossAmount >= 10 && grossAmount <= 49) return 3;
+  if (grossAmount >= 50 && grossAmount <= 99) return 5;
+  if (grossAmount >= 100 && grossAmount <= 299) return 10;
+  if (grossAmount >= 300 && grossAmount <= 499) return 20;
+  if (grossAmount >= 500 && grossAmount <= 999) return 50;
+  if (grossAmount >= 1000 && grossAmount <= 1499) return 70;
+  if (grossAmount >= 1500 && grossAmount <= 4999) return 100;
+  if (grossAmount >= 5000 && grossAmount <= 8999) return 150;
+  const steps = Math.floor((grossAmount - 9000) / 4000);
+  return 200 + steps * 50;
+}
+
+function calculateNetAmount(gross: number): number {
+  return gross - calculateFees(gross);
+}
+
+// ─── Generic satellite app processor ─────────────────────────────────────────
+// Returns NextResponse if the account was found (and handled or errored).
+// Returns null if the account was NOT found — meaning try the next app.
+async function processForSatelliteApp(
+  app: AppConfig,
+  payload: any,
+): Promise<NextResponse | null> {
+  const {
+    transaction_id,
+    amount_paid,
+    settlement_amount,
+    settlement_fee,
+    receiver,
+    customer,
+    sender,
+    timestamp,
+  } = payload;
+  const db = app.supabase;
+
+  // 1. Check if account exists in this app
+  const { data: virtualAccount, error: accountError } = await db
+    .from("virtual_accounts")
+    .select("user_id, account_number, account_name, bank_name")
+    .eq("account_number", receiver.account_number)
+    .eq("account_name", receiver.name)
+    .single();
+
+  if (accountError || !virtualAccount) {
+    console.log(`[${app.name}] Account not found: ${receiver.account_number}`);
+    return null; // Not this app's account — try next
+  }
+
+  console.log(`[${app.name}] Account found! Processing...`);
+
+  // 2. Get profile
+  const { data: profile, error: profileError } = await db
+    .from("profiles")
+    .select("email")
+    .eq("id", virtualAccount.user_id)
+    .single();
+
+  if (profileError || !profile) {
+    console.error(
+      `[${app.name}] Profile not found for user:`,
+      virtualAccount.user_id,
+    );
+    return NextResponse.json(
+      { error: `[${app.name}] User not found` },
+      { status: 404 },
+    );
+  }
+
+  // 3. Duplicate check
+  const reference = `${app.txPrefix}${transaction_id}`;
+  const { data: existingTx } = await db
+    .from("transactions")
+    .select("id")
+    .eq("reference", reference)
+    .single();
+
+  if (existingTx) {
+    console.log(`[${app.name}] Already processed:`, transaction_id);
+    return NextResponse.json({ message: "Already processed" });
+  }
+
+  // 4. Get wallet
+  const walletLookupValue =
+    app.walletUserColumn === "user_email"
+      ? profile.email
+      : virtualAccount.user_id;
+
+  const { data: wallet, error: walletError } = await db
+    .from(app.walletTable)
+    .select("id, balance")
+    .eq(app.walletUserColumn, walletLookupValue)
+    .single();
+
+  if (walletError || !wallet) {
+    console.error(`[${app.name}] Wallet not found for:`, walletLookupValue);
+    return NextResponse.json(
+      { error: `[${app.name}] Wallet not found` },
+      { status: 404 },
+    );
+  }
+
+  // 5. Calculate amounts
+  const grossAmount = parseFloat(amount_paid);
+  const xixaSettlementAmount = parseFloat(settlement_amount || amount_paid);
+  const xixaFee = grossAmount - xixaSettlementAmount;
+  const platformFees = calculateFees(grossAmount);
+  const finalNetAmount = calculateNetAmount(grossAmount);
+  const currentBalance = parseFloat(wallet.balance || "0");
+  const newBalance = currentBalance + finalNetAmount;
+
+  console.log(`[${app.name}] Fee breakdown:`, {
+    gross: grossAmount,
+    xixa_fee: xixaFee,
+    platform_fees: platformFees,
+    final_net: finalNetAmount,
+    new_balance: newBalance,
+  });
+
+  // 6. Update wallet
+  const { error: updateError } = await db
+    .from(app.walletTable)
+    .update({
+      balance: newBalance.toString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq(app.walletUserColumn, walletLookupValue);
+
+  if (updateError) {
+    console.error(`[${app.name}] Failed to update wallet:`, updateError);
+    return NextResponse.json(
+      { error: `[${app.name}] Failed to update wallet` },
+      { status: 500 },
+    );
+  }
+
+  // 7. Record transaction
+  // Uses the App 2 schema (user_id based with service/network/previous_balance).
+  // If App 3 has a different schema, add a `schema` field to AppConfig and branch here.
+  const { error: txError } = await db.from("transactions").insert({
+    user_id: virtualAccount.user_id,
+    type: "deposit",
+    service: "Wallet Funding",
+    network: receiver.bank || "Bank Transfer",
+    amount: finalNetAmount.toString(),
+    previous_balance: currentBalance.toString(),
+    new_balance: newBalance.toString(),
+    status: "completed",
+    reference,
+    description: `Wallet funded via ${receiver.bank}`,
+    provider_reference: transaction_id,
+    provider_response: {
+      payment_method: "bank_transfer",
+      bank_name: sender.bank,
+      account_number: sender.account_number,
+      sender_name: sender.name,
+      receiver_account: receiver.account_number,
+      receiver_bank: receiver.bank,
+      xixa_settlement_fee: settlement_fee,
+      xixa_raw_amount: amount_paid,
+      platform_fees: platformFees,
+      xixa_fee_absorbed: xixaFee,
+      gross_after_xixa: xixaSettlementAmount,
+      customer_name: customer?.name,
+      customer_email: customer?.email,
+      timestamp,
+      original_reference: transaction_id,
+      provider: "xixapay",
+      verified_by: `${app.name}-webhook-forward`,
+      channel: "bank_transfer",
+    },
+    completed_at: new Date().toISOString(),
+  });
+
+  if (txError) {
+    console.error(`[${app.name}] Failed to record transaction:`, txError);
+    // Wallet already updated — don't fail the webhook response
+  }
+
+  // 8. Notification
+  await db.from("notifications").insert({
+    user_id: virtualAccount.user_id,
+    notification_type: "deposit",
+    message: `₦${finalNetAmount.toLocaleString("en-NG", {
+      minimumFractionDigits: 2,
+    })} has been added to your wallet from ${sender.bank} (after ₦${platformFees.toLocaleString()} fee)`,
+    is_read: false,
+    metadata: {
+      transaction_id: reference,
+      amount: finalNetAmount,
+      fee_charged: platformFees,
+      sender: sender.name,
+      bank: sender.bank,
+    },
+  });
+
+  console.log(`[${app.name}] Processed successfully:`, {
+    user: profile.email,
+    final_net: finalNetAmount,
+    new_balance: newBalance,
+  });
+
+  return NextResponse.json({
+    message: `Processed by ${app.name}`,
+    transaction_id,
+  });
+}
+
+// ─── Main webhook handler ─────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
-    // 1. Get the raw body and signature
+    // 1. Raw body + signature
     const rawBody = await req.text();
     const signature = req.headers.get("xixapay");
 
     if (!signature) {
-      console.error("Missing xixapay signature header");
       return NextResponse.json({ error: "Missing signature" }, { status: 400 });
     }
 
-    // DEBUG: Log received values (remove after testing)
-    console.log("=== WEBHOOK DEBUG START ===");
-    console.log(
-      "Received rawBody (first 200 chars):",
-      rawBody.substring(0, 200) + (rawBody.length > 200 ? "..." : ""),
-    );
-    console.log("FULL:", JSON.stringify(rawBody, null, 2)); // add this
-    console.log("Received signature:", signature);
-    console.log(
-      "Secret key length (safe):",
-      process.env.XIXAPAY_SECRET_KEY?.length || "MISSING",
-    );
-
-    // 2. Verify the signature
-    const secretKey = process.env.XIXAPAY_SECRET_KEY!;
+    // 2. Verify signature
     const calculatedSignature = crypto
-      .createHmac("sha256", secretKey)
+      .createHmac("sha256", process.env.XIXAPAY_SECRET_KEY!)
       .update(rawBody)
       .digest("hex");
-
-    // DEBUG: Log calculated values (remove after testing)
-    console.log("Calculated signature:", calculatedSignature);
-    console.log("Signatures match?", calculatedSignature === signature);
-    console.log("=== WEBHOOK DEBUG END ===");
 
     if (calculatedSignature !== signature) {
       console.error("Invalid webhook signature");
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
 
-    // 3. Parse the webhook payload
+    // 3. Parse payload
     const payload = JSON.parse(rawBody);
     console.log("Webhook received:", {
       status: payload.notification_status,
       transaction_id: payload.transaction_id,
       amount: payload.amount_paid,
+      receiver_account: payload.receiver?.account_number,
     });
-    console.log("FULL PAYLOAD:", JSON.stringify(payload, null, 2)); // add this
+
     // 4. Only process successful payments
     if (
       payload.notification_status !== "payment_successful" ||
       payload.transaction_status !== "success"
     ) {
-      console.log("Ignoring non-successful payment");
       return NextResponse.json({ message: "Ignored" });
     }
 
-    // 5. Extract data
     const {
       transaction_id,
       amount_paid,
@@ -73,313 +305,145 @@ export async function POST(req: NextRequest) {
       timestamp,
     } = payload;
 
-    // 6. Find the user by account number
+    // ── STEP 5: Try App 1 first ───────────────────────────────────────────────
     const supabase = await createServerClient();
-    const { data: virtualAccount, error: accountError } = await supabase
+    const { data: virtualAccount } = await supabase
       .from("virtual_accounts")
       .select("user_id, account_number, account_name, bank_name")
       .eq("account_number", receiver.account_number)
+      .eq("account_name", receiver.name)
       .single();
 
-    if (accountError || !virtualAccount) {
-      console.error("Virtual account not found:", receiver.account_number);
-      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    if (virtualAccount) {
+      // ── App 1 logic (unchanged) ─────────────────────────────────────────────
+      console.log("Account found in App 1, processing normally...");
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("email")
+        .eq("id", virtualAccount.user_id)
+        .single();
+
+      if (!profile) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+
+      const { data: existingTx } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("reference", `Edges_Network_Web_${transaction_id}`)
+        .single();
+
+      if (existingTx) {
+        return NextResponse.json({ message: "Already processed" });
+      }
+
+      const { data: wallet, error: walletError } = await supabase
+        .from("wallet")
+        .select("balance")
+        .eq("user_email", profile.email)
+        .single();
+
+      if (walletError || !wallet) {
+        return NextResponse.json(
+          { error: "Wallet not found" },
+          { status: 404 },
+        );
+      }
+
+      const grossAmount = parseFloat(amount_paid);
+      const xixaSettlementAmount = parseFloat(settlement_amount || amount_paid);
+      const xixaFee = grossAmount - xixaSettlementAmount;
+      const platformFees = calculateFees(grossAmount);
+      const finalNetAmount = calculateNetAmount(grossAmount);
+      const currentBalance = parseFloat(wallet.balance || "0");
+      const newBalance = currentBalance + finalNetAmount;
+
+      await supabase
+        .from("wallet")
+        .update({ balance: newBalance.toString() })
+        .eq("user_email", profile.email);
+
+      await supabase.from("transactions").insert({
+        user_email: profile.email,
+        type: "deposit",
+        amount: finalNetAmount.toString(),
+        status: "completed",
+        reference: `Edges_Network_Web_${transaction_id}`,
+        description: `Wallet funding via ${receiver.bank}`,
+        env: "live",
+        metadata: {
+          payment_method: "bank_transfer",
+          bank_name: sender.bank,
+          account_number: sender.account_number,
+          sender_name: sender.name,
+          receiver_account: receiver.account_number,
+          receiver_bank: receiver.bank,
+          xixa_settlement_fee: settlement_fee,
+          xixa_raw_amount: amount_paid,
+          platform_fees: platformFees,
+          xixa_fee_absorbed: xixaFee,
+          gross_after_xixa: xixaSettlementAmount,
+          customer_name: customer.name,
+          customer_email: customer.email,
+          timestamp,
+          original_reference: transaction_id,
+          provider: "xixapay",
+          verified_by: "xixapay-webhook",
+          channel: "bank_transfer",
+        },
+      });
+
+      await supabase.from("notifications").insert({
+        user_id: virtualAccount.user_id,
+        notification_type: "deposit",
+        message: `₦${finalNetAmount.toLocaleString("en-NG", {
+          minimumFractionDigits: 2,
+        })} has been added to your wallet from ${sender.bank} (after ₦${platformFees.toLocaleString()} fee)`,
+        is_read: false,
+        metadata: {
+          transaction_id: `Edges_Network_Web_${transaction_id}`,
+          amount: finalNetAmount,
+          fee_charged: platformFees,
+          sender: sender.name,
+          bank: sender.bank,
+        },
+      });
+
+      console.log("App 1 wallet funded:", {
+        user: profile.email,
+        final_net: finalNetAmount,
+        new_balance: newBalance,
+      });
+
+      return NextResponse.json({
+        message: "Webhook processed successfully",
+        transaction_id,
+      });
     }
 
-    // 7. Get user profile
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("email")
-      .eq("id", virtualAccount.user_id)
-      .single();
+    // ── STEP 6: Not in App 1 — try satellite apps in order ───────────────────
+    console.log("Account not in App 1, trying satellite apps...");
 
-    if (profileError || !profile) {
-      console.error("User profile not found");
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    for (const app of SATELLITE_APPS) {
+      const result = await processForSatelliteApp(app, payload);
+      if (result !== null) {
+        return result; // App claimed it (found or errored) — stop looping
+      }
+      // null = not found in this app, continue to next
     }
 
-    // 8. Check if transaction already processed (prevent duplicates)
-    const { data: existingTx } = await supabase
-      .from("transactions")
-      .select("id")
-      .eq("reference", `Edges_Network_Web_${transaction_id}`) // Prefixed ref for consistency
-      .single();
-
-    if (existingTx) {
-      console.log("Transaction already processed:", transaction_id);
-      return NextResponse.json({ message: "Already processed" });
-    }
-
-    // // 9. Get current wallet balance
-    // const { data: wallet, error: walletError } = await supabase
-    //   .from("wallet")
-    //   .select("balance")
-    //   .eq("user_email", profile.email)
-    //   .single();
-
-    // if (walletError) {
-    //   console.error("Wallet not found");
-    //   return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
-    // }
-
-    // // Tiered pricing calculation - returns the FEE amount (from Paystack webhook)
-    // function calculateFees(grossAmount: number): number {
-    //   if (grossAmount >= 500 && grossAmount <= 999) return 50;
-    //   if (grossAmount >= 1000 && grossAmount <= 1499) return 70;
-    //   if (grossAmount >= 1500 && grossAmount <= 4999) return 100;
-    //   if (grossAmount >= 5000 && grossAmount <= 8999) return 150;
-
-    //   // For 9000 and above
-    //   const base = 9000;
-    //   const basePrice = 200;
-    //   const rangeSize = 4000;
-    //   const increment = 50;
-    //   const steps = Math.floor((grossAmount - base) / rangeSize);
-    //   return basePrice + steps * increment;
-    // }
-
-    // // Calculate net amount by subtracting fees from gross amount
-    // function calculateNetAmount(grossAmount: number): number {
-    //   return grossAmount - calculateFees(grossAmount);
-    // }
-
-    // const grossAmount = parseFloat(amount_paid); // Xixa gross
-    // const xixaSettlementAmount = parseFloat(settlement_amount || amount_paid); // After Xixa fees
-    // const platformFees = calculateFees(xixaSettlementAmount); // Your tiered fees on settlement
-    // const finalNetAmount = calculateNetAmount(xixaSettlementAmount); // Final net after all fees
-
-    // const currentBalance = parseFloat(wallet.balance || "0");
-    // const newBalance = currentBalance + finalNetAmount;
-
-    // // 10. Update wallet balance (with final net)
-    // const { error: updateError } = await supabase
-    //   .from("wallet")
-    //   .update({ balance: newBalance.toString() })
-    //   .eq("user_email", profile.email);
-
-    // if (updateError) {
-    //   console.error("Failed to update wallet:", updateError);
-    //   return NextResponse.json(
-    //     { error: "Failed to update wallet" },
-    //     { status: 500 }
-    //   );
-    // }
-
-    // // 11. Record transaction (net amount, prefixed ref, fees in metadata)
-    // const { error: txError } = await supabase.from("transactions").insert({
-    //   user_email: profile.email,
-    //   type: "deposit",
-    //   amount: finalNetAmount.toString(), // Final net after all fees
-    //   status: "completed",
-    //   reference: `Edges_Network_Web_${transaction_id}`, // Prefixed for consistency
-    //   description: `Wallet funding via ${receiver.bank}`,
-    //   env: "live",
-    //   metadata: {
-    //     payment_method: "bank_transfer",
-    //     bank_name: sender.bank,
-    //     account_number: sender.account_number,
-    //     sender_name: sender.name,
-    //     receiver_account: receiver.account_number,
-    //     receiver_bank: receiver.bank,
-    //     xixa_settlement_fee: settlement_fee,
-    //     xixa_raw_amount: amount_paid,
-    //     platform_fees: platformFees, // Your tiered fees
-    //     gross_after_xixa: xixaSettlementAmount, // After Xixa fees, before platform
-    //     customer_name: customer.name,
-    //     customer_email: customer.email,
-    //     timestamp: timestamp,
-    //     original_reference: transaction_id, // Raw Xixa ID
-    //     provider: "xixapay",
-    //     verified_by: "xixapay-webhook",
-    //     channel: "bank_transfer",
-    //   },
-    // });
-
-    // if (txError) {
-    //   console.error("Failed to record transaction:", txError);
-    //   // Wallet was already updated, so log but don't fail
-    // }
-
-    // // 12. Create notification (use final net)
-    // await supabase.from("notifications").insert({
-    //   user_id: virtualAccount.user_id,
-    //   notification_type: "deposit",
-    //   message: `₦${finalNetAmount.toLocaleString("en-NG", {
-    //     minimumFractionDigits: 2,
-    //   })} has been added to your wallet from ${sender.bank}`,
-    //   is_read: false,
-    //   metadata: {
-    //     transaction_id: `Edges_Network_Web_${transaction_id}`,
-    //     amount: finalNetAmount,
-    //     sender: sender.name,
-    //     bank: sender.bank,
-    //   },
-    // });
-
-    // console.log("Wallet funded successfully:", {
-    //   user: profile.email,
-    //   gross: grossAmount,
-    //   xixa_settlement: xixaSettlementAmount,
-    //   platform_fees: platformFees,
-    //   final_net: finalNetAmount,
-    //   new_balance: newBalance,
-    // });
-    // ... (rest of the code unchanged up to step 9)
-
-    // 9. Get current wallet balance
-    const { data: wallet, error: walletError } = await supabase
-      .from("wallet")
-      .select("balance")
-      .eq("user_email", profile.email)
-      .single();
-
-    if (walletError) {
-      console.error("Wallet not found");
-      return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
-    }
-
-    // Tiered pricing calculation - returns the FEE amount (unchanged)
-    function calculateFees(grossAmount: number): number {
-      if (grossAmount >= 1 && grossAmount <= 9) return 0.2;
-      if (grossAmount >= 10 && grossAmount <= 49) return 3;
-      if (grossAmount >= 50 && grossAmount <= 99) return 5;
-      if (grossAmount >= 100 && grossAmount <= 299) return 10;
-      if (grossAmount >= 300 && grossAmount <= 499) return 20;
-      if (grossAmount >= 500 && grossAmount <= 999) return 50;
-      if (grossAmount >= 1000 && grossAmount <= 1499) return 70;
-      if (grossAmount >= 1500 && grossAmount <= 4999) return 100;
-      if (grossAmount >= 5000 && grossAmount <= 8999) return 150;
-
-      // For 9000 and above
-      const base = 9000;
-      const basePrice = 200;
-      const rangeSize = 4000;
-      const increment = 50;
-      const steps = Math.floor((grossAmount - base) / rangeSize);
-      return basePrice + steps * increment;
-    }
-
-    // NEW: Helper to calculate net (gross - fees), now applied to original gross
-    function calculateNetAmount(grossAmount: number): number {
-      return grossAmount - calculateFees(grossAmount);
-    }
-
-    const grossAmount = parseFloat(amount_paid); // Original gross received by Xixa (e.g., 500)
-    const xixaSettlementAmount = parseFloat(settlement_amount || amount_paid); // After Xixa's 1% (e.g., 495)
-    const xixaFee = grossAmount - xixaSettlementAmount; // Explicitly compute Xixa's fee (e.g., 5) for metadata
-
-    // CHANGED: Calculate platform fees on GROSS (not settlement)
-    const platformFees = calculateFees(grossAmount); // e.g., 50 for 500
-
-    // CHANGED: Final net is based on gross - platform fees (absorbs Xixa fee)
-    const finalNetAmount = calculateNetAmount(grossAmount); // e.g., 500 - 50 = 450
-
-    const currentBalance = parseFloat(wallet.balance || "0");
-    const newBalance = currentBalance + finalNetAmount;
-
-    // CHANGED: Log to show absorption
-    console.log("Fee calculation details:", {
-      gross: grossAmount,
-      xixa_fee: xixaFee,
-      xixa_settlement: xixaSettlementAmount,
-      platform_fees: platformFees,
-      amount_absorbed_from_xixa: xixaFee, // Full absorption
-      amount_kept_by_platform: xixaSettlementAmount - finalNetAmount, // e.g., 495 - 450 = 45
-      final_net: finalNetAmount,
-      new_balance: newBalance,
-    });
-
-    // 10. Update wallet balance (with final net) - unchanged
-    const { error: updateError } = await supabase
-      .from("wallet")
-      .update({ balance: newBalance.toString() })
-      .eq("user_email", profile.email);
-
-    if (updateError) {
-      console.error("Failed to update wallet:", updateError);
-      return NextResponse.json(
-        { error: "Failed to update wallet" },
-        { status: 500 },
-      );
-    }
-
-    // 11. Record transaction (net amount, prefixed ref, fees in metadata) - CHANGED metadata
-    const { error: txError } = await supabase.from("transactions").insert({
-      user_email: profile.email,
-      type: "deposit",
-      amount: finalNetAmount.toString(), // Final net after all (e.g., 450)
-      status: "completed",
-      reference: `Edges_Network_Web_${transaction_id}`, // Prefixed for consistency
-      description: `Wallet funding via ${receiver.bank}`,
-      env: "live",
-      metadata: {
-        payment_method: "bank_transfer",
-        bank_name: sender.bank,
-        account_number: sender.account_number,
-        sender_name: sender.name,
-        receiver_account: receiver.account_number,
-        receiver_bank: receiver.bank,
-        xixa_settlement_fee: settlement_fee, // Xixa's raw fee (e.g., 5)
-        xixa_raw_amount: amount_paid, // Gross (500)
-        // CHANGED: Platform fees on gross, plus absorption details
-        platform_fees: platformFees, // e.g., 50 (the "charge" to user)
-        xixa_fee_absorbed: xixaFee, // e.g., 5 (included in charges)
-        gross_after_xixa: xixaSettlementAmount, // 495 (for audit)
-        effective_total_fee: platformFees, // Present as 50 total charge to user
-        customer_name: customer.name,
-        customer_email: customer.email,
-        timestamp: timestamp,
-        original_reference: transaction_id, // Raw Xixa ID
-        provider: "xixapay",
-        verified_by: "xixapay-webhook",
-        channel: "bank_transfer",
-      },
-    });
-
-    if (txError) {
-      console.error("Failed to record transaction:", txError);
-      // Wallet was already updated, so log but don't fail
-    }
-
-    // 12. Create notification (use final net) - CHANGED message to reflect 50 charge
-    await supabase.from("notifications").insert({
-      user_id: virtualAccount.user_id,
-      notification_type: "deposit",
-      message: `₦${finalNetAmount.toLocaleString("en-NG", {
-        minimumFractionDigits: 2,
-      })} has been added to your wallet from ${
-        sender.bank
-      } (after ₦${platformFees.toLocaleString()} fee)`,
-      is_read: false,
-      metadata: {
-        transaction_id: `Edges_Network_Web_${transaction_id}`,
-        amount: finalNetAmount,
-        fee_charged: platformFees, // Explicitly show 50 as the charge
-        sender: sender.name,
-        bank: sender.bank,
-      },
-    });
-
-    console.log("Wallet funded successfully:", {
-      user: profile.email,
-      gross: grossAmount,
-      xixa_settlement: xixaSettlementAmount,
-      xixa_fee: xixaFee,
-      platform_fees: platformFees,
-      final_net: finalNetAmount,
-      new_balance: newBalance,
-    });
-
-    // ... (rest of the code unchanged)
-    return NextResponse.json({
-      message: "Webhook processed successfully",
-      transaction_id: transaction_id,
-    });
+    // ── STEP 7: Not found anywhere ────────────────────────────────────────────
+    console.error("Account not found in any app:", receiver.account_number);
+    return NextResponse.json(
+      { error: "Account not found in any app" },
+      { status: 404 },
+    );
   } catch (error) {
     console.error("Webhook processing error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -404,12 +468,13 @@ export async function POST(req: NextRequest) {
 //     console.log("=== WEBHOOK DEBUG START ===");
 //     console.log(
 //       "Received rawBody (first 200 chars):",
-//       rawBody.substring(0, 200) + (rawBody.length > 200 ? "..." : "")
+//       rawBody.substring(0, 200) + (rawBody.length > 200 ? "..." : ""),
 //     );
+//     console.log("FULL:", JSON.stringify(rawBody, null, 2)); // add this
 //     console.log("Received signature:", signature);
 //     console.log(
 //       "Secret key length (safe):",
-//       process.env.XIXAPAY_SECRET_KEY?.length || "MISSING"
+//       process.env.XIXAPAY_SECRET_KEY?.length || "MISSING",
 //     );
 
 //     // 2. Verify the signature
@@ -436,7 +501,7 @@ export async function POST(req: NextRequest) {
 //       transaction_id: payload.transaction_id,
 //       amount: payload.amount_paid,
 //     });
-
+//     console.log("FULL PAYLOAD:", JSON.stringify(payload, null, 2)); // add this
 //     // 4. Only process successful payments
 //     if (
 //       payload.notification_status !== "payment_successful" ||
@@ -487,13 +552,129 @@ export async function POST(req: NextRequest) {
 //     const { data: existingTx } = await supabase
 //       .from("transactions")
 //       .select("id")
-//       .eq("reference", transaction_id)
+//       .eq("reference", `Edges_Network_Web_${transaction_id}`) // Prefixed ref for consistency
 //       .single();
 
 //     if (existingTx) {
 //       console.log("Transaction already processed:", transaction_id);
 //       return NextResponse.json({ message: "Already processed" });
 //     }
+
+//     // // 9. Get current wallet balance
+//     // const { data: wallet, error: walletError } = await supabase
+//     //   .from("wallet")
+//     //   .select("balance")
+//     //   .eq("user_email", profile.email)
+//     //   .single();
+
+//     // if (walletError) {
+//     //   console.error("Wallet not found");
+//     //   return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
+//     // }
+
+//     // // Tiered pricing calculation - returns the FEE amount (from Paystack webhook)
+//     // function calculateFees(grossAmount: number): number {
+//     //   if (grossAmount >= 500 && grossAmount <= 999) return 50;
+//     //   if (grossAmount >= 1000 && grossAmount <= 1499) return 70;
+//     //   if (grossAmount >= 1500 && grossAmount <= 4999) return 100;
+//     //   if (grossAmount >= 5000 && grossAmount <= 8999) return 150;
+
+//     //   // For 9000 and above
+//     //   const base = 9000;
+//     //   const basePrice = 200;
+//     //   const rangeSize = 4000;
+//     //   const increment = 50;
+//     //   const steps = Math.floor((grossAmount - base) / rangeSize);
+//     //   return basePrice + steps * increment;
+//     // }
+
+//     // // Calculate net amount by subtracting fees from gross amount
+//     // function calculateNetAmount(grossAmount: number): number {
+//     //   return grossAmount - calculateFees(grossAmount);
+//     // }
+
+//     // const grossAmount = parseFloat(amount_paid); // Xixa gross
+//     // const xixaSettlementAmount = parseFloat(settlement_amount || amount_paid); // After Xixa fees
+//     // const platformFees = calculateFees(xixaSettlementAmount); // Your tiered fees on settlement
+//     // const finalNetAmount = calculateNetAmount(xixaSettlementAmount); // Final net after all fees
+
+//     // const currentBalance = parseFloat(wallet.balance || "0");
+//     // const newBalance = currentBalance + finalNetAmount;
+
+//     // // 10. Update wallet balance (with final net)
+//     // const { error: updateError } = await supabase
+//     //   .from("wallet")
+//     //   .update({ balance: newBalance.toString() })
+//     //   .eq("user_email", profile.email);
+
+//     // if (updateError) {
+//     //   console.error("Failed to update wallet:", updateError);
+//     //   return NextResponse.json(
+//     //     { error: "Failed to update wallet" },
+//     //     { status: 500 }
+//     //   );
+//     // }
+
+//     // // 11. Record transaction (net amount, prefixed ref, fees in metadata)
+//     // const { error: txError } = await supabase.from("transactions").insert({
+//     //   user_email: profile.email,
+//     //   type: "deposit",
+//     //   amount: finalNetAmount.toString(), // Final net after all fees
+//     //   status: "completed",
+//     //   reference: `Edges_Network_Web_${transaction_id}`, // Prefixed for consistency
+//     //   description: `Wallet funding via ${receiver.bank}`,
+//     //   env: "live",
+//     //   metadata: {
+//     //     payment_method: "bank_transfer",
+//     //     bank_name: sender.bank,
+//     //     account_number: sender.account_number,
+//     //     sender_name: sender.name,
+//     //     receiver_account: receiver.account_number,
+//     //     receiver_bank: receiver.bank,
+//     //     xixa_settlement_fee: settlement_fee,
+//     //     xixa_raw_amount: amount_paid,
+//     //     platform_fees: platformFees, // Your tiered fees
+//     //     gross_after_xixa: xixaSettlementAmount, // After Xixa fees, before platform
+//     //     customer_name: customer.name,
+//     //     customer_email: customer.email,
+//     //     timestamp: timestamp,
+//     //     original_reference: transaction_id, // Raw Xixa ID
+//     //     provider: "xixapay",
+//     //     verified_by: "xixapay-webhook",
+//     //     channel: "bank_transfer",
+//     //   },
+//     // });
+
+//     // if (txError) {
+//     //   console.error("Failed to record transaction:", txError);
+//     //   // Wallet was already updated, so log but don't fail
+//     // }
+
+//     // // 12. Create notification (use final net)
+//     // await supabase.from("notifications").insert({
+//     //   user_id: virtualAccount.user_id,
+//     //   notification_type: "deposit",
+//     //   message: `₦${finalNetAmount.toLocaleString("en-NG", {
+//     //     minimumFractionDigits: 2,
+//     //   })} has been added to your wallet from ${sender.bank}`,
+//     //   is_read: false,
+//     //   metadata: {
+//     //     transaction_id: `Edges_Network_Web_${transaction_id}`,
+//     //     amount: finalNetAmount,
+//     //     sender: sender.name,
+//     //     bank: sender.bank,
+//     //   },
+//     // });
+
+//     // console.log("Wallet funded successfully:", {
+//     //   user: profile.email,
+//     //   gross: grossAmount,
+//     //   xixa_settlement: xixaSettlementAmount,
+//     //   platform_fees: platformFees,
+//     //   final_net: finalNetAmount,
+//     //   new_balance: newBalance,
+//     // });
+//     // ... (rest of the code unchanged up to step 9)
 
 //     // 9. Get current wallet balance
 //     const { data: wallet, error: walletError } = await supabase
@@ -507,11 +688,58 @@ export async function POST(req: NextRequest) {
 //       return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
 //     }
 
-//     const currentBalance = parseFloat(wallet.balance || "0");
-//     const depositAmount = parseFloat(settlement_amount || amount_paid);
-//     const newBalance = currentBalance + depositAmount;
+//     // Tiered pricing calculation - returns the FEE amount (unchanged)
+//     function calculateFees(grossAmount: number): number {
+//       if (grossAmount >= 1 && grossAmount <= 9) return 0.2;
+//       if (grossAmount >= 10 && grossAmount <= 49) return 3;
+//       if (grossAmount >= 50 && grossAmount <= 99) return 5;
+//       if (grossAmount >= 100 && grossAmount <= 299) return 10;
+//       if (grossAmount >= 300 && grossAmount <= 499) return 20;
+//       if (grossAmount >= 500 && grossAmount <= 999) return 50;
+//       if (grossAmount >= 1000 && grossAmount <= 1499) return 70;
+//       if (grossAmount >= 1500 && grossAmount <= 4999) return 100;
+//       if (grossAmount >= 5000 && grossAmount <= 8999) return 150;
 
-//     // 10. Update wallet balance
+//       // For 9000 and above
+//       const base = 9000;
+//       const basePrice = 200;
+//       const rangeSize = 4000;
+//       const increment = 50;
+//       const steps = Math.floor((grossAmount - base) / rangeSize);
+//       return basePrice + steps * increment;
+//     }
+
+//     // NEW: Helper to calculate net (gross - fees), now applied to original gross
+//     function calculateNetAmount(grossAmount: number): number {
+//       return grossAmount - calculateFees(grossAmount);
+//     }
+
+//     const grossAmount = parseFloat(amount_paid); // Original gross received by Xixa (e.g., 500)
+//     const xixaSettlementAmount = parseFloat(settlement_amount || amount_paid); // After Xixa's 1% (e.g., 495)
+//     const xixaFee = grossAmount - xixaSettlementAmount; // Explicitly compute Xixa's fee (e.g., 5) for metadata
+
+//     // CHANGED: Calculate platform fees on GROSS (not settlement)
+//     const platformFees = calculateFees(grossAmount); // e.g., 50 for 500
+
+//     // CHANGED: Final net is based on gross - platform fees (absorbs Xixa fee)
+//     const finalNetAmount = calculateNetAmount(grossAmount); // e.g., 500 - 50 = 450
+
+//     const currentBalance = parseFloat(wallet.balance || "0");
+//     const newBalance = currentBalance + finalNetAmount;
+
+//     // CHANGED: Log to show absorption
+//     console.log("Fee calculation details:", {
+//       gross: grossAmount,
+//       xixa_fee: xixaFee,
+//       xixa_settlement: xixaSettlementAmount,
+//       platform_fees: platformFees,
+//       amount_absorbed_from_xixa: xixaFee, // Full absorption
+//       amount_kept_by_platform: xixaSettlementAmount - finalNetAmount, // e.g., 495 - 450 = 45
+//       final_net: finalNetAmount,
+//       new_balance: newBalance,
+//     });
+
+//     // 10. Update wallet balance (with final net) - unchanged
 //     const { error: updateError } = await supabase
 //       .from("wallet")
 //       .update({ balance: newBalance.toString() })
@@ -521,18 +749,19 @@ export async function POST(req: NextRequest) {
 //       console.error("Failed to update wallet:", updateError);
 //       return NextResponse.json(
 //         { error: "Failed to update wallet" },
-//         { status: 500 }
+//         { status: 500 },
 //       );
 //     }
 
-//     // 11. Record transaction (adapted to schema: numeric amount, env="live", description in metadata)
+//     // 11. Record transaction (net amount, prefixed ref, fees in metadata) - CHANGED metadata
 //     const { error: txError } = await supabase.from("transactions").insert({
 //       user_email: profile.email,
 //       type: "deposit",
-//       amount: depositAmount, // Numeric, not string
+//       amount: finalNetAmount.toString(), // Final net after all (e.g., 450)
 //       status: "completed",
-//       reference: `Edges_Network_Web_${transaction_id}`,
-//       env: "live", // Matches your table standard
+//       reference: `Edges_Network_Web_${transaction_id}`, // Prefixed for consistency
+//       description: `Wallet funding via ${receiver.bank}`,
+//       env: "live",
 //       metadata: {
 //         payment_method: "bank_transfer",
 //         bank_name: sender.bank,
@@ -540,13 +769,20 @@ export async function POST(req: NextRequest) {
 //         sender_name: sender.name,
 //         receiver_account: receiver.account_number,
 //         receiver_bank: receiver.bank,
-//         settlement_fee: settlement_fee,
-//         raw_amount: amount_paid,
+//         xixa_settlement_fee: settlement_fee, // Xixa's raw fee (e.g., 5)
+//         xixa_raw_amount: amount_paid, // Gross (500)
+//         // CHANGED: Platform fees on gross, plus absorption details
+//         platform_fees: platformFees, // e.g., 50 (the "charge" to user)
+//         xixa_fee_absorbed: xixaFee, // e.g., 5 (included in charges)
+//         gross_after_xixa: xixaSettlementAmount, // 495 (for audit)
+//         effective_total_fee: platformFees, // Present as 50 total charge to user
 //         customer_name: customer.name,
 //         customer_email: customer.email,
 //         timestamp: timestamp,
-//         description: `Wallet funding via ${receiver.bank}`, // Moved here
+//         original_reference: transaction_id, // Raw Xixa ID
 //         provider: "xixapay",
+//         verified_by: "xixapay-webhook",
+//         channel: "bank_transfer",
 //       },
 //     });
 
@@ -555,17 +791,20 @@ export async function POST(req: NextRequest) {
 //       // Wallet was already updated, so log but don't fail
 //     }
 
-//     // 12. Create notification
+//     // 12. Create notification (use final net) - CHANGED message to reflect 50 charge
 //     await supabase.from("notifications").insert({
 //       user_id: virtualAccount.user_id,
 //       notification_type: "deposit",
-//       message: `₦${depositAmount.toLocaleString("en-NG", {
+//       message: `₦${finalNetAmount.toLocaleString("en-NG", {
 //         minimumFractionDigits: 2,
-//       })} has been added to your wallet from ${sender.bank}`,
+//       })} has been added to your wallet from ${
+//         sender.bank
+//       } (after ₦${platformFees.toLocaleString()} fee)`,
 //       is_read: false,
 //       metadata: {
-//         transaction_id: transaction_id,
-//         amount: depositAmount,
+//         transaction_id: `Edges_Network_Web_${transaction_id}`,
+//         amount: finalNetAmount,
+//         fee_charged: platformFees, // Explicitly show 50 as the charge
 //         sender: sender.name,
 //         bank: sender.bank,
 //       },
@@ -573,10 +812,15 @@ export async function POST(req: NextRequest) {
 
 //     console.log("Wallet funded successfully:", {
 //       user: profile.email,
-//       amount: depositAmount,
+//       gross: grossAmount,
+//       xixa_settlement: xixaSettlementAmount,
+//       xixa_fee: xixaFee,
+//       platform_fees: platformFees,
+//       final_net: finalNetAmount,
 //       new_balance: newBalance,
 //     });
 
+//     // ... (rest of the code unchanged)
 //     return NextResponse.json({
 //       message: "Webhook processed successfully",
 //       transaction_id: transaction_id,
@@ -589,3 +833,209 @@ export async function POST(req: NextRequest) {
 //     );
 //   }
 // }
+
+// // // src/app/api/xixa-account/webhook/route.ts
+// // import { NextRequest, NextResponse } from "next/server";
+// // import { createServerClient } from "@/lib/supabase/server";
+// // import crypto from "crypto";
+
+// // export async function POST(req: NextRequest) {
+// //   try {
+// //     // 1. Get the raw body and signature
+// //     const rawBody = await req.text();
+// //     const signature = req.headers.get("xixapay");
+
+// //     if (!signature) {
+// //       console.error("Missing xixapay signature header");
+// //       return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+// //     }
+
+// //     // DEBUG: Log received values (remove after testing)
+// //     console.log("=== WEBHOOK DEBUG START ===");
+// //     console.log(
+// //       "Received rawBody (first 200 chars):",
+// //       rawBody.substring(0, 200) + (rawBody.length > 200 ? "..." : "")
+// //     );
+// //     console.log("Received signature:", signature);
+// //     console.log(
+// //       "Secret key length (safe):",
+// //       process.env.XIXAPAY_SECRET_KEY?.length || "MISSING"
+// //     );
+
+// //     // 2. Verify the signature
+// //     const secretKey = process.env.XIXAPAY_SECRET_KEY!;
+// //     const calculatedSignature = crypto
+// //       .createHmac("sha256", secretKey)
+// //       .update(rawBody)
+// //       .digest("hex");
+
+// //     // DEBUG: Log calculated values (remove after testing)
+// //     console.log("Calculated signature:", calculatedSignature);
+// //     console.log("Signatures match?", calculatedSignature === signature);
+// //     console.log("=== WEBHOOK DEBUG END ===");
+
+// //     if (calculatedSignature !== signature) {
+// //       console.error("Invalid webhook signature");
+// //       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+// //     }
+
+// //     // 3. Parse the webhook payload
+// //     const payload = JSON.parse(rawBody);
+// //     console.log("Webhook received:", {
+// //       status: payload.notification_status,
+// //       transaction_id: payload.transaction_id,
+// //       amount: payload.amount_paid,
+// //     });
+
+// //     // 4. Only process successful payments
+// //     if (
+// //       payload.notification_status !== "payment_successful" ||
+// //       payload.transaction_status !== "success"
+// //     ) {
+// //       console.log("Ignoring non-successful payment");
+// //       return NextResponse.json({ message: "Ignored" });
+// //     }
+
+// //     // 5. Extract data
+// //     const {
+// //       transaction_id,
+// //       amount_paid,
+// //       settlement_amount,
+// //       settlement_fee,
+// //       receiver,
+// //       customer,
+// //       sender,
+// //       timestamp,
+// //     } = payload;
+
+// //     // 6. Find the user by account number
+// //     const supabase = await createServerClient();
+// //     const { data: virtualAccount, error: accountError } = await supabase
+// //       .from("virtual_accounts")
+// //       .select("user_id, account_number, account_name, bank_name")
+// //       .eq("account_number", receiver.account_number)
+// //       .single();
+
+// //     if (accountError || !virtualAccount) {
+// //       console.error("Virtual account not found:", receiver.account_number);
+// //       return NextResponse.json({ error: "Account not found" }, { status: 404 });
+// //     }
+
+// //     // 7. Get user profile
+// //     const { data: profile, error: profileError } = await supabase
+// //       .from("profiles")
+// //       .select("email")
+// //       .eq("id", virtualAccount.user_id)
+// //       .single();
+
+// //     if (profileError || !profile) {
+// //       console.error("User profile not found");
+// //       return NextResponse.json({ error: "User not found" }, { status: 404 });
+// //     }
+
+// //     // 8. Check if transaction already processed (prevent duplicates)
+// //     const { data: existingTx } = await supabase
+// //       .from("transactions")
+// //       .select("id")
+// //       .eq("reference", transaction_id)
+// //       .single();
+
+// //     if (existingTx) {
+// //       console.log("Transaction already processed:", transaction_id);
+// //       return NextResponse.json({ message: "Already processed" });
+// //     }
+
+// //     // 9. Get current wallet balance
+// //     const { data: wallet, error: walletError } = await supabase
+// //       .from("wallet")
+// //       .select("balance")
+// //       .eq("user_email", profile.email)
+// //       .single();
+
+// //     if (walletError) {
+// //       console.error("Wallet not found");
+// //       return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
+// //     }
+
+// //     const currentBalance = parseFloat(wallet.balance || "0");
+// //     const depositAmount = parseFloat(settlement_amount || amount_paid);
+// //     const newBalance = currentBalance + depositAmount;
+
+// //     // 10. Update wallet balance
+// //     const { error: updateError } = await supabase
+// //       .from("wallet")
+// //       .update({ balance: newBalance.toString() })
+// //       .eq("user_email", profile.email);
+
+// //     if (updateError) {
+// //       console.error("Failed to update wallet:", updateError);
+// //       return NextResponse.json(
+// //         { error: "Failed to update wallet" },
+// //         { status: 500 }
+// //       );
+// //     }
+
+// //     // 11. Record transaction (adapted to schema: numeric amount, env="live", description in metadata)
+// //     const { error: txError } = await supabase.from("transactions").insert({
+// //       user_email: profile.email,
+// //       type: "deposit",
+// //       amount: depositAmount, // Numeric, not string
+// //       status: "completed",
+// //       reference: `Edges_Network_Web_${transaction_id}`,
+// //       env: "live", // Matches your table standard
+// //       metadata: {
+// //         payment_method: "bank_transfer",
+// //         bank_name: sender.bank,
+// //         account_number: sender.account_number,
+// //         sender_name: sender.name,
+// //         receiver_account: receiver.account_number,
+// //         receiver_bank: receiver.bank,
+// //         settlement_fee: settlement_fee,
+// //         raw_amount: amount_paid,
+// //         customer_name: customer.name,
+// //         customer_email: customer.email,
+// //         timestamp: timestamp,
+// //         description: `Wallet funding via ${receiver.bank}`, // Moved here
+// //         provider: "xixapay",
+// //       },
+// //     });
+
+// //     if (txError) {
+// //       console.error("Failed to record transaction:", txError);
+// //       // Wallet was already updated, so log but don't fail
+// //     }
+
+// //     // 12. Create notification
+// //     await supabase.from("notifications").insert({
+// //       user_id: virtualAccount.user_id,
+// //       notification_type: "deposit",
+// //       message: `₦${depositAmount.toLocaleString("en-NG", {
+// //         minimumFractionDigits: 2,
+// //       })} has been added to your wallet from ${sender.bank}`,
+// //       is_read: false,
+// //       metadata: {
+// //         transaction_id: transaction_id,
+// //         amount: depositAmount,
+// //         sender: sender.name,
+// //         bank: sender.bank,
+// //       },
+// //     });
+
+// //     console.log("Wallet funded successfully:", {
+// //       user: profile.email,
+// //       amount: depositAmount,
+// //       new_balance: newBalance,
+// //     });
+
+// //     return NextResponse.json({
+// //       message: "Webhook processed successfully",
+// //       transaction_id: transaction_id,
+// //     });
+// //   } catch (error) {
+// //     console.error("Webhook processing error:", error);
+// //     return NextResponse.json(
+// //       { error: "Internal server error" },
+// //       { status: 500 }
+// //     );
+// //   }
+// // }
