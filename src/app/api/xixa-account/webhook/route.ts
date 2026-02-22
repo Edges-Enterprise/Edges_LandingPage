@@ -18,12 +18,13 @@ export async function POST(req: NextRequest) {
     console.log("=== WEBHOOK DEBUG START ===");
     console.log(
       "Received rawBody (first 200 chars):",
-      rawBody.substring(0, 200) + (rawBody.length > 200 ? "..." : "")
+      rawBody.substring(0, 200) + (rawBody.length > 200 ? "..." : ""),
     );
+    console.log("FULL:", JSON.stringify(rawBody, null, 2)); // add this
     console.log("Received signature:", signature);
     console.log(
       "Secret key length (safe):",
-      process.env.XIXAPAY_SECRET_KEY?.length || "MISSING"
+      process.env.XIXAPAY_SECRET_KEY?.length || "MISSING",
     );
 
     // 2. Verify the signature
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
       transaction_id: payload.transaction_id,
       amount: payload.amount_paid,
     });
-
+    console.log("FULL PAYLOAD:", JSON.stringify(payload, null, 2)); // add this
     // 4. Only process successful payments
     if (
       payload.notification_status !== "payment_successful" ||
@@ -298,7 +299,7 @@ export async function POST(req: NextRequest) {
       console.error("Failed to update wallet:", updateError);
       return NextResponse.json(
         { error: "Failed to update wallet" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
