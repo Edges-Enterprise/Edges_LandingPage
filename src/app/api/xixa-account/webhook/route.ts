@@ -33,16 +33,16 @@ const SATELLITE_APPS: AppConfig[] = [
     walletUserColumn: "user_id",
   },
   // ── Add App 3 here ──────────────────────────────────────────────────────────
-  // {
-  //   name: "App3 (SomeName)",
-  //   txPrefix: "APP3_",
-  //   supabase: createClient(
-  //     process.env.APP3_SUPABASE_URL!,
-  //     process.env.APP3_SUPABASE_SECRET_KEY!
-  //   ),
-  //   walletTable: "wallets",   // adjust to match App 3's schema
-  //   walletUserColumn: "user_id",
-  // },
+  {
+    name: "App3 (Alheri)",
+    txPrefix: "AA_",
+    supabase: createClient(
+      process.env.APP3_SUPABASE_URL!,
+      process.env.APP3_SUPABASE_SECRET_KEY!
+    ),
+    walletTable: "wallets",   // adjust to match App 3's schema
+    walletUserColumn: "user_id",
+  },
 ];
 
 // ─── Fee calculation ──────────────────────────────────────────────────────────
