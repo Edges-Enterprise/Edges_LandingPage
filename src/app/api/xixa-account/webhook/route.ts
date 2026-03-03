@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { sendWebPushAction } from "@/app/actions/notifications";
 
 // ─── App Registry ─────────────────────────────────────────────────────────────
 // To add App 3, App 4, etc. — just add an entry here and set the env vars.
@@ -38,9 +39,9 @@ const SATELLITE_APPS: AppConfig[] = [
     txPrefix: "AA_",
     supabase: createClient(
       process.env.APP3_SUPABASE_URL!,
-      process.env.APP3_SUPABASE_SECRET_KEY!
+      process.env.APP3_SUPABASE_SECRET_KEY!,
     ),
-    walletTable: "wallets",   // adjust to match App 3's schema
+    walletTable: "wallets", // adjust to match App 3's schema
     walletUserColumn: "user_id",
   },
 ];
@@ -409,6 +410,13 @@ export async function POST(req: NextRequest) {
           bank: sender.bank,
         },
       });
+
+      // After wallet funded
+      await sendWebPushAction(
+        virtualAccount.user_id,
+        "💰 Wallet Funded",
+        `₦${finalNetAmount.toLocaleString("en-NG", { minimumFractionDigits: 2 })} added to your wallet`,
+      );
 
       console.log("App 1 wallet funded:", {
         user: profile.email,
