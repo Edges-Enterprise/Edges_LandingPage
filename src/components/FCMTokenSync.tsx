@@ -77,7 +77,7 @@ export default function FCMTokenSync({ userId }: { userId: string }) {
             Notifications Required
           </h2>
           <p className="text-gray-400 text-sm mb-6">
-            You need to enable notifications to use Alheri Data. Please update
+            You need to enable notifications to use Edges Network. Please update
             your browser notification settings and refresh the page.
           </p>
           <button
@@ -106,7 +106,7 @@ export default function FCMTokenSync({ userId }: { userId: string }) {
           Allow Notifications to Continue
         </h2>
         <p className="text-gray-400 text-sm text-center mb-6">
-          Alheri Data requires notifications to keep you updated on wallet
+          Edges Network requires notifications to keep you updated on wallet
           funding, data deals, and important account activity.
         </p>
 
