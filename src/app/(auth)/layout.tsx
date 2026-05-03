@@ -1,4 +1,4 @@
-// app/sign-in/layout.tsx (or app/(auth)/layout.tsx)
+//  app/(auth)/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google"; // Or your preferred font
 
