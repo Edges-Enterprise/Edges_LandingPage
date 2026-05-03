@@ -1,30 +1,30 @@
 "use client";
-import { UserPlus, Link2, Share2, Wallet } from "lucide-react";
+import { UserPlus, Wallet, PencilLine, Store } from "lucide-react";
 
 const steps = [
   {
     num: "01",
     icon: UserPlus,
-    title: "Sign Up Free",
-    desc: "Fill in your details and get verified in under 24 hours. No upfront cost, no hidden fees, no technical experience needed.",
+    title: "Fill Your Details",
+    desc: "Complete a quick signup form with your business name and preferences. No upfront cost, no technical experience needed.",
   },
   {
     num: "02",
-    icon: Link2,
-    title: "Get Your Dashboard",
-    desc: "Receive your unique reseller portal, referral links, and a complete kit of branded marketing materials.",
+    icon: Store,
+    title: "Get Your Storefront Instantly",
+    desc: "Your personal branded store goes live immediately after signup, ready to accept customers and process orders right away.",
   },
   {
     num: "03",
-    icon: Share2,
-    title: "Refer & Earn",
-    desc: "Share Edges plans with businesses and individuals in your network. Earn commissions on every confirmed signup.",
+    icon: PencilLine,
+    title: "Set Your Own Prices",
+    desc: "Add your markup to any data bundle or airtime product. You control your margins; your customers pay your price.",
   },
   {
     num: "04",
     icon: Wallet,
-    title: "Get Paid Fast",
-    desc: "Commissions are tracked in real time and paid every 48 hours directly to your bank or mobile money account.",
+    title: "Earn Directly",
+    desc: "Every sale made through your storefront earns you the difference between your markup and the base price, paid straight to you.",
   },
 ];
 
@@ -72,8 +72,7 @@ export default function HowItWorks() {
             lineHeight: 1.75,
           }}
         >
-          No tech background required. If you can talk to people and share a
-          link, you can build a real income with Edges Network.
+          Fill in your details, pick your prices, and start making profits today.
         </p>
       </div>
 
