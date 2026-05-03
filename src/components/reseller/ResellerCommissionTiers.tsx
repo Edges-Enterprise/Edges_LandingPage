@@ -24,7 +24,7 @@ const tiers: Tier[] = [
     color: "#6EBD8A",
     colorBg: "rgba(110,189,138,0.1)",
     cta: "Open My Store",
-    ctaHref: "#join",
+    ctaHref: "/reseller",
     perks: [
       { text: "Instant branded web storefront", included: true },
       { text: "Set your own prices & markup", included: true },
@@ -43,7 +43,7 @@ const tiers: Tier[] = [
     badge: "Most Popular",
     featured: true,
     cta: "Get My App",
-    ctaHref: "#join",
+    ctaHref: "/reseller",
     perks: [
       { text: "Everything in Web Storefront", included: true },
       { text: "Custom Android APK (your branding)", included: true },
@@ -61,7 +61,7 @@ const tiers: Tier[] = [
     color: "#A78BFA",
     colorBg: "rgba(167,139,250,0.1)",
     cta: "Contact Sales",
-    ctaHref: "#join",
+    ctaHref: "/reseller",
     perks: [
       { text: "Everything in Web + Android", included: true },
       { text: "White-label branding", included: true },
