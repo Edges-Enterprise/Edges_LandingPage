@@ -4,29 +4,29 @@ import { Plus, Minus } from "lucide-react";
 
 const faqs = [
   {
-    q: "Is there any cost to join the reseller program?",
-    a: "No. Joining the Edges Network reseller program is completely free at all tiers. There are no registration fees, monthly charges, or any hidden costs.",
+    q: "Is there any cost to open my reseller storefront?",
+    a: "No. Creating your web storefront on Edges Network is completely free. There are no registration fees, monthly charges, or hidden costs to get started.",
   },
   {
-    q: "How and when do I get paid?",
-    a: "Commissions are processed and paid every 48 hours after a sale is confirmed. You can withdraw directly to your bank account or any supported mobile money wallet right from your reseller dashboard.",
+    q: "How quickly does my store go live?",
+    a: "Immediately. Fill in your details, submit the form, and your branded storefront is live and ready to accept customers right away — no waiting period.",
   },
   {
-    q: "Can I upgrade my reseller tier?",
-    a: "Yes. As your referral numbers grow, you automatically qualify for higher tiers. Your account manager will notify you when you meet the threshold, and the upgrade happens instantly.",
+    q: "Can I set my own prices?",
+    a: "Yes, that's the point. You add your own markup on top of the base price for any data bundle or airtime product. Whatever your customer pays above the base price is your profit, paid directly to you.",
   },
   {
-    q: "Do I need any technical knowledge?",
-    a: "Not at all. Your job is simply to share your referral link and refer customers. Our team handles all technical setup, onboarding, and customer service on your behalf.",
+    q: "What is the Android APK option?",
+    a: "If you want your own mobile app, select the Android APK option during signup. We'll build a custom-branded app for your store and send the download link to your email within 3–5 business days.",
   },
   {
-    q: "Can I build a team of sub-resellers under me?",
-    a: "Yes — Pro and Elite tier resellers can recruit their own sub-resellers. You earn an override commission on every sale your sub-resellers generate, on top of your own direct commissions.",
+    q: "Which networks and products can I sell?",
+    a: "Your store covers all major Nigerian networks — MTN, Airtel, Glo, and 9mobile — for data bundles and airtime top-ups. New products are added to the catalog regularly.",
   },
   {
-    q: "What products can I resell?",
-    a: "You can resell Edges Network internet plans, data bundles, VTU top-ups, and digital services. New products are added to the reseller catalog regularly.",
-  },
+    q: "How do I receive my earnings?",
+    a: "Your profit is the difference between your set price and the base cost. Earnings are tracked in your dashboard and paid out directly to your bank account or mobile money wallet.",
+  }
 ];
 
 export default function FAQ() {
