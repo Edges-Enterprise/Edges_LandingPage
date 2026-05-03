@@ -97,8 +97,9 @@ export default function CTA() {
               lineHeight: 1.75,
             }}
           >
-            Sign up in minutes, get your dashboard, and start earning
-            commissions bringing Edges Network services to your community.
+            Sign up in minutes, set your branded storefront and start earning.{" "}
+            <br /> Want an Android app too? Select the APK option and we'll
+            deliver it to your inbox in 3–5 business days.
           </p>
           <div
             style={{
@@ -137,7 +138,7 @@ export default function CTA() {
               Apply as a Reseller <ArrowRight size={17} />
             </a>
             <a
-              href="https://wa.me/2348000000000"
+              href="https://wa.me/2347057517841"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
