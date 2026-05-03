@@ -2,10 +2,10 @@
 import Image from "next/image";
 
 const footerLinks = [
-  "Privacy Policy",
-  "Terms of Service",
-  "Contact",
-  "Support",
+  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Terms of Service", href: "/terms" },
+  { label: "Contact", href: "/contact" },
+  // { label: "Support", href: "/support" }
 ];
 
 export default function Footer() {
@@ -46,8 +46,8 @@ export default function Footer() {
       <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
         {footerLinks.map((l) => (
           <a
-            key={l}
-            href="#"
+            key={l.label}
+            href={l.href}
             style={{
               fontSize: "0.83rem",
               color: "var(--dim)",
@@ -57,7 +57,7 @@ export default function Footer() {
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--muted)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--dim)")}
           >
-            {l}
+            {l.label}
           </a>
         ))}
       </div>
