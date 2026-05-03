@@ -1,3 +1,4 @@
+// hooks/useInview.ts
 import { useEffect, useRef, useState } from "react";
 
 /**
