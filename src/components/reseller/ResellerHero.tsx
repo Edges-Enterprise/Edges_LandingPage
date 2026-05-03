@@ -1,11 +1,11 @@
 "use client";
-import { ArrowRight, Users, Clock, Percent, Zap } from "lucide-react";
+import { ArrowRight, Users, Zap, Smartphone, Store } from "lucide-react";
 
 const stats = [
-  { value: "30%", label: "Max Commission", icon: Percent },
+  { value: "3–5 days", label: "APK Delivery", icon: Smartphone },
   { value: "2,400+", label: "Active Resellers", icon: Users },
-  { value: "48hr", label: "Payout Cycle", icon: Clock },
-  { value: "Free", label: "To Join", icon: Zap },
+  { value: "Instant", label: "Store Goes Live", icon: Zap },
+  { value: "Free", label: "To Join", icon: Store },
 ];
 
 export default function Hero() {
@@ -132,9 +132,8 @@ export default function Hero() {
           marginBottom: "2.5rem",
         }}
       >
-        Join the Edges Network reseller program. Earn competitive commissions
-        bringing fast, reliable connectivity and digital services to your
-        community.
+        Join the Edges Network reseller program. Earn competitively up to
+        ₦150k – ₦240k in profits per month. Start in minutes.
       </p>
 
       <div
