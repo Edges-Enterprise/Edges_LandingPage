@@ -61,7 +61,7 @@ const tiers: Tier[] = [
     color: "#A78BFA",
     colorBg: "rgba(167,139,250,0.1)",
     cta: "Contact Sales",
-    ctaHref: "/reseller",
+    ctaHref: "/contact",
     perks: [
       { text: "Everything in Web + Android", included: true },
       { text: "White-label branding", included: true },
