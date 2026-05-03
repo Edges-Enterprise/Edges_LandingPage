@@ -9,7 +9,7 @@ const faqs = [
   },
   {
     q: "How quickly does my store go live?",
-    a: "Immediately. Fill in your details, submit the form, and your branded storefront is live and ready to accept customers right away — no waiting period.",
+    a: "Immediately. Fill in your details, submit the form, and your branded storefront is live and ready to accept customers right away, no waiting period.",
   },
   {
     q: "Can I set my own prices?",
