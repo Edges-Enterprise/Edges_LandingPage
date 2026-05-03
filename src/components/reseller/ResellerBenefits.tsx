@@ -6,38 +6,41 @@ import {
   Users,
   TrendingUp,
   Shield,
+  PencilLine,
+  Smartphone,
+  ShieldCheck,
 } from "lucide-react";
 
 const benefits = [
   {
-    icon: BarChart3,
-    title: "Live Earnings Dashboard",
-    desc: "Track every referral, sale, and payout in real time from your personalized reseller portal.",
+    icon: PencilLine,
+    title: "You Set the Prices",
+    desc: "Add any markup you want to data bundles and airtime. Your store, your margins, your profit — full control, always.",
   },
   {
     icon: Zap,
-    title: "Fast 48-Hour Payouts",
-    desc: "No waiting weeks. Commissions are processed and paid within 48 hours of sale confirmation.",
+    title: "Store Goes Live Instantly",
+    desc: "Fill in your details and your branded storefront is ready immediately — no waiting, no approvals, no delays.",
+  },
+  {
+    icon: Smartphone,
+    title: "Optional Android App",
+    desc: "Want your own app? Select the APK option at signup and receive your custom-branded Android app by email within 3–5 business days.",
+  },
+  {
+    icon: BarChart3,
+    title: "Live Sales Dashboard",
+    desc: "Track every order, customer, and earning in real time from your personal reseller portal.",
   },
   {
     icon: Package,
-    title: "Ready-Made Marketing Kits",
-    desc: "Get banners, flyers, social media graphics, and email templates at zero extra cost.",
+    title: "All Networks Covered",
+    desc: "Sell MTN, Airtel, Glo, and 9mobile data bundles and airtime — all from a single storefront.",
   },
   {
-    icon: Users,
-    title: "Sub-Reseller Network",
-    desc: "Build your own team and earn override commissions on every sale your sub-resellers make.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Performance Bonuses",
-    desc: "Hit monthly targets and unlock bonus commissions, gift cards, and exclusive rewards.",
-  },
-  {
-    icon: Shield,
-    title: "Dedicated Support",
-    desc: "Pro and Elite resellers get a named account manager plus priority WhatsApp response.",
+    icon: ShieldCheck,
+    title: "Backed by Edges Network",
+    desc: "Your store runs on the same trusted infrastructure powering thousands of Nigerians daily. Reliable delivery, every time.",
   },
 ];
 
@@ -85,7 +88,7 @@ export default function Benefits() {
           >
             Everything you need
             <br />
-            to <em>succeed as a reseller</em>
+            to <em>make money</em>
           </h2>
           <div
             style={{
@@ -139,6 +142,7 @@ export default function Benefits() {
           </div>
         </div>
 
+        {/* Dashboard mockup — unchanged */}
         <div
           style={{
             background: "var(--card)",
@@ -179,7 +183,7 @@ export default function Benefits() {
                   color: "var(--text)",
                 }}
               >
-                Reseller Dashboard
+                My Store Dashboard
               </div>
               <div
                 style={{
@@ -188,7 +192,7 @@ export default function Benefits() {
                   marginTop: 2,
                 }}
               >
-                May 2025 — Pro Tier
+                May 2025
               </div>
             </div>
             <div
@@ -205,12 +209,12 @@ export default function Benefits() {
             </div>
           </div>
           {[
-            { label: "Total Earnings (May)", value: "₦ 184,500", up: true },
-            { label: "Active Referrals", value: "47 clients", up: false },
-            { label: "Pending Payout", value: "₦ 22,000", up: true },
+            { label: "Total Sales (May)", value: "₦ 312,000", up: true },
+            { label: "Orders This Week", value: "94 orders", up: false },
+            { label: "My Profit (May)", value: "₦ 47,800", up: true },
             {
-              label: "Current Commission Rate",
-              value: "20% — Pro",
+              label: "My Markup (avg)",
+              value: "18% above base",
               accent: true,
             },
           ].map(({ label, value, up, accent }) => (
@@ -256,7 +260,7 @@ export default function Benefits() {
                 marginBottom: 6,
               }}
             >
-              <span>Monthly target progress</span>
+              <span>Monthly sales target</span>
               <span>74%</span>
             </div>
             <div
@@ -308,7 +312,7 @@ export default function Benefits() {
               textAlign: "right",
             }}
           >
-            Weekly earnings trend
+            Weekly sales trend
           </div>
         </div>
       </div>
