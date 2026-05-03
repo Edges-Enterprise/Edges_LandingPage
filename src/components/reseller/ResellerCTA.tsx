@@ -110,7 +110,7 @@ export default function CTA() {
             }}
           >
             <a
-              href="https://edgesnetwork.com/reseller-signup"
+              href="/reseller"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -175,7 +175,7 @@ export default function CTA() {
             }}
           >
             ✓ Free to join &nbsp;·&nbsp; ✓ No contracts &nbsp;·&nbsp; ✓ Payouts
-            every 48 hours
+            everyday
           </p>
         </div>
       </div>
