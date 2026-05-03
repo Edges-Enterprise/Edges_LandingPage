@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 
 const footerLinks = [
   "Privacy Policy",
@@ -26,22 +27,17 @@ export default function Footer() {
             width: 26,
             height: 26,
             borderRadius: 6,
-            background: "linear-gradient(135deg, #C98A54, #8A5429)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <span
-            style={{
-              color: "#FDF8F3",
-              fontSize: 12,
-              fontWeight: 700,
-              fontFamily: "'Playfair Display', serif",
-            }}
-          >
-            E
-          </span>
+            <Image
+              src="/edgesnetworkicon.png" // <- replace with your logo file path
+              alt="Edges Network Logo"
+              width={40}
+              height={40}
+            />
         </div>
         <span style={{ fontSize: "0.85rem", color: "var(--dim)" }}>
           © 2025 Edges Network. All rights reserved.
