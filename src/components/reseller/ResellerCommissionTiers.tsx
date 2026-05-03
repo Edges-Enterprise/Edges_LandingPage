@@ -4,7 +4,7 @@ import { Check, Minus, ArrowRight } from "lucide-react";
 interface Tier {
   icon: string;
   name: string;
-  commission: string;
+  label: string;
   desc: string;
   color: string;
   colorBg: string;
@@ -17,59 +17,58 @@ interface Tier {
 
 const tiers: Tier[] = [
   {
-    icon: "🌱",
-    name: "Starter",
-    commission: "10%",
-    desc: "Perfect for individuals just getting started with a small network.",
+    icon: "🌐",
+    name: "Web Storefront",
+    label: "Free",
+    desc: "Your own branded web store, live instantly. Sell data bundles and airtime at your own prices with zero setup cost.",
     color: "#6EBD8A",
     colorBg: "rgba(110,189,138,0.1)",
-    cta: "Get Started Free",
+    cta: "Open My Store",
     ctaHref: "#join",
     perks: [
-      { text: "Unique referral link & portal", included: true },
-      { text: "Real-time earnings dashboard", included: true },
-      { text: "Email & chat support", included: true },
-      { text: "Marketing materials kit", included: true },
-      { text: "Bulk plan discounts", included: false },
-      { text: "Dedicated account manager", included: false },
+      { text: "Instant branded web storefront", included: true },
+      { text: "Set your own prices & markup", included: true },
+      { text: "All networks — MTN, Airtel, Glo, 9mobile", included: true },
+      { text: "Real-time sales dashboard", included: true },
+      { text: "Customer order management", included: true },
     ],
   },
   {
-    icon: "🚀",
-    name: "Pro Reseller",
-    commission: "20%",
-    desc: "For active sellers with 10+ clients. Unlock bulk pricing and priority support.",
+    icon: "📱",
+    name: "Web + Android App",
+    label: "Most Popular",
+    desc: "Everything in the web store, plus your own Android app branded with your name and delivered to your customers.",
     color: "#C98A54",
     colorBg: "rgba(201,138,84,0.1)",
     badge: "Most Popular",
     featured: true,
-    cta: "Apply Now",
+    cta: "Get My App",
     ctaHref: "#join",
     perks: [
-      { text: "Everything in Starter", included: true },
-      { text: "Bulk plan discounts", included: true },
-      { text: "Priority WhatsApp support", included: true },
-      { text: "Co-branded materials", included: true },
-      { text: "Sub-reseller network access", included: true },
-      { text: "Dedicated account manager", included: false },
+      { text: "Everything in Web Storefront", included: true },
+      { text: "Custom Android APK (your branding)", included: true },
+      { text: "APK delivered in 3–5 business days", included: true },
+      { text: "Download link sent to your email", included: true },
+      { text: "App updates when products change", included: true },
+      { text: "Priority onboarding support", included: true },
     ],
   },
   {
     icon: "💎",
-    name: "Elite Partner",
-    commission: "30%",
-    desc: "For high-volume resellers and agencies. Maximum earnings and white-label options.",
+    name: "Enterprise",
+    label: "Custom",
+    desc: "For high-volume operators and businesses. Custom integrations, white-label branding, and a dedicated account manager.",
     color: "#A78BFA",
     colorBg: "rgba(167,139,250,0.1)",
     cta: "Contact Sales",
     ctaHref: "#join",
     perks: [
-      { text: "Everything in Pro", included: true },
+      { text: "Everything in Web + Android", included: true },
+      { text: "White-label branding", included: true },
+      { text: "Custom domain for your store", included: true },
       { text: "Dedicated account manager", included: true },
-      { text: "Custom reseller pricing", included: true },
-      { text: "White-label portal", included: true },
+      { text: "Bulk pricing & volume discounts", included: true },
       { text: "SLA-backed support", included: true },
-      { text: "Quarterly bonus pool", included: true },
     ],
   },
 ];
@@ -96,7 +95,7 @@ export default function CommissionTiers() {
             border: "1px solid rgba(201,138,84,0.2)",
           }}
         >
-          Commission Tiers
+          Storefront Plans
         </div>
         <h2
           style={{
@@ -108,7 +107,7 @@ export default function CommissionTiers() {
             marginBottom: "0.9rem",
           }}
         >
-          Choose the tier <em>that fits you</em>
+          Pick the plan that<br /><em> gives you financial freedom</em>
         </h2>
         <p
           style={{
@@ -118,8 +117,9 @@ export default function CommissionTiers() {
             lineHeight: 1.75,
           }}
         >
-          Start free and scale your way up. Every tier includes full dashboard
-          access and our reseller support team.
+          Start your business today, start earning immediately with a free web
+          store or go bigger with your own Android app. take control over your
+          prices and profits.
         </p>
       </div>
 
@@ -224,16 +224,13 @@ export default function CommissionTiers() {
               <span
                 style={{
                   fontFamily: "'Playfair Display', serif",
-                  fontSize: "3rem",
+                  fontSize: "2rem",
                   fontWeight: 800,
                   color: t.color,
                   lineHeight: 1,
                 }}
               >
-                {t.commission}
-              </span>
-              <span style={{ fontSize: "0.9rem", color: "var(--muted)" }}>
-                commission
+                {t.label}
               </span>
             </div>
             <p
