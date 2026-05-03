@@ -1,5 +1,7 @@
 "use client";
+import { useInView } from "@/hooks/useInView";
 import { ArrowRight, Users, Zap, Smartphone, Store } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const stats = [
   { value: "3–5 days", label: "APK Delivery", icon: Smartphone },
@@ -9,8 +11,40 @@ const stats = [
 ];
 
 export default function Hero() {
+  const [sectionRef, sectionVisible] = useInView(0.1);
+  const [statsRef, statsVisible] = useInView(0.3);
+  const [resellers, setResellers] = useState(0);
+  const target = 2400;
+
+  useEffect(() => {
+    if (!statsVisible) return;
+    let start = 0;
+    const duration = 1200;
+    const stepTime = 16;
+    const increment = target / (duration / stepTime);
+    const timer = setInterval(() => {
+      start += increment;
+      if (start >= target) {
+        start = target;
+        clearInterval(timer);
+      }
+      setResellers(Math.floor(start));
+    }, stepTime);
+    return () => clearInterval(timer);
+  }, [statsVisible]);
+
+  const formatNumber = (num: number) => num.toLocaleString() + "+";
+
+  // Inline style helper — items animate in when section is visible
+  const reveal = (delay = 0): React.CSSProperties => ({
+    opacity: sectionVisible ? 1 : 0,
+    transform: sectionVisible ? "translateY(0)" : "translateY(28px)",
+    transition: `opacity 0.65s ease ${delay}s, transform 0.65s ease ${delay}s`,
+  });
+
   return (
     <section
+      ref={sectionRef}
       style={{
         minHeight: "100vh",
         display: "flex",
@@ -23,6 +57,7 @@ export default function Hero() {
         overflow: "hidden",
       }}
     >
+      {/* Background glows */}
       <div
         style={{
           position: "absolute",
@@ -75,9 +110,10 @@ export default function Hero() {
         }}
       />
 
+      {/* Badge */}
       <div
-        className="anim-fade-up"
         style={{
+          ...reveal(0),
           display: "inline-flex",
           alignItems: "center",
           gap: 8,
@@ -106,9 +142,10 @@ export default function Hero() {
         Reseller Partner Program
       </div>
 
+      {/* Headline */}
       <h1
-        className="anim-fade-up d1"
         style={{
+          ...reveal(0.1),
           fontFamily: "'Playfair Display', serif",
           fontSize: "clamp(2.8rem, 7vw, 5.5rem)",
           fontWeight: 800,
@@ -122,9 +159,10 @@ export default function Hero() {
         <span className="text-shimmer">Revenue Stream.</span>
       </h1>
 
+      {/* Subtext */}
       <p
-        className="anim-fade-up d2"
         style={{
+          ...reveal(0.2),
           color: "var(--muted)",
           fontSize: "clamp(1rem, 1.8vw, 1.15rem)",
           lineHeight: 1.8,
@@ -132,13 +170,14 @@ export default function Hero() {
           marginBottom: "2.5rem",
         }}
       >
-        Join the Edges Network reseller program. Earn competitively up to
-        ₦150k – ₦240k in profits per month. Start in minutes.
+        Join the Edges Network reseller program. Earn competitively up to ₦150k
+        – ₦240k in profits per month. Start in minutes.
       </p>
 
+      {/* CTAs */}
       <div
-        className="anim-fade-up d3"
         style={{
+          ...reveal(0.3),
           display: "flex",
           gap: "1rem",
           flexWrap: "wrap",
@@ -204,9 +243,13 @@ export default function Hero() {
         </a>
       </div>
 
+      {/* Stats strip */}
       <div
-        className="anim-fade-up d4"
+        ref={statsRef}
         style={{
+          opacity: statsVisible ? 1 : 0,
+          transform: statsVisible ? "translateY(0)" : "translateY(28px)",
+          transition: "opacity 0.65s ease 0.1s, transform 0.65s ease 0.1s",
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
           gap: "1px",
@@ -249,7 +292,7 @@ export default function Hero() {
                 lineHeight: 1,
               }}
             >
-              {value}
+              {label === "Active Resellers" ? formatNumber(resellers) : value}
             </div>
             <div
               style={{
