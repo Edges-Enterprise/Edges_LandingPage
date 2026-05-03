@@ -86,7 +86,7 @@ export default function Navbar() {
             </a>
           ))}
           <a
-            href="#join"
+            href="/reseller"
             style={{
               background: "var(--accent)",
               color: "#FDF8F3",
