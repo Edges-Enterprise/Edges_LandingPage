@@ -1,12 +1,10 @@
-// app/(reseller-dashboard)/dashboard/orders/page.tsx
+// app/(reseller-dashboard)/r-dashboard/settings/page.tsx
 
 import { createServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { OrdersClient } from "./OrdersClient";
-import { getOrders } from "@/app/actions/reseller/orders/getOrders";
+import { SettingsClient } from "./SettingsClient";
 
-
-export default async function OrdersPage() {
+export default async function SettingsPage() {
   const supabase = await createServerClient();
   const {
     data: { user },
@@ -16,13 +14,11 @@ export default async function OrdersPage() {
 
   const { data: reseller } = await supabase
     .from("resellers")
-    .select("id")
+    .select("*")
     .eq("auth_user_id", user.id)
     .single();
 
   if (!reseller) redirect("/reseller");
 
-  const orders = await getOrders(reseller.id);
-
-  return <OrdersClient orders={orders} />;
+  return <SettingsClient reseller={reseller} />;
 }

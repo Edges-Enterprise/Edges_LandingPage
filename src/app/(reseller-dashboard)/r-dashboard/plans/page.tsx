@@ -1,8 +1,7 @@
-// app/(reseller-dashboard)/dashboard/plans/page.tsx
+// app/(reseller-dashboard)/r-dashboard/plans/page.tsx
 
 import { createServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-
 
 import { getResellerPlans } from "@/app/actions/reseller/plans/getPlans";
 import { PlansClient } from "./PlansClient";

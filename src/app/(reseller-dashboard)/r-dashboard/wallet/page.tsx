@@ -1,4 +1,4 @@
-// app/(reseller-dashboard)/dashboard/wallet/page.tsx
+// app/(reseller-dashboard)/r-dashboard/wallet/page.tsx
 
 import { createServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -26,7 +26,7 @@ export default async function WalletPage() {
   const transactions = await getTransactions(reseller.id);
 
   return (
-      <WalletClient
+    <WalletClient
       resellerId={reseller.id}
       wallet={wallet}
       transactions={transactions}

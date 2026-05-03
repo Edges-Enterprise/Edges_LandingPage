@@ -1,3 +1,5 @@
+// app/(reseller-dashboard)/r-dashboard/orders/OrdersClient.tsx
+
 "use client";
 
 import { Card } from "../Card";

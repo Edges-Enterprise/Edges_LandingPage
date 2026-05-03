@@ -1,4 +1,4 @@
-// app/(reseller-dashboard)/dashboard/settings/SettingsClient.tsx
+// app/(reseller-dashboard)/r-dashboard/settings/SettingsClient.tsx
 
 "use client";
 

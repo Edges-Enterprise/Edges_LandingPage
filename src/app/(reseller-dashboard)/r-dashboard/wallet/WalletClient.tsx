@@ -1,4 +1,4 @@
-// app/(reseller-dashboard)/dashboard/wallet/WalletClient.tsx
+// app/(reseller-dashboard)/r-dashboard/wallet/WalletClient.tsx
 
 "use client";
 

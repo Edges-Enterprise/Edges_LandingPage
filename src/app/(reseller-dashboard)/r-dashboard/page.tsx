@@ -1,4 +1,4 @@
-// app/(reseller-dashboard)/dashboard/page.tsx
+// app/(reseller-dashboard)/r-dashboard/page.tsx
 
 import { createServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -6,7 +6,6 @@ import { getDashboardStats } from "@/app/actions/reseller/analytics/getDashboard
 import { formatNaira } from "@/lib/pricing/calculatePrice";
 import { Card } from "./Card";
 import { Badge } from "./Badge";
-
 
 export default async function DashboardOverview() {
   const supabase = await createServerClient();

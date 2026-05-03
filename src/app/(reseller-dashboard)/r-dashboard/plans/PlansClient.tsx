@@ -1,11 +1,14 @@
-// app/(reseller-dashboard)/dashboard/plans/PlansClient.tsx
+// app/(reseller-dashboard)/r-dashboard/plans/PlansClient.tsx
 
 "use client";
 
 import { useState } from "react";
 import { Card } from "../Card";
 import { Badge } from "../Badge";
-import { bulkUpdateAllPlans, updateResellerPlan } from "@/app/actions/reseller/plans/updatePlan";
+import {
+  bulkUpdateAllPlans,
+  updateResellerPlan,
+} from "@/app/actions/reseller/plans/updatePlan";
 
 import {
   calculateResellerPrice,

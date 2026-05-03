@@ -1,3 +1,5 @@
+// app/(reseller-dashboard)/r-dashboard/Badge.tsx
+
 interface BadgeProps {
   children: React.ReactNode;
   variant: "success" | "warning" | "error" | "info";

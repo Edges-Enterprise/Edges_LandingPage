@@ -1,4 +1,4 @@
-// app/(reseller-dashboard)/dashboard/Card.tsx
+// app/(reseller-dashboard)/r-dashboard/Card.tsx
 
 import React from "react";
 
