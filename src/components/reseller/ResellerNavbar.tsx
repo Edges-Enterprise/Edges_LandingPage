@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
 
 const links = [
   { label: "How It Works", href: "#how-it-works" },
@@ -46,49 +48,17 @@ export default function Navbar() {
           height: 70,
         }}
       >
-        <a
-          href="#"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            textDecoration: "none",
-          }}
-        >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: "linear-gradient(135deg, #C98A54, #8A5429)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <span
-              style={{
-                color: "#FDF8F3",
-                fontSize: 14,
-                fontWeight: 700,
-                fontFamily: "'Playfair Display', serif",
-              }}
-            >
-              E
-            </span>
-          </div>
-          <span
-            style={{
-              fontFamily: "'Playfair Display', serif",
-              fontWeight: 700,
-              fontSize: "1.15rem",
-              color: "var(--text)",
-              letterSpacing: "-0.01em",
-            }}
-          >
+        <Link href="/" className="flex items-center space-x-2">
+          <Image
+            src="/edgesnetworkicon.png"
+            alt="Edges Network Logo"
+            width={40}
+            height={40}
+          />
+          <span style={{fontFamily: "'Playfair Display', serif",}} className="text-[#D7A77F] font-bold text-lg">
             Edges Network
           </span>
-        </a>
+        </Link>
 
         <div
           style={{ display: "flex", alignItems: "center", gap: "2rem" }}
