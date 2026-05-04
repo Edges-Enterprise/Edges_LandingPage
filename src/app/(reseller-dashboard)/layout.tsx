@@ -1,8 +1,14 @@
 // app/(reseller-dashboard)/layout.tsx
+import type { Metadata } from "next";
 import { createServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "./DashboardShell";
 import "./../reseller.css";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  description: "Manage your store, customers, and orders from your dashboard",
+};
 
 export default async function ResellerDashboardLayout({
   children,
