@@ -34,7 +34,8 @@ export async function proxy(request: NextRequest) {
   // Protected routes
   const isDashboard = pathname.startsWith("/dashboard");
   const isProtectedApp = pathname.startsWith("/home");
-
+  const isAdminDashboard = pathname.startsWith("/panel");
+  
   // Auth pages
   const isAuthPage =
     pathname.startsWith("/sign-in") ||
@@ -86,6 +87,13 @@ export async function proxy(request: NextRequest) {
   if (user && (isAuthPage || isLanding)) {
     const url = request.nextUrl.clone();
     url.pathname = "/home";
+    return NextResponse.redirect(url);
+  }
+
+  // Redirect authenticated users away from auth pages and landing
+  if (user && (isAdminDashboard)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/panel";
     return NextResponse.redirect(url);
   }
 
