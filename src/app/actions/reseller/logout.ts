@@ -15,3 +15,9 @@ export async function logoutReseller() {
 
   redirect(storeSlug ? `/${storeSlug}` : "/reseller");
 }
+
+export async function logoutCustomer(storeName: string) {
+  const supabase = await createServerClient();
+  await supabase.auth.signOut();
+  redirect(`/${storeName}`);
+}
