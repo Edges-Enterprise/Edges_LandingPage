@@ -1,8 +1,14 @@
 // app/reseller/success/page.tsx
 
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Check, ArrowRight, ExternalLink } from "lucide-react";
 import "./../../reseller.css";
+
+export const metadata: Metadata = {
+  title: "Success",
+  description: "",
+};
 
 export default async function SuccessPage({
   searchParams,
