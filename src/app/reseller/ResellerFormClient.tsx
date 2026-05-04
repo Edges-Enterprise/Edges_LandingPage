@@ -482,7 +482,7 @@ export function ResellerFormClient() {
           marginTop: "1rem",
         }}
       >
-        By creating a store, you agree to our Terms of Service.
+        By creating a store, you agree to our <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>Terms of Service</a>.
       </p>
     </form>
   );
