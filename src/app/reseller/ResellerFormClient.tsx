@@ -482,8 +482,7 @@ export function ResellerFormClient() {
           marginTop: "1rem",
         }}
       >
-        By creating a store, you agree to our Terms. Your store will be reviewed
-        within 72 hours.
+        By creating a store, you agree to our Terms of Service.
       </p>
     </form>
   );
