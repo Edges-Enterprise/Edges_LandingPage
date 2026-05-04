@@ -18,6 +18,7 @@ import {
   LogOut,
   ExternalLink,
 } from "lucide-react";
+import { logoutReseller } from "../actions/reseller/logout";
 
 const navItems = [
   {
@@ -204,34 +205,36 @@ export function DashboardShell({
             <ExternalLink size={16} />
             View Store
           </a>
-          <button
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              width: "100%",
-              padding: "0.6rem 1rem",
-              borderRadius: 8,
-              border: "none",
-              background: "transparent",
-              color: "var(--muted)",
-              fontSize: "0.85rem",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              transition: "all 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(239,68,68,0.1)";
-              e.currentTarget.style.color = "#EF4444";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "var(--muted)";
-            }}
-          >
-            <LogOut size={16} />
-            Logout
-          </button>
+          <form action={logoutReseller}>
+            <button
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                width: "100%",
+                padding: "0.6rem 1rem",
+                borderRadius: 8,
+                border: "none",
+                background: "transparent",
+                color: "var(--muted)",
+                fontSize: "0.85rem",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(239,68,68,0.1)";
+                e.currentTarget.style.color = "#EF4444";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = "var(--muted)";
+              }}
+            >
+              <LogOut size={16} />
+              Logout
+            </button>
+          </form>
         </div>
       </aside>
 
