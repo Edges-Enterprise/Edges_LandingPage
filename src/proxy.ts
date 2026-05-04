@@ -90,13 +90,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth pages and landing
-  if (user && (isAdminDashboard)) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/panel";
-    return NextResponse.redirect(url);
-  }
-
   return response;
 }
 
