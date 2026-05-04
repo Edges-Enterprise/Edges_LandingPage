@@ -109,6 +109,17 @@ export async function createReseller(
     return { error: "Failed to create reseller account. Please try again." };
   }
 
+  // ── Sign in the new reseller ──────────────
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (signInError) {
+    console.error("Auto sign-in failed:", signInError);
+    // Non-fatal — store still created, they can sign in manually
+  }
+
   // ── Email ────────────────────────────────
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
