@@ -38,6 +38,7 @@ export interface CreateResellerResult {
   resellerId?: string;
   storeUrl?: string;
   message?: string;
+  password?: string;
 }
 
 // ── Reseller ──────────────────────────────────────
