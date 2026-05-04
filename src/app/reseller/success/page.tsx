@@ -117,7 +117,6 @@ export default async function SuccessPage({
             style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}
           >
             {[
-              "We review your store (usually within 72 hours)",
               "You receive a confirmation email",
               "Log in to your dashboard and set your prices",
               "Share your store link and start earning",
