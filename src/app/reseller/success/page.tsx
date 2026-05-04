@@ -180,7 +180,7 @@ export default async function SuccessPage({
             Preview Store <ExternalLink size={15} />
           </Link>
           <Link
-            href="/r-dashboard"
+            href="/dashboard"
             style={{
               display: "inline-flex",
               alignItems: "center",
