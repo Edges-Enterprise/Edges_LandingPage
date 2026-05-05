@@ -45,6 +45,10 @@ export function ResellerFormClient() {
   const [email, setEmail] = useState("");
   const [brandColor, setBrandColor] = useState("#2563EB");
   const [androidApp, setAndroidApp] = useState(false);
+  // Add new state at the top:
+  const [appIcon, setAppIcon] = useState<File | null>(null);
+  const [appIconPreview, setAppIconPreview] = useState<string | null>(null);
+  const [iconError, setIconError] = useState("");
 
   const [storeNameStatus, setStoreNameStatus] = useState<
     "idle" | "checking" | "available" | "taken"
@@ -101,7 +105,7 @@ export function ResellerFormClient() {
     else if (!/^[a-z0-9-]+$/.test(storeName.trim()))
       errs.storeName = "Only letters, numbers, hyphens";
     else if (/^edge/.test(storeName.trim().replace(/[^a-z0-9]/g, "")))
-    errs.storeName = "That store name is not available.";
+      errs.storeName = "That store name is not available.";
 
     if (!email.trim()) errs.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
@@ -112,6 +116,36 @@ export function ResellerFormClient() {
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
+  };
+
+  // Add this handler:
+  const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setIconError("");
+
+    if (!file) {
+      setAppIcon(null);
+      setAppIconPreview(null);
+      return;
+    }
+
+    // Validate size
+    if (file.size > 1024 * 1024) {
+      setIconError("Image must be under 1MB");
+      return;
+    }
+
+    // Validate dimensions
+    const img = new Image();
+    img.onload = () => {
+      if (img.width !== 1024 || img.height !== 1024) {
+        setIconError("Image must be exactly 1024×1024px");
+        return;
+      }
+      setAppIcon(file);
+      setAppIconPreview(URL.createObjectURL(file));
+    };
+    img.src = URL.createObjectURL(file);
   };
 
   // ── Submit ───────────────────────────────────────
@@ -126,6 +160,9 @@ export function ResellerFormClient() {
     fd.append("email", email.trim());
     fd.append("brandColor", brandColor);
     fd.append("androidApp", androidApp.toString());
+    if (appIcon) {
+      fd.append("appIcon", appIcon);
+    }
 
     try {
       const result = await createReseller(fd);
@@ -548,6 +585,116 @@ export function ResellerFormClient() {
           </button>
         </div>
       </div>
+
+      {/* ── App Icon Upload (shown only when APK is selected) ── */}
+      {androidApp && (
+        <div style={{ marginBottom: "2rem" }}>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: "0.88rem",
+              fontWeight: 600,
+              color: "var(--text)",
+              marginBottom: "0.7rem",
+            }}
+          >
+            <Palette size={16} style={{ color: "var(--accent)" }} />
+            App Icon
+          </label>
+          <p
+            style={{
+              fontSize: "0.78rem",
+              color: "var(--dim)",
+              marginBottom: "0.75rem",
+            }}
+          >
+            Upload a 1024×1024px transparent PNG. This will be your app icon,
+            logo, and splash image.
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "1rem",
+              padding: "1rem",
+              background: "var(--bg2)",
+              border: `1.5px dashed ${iconError ? "#EF4444" : "var(--border)"}`,
+              borderRadius: 12,
+            }}
+          >
+            {/* Preview or placeholder */}
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 14,
+                background: appIconPreview
+                  ? `url(${appIconPreview}) center/cover`
+                  : "var(--bg3)",
+                border: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                overflow: "hidden",
+              }}
+            >
+              {!appIconPreview && (
+                <span style={{ fontSize: "1.5rem", opacity: 0.3 }}>🖼️</span>
+              )}
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  display: "inline-block",
+                  padding: "0.5rem 1rem",
+                  background: "rgba(201,138,84,0.1)",
+                  border: "1px solid rgba(201,138,84,0.25)",
+                  borderRadius: 8,
+                  color: "var(--accent-lt)",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                {appIcon ? "Change Image" : "Choose Image"}
+                <input
+                  type="file"
+                  accept="image/png"
+                  onChange={handleIconChange}
+                  style={{ display: "none" }}
+                />
+              </label>
+              {appIcon && (
+                <span
+                  style={{
+                    fontSize: "0.78rem",
+                    color: "var(--dim)",
+                    marginLeft: "0.75rem",
+                  }}
+                >
+                  {appIcon.name}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {iconError && (
+            <p style={{ fontSize: "0.78rem", color: "#EF4444", marginTop: 6 }}>
+              {iconError}
+            </p>
+          )}
+          <p style={{ fontSize: "0.72rem", color: "var(--dim)", marginTop: 6 }}>
+            Requirements: PNG format • 1024×1024px • Transparent background •
+            Under 1MB
+          </p>
+        </div>
+      )}
 
       {/* ── Form error ─────────────────────────── */}
       {errors.form && (
