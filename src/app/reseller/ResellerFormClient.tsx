@@ -21,21 +21,21 @@ import { createReseller } from "../actions/reseller/createReseller";
 // Curated palette of 16 swatches resellers can pick from
 const SWATCHES = [
   "#2563EB", // Blue
-  "#1D4ED8", // Deep Blue
+  // "#1D4ED8", // Deep Blue
   "#7C3AED", // Purple
-  "#9333EA", // Violet
+  // "#9333EA", // Violet
   "#DB2777", // Pink
-  "#E11D48", // Rose
+  // "#E11D48", // Rose
   "#DC2626", // Red
-  "#EA580C", // Orange
+  // "#EA580C", // Orange
   "#D97706", // Amber
-  "#CA8A04", // Yellow
+  // "#CA8A04", // Yellow
   "#16A34A", // Green
-  "#059669", // Emerald
+  // "#059669", // Emerald
   "#0D9488", // Teal
-  "#0284C7", // Sky
-  "#1F2937", // Slate
+  // "#0284C7", // Sky
   "#111827", // Dark
+  // "#1F2937", // Slate
 ];
 
 export function ResellerFormClient() {
