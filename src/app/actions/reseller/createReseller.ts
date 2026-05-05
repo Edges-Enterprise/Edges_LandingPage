@@ -24,7 +24,8 @@ export async function createReseller(
 
   const storeName = (formData.get("storeName") as string)?.toLowerCase().trim();
   const email = (formData.get("email") as string)?.trim();
-  const theme = (formData.get("theme") as ResellerFormData["theme"]) || "light";
+  // With this:
+  const theme = (formData.get("brandColor") as string) || "#2563EB";
   const androidApp = formData.get("androidApp") === "true";
 
   // ── Validation ─────────────────────────────
@@ -43,13 +44,20 @@ export async function createReseller(
     return { error: "Store name must be at least 3 characters" };
   }
 
+  // ── Block reserved "edges" names ───────────────────
+const normalized = storeName.replace(/[^a-z0-9]/g, "").toLowerCase();
+if (/^edge/.test(normalized)) {
+  return { error: "That store name is not available. Please choose another." };
+}
+
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { error: "Please enter a valid email address" };
   }
 
-  if (!["light", "dark", "custom"].includes(theme)) {
-    return { error: "Invalid theme selection" };
-  }
+
+  // if (!["light", "dark", "custom"].includes(theme)) {
+  //   return { error: "Invalid theme selection" };
+  // }
 
   // ── Check store name (can stay on normal client) ──
   const { data: existing } = await supabase
