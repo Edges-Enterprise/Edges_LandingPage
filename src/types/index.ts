@@ -57,6 +57,7 @@ export interface Reseller {
   theme: 'light' | 'dark' | 'custom'
   android_app: boolean
   status: 'pending' | 'active' | 'suspended'
+  brand_color?: string
   created_at: string
   updated_at: string
 }
@@ -75,42 +76,104 @@ export interface CreateResellerResult {
 }
 
 // ── Plans ─────────────────────────────────────────
+// export interface BasePlan {
+//   id: string
+//   name: string
+//   category: 'data' | 'airtime'
+//   base_price: number
+//   description?: string
+//   validity?: string
+//   is_active: boolean
+//   created_at: string
+// }
+
+// export interface ResellerPlanConfig {
+//   id: string
+//   reseller_id: string
+//   plan_id: string
+//   enabled: boolean
+//   markup_type: 'fixed' | 'percentage'
+//   markup_value: number
+//   plan?: BasePlan
+//   created_at: string
+//   updated_at: string
+// }
+
+export interface PlanWithPricing extends ResellerPlanConfig {
+  finalPrice: number;
+  profit: number;
+  plan?: {
+    id: string;
+    plan_id: number;
+    network: string;
+    plan_type: string;
+    plan_name: string;
+    amount: number;
+    validity?: string;
+    is_active: boolean;
+  };
+}
+
+// ── Plans ─────────────────────────────────────────
 export interface BasePlan {
-  id: string
-  name: string
-  category: 'data' | 'airtime'
-  base_price: number
-  description?: string
-  validity?: string
-  is_active: boolean
-  created_at: string
+  id: string;
+  plan_id: number;
+  network: string;
+  plan_type: string;
+  plan_name: string;
+  amount: number;
+  validity?: string;
+  flash_name?: string;
+  old_price?: number;
+  new_price?: number;
+  is_flash_sale?: boolean;
+  stock_available?: number;
+  stock_sold?: number;
+  discount_percentage?: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ResellerPlanConfig {
-  id: string
-  reseller_id: string
-  plan_id: string
-  enabled: boolean
-  markup_type: 'fixed' | 'percentage'
-  markup_value: number
-  plan?: BasePlan
-  created_at: string
-  updated_at: string
+  id: string;
+  reseller_id: string;
+  plan_id: string;
+  enabled: boolean;
+  markup_type: 'fixed' | 'percentage';
+  markup_value: number;
+  plan?: BasePlan;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface PlanWithPricing extends ResellerPlanConfig {
-  finalPrice: number
-  profit: number
+  finalPrice: number;
+  profit: number;
 }
 
 export interface StorePlan {
-  id: string
-  name: string
-  category: 'data' | 'airtime'
-  price: number
-  description?: string
-  validity?: string
+  id: string;
+  plan_id: number;
+  network: string;
+  plan_type: string;
+  plan_name: string;
+  price: number;
+  validity?: string;
 }
+
+// export interface StorePlan {
+//   id: string;
+//   name: string;
+//   category: "data" | "airtime";
+//   price: number;
+//   plan_id: number;
+//   network: string;
+//   plan_type: string;
+//   plan_name: string;
+//   description?: string;
+//   validity?: string;
+// }
 
 // ── Wallet ────────────────────────────────────────
 export interface ResellerWallet {
