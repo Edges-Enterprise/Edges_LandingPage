@@ -2,7 +2,6 @@
 
 import { createServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-
 import { getResellerPlans } from "@/app/actions/reseller/plans/getPlans";
 import { PlansClient } from "./PlansClient";
 
@@ -22,14 +21,7 @@ export default async function PlansPage() {
 
   if (!reseller) redirect("/reseller");
 
-  const dataPlans = await getResellerPlans(reseller.id, "data");
-  const airtimePlans = await getResellerPlans(reseller.id, "airtime");
+  const allPlans = await getResellerPlans(reseller.id);
 
-  return (
-    <PlansClient
-      resellerId={reseller.id}
-      dataPlans={dataPlans}
-      airtimePlans={airtimePlans}
-    />
-  );
+  return <PlansClient resellerId={reseller.id} allPlans={allPlans} />;
 }
