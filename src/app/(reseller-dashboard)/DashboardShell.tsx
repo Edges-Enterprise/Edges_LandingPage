@@ -20,50 +20,55 @@ import {
 } from "lucide-react";
 import { logoutReseller } from "../actions/reseller/logout";
 
-const navItems = [
-  {
-    href: "/dashboard",
-    icon: LayoutDashboard,
-    label: "Overview",
-  },
-  {
-    href: "/dashboard/plans",
-    icon: Package,
-    label: "Plans",
-  },
-  {
-    href: "/dashboard/orders",
-    icon: ShoppingCart,
-    label: "Orders",
-  },
-  {
-    href: "/dashboard/wallet",
-    icon: Wallet,
-    label: "Wallet",
-  },
-  {
-    href: "/dashboard/customers",
-    icon: Users,
-    label: "Customers",
-  },
-  {
-    href: "/dashboard/settings",
-    icon: Settings,
-    label: "Settings",
-  },
-];
-
 export function DashboardShell({
   children,
   storeName,
   storeSlug,
+  showAppTab = false,
 }: {
   children: React.ReactNode;
   storeName: string;
   storeSlug: string;
+  showAppTab?: boolean;
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const navItems = [
+    {
+      href: "/dashboard",
+      icon: LayoutDashboard,
+      label: "Overview",
+    },
+    {
+      href: "/dashboard/plans",
+      icon: Package,
+      label: "Plans",
+    },
+    {
+      href: "/dashboard/orders",
+      icon: ShoppingCart,
+      label: "Orders",
+    },
+    {
+      href: "/dashboard/wallet",
+      icon: Wallet,
+      label: "Wallet",
+    },
+    {
+      href: "/dashboard/customers",
+      icon: Users,
+      label: "Customers",
+    },
+    ...(showAppTab
+      ? [{ href: "/dashboard/app", icon: Smartphone, label: "App" }]
+      : []),
+    {
+      href: "/dashboard/settings",
+      icon: Settings,
+      label: "Settings",
+    },
+  ];
 
   return (
     <div
