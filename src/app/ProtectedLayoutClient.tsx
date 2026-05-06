@@ -3,7 +3,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import FCMTokenSync from "@/components/FCMTokenSync";
+// import FCMTokenSync from "@/components/FCMTokenSync";
 import {
   IoBonfire,
   IoWalletOutline,
@@ -24,10 +24,10 @@ const excludedPaths = ["/settings"];
 
 export default function ProtectedLayoutClient({
   children,
-  userId,
+  // userId,
 }: {
   children: React.ReactNode;
-  userId?: string;
+  // userId?: string;
 }) {
   const pathname = usePathname();
   const shouldExclude = excludedPaths.some((path) => pathname.startsWith(path));
@@ -37,7 +37,7 @@ export default function ProtectedLayoutClient({
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       {/* FCM Token Sync - only when user is logged in */}
-      {userId && <FCMTokenSync userId={userId} />}
+      {/* {userId && <FCMTokenSync userId={userId} />} */}
 
       <main className="flex-1 pt-4 pb-20 px-4">{children}</main>
     </div>

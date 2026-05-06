@@ -9,6 +9,7 @@ import {
   IoTimeOutline,
   IoSettingsOutline,
 } from "react-icons/io5";
+import FCMTokenSync from "@/components/FCMTokenSync";
 
 const navItems = [
   { href: "/wallet", icon: IoWalletOutline, label: "Wallet" },
@@ -23,8 +24,10 @@ const excludedPaths = ["/settings"];
 
 export default function ProtectedLayout({
   children,
+  userId,
 }: {
   children: React.ReactNode;
+  userId?: string;
 }) {
   const pathname = usePathname();
 
@@ -36,13 +39,16 @@ export default function ProtectedLayout({
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
+      {/* FCM Token Sync - only when user is logged in */}
+      {userId && <FCMTokenSync userId={userId} />}
+
       <main className="flex-1 pt-4 pb-20 px-4">{children}</main>
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-black border-t border-gray-700 p-4 flex justify-around z-10">
         {navItems.map(({ href, icon: Icon, label }) => {
           const isActive = pathname === href;
-        
+
           return (
             <Link
               key={href}
