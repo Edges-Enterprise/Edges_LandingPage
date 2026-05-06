@@ -99,7 +99,9 @@ export default async function ProtectedLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ProtectedLayoutClient userId={user?.id}>
+        <ProtectedLayoutClient
+          // userId={user?.id}
+        >
           {children}
         </ProtectedLayoutClient>
         
