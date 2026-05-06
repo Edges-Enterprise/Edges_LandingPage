@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { Card } from "../Card";
 import type { Reseller } from "@/types";
-import { createServerClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { Loader2, Check, Store, Mail, Palette } from "lucide-react";
 
 // We need a client-side supabase instance
