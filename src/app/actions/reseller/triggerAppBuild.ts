@@ -45,11 +45,12 @@ export async function triggerAppBuild(resellerId: string) {
     },
     config: {
       androidPackageName: `com.edges.${reseller.store_name.replace(/-/g, "")}`,
-      iosBundleId: `com.edges.${reseller.store_name.replace(/-/g, "")}`,
       version: "1.0.0",
       buildNumber: 1,
-      apiBaseUrl: process.env.NEXT_PUBLIC_APP_URL || "",
-      storeUrl: `${process.env.NEXT_PUBLIC_APP_URL}/${reseller.store_name}`,
+      apiBaseUrl:
+        process.env.NEXT_PUBLIC_APP_URL ||
+        "https://edges-landing-page.vercel.app",
+      storeUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://edges-landing-page.vercel.app"}/${reseller.store_name}`,
     },
   };
 
