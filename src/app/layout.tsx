@@ -1,8 +1,6 @@
-// app/layout.tsx (SERVER COMPONENT - no "use client")
+// app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { createServerClient } from "@/lib/supabase/server";
-import ProtectedLayoutClient from "./ProtectedLayoutClient";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -84,27 +82,18 @@ export const viewport: Viewport = {
   themeColor: "#d7a77f",
 };
 
-export default async function ProtectedLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   return (
     <html lang="en-NG">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ProtectedLayoutClient
-          // userId={user?.id}
-        >
-          {children}
-        </ProtectedLayoutClient>
-        
+        {children}
+
         {/* ✅ Place structured data inside body to avoid hydration mismatch */}
         <script
           type="application/ld+json"
