@@ -267,7 +267,7 @@ export default async function DashboardOverview() {
                     style={{ borderBottom: "1px solid var(--border)" }}
                   >
                     <td style={tdStyle}>{order.customer_email}</td>
-                    <td style={tdStyle}>{order.plan?.name || "—"}</td>
+                    <td style={tdStyle}>{order.plan?.plan_name || "—"}</td>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>
                       {formatNaira(order.amount)}
                     </td>
