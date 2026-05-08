@@ -505,6 +505,10 @@ async function processForSatelliteApp(
 // MAIN WEBHOOK HANDLER
 // ==============================================================================
 
+// ==============================================================================
+// MAIN WEBHOOK HANDLER
+// ==============================================================================
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Raw body + signature
@@ -552,7 +556,17 @@ export async function POST(req: NextRequest) {
     }
 
     // ── STEP 6: Try legacy App 1 ──────────────────────────────────────────────
-    const { receiver } = payload;
+    const { 
+      transaction_id, 
+      amount_paid, 
+      settlement_amount, 
+      settlement_fee, 
+      receiver, 
+      customer, 
+      sender, 
+      timestamp 
+    } = payload; // ← ADD THIS DESTRUCTURING
+
     const { data: virtualAccount } = await supabase
       .from("virtual_accounts")
       .select("user_id, account_number, account_name, bank_name")
@@ -561,7 +575,6 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (virtualAccount) {
-      // ── App 1 logic (unchanged) ─────────────────────────────────────────────
       console.log("Account found in App 1, processing normally...");
 
       const { data: profile } = await supabase
@@ -630,8 +643,8 @@ export async function POST(req: NextRequest) {
           platform_fees: platformFees,
           xixa_fee_absorbed: xixaFee,
           gross_after_xixa: xixaSettlementAmount,
-          customer_name: customer.name,
-          customer_email: customer.email,
+          customer_name: customer?.name,
+          customer_email: customer?.email,
           timestamp,
           original_reference: transaction_id,
           provider: "xixapay",
@@ -656,7 +669,6 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // After wallet funded
       await sendWebPushAction(
         virtualAccount.user_id,
         "💰 Wallet Funded",
@@ -699,6 +711,201 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// export async function POST(req: NextRequest) {
+//   try {
+//     // 1. Raw body + signature
+//     const rawBody = await req.text();
+//     const signature = req.headers.get("xixapay");
+
+//     if (!signature) {
+//       return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+//     }
+
+//     // 2. Verify signature
+//     const calculatedSignature = crypto
+//       .createHmac("sha256", process.env.XIXAPAY_SECRET_KEY!)
+//       .update(rawBody)
+//       .digest("hex");
+
+//     if (calculatedSignature !== signature) {
+//       console.error("Invalid webhook signature");
+//       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+//     }
+
+//     // 3. Parse payload
+//     const payload: XixaPayPayload = JSON.parse(rawBody);
+//     console.log("Webhook received:", {
+//       status: payload.notification_status,
+//       transaction_id: payload.transaction_id,
+//       amount: payload.amount_paid,
+//       receiver_account: payload.receiver?.account_number,
+//     });
+
+//     // 4. Only process successful payments
+//     if (
+//       payload.notification_status !== "payment_successful" ||
+//       payload.transaction_status !== "success"
+//     ) {
+//       return NextResponse.json({ message: "Ignored" });
+//     }
+
+//     const supabase = await createServerClient();
+
+//     // ── STEP 5: Try reseller store tables FIRST ───────────────────────────────
+//     const resellerResult = await processForResellerStore(supabase, payload);
+//     if (resellerResult !== null) {
+//       return resellerResult;
+//     }
+
+//     // ── STEP 6: Try legacy App 1 ──────────────────────────────────────────────
+//     const { receiver } = payload;
+//     const { data: virtualAccount } = await supabase
+//       .from("virtual_accounts")
+//       .select("user_id, account_number, account_name, bank_name")
+//       .eq("account_number", receiver.account_number)
+//       .eq("account_name", receiver.name)
+//       .single();
+
+//     if (virtualAccount) {
+//       // ── App 1 logic (unchanged) ─────────────────────────────────────────────
+//       console.log("Account found in App 1, processing normally...");
+
+//       const { data: profile } = await supabase
+//         .from("profiles")
+//         .select("email")
+//         .eq("id", virtualAccount.user_id)
+//         .single();
+
+//       if (!profile) {
+//         return NextResponse.json({ error: "User not found" }, { status: 404 });
+//       }
+
+//       const { data: existingTx } = await supabase
+//         .from("transactions")
+//         .select("id")
+//         .eq("reference", `Edges_Network_Web_${transaction_id}`)
+//         .single();
+
+//       if (existingTx) {
+//         return NextResponse.json({ message: "Already processed" });
+//       }
+
+//       const { data: wallet, error: walletError } = await supabase
+//         .from("wallet")
+//         .select("balance")
+//         .eq("user_email", profile.email)
+//         .single();
+
+//       if (walletError || !wallet) {
+//         return NextResponse.json(
+//           { error: "Wallet not found" },
+//           { status: 404 },
+//         );
+//       }
+
+//       const grossAmount = parseFloat(amount_paid);
+//       const xixaSettlementAmount = parseFloat(settlement_amount || amount_paid);
+//       const xixaFee = grossAmount - xixaSettlementAmount;
+//       const platformFees = calculateFees(grossAmount);
+//       const finalNetAmount = calculateNetAmount(grossAmount);
+//       const currentBalance = parseFloat(wallet.balance || "0");
+//       const newBalance = currentBalance + finalNetAmount;
+
+//       await supabase
+//         .from("wallet")
+//         .update({ balance: newBalance.toString() })
+//         .eq("user_email", profile.email);
+
+//       await supabase.from("transactions").insert({
+//         user_email: profile.email,
+//         type: "deposit",
+//         amount: finalNetAmount.toString(),
+//         status: "completed",
+//         reference: `Edges_Network_Web_${transaction_id}`,
+//         description: `Wallet funding via ${receiver.bank}`,
+//         env: "live",
+//         metadata: {
+//           payment_method: "bank_transfer",
+//           bank_name: sender.bank,
+//           account_number: sender.account_number,
+//           sender_name: sender.name,
+//           receiver_account: receiver.account_number,
+//           receiver_bank: receiver.bank,
+//           xixa_settlement_fee: settlement_fee,
+//           xixa_raw_amount: amount_paid,
+//           platform_fees: platformFees,
+//           xixa_fee_absorbed: xixaFee,
+//           gross_after_xixa: xixaSettlementAmount,
+//           customer_name: customer.name,
+//           customer_email: customer.email,
+//           timestamp,
+//           original_reference: transaction_id,
+//           provider: "xixapay",
+//           verified_by: "xixapay-webhook",
+//           channel: "bank_transfer",
+//         },
+//       });
+
+//       await supabase.from("notifications").insert({
+//         user_id: virtualAccount.user_id,
+//         notification_type: "deposit",
+//         message: `₦${finalNetAmount.toLocaleString("en-NG", {
+//           minimumFractionDigits: 2,
+//         })} has been added to your wallet from ${sender.bank} (after ₦${platformFees.toLocaleString()} fee)`,
+//         is_read: false,
+//         metadata: {
+//           transaction_id: `Edges_Network_Web_${transaction_id}`,
+//           amount: finalNetAmount,
+//           fee_charged: platformFees,
+//           sender: sender.name,
+//           bank: sender.bank,
+//         },
+//       });
+
+//       // After wallet funded
+//       await sendWebPushAction(
+//         virtualAccount.user_id,
+//         "💰 Wallet Funded",
+//         `₦${finalNetAmount.toLocaleString("en-NG", { minimumFractionDigits: 2 })} added to your wallet`,
+//       );
+
+//       console.log("App 1 wallet funded:", {
+//         user: profile.email,
+//         final_net: finalNetAmount,
+//         new_balance: newBalance,
+//       });
+
+//       return NextResponse.json({
+//         message: "Webhook processed successfully",
+//         transaction_id,
+//       });
+//     }
+
+//     // ── STEP 7: Try satellite apps ────────────────────────────────────────────
+//     console.log("Account not in reseller stores or App 1, trying satellite apps...");
+
+//     for (const app of SATELLITE_APPS) {
+//       const result = await processForSatelliteApp(app, payload);
+//       if (result !== null) {
+//         return result;
+//       }
+//     }
+
+//     // ── STEP 8: Not found anywhere ────────────────────────────────────────────
+//     console.error("Account not found in any app:", receiver.account_number);
+//     return NextResponse.json(
+//       { error: "Account not found in any app" },
+//       { status: 404 },
+//     );
+//   } catch (error) {
+//     console.error("Webhook processing error:", error);
+//     return NextResponse.json(
+//       { error: "Internal server error" },
+//       { status: 500 },
+//     );
+//   }
+// }
 
 
 // // src/app/api/xixa-account/webhook/route.ts
