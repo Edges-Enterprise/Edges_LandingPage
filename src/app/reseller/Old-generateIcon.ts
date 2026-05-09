@@ -5,7 +5,7 @@
  * White rounded square with brand-colored letter on transparent background.
  * Size: 1024×1024px
  */
-export async function generateIconPng(
+export async function oldgenerateIconPng(
   storeName: string,
   brandColor: string,
 ): Promise<Blob> {
