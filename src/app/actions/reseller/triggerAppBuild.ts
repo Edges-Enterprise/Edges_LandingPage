@@ -115,6 +115,7 @@ export async function triggerAppBuild(resellerId: string) {
             inputs: {
               reseller_id: resellerId,
               config_id: savedConfig.id,
+              store_name: reseller.store_name,
               environment: "production",
             },
           }),

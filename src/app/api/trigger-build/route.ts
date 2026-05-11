@@ -1,3 +1,5 @@
+// app/api/trigger-build/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { triggerAppBuild } from "@/app/actions/reseller/triggerAppBuild";
 
