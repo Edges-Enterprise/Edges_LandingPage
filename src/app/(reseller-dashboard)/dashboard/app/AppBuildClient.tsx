@@ -419,7 +419,7 @@ export function AppBuildClient({
                 textAlign: "center",
               }}
             >
-              ⏱️ Estimated time: 20-40 minutes. You can leave this page and come
+              ⏱️ Estimated time: 120-240 minutes. You can leave this page and come
               back.
             </p>
           </div>
