@@ -7,6 +7,12 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatNaira } from "@/lib/pricing/calculatePrice";
 import type { StorePlan } from "@/types";
+import {
+  createCustomerVirtualAccount,
+  getCustomerVirtualAccounts,
+  customerHasVirtualAccount,
+} from "@/app/actions/reseller/wallet/customerVirtualAccount";
+
 import { logoutReseller, logoutCustomer } from "@/app/actions/reseller/logout";
 import {
   Wifi,
@@ -99,6 +105,22 @@ export function StoreContent({
   } | null>(null);
   const [storeStatusLoading, setStoreStatusLoading] = useState(true);
 
+  // Add these states:
+  const [customerVirtualAccounts, setCustomerVirtualAccounts] = useState<any[]>(
+    [],
+  );
+  const [showCustomerVirtualForm, setShowCustomerVirtualForm] = useState(false);
+  const [customerVirtualForm, setCustomerVirtualFormState] = useState({
+    fullName: "",
+    phoneNumber: "",
+    email: "",
+  });
+  const [customerVirtualLoading, setCustomerVirtualLoading] = useState(false);
+  const [customerVirtualMessage, setCustomerVirtualMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -129,6 +151,98 @@ export function StoreContent({
     }
     fetchStoreStatus();
   }, [storeName]);
+
+  // Helper to get reseller ID
+  async function getResellerId(storeName: string): Promise<string | null> {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("resellers")
+      .select("id")
+      .eq("store_name", storeName)
+      .eq("status", "active")
+      .single();
+    return data?.id || null;
+  }
+
+  // Fetch customer virtual accounts when logged in
+  useEffect(() => {
+    if (loggedIn) {
+      async function fetchCustomerAccounts() {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Get reseller ID
+        const resellerId = await getResellerId(storeName); // You'll need this helper
+        if (!resellerId) return;
+
+        const accounts = await getCustomerVirtualAccounts(user.id, resellerId);
+        setCustomerVirtualAccounts(accounts || []);
+      }
+      fetchCustomerAccounts();
+    }
+  }, [loggedIn, storeName]);
+
+  // Handler for creating customer virtual account
+  const handleCreateCustomerVirtualAccount = async () => {
+    if (
+      !customerVirtualForm.fullName ||
+      !customerVirtualForm.phoneNumber ||
+      !customerVirtualForm.email
+    ) {
+      setCustomerVirtualMessage({
+        type: "error",
+        text: "All fields are required",
+      });
+      return;
+    }
+
+    setCustomerVirtualLoading(true);
+    setCustomerVirtualMessage(null);
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setCustomerVirtualMessage({
+        type: "error",
+        text: "Please sign in first",
+      });
+      setCustomerVirtualLoading(false);
+      return;
+    }
+
+    const resellerId = await getResellerId(storeName);
+    if (!resellerId) {
+      setCustomerVirtualMessage({ type: "error", text: "Store not found" });
+      setCustomerVirtualLoading(false);
+      return;
+    }
+
+    const result = await createCustomerVirtualAccount({
+      ...customerVirtualForm,
+      resellerId,
+      customerId: user.id,
+      storeSlug: storeName,
+    });
+
+    if (result.error) {
+      setCustomerVirtualMessage({ type: "error", text: result.error });
+    } else {
+      setCustomerVirtualMessage({
+        type: "success",
+        text: result.message || "Virtual account created!",
+      });
+      setShowCustomerVirtualForm(false);
+      // Refresh accounts
+      const accounts = await getCustomerVirtualAccounts(user.id, resellerId);
+      setCustomerVirtualAccounts(accounts || []);
+    }
+    setCustomerVirtualLoading(false);
+  };
 
   const displayPlans = useMemo(
     () => allPlans.filter((p) => p.network === activeTab),
@@ -538,6 +652,314 @@ export function StoreContent({
           </p>
         </div>
       </div>
+
+      {loggedIn && (
+        <div
+          style={{
+            maxWidth: 1100,
+            margin: "0 auto",
+            padding: "0 1.5rem 1.5rem",
+          }}
+        >
+          {customerVirtualAccounts.length > 0 ? (
+            <div
+              style={{
+                background: "#FFFFFF",
+                border: "1.5px solid #E5E7EB",
+                borderRadius: 14,
+                padding: "1.5rem",
+              }}
+            >
+              <h3
+                style={{
+                  fontWeight: 700,
+                  color: "#111827",
+                  fontSize: "1rem",
+                  marginBottom: "0.75rem",
+                }}
+              >
+                💳 Your Funding Account
+              </h3>
+              <p
+                style={{
+                  fontSize: "0.82rem",
+                  color: "#6B7280",
+                  marginBottom: "1rem",
+                }}
+              >
+                Transfer money to this account to fund your wallet instantly
+              </p>
+              {customerVirtualAccounts.map((account: any) => (
+                <div
+                  key={account.id}
+                  style={{
+                    background: "#F9FAFB",
+                    borderRadius: 10,
+                    padding: "1rem",
+                    border: "1px solid #E5E7EB",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <p style={{ fontWeight: 600, color: "#111827" }}>
+                      {account.bank_name}
+                    </p>
+                    <span
+                      style={{
+                        fontSize: "0.7rem",
+                        color: "#9CA3AF",
+                        background: "#F3F4F6",
+                        padding: "2px 8px",
+                        borderRadius: 100,
+                      }}
+                    >
+                      Active
+                    </span>
+                  </div>
+                  <p
+                    style={{
+                      fontSize: "1.2rem",
+                      fontWeight: 700,
+                      fontFamily: "monospace",
+                      color: primary,
+                      marginBottom: 2,
+                    }}
+                  >
+                    {account.account_number}
+                  </p>
+                  <p style={{ fontSize: "0.82rem", color: "#6B7280" }}>
+                    {account.account_name}
+                  </p>
+                </div>
+              ))}
+              <p
+                style={{
+                  fontSize: "0.72rem",
+                  color: "#9CA3AF",
+                  marginTop: "0.5rem",
+                  textAlign: "center",
+                }}
+              >
+                💡 Save this account number in your bank app for quick transfers
+              </p>
+            </div>
+          ) : (
+            <div
+              style={{
+                background: "#FFFFFF",
+                border: "1.5px solid #E5E7EB",
+                borderRadius: 14,
+                padding: "1.5rem",
+                textAlign: "center",
+              }}
+            >
+              {!showCustomerVirtualForm ? (
+                <>
+                  <h3
+                    style={{
+                      fontWeight: 700,
+                      color: "#111827",
+                      fontSize: "1rem",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    💰 Fund Your Wallet
+                  </h3>
+                  <p
+                    style={{
+                      fontSize: "0.82rem",
+                      color: "#6B7280",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    Create a virtual account to fund your wallet instantly via
+                    bank transfer
+                  </p>
+                  <button
+                    onClick={() => setShowCustomerVirtualForm(true)}
+                    style={{
+                      padding: "0.6rem 1.5rem",
+                      background: primary,
+                      border: "none",
+                      borderRadius: 10,
+                      color: contrastText(primary),
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    Create Virtual Account
+                  </button>
+                </>
+              ) : (
+                <div
+                  style={{ textAlign: "left", maxWidth: 400, margin: "0 auto" }}
+                >
+                  <h3
+                    style={{
+                      fontWeight: 700,
+                      color: "#111827",
+                      fontSize: "1rem",
+                      marginBottom: "0.5rem",
+                      textAlign: "center",
+                    }}
+                  >
+                    Create Virtual Account
+                  </h3>
+
+                  {customerVirtualMessage && (
+                    <div
+                      style={{
+                        padding: "0.6rem 1rem",
+                        borderRadius: 8,
+                        marginBottom: "1rem",
+                        background:
+                          customerVirtualMessage.type === "success"
+                            ? "rgba(110,189,138,0.1)"
+                            : "rgba(239,68,68,0.1)",
+                        color:
+                          customerVirtualMessage.type === "success"
+                            ? "#6EBD8A"
+                            : "#F87171",
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      {customerVirtualMessage.text}
+                    </div>
+                  )}
+
+                  <div style={{ marginBottom: "0.75rem" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        color: "#374151",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={customerVirtualForm.fullName}
+                      onChange={(e) =>
+                        setCustomerVirtualFormState({
+                          ...customerVirtualForm,
+                          fullName: e.target.value,
+                        })
+                      }
+                      placeholder="John Doe"
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: "0.75rem" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        color: "#374151",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Phone Number
+                    </label>
+                    <input
+                      type="text"
+                      value={customerVirtualForm.phoneNumber}
+                      onChange={(e) =>
+                        setCustomerVirtualFormState({
+                          ...customerVirtualForm,
+                          phoneNumber: e.target.value,
+                        })
+                      }
+                      placeholder="08012345678"
+                      maxLength={11}
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: "1rem" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        color: "#374151",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={customerVirtualForm.email}
+                      onChange={(e) =>
+                        setCustomerVirtualFormState({
+                          ...customerVirtualForm,
+                          email: e.target.value,
+                        })
+                      }
+                      placeholder="you@example.com"
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button
+                      onClick={handleCreateCustomerVirtualAccount}
+                      disabled={customerVirtualLoading}
+                      style={{
+                        flex: 1,
+                        padding: "0.6rem",
+                        background: primary,
+                        border: "none",
+                        borderRadius: 8,
+                        color: contrastText(primary),
+                        fontWeight: 600,
+                        fontSize: "0.85rem",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        opacity: customerVirtualLoading ? 0.7 : 1,
+                      }}
+                    >
+                      {customerVirtualLoading ? "Creating..." : "Create"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCustomerVirtualForm(false);
+                        setCustomerVirtualMessage(null);
+                      }}
+                      style={{
+                        padding: "0.6rem 1rem",
+                        background: "#F3F4F6",
+                        border: "1px solid #E5E7EB",
+                        borderRadius: 8,
+                        color: "#6B7280",
+                        fontSize: "0.85rem",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <main style={{ maxWidth: 1100, margin: "0 auto", padding: "1.5rem" }}>
         {/* ─── Featured Plans ─────────────────────────────── */}
@@ -1443,6 +1865,19 @@ function PlanCard({
 }
 
 // ─── Shared styles ────────────────────────────────────
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "0.6rem 0.8rem",
+  background: "#F9FAFB",
+  border: "1.5px solid #E5E7EB",
+  borderRadius: 8,
+  color: "#111827",
+  fontSize: "0.88rem",
+  outline: "none",
+  fontFamily: "inherit",
+  boxSizing: "border-box",
+};
 
 function navBtnStyle(onPrimary: string): React.CSSProperties {
   return {
