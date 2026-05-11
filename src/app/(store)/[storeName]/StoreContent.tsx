@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatNaira } from "@/lib/pricing/calculatePrice";
@@ -90,6 +90,15 @@ export function StoreContent({
   const [loggedIn, setLoggedIn] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
+  const [storeStatus, setStoreStatus] = useState<{
+    canSell: boolean;
+    hasVirtualAccount: boolean;
+    hasBalance: boolean;
+    balance: number;
+    reason: string | null;
+  } | null>(null);
+  const [storeStatusLoading, setStoreStatusLoading] = useState(true);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -102,6 +111,24 @@ export function StoreContent({
     );
     return () => subscription.unsubscribe();
   }, []);
+
+  // Add this effect after the auth effect:
+  useEffect(() => {
+    async function fetchStoreStatus() {
+      try {
+        const response = await fetch(`/api/store-status?store=${storeName}`);
+        if (response.ok) {
+          const data = await response.json();
+          setStoreStatus(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch store status:", error);
+      } finally {
+        setStoreStatusLoading(false);
+      }
+    }
+    fetchStoreStatus();
+  }, [storeName]);
 
   const displayPlans = useMemo(
     () => allPlans.filter((p) => p.network === activeTab),
@@ -437,6 +464,50 @@ export function StoreContent({
           </div>
         </div>
       </header>
+
+      {/* ─── Store Status Banner ──────────────────────────── */}
+      {!storeStatusLoading && storeStatus && !storeStatus.canSell && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, #FEF3C7, #FDE68A)",
+            borderBottom: "2px solid #F59E0B",
+            padding: "0.85rem 1.5rem",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            <span style={{ fontSize: "1.2rem" }}>⚠️</span>
+            <span
+              style={{
+                fontWeight: 600,
+                color: "#92400E",
+                fontSize: "0.9rem",
+              }}
+            >
+              {storeStatus.reason}
+            </span>
+          </div>
+          <p
+            style={{
+              fontSize: "0.78rem",
+              color: "#A16207",
+              margin: "4px 0 0",
+            }}
+          >
+            {!storeStatus.hasVirtualAccount
+              ? "The store owner is still setting up their payment system."
+              : "The store owner needs to fund their wallet to start accepting orders."}
+          </p>
+        </div>
+      )}
 
       {/* ─── Hero strip ───────────────────────────────────── */}
       <div
@@ -984,7 +1055,14 @@ export function StoreContent({
               </p>
             </div>
           ) : (
-            <PlanGrid key={activeTab} plans={displayPlans} primary={primary} />
+            // Replace with:
+            <PlanGrid
+              key={activeTab}
+              plans={displayPlans}
+              primary={primary}
+              canSell={storeStatus?.canSell !== false}
+              storeReason={storeStatus?.reason}
+            />
           )}
         </section>
 
@@ -1094,7 +1172,7 @@ export function StoreContent({
               background: `linear-gradient(135deg, ${gradFrom}, ${gradTo})`,
             }}
           />
-          · {displayName} · 
+          · {displayName} ·
         </div>
       </footer>
     </div>
@@ -1103,7 +1181,17 @@ export function StoreContent({
 
 const PLANS_PER_PAGE = 15;
 
-function PlanGrid({ plans, primary }: { plans: StorePlan[]; primary: string }) {
+function PlanGrid({
+  plans,
+  primary,
+  canSell = true,
+  storeReason,
+}: {
+  plans: StorePlan[];
+  primary: string;
+  canSell?: boolean;
+  storeReason?: string | null;
+}) {
   const [page, setPage] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [direction, setDirection] = useState<"left" | "right">("right");
@@ -1140,7 +1228,13 @@ function PlanGrid({ plans, primary }: { plans: StorePlan[]; primary: string }) {
       {/* Grid */}
       <div style={slideStyle} className="grid grid-cols-3 md:grid-cols-4 gap-3">
         {pagePlans.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} primary={primary} />
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            primary={primary}
+            canSell={canSell}
+            storeReason={storeReason}
+          />
         ))}
       </div>
 
@@ -1178,10 +1272,20 @@ function PlanGrid({ plans, primary }: { plans: StorePlan[]; primary: string }) {
   );
 }
 
-function PlanCard({ plan, primary }: { plan: StorePlan; primary: string }) {
+function PlanCard({
+  plan,
+  primary,
+  canSell = true,
+  storeReason,
+}: {
+  plan: StorePlan;
+  primary: string;
+  canSell?: boolean;
+  storeReason?: string | null;
+}) {
   return (
     <div
-    className="flex flex-col gap-3 md:gap-6"
+      className="flex flex-col gap-3 md:gap-6"
       style={{
         background: "#FFFFFF",
         border: `1.5px solid #F3F4F6`,
@@ -1204,7 +1308,14 @@ function PlanCard({ plan, primary }: { plan: StorePlan; primary: string }) {
       }}
     >
       {/* Icon + name */}
-      <div style={{ display: "flex", placeItems: "center", justifyContent: "space-between", gap: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          placeItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+        }}
+      >
         <div className="flex gap-2">
           <div
             style={{
@@ -1269,7 +1380,7 @@ function PlanCard({ plan, primary }: { plan: StorePlan; primary: string }) {
       <p
         className=" md:hidden"
         style={{
-          alignItems:"center",
+          alignItems: "center",
           fontWeight: 800,
           color: primary,
           fontSize: "1.1rem",
@@ -1281,7 +1392,7 @@ function PlanCard({ plan, primary }: { plan: StorePlan; primary: string }) {
       </p>
 
       {/* Buy button */}
-      <button
+      {/* <button
         style={{
           width: "100%",
           padding: "0.55rem",
@@ -1301,6 +1412,31 @@ function PlanCard({ plan, primary }: { plan: StorePlan; primary: string }) {
         }}
       >
         Buy
+      </button> */}
+
+      {/* Buy button */}
+      <button
+        style={{
+          width: "100%",
+          padding: "0.55rem",
+          background: canSell ? primary : "#D1D5DB",
+          border: "none",
+          borderRadius: 9,
+          color: canSell ? contrastText(primary) : "#9CA3AF",
+          fontWeight: 700,
+          fontSize: "0.78rem",
+          cursor: canSell ? "pointer" : "not-allowed",
+          fontFamily: "inherit",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 5,
+          marginTop: "auto",
+        }}
+        disabled={!canSell}
+        title={!canSell && storeReason ? storeReason : undefined}
+      >
+        {canSell ? "Buy" : "Unavailable"}
       </button>
     </div>
   );
