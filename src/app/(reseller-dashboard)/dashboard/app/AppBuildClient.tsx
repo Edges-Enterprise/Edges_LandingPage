@@ -77,7 +77,7 @@ const BUILD_STEPS = [
   { icon: Cpu, message: "Compiling native code with maximum effort..." },
   { icon: HardDrive, message: "Allocating memory for greatness..." },
   { icon: Wifi, message: "Downloading extra goodness packets..." },
-  { icon: Globe, message: "Translating app to universal language..." },
+  { icon: Globe, message: "Translating app codes to human readable language..." },
   { icon: Lock, message: "Encrypting secrets with double ROT13..." },
   { icon: Settings, message: "Fine-tuning all the knobs and dials..." },
   { icon: Terminal, message: "Running final terminal incantations..." },
