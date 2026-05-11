@@ -2,6 +2,9 @@
 
 import { createServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
+import { checkResellerStatusById } from "@/app/actions/reseller/wallet/resellerCustomerWallet";
 import { getDashboardStats } from "@/app/actions/reseller/analytics/getDashboardStats";
 import { formatNaira } from "@/lib/pricing/calculatePrice";
 import { Card } from "./Card";
@@ -24,6 +27,7 @@ export default async function DashboardOverview() {
   if (!reseller) redirect("/reseller");
 
   const stats = await getDashboardStats(reseller.id);
+  const resellerStatus = await checkResellerStatusById(reseller.id);
 
   const date = new Date();
   const month = date.toLocaleString("default", { month: "long" });
@@ -48,6 +52,76 @@ export default async function DashboardOverview() {
           {month} {year} — Your store performance at a glance
         </p>
       </div>
+
+      {!resellerStatus.canSell && (
+        <div
+          style={{
+            background: "rgba(251,191,36,0.08)",
+            border: "1px solid rgba(251,191,36,0.3)",
+            borderRadius: 12,
+            padding: "1.25rem 1.5rem",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
+          }}
+        >
+          <AlertTriangle
+            size={22}
+            style={{ color: "#FBBF24", flexShrink: 0, marginTop: 2 }}
+          />
+          <div>
+            <h3
+              style={{
+                fontWeight: 600,
+                color: "#FBBF24",
+                marginBottom: 4,
+                fontSize: "0.95rem",
+              }}
+            >
+              Complete Your Store Setup
+            </h3>
+            <p
+              style={{
+                fontSize: "0.85rem",
+                color: "var(--muted)",
+                lineHeight: 1.6,
+              }}
+            >
+              {!resellerStatus.hasVirtualAccount ? (
+                <>
+                  You need to create a virtual account before customers can
+                  purchase from your store.{" "}
+                  <Link
+                    href="/dashboard/wallet"
+                    style={{
+                      color: "var(--accent)",
+                      fontWeight: 600,
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Set up now →
+                  </Link>
+                </>
+              ) : !resellerStatus.hasBalance ? (
+                <>
+                  Your wallet balance is empty. Fund your wallet so customers
+                  can start purchasing.{" "}
+                  <Link
+                    href="/dashboard/wallet"
+                    style={{
+                      color: "var(--accent)",
+                      fontWeight: 600,
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Fund wallet →
+                  </Link>
+                </>
+              ) : null}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div
