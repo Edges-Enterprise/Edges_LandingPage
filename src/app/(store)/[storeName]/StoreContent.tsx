@@ -12,6 +12,9 @@ import {
   getCustomerVirtualAccounts,
   customerHasVirtualAccount,
 } from "@/app/actions/reseller/wallet/customerVirtualAccount";
+import { getResellerVirtualAccounts } from "@/app/actions/reseller/wallet/resellerCustomerWallet";
+
+import { createResellerVirtualAccount } from "@/app/actions/reseller/wallet/resellerCustomerWallet";
 
 import { logoutReseller, logoutCustomer } from "@/app/actions/reseller/logout";
 import {
@@ -121,18 +124,45 @@ export function StoreContent({
     text: string;
   } | null>(null);
 
+  // Add this state to track if the logged-in user is the store owner:
+  const [isStoreOwner, setIsStoreOwner] = useState(false);
+
+  // useEffect(() => {
+  //   const supabase = createClient();
+  //   supabase.auth.getSession().then(({ data: { session } }) => {
+  //     setLoggedIn(!!session);
+  //   });
+  //   const {
+  //     data: { subscription },
+  //   } = supabase.auth.onAuthStateChange((_event, session) =>
+  //     setLoggedIn(!!session),
+  //   );
+  //   return () => subscription.unsubscribe();
+  // }, []);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       setLoggedIn(!!session);
+      // Check if the logged-in user is the store owner
+      if (session?.user) {
+        const isOwner = session.user.user_metadata?.store_name === storeName;
+        setIsStoreOwner(isOwner);
+      }
     });
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) =>
-      setLoggedIn(!!session),
-    );
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setLoggedIn(!!session);
+      if (session?.user) {
+        const isOwner = session.user.user_metadata?.store_name === storeName;
+        setIsStoreOwner(isOwner);
+      } else {
+        setIsStoreOwner(false);
+      }
+    });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [storeName]);
 
   // Add this effect after the auth effect:
   useEffect(() => {
@@ -165,27 +195,119 @@ export function StoreContent({
   }
 
   // Fetch customer virtual accounts when logged in
+  // useEffect(() => {
+  //   if (loggedIn) {
+  //     async function fetchCustomerAccounts() {
+  //       const supabase = createClient();
+  //       const {
+  //         data: { user },
+  //       } = await supabase.auth.getUser();
+  //       if (!user) return;
+
+  //       // Get reseller ID
+  //       const resellerId = await getResellerId(storeName); // You'll need this helper
+  //       if (!resellerId) return;
+
+  //       const accounts = await getCustomerVirtualAccounts(user.id, resellerId);
+  //       setCustomerVirtualAccounts(accounts || []);
+  //     }
+  //     fetchCustomerAccounts();
+  //   }
+  // }, [loggedIn, storeName]);
+
+  // Update the fetch customer virtual accounts effect to handle both:
   useEffect(() => {
     if (loggedIn) {
-      async function fetchCustomerAccounts() {
+      async function fetchAccounts() {
         const supabase = createClient();
         const {
           data: { user },
         } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Get reseller ID
-        const resellerId = await getResellerId(storeName); // You'll need this helper
+        const resellerId = await getResellerId(storeName);
         if (!resellerId) return;
 
-        const accounts = await getCustomerVirtualAccounts(user.id, resellerId);
-        setCustomerVirtualAccounts(accounts || []);
+        // Check if user is the reseller
+        const isOwner = user.user_metadata?.store_name === storeName;
+        setIsStoreOwner(isOwner);
+
+        if (isOwner) {
+          // Fetch RESELLER virtual accounts
+          const accounts = await getResellerVirtualAccounts(resellerId);
+          setCustomerVirtualAccounts(accounts || []);
+        } else {
+          // Fetch CUSTOMER virtual accounts
+          const accounts = await getCustomerVirtualAccounts(
+            user.id,
+            resellerId,
+          );
+          setCustomerVirtualAccounts(accounts || []);
+        }
       }
-      fetchCustomerAccounts();
+      fetchAccounts();
     }
   }, [loggedIn, storeName]);
 
   // Handler for creating customer virtual account
+  // const handleCreateCustomerVirtualAccount = async () => {
+  //   if (
+  //     !customerVirtualForm.fullName ||
+  //     !customerVirtualForm.phoneNumber ||
+  //     !customerVirtualForm.email
+  //   ) {
+  //     setCustomerVirtualMessage({
+  //       type: "error",
+  //       text: "All fields are required",
+  //     });
+  //     return;
+  //   }
+
+  //   setCustomerVirtualLoading(true);
+  //   setCustomerVirtualMessage(null);
+
+  //   const supabase = createClient();
+  //   const {
+  //     data: { user },
+  //   } = await supabase.auth.getUser();
+  //   if (!user) {
+  //     setCustomerVirtualMessage({
+  //       type: "error",
+  //       text: "Please sign in first",
+  //     });
+  //     setCustomerVirtualLoading(false);
+  //     return;
+  //   }
+
+  //   const resellerId = await getResellerId(storeName);
+  //   if (!resellerId) {
+  //     setCustomerVirtualMessage({ type: "error", text: "Store not found" });
+  //     setCustomerVirtualLoading(false);
+  //     return;
+  //   }
+
+  //   const result = await createCustomerVirtualAccount({
+  //     ...customerVirtualForm,
+  //     resellerId,
+  //     customerId: user.id,
+  //     storeSlug: storeName,
+  //   });
+
+  //   if (result.error) {
+  //     setCustomerVirtualMessage({ type: "error", text: result.error });
+  //   } else {
+  //     setCustomerVirtualMessage({
+  //       type: "success",
+  //       text: result.message || "Virtual account created!",
+  //     });
+  //     setShowCustomerVirtualForm(false);
+  //     // Refresh accounts
+  //     const accounts = await getCustomerVirtualAccounts(user.id, resellerId);
+  //     setCustomerVirtualAccounts(accounts || []);
+  //   }
+  //   setCustomerVirtualLoading(false);
+  // };
+
   const handleCreateCustomerVirtualAccount = async () => {
     if (
       !customerVirtualForm.fullName ||
@@ -222,24 +344,44 @@ export function StoreContent({
       return;
     }
 
-    const result = await createCustomerVirtualAccount({
-      ...customerVirtualForm,
-      resellerId,
-      customerId: user.id,
-      storeSlug: storeName,
-    });
-
-    if (result.error) {
-      setCustomerVirtualMessage({ type: "error", text: result.error });
-    } else {
-      setCustomerVirtualMessage({
-        type: "success",
-        text: result.message || "Virtual account created!",
+    // If user is the reseller, use the reseller virtual account action
+    if (isStoreOwner) {
+      const result = await createResellerVirtualAccount({
+        ...customerVirtualForm,
+        resellerId,
       });
-      setShowCustomerVirtualForm(false);
-      // Refresh accounts
-      const accounts = await getCustomerVirtualAccounts(user.id, resellerId);
-      setCustomerVirtualAccounts(accounts || []);
+
+      if (result.error) {
+        setCustomerVirtualMessage({ type: "error", text: result.error });
+      } else {
+        setCustomerVirtualMessage({
+          type: "success",
+          text: result.message || "Virtual account created!",
+        });
+        setShowCustomerVirtualForm(false);
+        const accounts = await getResellerVirtualAccounts(resellerId);
+        setCustomerVirtualAccounts(accounts || []);
+      }
+    } else {
+      // Customer virtual account
+      const result = await createCustomerVirtualAccount({
+        ...customerVirtualForm,
+        resellerId,
+        customerId: user.id,
+        storeSlug: storeName,
+      });
+
+      if (result.error) {
+        setCustomerVirtualMessage({ type: "error", text: result.error });
+      } else {
+        setCustomerVirtualMessage({
+          type: "success",
+          text: result.message || "Virtual account created!",
+        });
+        setShowCustomerVirtualForm(false);
+        const accounts = await getCustomerVirtualAccounts(user.id, resellerId);
+        setCustomerVirtualAccounts(accounts || []);
+      }
     }
     setCustomerVirtualLoading(false);
   };
@@ -1185,231 +1327,6 @@ export function StoreContent({
         </div>
 
         {/* ─── Plans List ─────────────────────────────────── */}
-        {/* <section>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: "1rem",
-            }}
-          >
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 8,
-                background: tint(NETWORK_COLORS[activeTab] ?? primary, 0.18),
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Wifi
-                size={14}
-                style={{ color: NETWORK_COLORS[activeTab] ?? primary }}
-              />
-            </div>
-            <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "#111827" }}>
-              {activeTab} Plans
-            </h3>
-            <span
-              style={{
-                marginLeft: "auto",
-                fontSize: "0.72rem",
-                color: "#9CA3AF",
-                background: "#F3F4F6",
-                border: "1px solid #E5E7EB",
-                padding: "2px 9px",
-                borderRadius: 100,
-                fontWeight: 500,
-              }}
-            >
-              {displayPlans.length} available
-            </span>
-          </div>
-
-          {displayPlans.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "3.5rem 2rem",
-                color: "#9CA3AF",
-                background: "#FFFFFF",
-                borderRadius: 16,
-                border: "1.5px dashed #E5E7EB",
-              }}
-            >
-              <Zap
-                size={36}
-                style={{ margin: "0 auto 0.75rem", opacity: 0.25 }}
-              />
-              <p style={{ fontWeight: 600, color: "#6B7280" }}>
-                No {activeTab} plans right now
-              </p>
-              <p style={{ fontSize: "0.82rem", marginTop: 4 }}>
-                Check back soon
-              </p>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-              }}
-            >
-              {displayPlans.map((plan) => (
-                <div
-                  key={plan.id}
-                  style={{
-                    background: "#FFFFFF",
-                    border: "1.5px solid #F3F4F6",
-                    borderRadius: 14,
-                    padding: "1rem 1.25rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
-                    gap: "0.75rem",
-                    transition: "border-color 0.15s, box-shadow 0.15s",
-                    cursor: "default",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.borderColor =
-                      tint(primary, 0.4);
-                    (e.currentTarget as HTMLDivElement).style.boxShadow =
-                      `0 2px 12px ${tint(primary, 0.12)}`;
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.borderColor =
-                      "#F3F4F6";
-                    (e.currentTarget as HTMLDivElement).style.boxShadow =
-                      "none";
-                  }}
-                >
-                  {/* Left: plan info *
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      minWidth: 0,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 10,
-                        background: tint(primary, 0.1),
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Wifi size={16} style={{ color: primary }} />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <p
-                        style={{
-                          fontWeight: 700,
-                          color: "#111827",
-                          fontSize: "0.92rem",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {plan.plan_name}
-                      </p>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: 6,
-                          marginTop: 3,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "0.68rem",
-                            color: "#9CA3AF",
-                            background: "#F9FAFB",
-                            padding: "1px 7px",
-                            borderRadius: 100,
-                            border: "1px solid #E5E7EB",
-                            fontWeight: 500,
-                          }}
-                        >
-                          {plan.plan_type}
-                        </span>
-                        {plan.validity && (
-                          <span
-                            style={{
-                              fontSize: "0.68rem",
-                              color: "#9CA3AF",
-                              background: "#F9FAFB",
-                              padding: "1px 7px",
-                              borderRadius: 100,
-                              border: "1px solid #E5E7EB",
-                              fontWeight: 500,
-                            }}
-                          >
-                            {plan.validity}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: price + CTA *
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.9rem",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <p
-                      style={{
-                        fontWeight: 800,
-                        color: primary,
-                        fontSize: "1.15rem",
-                        letterSpacing: "-0.02em",
-                      }}
-                    >
-                      {formatNaira(plan.price)}
-                    </p>
-                    <button
-                      style={{
-                        padding: "0.5rem 1.1rem",
-                        background: primary,
-                        border: "none",
-                        borderRadius: 9,
-                        color: contrastText(primary),
-                        fontWeight: 700,
-                        fontSize: "0.8rem",
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 5,
-                        transition: "opacity 0.15s",
-                      }}
-                    >
-                      Buy <ChevronRight size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section> */}
-
-        {/* ─── Plans List ─────────────────────────────────── */}
         <section>
           <div
             style={{
@@ -1812,29 +1729,6 @@ function PlanCard({
       >
         {formatNaira(plan.price)}
       </p>
-
-      {/* Buy button */}
-      {/* <button
-        style={{
-          width: "100%",
-          padding: "0.55rem",
-          background: primary,
-          border: "none",
-          borderRadius: 9,
-          color: contrastText(primary),
-          fontWeight: 700,
-          fontSize: "0.78rem",
-          cursor: "pointer",
-          fontFamily: "inherit",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 5,
-          marginTop: "auto",
-        }}
-      >
-        Buy
-      </button> */}
 
       {/* Buy button */}
       <button
