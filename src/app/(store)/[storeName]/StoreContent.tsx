@@ -109,6 +109,12 @@ export function StoreContent({
   const [signupName, setSignupName] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
 
+  // Add this state to track if customer has a PIN:
+  const [hasTransactionPin, setHasTransactionPin] = useState<boolean | null>(
+    null,
+  );
+  const [isCreatingPin, setIsCreatingPin] = useState(false);
+
   // Store status
   const [storeStatus, setStoreStatus] = useState<{
     canSell: boolean;
@@ -440,7 +446,23 @@ export function StoreContent({
   };
 
   // ── Buy button handler ───────────────────────────
-  const handleBuyClick = (plan: StorePlan) => {
+  // const handleBuyClick = (plan: StorePlan) => {
+  //   if (!loggedIn) {
+  //     setLoginOpen(true);
+  //     return;
+  //   }
+  //   if (!storeStatus?.canSell) {
+  //     return;
+  //   }
+  //   setSelectedPlan(plan);
+  //   setPurchasePhone("");
+  //   setPurchasePin("");
+  //   setPurchaseError("");
+  //   setPurchaseSuccess("");
+  //   setPurchaseModalOpen(true);
+  // };
+
+  const handleBuyClick = async (plan: StorePlan) => {
     if (!loggedIn) {
       setLoginOpen(true);
       return;
@@ -448,14 +470,63 @@ export function StoreContent({
     if (!storeStatus?.canSell) {
       return;
     }
+
+    // Check if customer has a transaction PIN
+    const supabase = createClient();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("transaction_pin, wallet_balance")
+      .eq("id", (await supabase.auth.getUser()).data.user?.id)
+      .single();
+
+    const hasPin = !!profile?.transaction_pin;
+    setHasTransactionPin(hasPin);
+
     setSelectedPlan(plan);
     setPurchasePhone("");
     setPurchasePin("");
     setPurchaseError("");
     setPurchaseSuccess("");
+    setIsCreatingPin(!hasPin); // If no PIN, show create mode
     setPurchaseModalOpen(true);
   };
 
+  // const handlePurchase = async () => {
+  //   if (!selectedPlan) return;
+
+  //   if (!purchasePhone || purchasePhone.length < 11) {
+  //     setPurchaseError("Please enter a valid phone number");
+  //     return;
+  //   }
+  //   if (!purchasePin || purchasePin.length < 4) {
+  //     setPurchaseError("Please enter your 4-digit transaction PIN");
+  //     return;
+  //   }
+
+  //   setPurchaseLoading(true);
+  //   setPurchaseError("");
+  //   setPurchaseSuccess("");
+
+  //   const result = await purchasePlan({
+  //     storeName,
+  //     planId: selectedPlan.plan_id,
+  //     phoneNumber: purchasePhone,
+  //     transactionPin: purchasePin,
+  //   });
+
+  //   if (result.error) {
+  //     setPurchaseError(result.error);
+  //   } else {
+  //     setPurchaseSuccess(result.message || "Purchase successful!");
+  //     setTimeout(() => {
+  //       setPurchaseModalOpen(false);
+  //       setPurchasePhone("");
+  //       setPurchasePin("");
+  //       setPurchaseSuccess("");
+  //     }, 2500);
+  //   }
+  //   setPurchaseLoading(false);
+  // };
   const handlePurchase = async () => {
     if (!selectedPlan) return;
 
@@ -464,7 +535,11 @@ export function StoreContent({
       return;
     }
     if (!purchasePin || purchasePin.length < 4) {
-      setPurchaseError("Please enter your 4-digit transaction PIN");
+      setPurchaseError(
+        isCreatingPin
+          ? "Please create a 4-digit transaction PIN"
+          : "Please enter your 4-digit transaction PIN",
+      );
       return;
     }
 
@@ -472,6 +547,29 @@ export function StoreContent({
     setPurchaseError("");
     setPurchaseSuccess("");
 
+    // If creating a new PIN, save it first
+    if (isCreatingPin) {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        // Save the PIN
+        const { error: pinError } = await supabase.from("profiles").upsert({
+          id: user.id,
+          transaction_pin: purchasePin,
+          updated_at: new Date().toISOString(),
+        });
+
+        if (pinError) {
+          setPurchaseError("Failed to save transaction PIN. Please try again.");
+          setPurchaseLoading(false);
+          return;
+        }
+      }
+    }
+
+    // Process the purchase
     const result = await purchasePlan({
       storeName,
       planId: selectedPlan.plan_id,
@@ -483,6 +581,8 @@ export function StoreContent({
       setPurchaseError(result.error);
     } else {
       setPurchaseSuccess(result.message || "Purchase successful!");
+      setHasTransactionPin(true);
+      setIsCreatingPin(false);
       setTimeout(() => {
         setPurchaseModalOpen(false);
         setPurchasePhone("");
