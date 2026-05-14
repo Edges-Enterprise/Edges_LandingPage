@@ -27,7 +27,7 @@ export default async function ResellerDashboardLayout({
   // Get reseller info
   const { data: reseller } = await supabase
     .from("resellers")
-    .select("store_name, theme")
+    .select("store_name, theme, android_app")
     .eq("auth_user_id", user.id)
     .single();
 
@@ -38,7 +38,7 @@ export default async function ResellerDashboardLayout({
     .join(" ");
 
   return (
-    <DashboardShell storeName={displayName} storeSlug={storeName}>
+    <DashboardShell storeName={displayName} storeSlug={storeName} showAppTab={!!reseller?.android_app}>
       {children}
     </DashboardShell>
   );

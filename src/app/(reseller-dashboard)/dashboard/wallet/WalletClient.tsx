@@ -1,8 +1,7 @@
 // app/(reseller-dashboard)/wallet/WalletClient.tsx
 
 "use client";
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "../Card";
 import { Badge } from "../Badge";
 
@@ -19,6 +18,10 @@ import {
 } from "lucide-react";
 import { withdrawFunds } from "@/app/actions/reseller/wallet/withdrawFunds";
 import { fundWallet } from "@/app/actions/reseller/wallet/fundWallet";
+import {
+  createResellerVirtualAccount,
+  getResellerVirtualAccounts,
+} from "@/app/actions/reseller/wallet/resellerCustomerWallet";
 
 export function WalletClient({
   resellerId,
@@ -40,8 +43,63 @@ export function WalletClient({
   } | null>(null);
   const [currentBalance, setCurrentBalance] = useState(wallet?.balance || 0);
 
+  // Add these states inside the WalletClient component:
+  const [virtualAccounts, setVirtualAccounts] = useState<any[]>([]);
+  const [showVirtualForm, setShowVirtualForm] = useState(false);
+  const [virtualForm, setVirtualFormState] = useState({
+    fullName: "",
+    phoneNumber: "",
+    email: "",
+  });
+  const [virtualLoading, setVirtualLoading] = useState(false);
+  const [virtualMessage, setVirtualMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
   const fee = amount ? calculateWithdrawalFee(Number(amount)) : 0;
   const netAmount = amount ? Number(amount) - fee : 0;
+
+  // Fetch virtual accounts on mount
+  useEffect(() => {
+    async function fetchAccounts() {
+      const accounts = await getResellerVirtualAccounts(resellerId);
+      setVirtualAccounts(accounts || []);
+    }
+    fetchAccounts();
+  }, [resellerId]);
+
+  const handleCreateVirtualAccount = async () => {
+    if (
+      !virtualForm.fullName ||
+      !virtualForm.phoneNumber ||
+      !virtualForm.email
+    ) {
+      setVirtualMessage({ type: "error", text: "All fields are required" });
+      return;
+    }
+    setVirtualLoading(true);
+    setVirtualMessage(null);
+
+    const result = await createResellerVirtualAccount({
+      ...virtualForm,
+      resellerId,
+    });
+
+    if (result.error) {
+      setVirtualMessage({ type: "error", text: result.error });
+    } else {
+      setVirtualMessage({
+        type: "success",
+        text: result.message || "Virtual account created!",
+      });
+      setShowVirtualForm(false);
+      // Refresh accounts
+      const accounts = await getResellerVirtualAccounts(resellerId);
+      setVirtualAccounts(accounts || []);
+    }
+    setVirtualLoading(false);
+  };
 
   const handleDeposit = async () => {
     if (!amount || Number(amount) <= 0) return;
@@ -133,6 +191,263 @@ export function WalletClient({
         >
           {message.text}
         </div>
+      )}
+
+      {/* Virtual Account Section */}
+      {virtualAccounts.length > 0 ? (
+        <Card>
+          <h2
+            style={{
+              fontWeight: 600,
+              color: "var(--text)",
+              fontSize: "1rem",
+              marginBottom: "0.75rem",
+            }}
+          >
+            💳 Your Virtual Account
+          </h2>
+          {virtualAccounts.map((account: any, i: number) => (
+            <div
+              key={account.id}
+              style={{
+                background: "var(--bg2)",
+                borderRadius: 10,
+                padding: "1rem",
+                marginBottom: i < virtualAccounts.length - 1 ? "0.5rem" : 0,
+                border: "1px solid var(--border)",
+              }}
+            >
+              <p
+                style={{
+                  fontWeight: 600,
+                  color: "var(--text)",
+                  marginBottom: 4,
+                }}
+              >
+                {account.bank_name}
+              </p>
+              <p
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: 700,
+                  fontFamily: "monospace",
+                  color: "var(--accent-lt)",
+                  marginBottom: 2,
+                }}
+              >
+                {account.account_number}
+              </p>
+              <p style={{ fontSize: "0.85rem", color: "var(--dim)" }}>
+                {account.account_name}
+              </p>
+            </div>
+          ))}
+          <p
+            style={{
+              fontSize: "0.72rem",
+              color: "var(--dim)",
+              marginTop: "0.75rem",
+              textAlign: "center",
+            }}
+          >
+            💡 Transfer money to this account to automatically fund your wallet
+          </p>
+        </Card>
+      ) : (
+        <Card>
+          <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
+            <p
+              style={{
+                fontWeight: 600,
+                color: "var(--text)",
+                marginBottom: "0.5rem",
+              }}
+            >
+              Create Virtual Account
+            </p>
+            <p
+              style={{
+                fontSize: "0.85rem",
+                color: "var(--muted)",
+                marginBottom: "1rem",
+              }}
+            >
+              Get your unique account number to fund your wallet instantly
+            </p>
+
+            {!showVirtualForm ? (
+              <button
+                onClick={() => setShowVirtualForm(true)}
+                style={{
+                  padding: "0.6rem 1.5rem",
+                  background: "var(--accent)",
+                  border: "none",
+                  borderRadius: 10,
+                  color: "#FDF8F3",
+                  fontWeight: 600,
+                  fontSize: "0.9rem",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Create Virtual Account
+              </button>
+            ) : (
+              <div
+                style={{ textAlign: "left", maxWidth: 400, margin: "0 auto" }}
+              >
+                {virtualMessage && (
+                  <div
+                    style={{
+                      padding: "0.6rem 1rem",
+                      borderRadius: 8,
+                      marginBottom: "1rem",
+                      background:
+                        virtualMessage.type === "success"
+                          ? "rgba(110,189,138,0.1)"
+                          : "rgba(239,68,68,0.1)",
+                      color:
+                        virtualMessage.type === "success"
+                          ? "#6EBD8A"
+                          : "#F87171",
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    {virtualMessage.text}
+                  </div>
+                )}
+
+                <div style={{ marginBottom: "0.75rem" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      color: "var(--muted)",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={virtualForm.fullName}
+                    onChange={(e) =>
+                      setVirtualFormState({
+                        ...virtualForm,
+                        fullName: e.target.value,
+                      })
+                    }
+                    placeholder="John Doe"
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "0.75rem" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      color: "var(--muted)",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    value={virtualForm.phoneNumber}
+                    onChange={(e) =>
+                      setVirtualFormState({
+                        ...virtualForm,
+                        phoneNumber: e.target.value,
+                      })
+                    }
+                    placeholder="08012345678"
+                    maxLength={11}
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "1rem" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      color: "var(--muted)",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={virtualForm.email}
+                    onChange={(e) =>
+                      setVirtualFormState({
+                        ...virtualForm,
+                        email: e.target.value,
+                      })
+                    }
+                    placeholder="you@example.com"
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    onClick={handleCreateVirtualAccount}
+                    disabled={virtualLoading}
+                    style={{
+                      flex: 1,
+                      padding: "0.6rem",
+                      background: "var(--accent)",
+                      border: "none",
+                      borderRadius: 8,
+                      color: "#FDF8F3",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      opacity: virtualLoading ? 0.7 : 1,
+                    }}
+                  >
+                    {virtualLoading ? (
+                      <Loader2
+                        size={16}
+                        style={{
+                          animation: "spin 1s linear infinite",
+                          display: "inline",
+                        }}
+                      />
+                    ) : null}
+                    {virtualLoading ? " Creating..." : "Create"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowVirtualForm(false);
+                      setVirtualMessage(null);
+                    }}
+                    style={{
+                      padding: "0.6rem 1rem",
+                      background: "var(--bg2)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      color: "var(--muted)",
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
       )}
 
       {/* Balance Card */}
@@ -519,4 +834,17 @@ const tdStyle: React.CSSProperties = {
   padding: "0.75rem 1rem",
   fontSize: "0.88rem",
   color: "var(--text)",
+};
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "0.6rem 0.8rem",
+  background: "var(--bg)",
+  border: "1px solid var(--border)",
+  borderRadius: 8,
+  color: "var(--text)",
+  fontSize: "0.88rem",
+  outline: "none",
+  fontFamily: "inherit",
+  boxSizing: "border-box",
 };

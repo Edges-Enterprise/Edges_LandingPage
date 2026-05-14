@@ -24,6 +24,7 @@ export async function createReseller(
 
   const storeName = (formData.get("storeName") as string)?.toLowerCase().trim();
   const email = (formData.get("email") as string)?.trim();
+  const phone = (formData.get("whatsapp") as string)?.trim();
   const theme = (formData.get("brandColor") as string) || "#2563EB";
   const androidApp = formData.get("androidApp") === "true";
   const appIconFile = formData.get("appIcon") as File | null;
@@ -53,6 +54,14 @@ export async function createReseller(
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { error: "Please enter a valid email address" };
+  }
+
+  if (!phone) {
+    return { error: "WhatsApp number is required" };
+  }
+
+  if (!/^\+?[0-9\s\-()]{7,15}$/.test(phone)) {
+    return { error: "Please enter a valid WhatsApp number" };
   }
 
   // ── Check store name ───────────────────────
@@ -99,6 +108,7 @@ export async function createReseller(
       store_name: storeName,
       theme,
       android_app: androidApp,
+      phone,
       status: "active",
     })
     .select("id")
@@ -281,10 +291,6 @@ ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it'
 //     return { error: "Please enter a valid email address" };
 //   }
 
-//   if (androidApp && !appIconFile) {
-//     return { error: "App icon is required when Android App is selected" };
-//   }
-
 //   // ── Check store name ───────────────────────
 //   const { data: existing } = await supabase
 //     .from("resellers")
@@ -340,8 +346,8 @@ ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it'
 //     return { error: "Failed to create reseller account. Please try again." };
 //   }
 
-//   // ── Upload App Icon ────────────────────────
-//   if (androidApp && appIconFile) {
+//   // ── Upload App Icon (optional) ─────────────
+//   if (appIconFile) {
 //     try {
 //       const arrayBuffer = await appIconFile.arrayBuffer();
 //       const buffer = Buffer.from(arrayBuffer);
@@ -375,6 +381,14 @@ ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it'
 //       console.error("Icon upload error:", err);
 //     }
 //   }
+
+//   // ── Create Reseller Wallet ─────────────────
+//   await admin.from("reseller_wallets").insert({
+//     reseller_id: reseller.id,
+//     balance: 0,
+//     total_sales: 0,
+//     total_profit: 0,
+//   });
 
 //   // ── Trigger App Build (background) ─────────
 //   if (androidApp) {
@@ -446,12 +460,14 @@ ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it'
 //   };
 // }
 
+// // // app/actions/reseller/createReseller.ts
+
 // // "use server";
 
 // // import { createServerClient } from "@/lib/supabase/server";
 // // import { createAdminClient } from "@/lib/supabase/admin";
 // // import { revalidatePath } from "next/cache";
-// // import type { CreateResellerResult, ResellerFormData } from "@/types";
+// // import type { CreateResellerResult } from "@/types";
 // // import { sendAdminEmail } from "@/lib/email/email";
 // // import { triggerAppBuild } from "./triggerAppBuild";
 
@@ -465,17 +481,14 @@ ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it'
 // // export async function createReseller(
 // //   formData: FormData,
 // // ): Promise<CreateResellerResult> {
-// //   // ✅ user-aware client (for reads if needed)
 // //   const supabase = await createServerClient();
-
-// //   // ✅ admin client (bypasses RLS)
 // //   const admin = createAdminClient();
 
 // //   const storeName = (formData.get("storeName") as string)?.toLowerCase().trim();
 // //   const email = (formData.get("email") as string)?.trim();
-// //   // With this:
 // //   const theme = (formData.get("brandColor") as string) || "#2563EB";
 // //   const androidApp = formData.get("androidApp") === "true";
+// //   const appIconFile = formData.get("appIcon") as File | null;
 
 // //   // ── Validation ─────────────────────────────
 // //   if (!storeName || !email) {
@@ -493,7 +506,6 @@ ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it'
 // //     return { error: "Store name must be at least 3 characters" };
 // //   }
 
-// //   // ── Block reserved "edges" names ───────────────────
 // //   const normalized = storeName.replace(/[^a-z0-9]/g, "").toLowerCase();
 // //   if (/^edge/.test(normalized)) {
 // //     return {
@@ -505,11 +517,11 @@ ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it'
 // //     return { error: "Please enter a valid email address" };
 // //   }
 
-// //   // if (!["light", "dark", "custom"].includes(theme)) {
-// //   //   return { error: "Invalid theme selection" };
-// //   // }
+// //   if (androidApp && !appIconFile) {
+// //     return { error: "App icon is required when Android App is selected" };
+// //   }
 
-// //   // ── Check store name (can stay on normal client) ──
+// //   // ── Check store name ───────────────────────
 // //   const { data: existing } = await supabase
 // //     .from("resellers")
 // //     .select("id")
@@ -525,7 +537,7 @@ ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it'
 // //   // ── Generate password ──────────────────────
 // //   const password = generatePassword(storeName, email);
 
-// //   // ── Create Auth User (ADMIN) ───────────────
+// //   // ── Create Auth User ───────────────────────
 // //   const { data: authData, error: authError } =
 // //     await admin.auth.admin.createUser({
 // //       email,
@@ -544,7 +556,7 @@ ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it'
 // //     return { error: "Failed to create account. Please try again." };
 // //   }
 
-// //   // ── Insert Reseller (ADMIN → bypasses RLS) ──
+// //   // ── Insert Reseller ────────────────────────
 // //   const { data: reseller, error: resellerError } = await admin
 // //     .from("resellers")
 // //     .insert({
@@ -560,33 +572,67 @@ ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it'
 
 // //   if (resellerError || !reseller) {
 // //     console.error("Reseller insert failed:", resellerError);
-
-// //     // rollback auth user
 // //     await admin.auth.admin.deleteUser(authData.user.id);
-
 // //     return { error: "Failed to create reseller account. Please try again." };
 // //   }
 
-// //   // ── Sign in the new reseller ──────────────
+// //   // ── Upload App Icon ────────────────────────
+// //   if (androidApp && appIconFile) {
+// //     try {
+// //       const arrayBuffer = await appIconFile.arrayBuffer();
+// //       const buffer = Buffer.from(arrayBuffer);
+// //       const fileName = `reseller-${reseller.id}-icon-${Date.now()}.png`;
+// //       const filePath = `${reseller.id}/${fileName}`;
+
+// //       const { error: uploadError } = await admin.storage
+// //         .from("reseller-assets")
+// //         .upload(filePath, buffer, {
+// //           contentType: "image/png",
+// //           upsert: true,
+// //         });
+
+// //       if (!uploadError) {
+// //         const { data: urlData } = admin.storage
+// //           .from("reseller-assets")
+// //           .getPublicUrl(filePath);
+
+// //         await admin.from("reseller_assets").insert({
+// //           reseller_id: reseller.id,
+// //           type: "icon",
+// //           url: urlData.publicUrl,
+// //           file_name: fileName,
+// //           file_size: appIconFile.size,
+// //           mime_type: "image/png",
+// //         });
+// //       } else {
+// //         console.error("Icon upload failed:", uploadError);
+// //       }
+// //     } catch (err) {
+// //       console.error("Icon upload error:", err);
+// //     }
+// //   }
+
+// //   // ── Trigger App Build (background) ─────────
+// //   if (androidApp) {
+// //     try {
+// //       await triggerAppBuild(reseller.id);
+// //     } catch (err) {
+// //       console.error("App build trigger failed:", err);
+// //     }
+// //   }
+
+// //   // ── Sign in ────────────────────────────────
 // //   const { error: signInError } = await supabase.auth.signInWithPassword({
 // //     email,
 // //     password,
 // //   });
-
 // //   if (signInError) {
 // //     console.error("Auto sign-in failed:", signInError);
-// //     // Non-fatal — store still created, they can sign in manually
 // //   }
 
-// //   // ── Email ────────────────────────────────
-// //   const baseUrl =
-// //     process.env.NEXT_PUBLIC_APP_URL ||
-// //     process.env.NEXT_PUBLIC_BASE_URL ||
-// //     process.env.NEXT_PUBLIC_STORE_URL ||
-// //     "http://localhost:3000";
-
+// //   // ── Email ──────────────────────────────────
+// //   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 // //   const storeUrl = `${baseUrl}/${storeName}`;
-
 // //   const displayName = storeName
 // //     .split("-")
 // //     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -611,6 +657,7 @@ ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it'
 // // ⚠️ Keep these credentials safe.
 
 // // 👉 Dashboard: ${baseUrl}/dashboard
+// // ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it's ready." : ""}
 // // `;
 
 // //   try {
