@@ -59,23 +59,68 @@ export default function ResellerPage() {
           zIndex: 1,
         }}
       >
-        <div
-          style={{
-            display: "inline-block",
-            fontSize: "0.72rem",
-            fontWeight: 700,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: "var(--accent)",
-            marginBottom: "1rem",
-            background: "rgba(201,138,84,0.08)",
-            padding: "4px 14px",
-            borderRadius: 100,
-            border: "1px solid rgba(201,138,84,0.2)",
-          }}
-        >
-          Reseller Program
-        </div>
+        <span className="flex flex-col items-center">
+          <div
+            style={{
+              display: "inline-block",
+              fontSize: "0.72rem",
+              fontWeight: 700,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "var(--accent)",
+              marginBottom: "1rem",
+              background: "rgba(201,138,84,0.08)",
+              padding: "4px 14px",
+              borderRadius: 100,
+              border: "1px solid rgba(201,138,84,0.2)",
+            }}
+          >
+            <span className="flex gap-2 items-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 3 2"
+                width="18"
+                height="12"
+                style={{ display: "block" }}
+              >
+                <rect width="3" height="2" fill="#008753" />
+                <rect width="1" height="2" fill="#ffffff" x="1" />
+              </svg>
+              Nigeria
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              background: "rgba(201,138,84,0.08)",
+              border: "1px solid rgba(201,138,84,0.2)",
+              color: "var(--accent)",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              padding: "6px 18px",
+              borderRadius: 100,
+              marginBottom: "2rem",
+            }}
+          >
+            <span
+              className="anim-dot"
+              style={{
+                width: 6,
+                height: 6,
+                background: "var(--accent)",
+                borderRadius: "50%",
+                display: "inline-block",
+              }}
+            />
+            Reseller Program
+          </div>
+
+        </span>
         <h1
           style={{
             fontFamily: "'Playfair Display', serif",
