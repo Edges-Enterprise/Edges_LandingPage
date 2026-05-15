@@ -235,7 +235,7 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
                 setPhone(e.target.value.replace(/[^0-9\s\-()]/g, ""))
               }
               style={inputStyle}
-              placeholder="080 0000 0000"
+              placeholder="0801 000 0000"
             />
           </div>
           <p style={{ fontSize: "0.75rem", color: "var(--dim)", marginTop: 4 }}>
@@ -245,7 +245,7 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
       </Card>
 
       {/* Notification Preferences */}
-      <Card>
+      {/* <Card>
         <h2
           style={{
             display: "flex",
@@ -316,7 +316,7 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
             />
           </button>
         </div>
-      </Card>
+      </Card> */}
 
       {/* Store Status */}
       <Card>
