@@ -50,16 +50,17 @@ export interface ResellerFormData {
 }
 
 export interface Reseller {
-  id: string
-  auth_user_id: string | null
-  email: string
-  store_name: string
-  theme: 'light' | 'dark' | 'custom'
-  android_app: boolean
-  status: 'pending' | 'active' | 'suspended'
-  brand_color?: string
-  created_at: string
-  updated_at: string
+  id: string;
+  auth_user_id: string | null;
+  email: string;
+  store_name: string;
+  theme: "light" | "dark" | "custom";
+  phone?: string | null;
+  android_app: boolean;
+  status: "pending" | "active" | "suspended";
+  brand_color?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface StoreNameCheckResult {
