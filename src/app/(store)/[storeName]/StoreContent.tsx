@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatNaira } from "@/lib/pricing/calculatePrice";
@@ -391,21 +391,6 @@ export function StoreContent({
   };
 
   // ── Buy button handler ───────────────────────────
-  // const handleBuyClick = (plan: StorePlan) => {
-  //   if (!loggedIn) {
-  //     setLoginOpen(true);
-  //     return;
-  //   }
-  //   if (!storeStatus?.canSell) {
-  //     return;
-  //   }
-  //   setSelectedPlan(plan);
-  //   setPurchasePhone("");
-  //   setPurchasePin("");
-  //   setPurchaseError("");
-  //   setPurchaseSuccess("");
-  //   setPurchaseModalOpen(true);
-  // };
 
   const handleBuyClick = async (plan: StorePlan) => {
     if (!loggedIn) {
@@ -436,42 +421,7 @@ export function StoreContent({
     setPurchaseModalOpen(true);
   };
 
-  // const handlePurchase = async () => {
-  //   if (!selectedPlan) return;
-
-  //   if (!purchasePhone || purchasePhone.length < 11) {
-  //     setPurchaseError("Please enter a valid phone number");
-  //     return;
-  //   }
-  //   if (!purchasePin || purchasePin.length < 4) {
-  //     setPurchaseError("Please enter your 4-digit transaction PIN");
-  //     return;
-  //   }
-
-  //   setPurchaseLoading(true);
-  //   setPurchaseError("");
-  //   setPurchaseSuccess("");
-
-  //   const result = await purchasePlan({
-  //     storeName,
-  //     planId: selectedPlan.plan_id,
-  //     phoneNumber: purchasePhone,
-  //     transactionPin: purchasePin,
-  //   });
-
-  //   if (result.error) {
-  //     setPurchaseError(result.error);
-  //   } else {
-  //     setPurchaseSuccess(result.message || "Purchase successful!");
-  //     setTimeout(() => {
-  //       setPurchaseModalOpen(false);
-  //       setPurchasePhone("");
-  //       setPurchasePin("");
-  //       setPurchaseSuccess("");
-  //     }, 2500);
-  //   }
-  //   setPurchaseLoading(false);
-  // };
+  
   const handlePurchase = async () => {
     if (!selectedPlan) return;
 
@@ -2019,8 +1969,8 @@ function PlanGrid({
   onBuyClick: (plan: StorePlan) => void;
 }) {
   const [page, setPage] = useState(0);
-  const [animating, setAnimating] = useState(false);
-  const [direction, setDirection] = useState<"left" | "right">("right");
+  const [showControls, setShowControls] = useState(false);
+  let hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const totalPages = Math.ceil(plans.length / PLANS_PER_PAGE);
   const pagePlans = plans.slice(
@@ -2028,29 +1978,84 @@ function PlanGrid({
     (page + 1) * PLANS_PER_PAGE,
   );
 
-  const goTo = (next: number, dir: "left" | "right") => {
-    if (next === page || animating) return;
-    setDirection(dir);
-    setAnimating(true);
-    setTimeout(() => {
-      setPage(next);
-      setAnimating(false);
-    }, 220);
+  const resetHideTimer = () => {
+    if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    setShowControls(true);
+    hideTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
   };
 
+  const goToNext = () => {
+    if (page < totalPages - 1) {
+      setPage(page + 1);
+      resetHideTimer();
+    }
+  };
+
+  const goToPrev = () => {
+    if (page > 0) {
+      setPage(page - 1);
+      resetHideTimer();
+    }
+  };
+
+  const goToPage = (pageIndex: number) => {
+    setPage(pageIndex);
+    resetHideTimer();
+  };
+
+  useEffect(() => {
+    resetHideTimer();
+    return () => {
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    };
+  }, []);
+
+  // Responsive grid styles
+  const gridStyles: React.CSSProperties = {
+    display: "grid",
+    gap: "0.5rem",
+    gridTemplateColumns: "repeat(3, 1fr)", // Default mobile: 2 columns
+  };
+
+  // Add media queries via style tags or use useEffect for responsive
+  useEffect(() => {
+    const updateGridColumns = () => {
+      const gridElement = document.querySelector(".plan-grid-container") as HTMLElement;
+      if (!gridElement) return;
+      
+      const width = window.innerWidth;
+      if (width >= 1024) {
+        gridElement.style.gridTemplateColumns = "repeat(4, 1fr)";
+      } else if (width >= 768) {
+        gridElement.style.gridTemplateColumns = "repeat(4, 1fr)";
+      } else if (width >= 640) {
+        gridElement.style.gridTemplateColumns = "repeat(3, 1fr)";
+      } else {
+        gridElement.style.gridTemplateColumns = "repeat(3, 1fr)";
+      }
+    };
+
+    updateGridColumns();
+    window.addEventListener("resize", updateGridColumns);
+    return () => window.removeEventListener("resize", updateGridColumns);
+  }, []);
+
   return (
-    <div>
-      <div
-        style={{
-          display: "grid",
-          gap: "0.65rem",
-          opacity: animating ? 0 : 1,
-          transform: animating
-            ? `translateX(${direction === "right" ? "-24px" : "24px"})`
-            : "translateX(0)",
-          transition: "opacity 0.22s ease, transform 0.22s ease",
-        }}
-        className="grid grid-cols-3 md:grid-cols-4 gap-3"
+    <div
+      className="relative"
+      onMouseEnter={resetHideTimer}
+      onMouseLeave={() => {
+        if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+        setShowControls(false);
+      }}
+      style={{ position: "relative" }}
+    >
+      {/* Grid container */}
+      <div 
+        className="plan-grid-container"
+        style={gridStyles}
       >
         {pagePlans.map((plan) => (
           <PlanCard
@@ -2063,37 +2068,381 @@ function PlanGrid({
           />
         ))}
       </div>
+
+      {/* Navigation Buttons - Desktop */}
+      {totalPages > 1 && (
+        <>
+          {/* Previous Button */}
+          <button
+            onClick={goToPrev}
+            style={{
+              display: showControls && page !== 0 ? "flex" : "none",
+              position: "absolute",
+              left: -12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              border: "1px solid #E5E7EB",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              zIndex: 10,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#F9FAFB";
+              e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.2)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#FFFFFF";
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+            }}
+            disabled={page === 0}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ color: "#6B7280" }}
+            >
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+
+          {/* Next Button */}
+          <button
+            onClick={goToNext}
+            style={{
+              display: showControls && page !== totalPages - 1 ? "flex" : "none",
+              position: "absolute",
+              right: -12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              border: "1px solid #E5E7EB",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              zIndex: 10,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "#F9FAFB";
+              e.currentTarget.style.boxShadow = "0 6px 16px rgba(0,0,0,0.2)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#FFFFFF";
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+            }}
+            disabled={page === totalPages - 1}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ color: "#6B7280" }}
+            >
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </>
+      )}
+
+      {/* Mobile Swipe Hint & Page Indicator */}
       {totalPages > 1 && (
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            gap: "0.5rem",
-            marginTop: "1.25rem",
+            justifyContent: "space-between",
+            marginTop: "1rem",
           }}
         >
-          {Array.from({ length: totalPages }).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => goTo(i, i > page ? "right" : "left")}
-              style={{
-                width: i === page ? 24 : 8,
-                height: 8,
-                borderRadius: 100,
-                border: "none",
-                cursor: "pointer",
-                padding: 0,
-                background: i === page ? primary : "#D1D5DB",
-                transition: "all 0.25s ease",
-              }}
-            />
-          ))}
+          {/* Mobile Previous */}
+          <button
+            onClick={goToPrev}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.25rem",
+              padding: "0.375rem 0.75rem",
+              borderRadius: "0.5rem",
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #E5E7EB",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              color: page === 0 ? "#9CA3AF" : "#6B7280",
+              cursor: page === 0 ? "not-allowed" : "pointer",
+              transition: "transform 0.1s ease",
+            }}
+            disabled={page === 0}
+            onTouchStart={(e) => {
+              if (page !== 0) {
+                e.currentTarget.style.transform = "scale(0.95)";
+              }
+            }}
+            onTouchEnd={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            Previous
+          </button>
+
+          {/* Page Dots */}
+          <div style={{ display: "flex", gap: "0.375rem", alignItems: "center" }}>
+            {Array.from({ length: Math.min(totalPages, 7) }).map((_, i) => {
+              // Smart pagination dots - show around current page
+              let showDot = false;
+              if (totalPages <= 7) {
+                showDot = true;
+              } else if (i === 0 || i === totalPages - 1) {
+                showDot = true;
+              } else if (Math.abs(i - page) <= 2) {
+                showDot = true;
+              } else if (i === page - 3 || i === page + 3) {
+                showDot = true;
+              }
+
+              if (!showDot) return null;
+
+              // Show ellipsis placeholder
+              if (i === page - 3 && page > 3) {
+                return (
+                  <span key={`ellipsis-left`} style={{ width: "0.5rem", height: "0.5rem", color: "#9CA3AF", fontSize: "0.75rem" }}>
+                    ...
+                  </span>
+                );
+              }
+              if (i === page + 3 && page < totalPages - 4) {
+                return (
+                  <span key={`ellipsis-right`} style={{ width: "0.5rem", height: "0.5rem", color: "#9CA3AF", fontSize: "0.75rem" }}>
+                    ...
+                  </span>
+                );
+              }
+
+              const actualPageIndex = i;
+              const isActive = page === actualPageIndex;
+              
+              return (
+                <button
+                  key={i}
+                  onClick={() => goToPage(actualPageIndex)}
+                  style={{
+                    width: isActive ? 24 : 8,
+                    height: 8,
+                    borderRadius: "100%",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                    backgroundColor: isActive ? primary : "#D1D5DB",
+                    transition: "all 0.2s ease",
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          {/* Mobile Next */}
+          <button
+            onClick={goToNext}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.25rem",
+              padding: "0.375rem 0.75rem",
+              borderRadius: "0.5rem",
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #E5E7EB",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              color: page === totalPages - 1 ? "#9CA3AF" : "#6B7280",
+              cursor: page === totalPages - 1 ? "not-allowed" : "pointer",
+              transition: "transform 0.1s ease",
+            }}
+            disabled={page === totalPages - 1}
+            onTouchStart={(e) => {
+              if (page !== totalPages - 1) {
+                e.currentTarget.style.transform = "scale(0.95)";
+              }
+            }}
+            onTouchEnd={(e) => {
+              e.currentTarget.style.transform = "scale(1)";
+            }}
+          >
+            Next
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
         </div>
       )}
     </div>
   );
 }
+
+// function PlanCard({
+//   plan,
+//   primary,
+//   canSell = true,
+//   storeReason,
+//   onBuyClick,
+// }: {
+//   plan: StorePlan;
+//   primary: string;
+//   canSell?: boolean;
+//   storeReason?: string | null;
+//   onBuyClick: (plan: StorePlan) => void;
+// }) {
+//   return (
+//     <div
+//       className="flex flex-col gap-3 md:gap-6"
+//       style={{
+//         background: "#FFFFFF",
+//         border: `1.5px solid #F3F4F6`,
+//         borderRadius: 14,
+//         padding: "1rem 0.6rem",
+//         transition: "border-color 0.15s, box-shadow 0.15s",
+//         cursor: "default",
+//       }}
+//       onMouseEnter={(e) => {
+//         (e.currentTarget as HTMLDivElement).style.borderColor = tint(
+//           primary,
+//           0.4,
+//         );
+//       }}
+//       onMouseLeave={(e) => {
+//         (e.currentTarget as HTMLDivElement).style.borderColor = "#F3F4F6";
+//       }}
+//     >
+//       <div
+//         style={{
+//           display: "flex",
+//           placeItems: "center",
+//           justifyContent: "space-between",
+//           gap: 8,
+//         }}
+//       >
+//         <div className="flex gap-2">
+//           {/* <div
+//             style={{
+//               width: 32,
+//               height: 32,
+//               borderRadius: 8,
+//               background: tint(primary, 0.1),
+//               display: "flex",
+//               alignItems: "center",
+//               justifyContent: "center",
+//               flexShrink: 0,
+//             }}
+//           >
+//             <Wifi size={14} style={{ color: primary }} />
+//           </div> */}
+//           <div className="flex-col " style={{ minWidth: 0 }}>
+//             <p
+//               style={{
+//                 fontWeight: 700,
+//                 color: "#111827",
+//                 fontSize: "0.82rem",
+//                 lineHeight: 1.3,
+//                 marginTop: 2,
+//               }}
+//             >
+//               {plan.plan_name}
+//             </p>
+//             {plan.validity && (
+//               <span
+//                 style={{
+//                   fontSize: "0.62rem",
+//                   color: "#9CA3AF",
+//                   background: "#F9FAFB",
+//                   padding: "1px 6px",
+//                   borderRadius: 100,
+//                   border: "1px solid #E5E7EB",
+//                   fontWeight: 500,
+//                 }}
+//               >
+//                 {plan.validity}
+//               </span>
+//             )}
+//           </div>
+//         </div>
+//         <div>
+//           <p
+//             className="hidden md:block"
+//             style={{
+//               fontWeight: 800,
+//               color: primary,
+//               fontSize: "1.1rem",
+//               letterSpacing: "-0.02em",
+//               marginTop: 2,
+//             }}
+//           >
+//             {formatNaira(plan.price)}
+//           </p>
+//         </div>
+//       </div>
+//       <p
+//         className="md:hidden"
+//         style={{
+//           alignItems: "center",
+//           fontWeight: 800,
+//           color: primary,
+//           fontSize: "1.1rem",
+//           letterSpacing: "-0.02em",
+//           marginTop: 2,
+//         }}
+//       >
+//         {formatNaira(plan.price)}
+//       </p>
+//       <button
+//         onClick={() => onBuyClick(plan)}
+//         style={{
+//           width: "100%",
+//           padding: "0.55rem",
+//           background: canSell ? primary : "#D1D5DB",
+//           border: "none",
+//           borderRadius: 9,
+//           color: canSell ? contrastText(primary) : "#9CA3AF",
+//           fontWeight: 700,
+//           fontSize: "0.78rem",
+//           cursor: canSell ? "pointer" : "not-allowed",
+//           fontFamily: "inherit",
+//           display: "flex",
+//           alignItems: "center",
+//           justifyContent: "center",
+//           gap: 5,
+//           marginTop: "auto",
+//         }}
+//         disabled={!canSell}
+//         title={!canSell && storeReason ? storeReason : undefined}
+//       >
+//         {canSell ? "Buy" : "Unavailable"}
+//       </button>
+//     </div>
+//   );
+// }
 
 function PlanCard({
   plan,
@@ -2108,9 +2457,40 @@ function PlanCard({
   storeReason?: string | null;
   onBuyClick: (plan: StorePlan) => void;
 }) {
+  // Function to shorten validity text
+  const getShortValidity = (validity: string | null | undefined): string => {
+    if (!validity) return "";
+
+    const lowerValidity = validity.toLowerCase();
+
+    // Extract the number and unit
+    const dayMatch = lowerValidity.match(/(\d+)\s*day/);
+    if (dayMatch) {
+      const days = parseInt(dayMatch[1]);
+      return days === 1 ? "1 day" : `${days} days`;
+    }
+
+    const weekMatch = lowerValidity.match(/(\d+)\s*week/);
+    if (weekMatch) {
+      const weeks = parseInt(weekMatch[1]);
+      return weeks === 1 ? "1 week" : `${weeks} weeks`;
+    }
+
+    const monthMatch = lowerValidity.match(/(\d+)\s*month/);
+    if (monthMatch) {
+      const months = parseInt(monthMatch[1]);
+      return months === 1 ? "1 month" : `${months} months`;
+    }
+
+    // If no match, return original but try to truncate
+    return validity.split(" ").slice(0, 2).join(" ");
+  };
+
+  const shortValidity = getShortValidity(plan.validity);
+
   return (
     <div
-      className="flex flex-col gap-3 md:gap-6"
+      className="flex flex-col md:gap-6"
       style={{
         background: "#FFFFFF",
         border: `1.5px solid #F3F4F6`,
@@ -2138,7 +2518,7 @@ function PlanCard({
         }}
       >
         <div className="flex gap-2">
-          <div
+          {/* <div
             style={{
               width: 32,
               height: 32,
@@ -2151,20 +2531,20 @@ function PlanCard({
             }}
           >
             <Wifi size={14} style={{ color: primary }} />
-          </div>
+          </div> */}
           <div className="flex-col gap-1" style={{ minWidth: 0 }}>
             <p
               style={{
                 fontWeight: 700,
                 color: "#111827",
                 fontSize: "0.82rem",
-                lineHeight: 1.3,
-                marginTop: 2,
+                // lineHeight: 1.3,
+                // marginTop: 2,
               }}
             >
               {plan.plan_name}
             </p>
-            {plan.validity && (
+            {shortValidity && (
               <span
                 style={{
                   fontSize: "0.62rem",
@@ -2176,7 +2556,7 @@ function PlanCard({
                   fontWeight: 500,
                 }}
               >
-                {plan.validity}
+                {shortValidity}
               </span>
             )}
           </div>
@@ -2188,8 +2568,8 @@ function PlanCard({
               fontWeight: 800,
               color: primary,
               fontSize: "1.1rem",
-              letterSpacing: "-0.02em",
-              marginTop: 2,
+              // letterSpacing: "-0.02em",
+              // marginTop: 2,
             }}
           >
             {formatNaira(plan.price)}
