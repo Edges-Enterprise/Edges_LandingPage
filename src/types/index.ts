@@ -1,24 +1,5 @@
 // types/index.ts
 
-export interface ResellerFormData {
-  storeName: string;
-  email: string;
-  theme: "light" | "dark" | "custom";
-  androidApp: boolean;
-}
-
-export interface Reseller {
-  id: string;
-  auth_user_id: string | null;
-  email: string;
-  store_name: string;
-  theme: "light" | "dark" | "custom";
-  android_app: boolean;
-  status: "pending" | "active" | "suspended";
-  created_at: string;
-  updated_at: string;
-}
-
 export interface ResellerWallet {
   id: string;
   reseller_id: string;
@@ -45,20 +26,24 @@ export interface CreateResellerResult {
 export interface ResellerFormData {
   storeName: string
   email: string
-  theme: 'light' | 'dark' | 'custom'
+  theme: string
   androidApp: boolean
 }
+
+// Update the Reseller interface in types/index.ts
 
 export interface Reseller {
   id: string;
   auth_user_id: string | null;
   email: string;
   store_name: string;
-  theme: "light" | "dark" | "custom";
+  theme: string; 
   phone?: string | null;
   android_app: boolean;
   status: "pending" | "active" | "suspended";
-  brand_color?: string;
+  transaction_pin?: string | null;
+  push_token?: string | null;
+  notifications_enabled?: boolean | null;
   created_at: string;
   updated_at: string;
 }
