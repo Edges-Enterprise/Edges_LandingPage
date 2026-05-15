@@ -2518,28 +2518,14 @@ function PlanCard({
         }}
       >
         <div className="flex gap-2">
-          {/* <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: tint(primary, 0.1),
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Wifi size={14} style={{ color: primary }} />
-          </div> */}
+          
           <div className="flex-col gap-1" style={{ minWidth: 0 }}>
             <p
               style={{
                 fontWeight: 700,
                 color: "#111827",
                 fontSize: "0.82rem",
-                // lineHeight: 1.3,
-                // marginTop: 2,
+                
               }}
             >
               {plan.plan_name}
@@ -2568,8 +2554,7 @@ function PlanCard({
               fontWeight: 800,
               color: primary,
               fontSize: "1.1rem",
-              // letterSpacing: "-0.02em",
-              // marginTop: 2,
+              
             }}
           >
             {formatNaira(plan.price)}
