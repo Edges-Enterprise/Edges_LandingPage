@@ -113,7 +113,9 @@ export async function getResellerPlans(
     return [];
   }
 
-  return (data || []).map((rp: any) => ({
+  return (data || [])
+  .filter((rp: any) => rp.plan !== null)
+  .map((rp: any) => ({
     ...rp,
     finalPrice: calculateResellerPrice(
       rp.plan.amount,
@@ -245,7 +247,9 @@ export async function getStorePlans(
     return [];
   }
 
-  return (data || []).map((rp: any) => ({
+  return (data || [])
+  .filter((rp: any) => rp.plan !== null)
+  .map((rp: any) => ({  
     id: rp.plan.id,
     plan_id: rp.plan.plan_id,
     network: rp.plan.network,
