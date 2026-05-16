@@ -81,12 +81,14 @@ export function StoreContent({
   colors,
   featuredPlans,
   allPlans,
+  storeIcon,
 }: {
   storeName: string;
   displayName: string;
   colors: { primary: string; from: string; to: string; bg: string };
   featuredPlans: StorePlan[];
   allPlans: StorePlan[];
+  storeIcon?: { url: string; file_name: string; mime_type: string } | null;
 }) {
   const router = useRouter();
   const primary = colors.primary;
@@ -223,31 +225,29 @@ export function StoreContent({
     const supabase = createClient();
 
     if (authMode === "signup") {
-      
       if (password.length < 6) {
         setLoginError("Password must be at least 6 characters");
         setLoginLoading(false);
         return;
       }
 
-      
-  const [localPart, domain] = email.split("@");
-  const suffix = Math.floor(Math.random() * 9) + 1;
-  const separator = localPart.includes("+") ? "" : "+";
-  const storeEmail = `${localPart}${separator}${storeName}${suffix}@${domain}`;
+      const [localPart, domain] = email.split("@");
+      const suffix = Math.floor(Math.random() * 9) + 1;
+      const separator = localPart.includes("+") ? "" : "+";
+      const storeEmail = `${localPart}${separator}${storeName}${suffix}@${domain}`;
 
-  const username = email.split("@")[0];
+      const username = email.split("@")[0];
 
-        const { data, error } = await supabase.auth.signUp({
-          email: storeEmail,
-          password,
-          options: {
-            data: {
-              username: username,
-              role: "customer",
-            },
+      const { data, error } = await supabase.auth.signUp({
+        email: storeEmail,
+        password,
+        options: {
+          data: {
+            username: username,
+            role: "customer",
           },
-        });
+        },
+      });
 
       if (error) {
         setLoginError(error.message);
@@ -257,7 +257,7 @@ export function StoreContent({
 
       if (data.user) {
         // Register customer to reseller
-       await registerCustomerToReseller(storeName, data.user.id, email);
+        await registerCustomerToReseller(storeName, data.user.id, email);
 
         setLoginOpen(false);
         setEmail("");
@@ -421,7 +421,6 @@ export function StoreContent({
     setPurchaseModalOpen(true);
   };
 
-  
   const handlePurchase = async () => {
     if (!selectedPlan) return;
 
@@ -1128,7 +1127,7 @@ export function StoreContent({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div
+            {/* <div
               style={{
                 width: 40,
                 height: 40,
@@ -1142,7 +1141,39 @@ export function StoreContent({
               }}
             >
               <Signal size={20} style={{ color: onPrimary }} />
+            </div> */}
+            {/* Store Icon - either custom image or fallback */}
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                background: "rgba(255,255,255,0.2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backdropFilter: "blur(4px)",
+                border: "1px solid rgba(255,255,255,0.25)",
+                overflow: "hidden",
+              }}
+            >
+              {storeIcon?.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={storeIcon.url}
+                  alt={displayName}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                // Fallback: Store emoji or icon
+                <Signal size={20} style={{ color: onPrimary }} />
+              )}
             </div>
+
             <div>
               <h1
                 style={{
