@@ -124,6 +124,7 @@ export function StoreContent({
     canSell: boolean;
     hasVirtualAccount: boolean;
     hasBalance: boolean;
+    hasWhatsApp: boolean;
     balance: number;
     reason: string | null;
   } | null>(null);
@@ -156,6 +157,9 @@ export function StoreContent({
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [purchaseError, setPurchaseError] = useState("");
   const [purchaseSuccess, setPurchaseSuccess] = useState("");
+
+  // Add this state near other states:
+  const [resellerWhatsApp, setResellerWhatsApp] = useState<string | null>(null);
 
   // ── Effects ───────────────────────────────────────
   useEffect(() => {
@@ -255,6 +259,27 @@ export function StoreContent({
 
     fetchCustomerData();
   }, [loggedIn, storeName]);
+
+  // Add this useEffect to fetch reseller WhatsApp number when logged in as customer
+  useEffect(() => {
+    async function fetchResellerWhatsApp() {
+      if (!loggedIn || isStoreOwner) return;
+
+      const supabase = createClient();
+      const { data: resellerData } = await supabase
+        .from("resellers")
+        .select("phone")
+        .eq("store_name", storeName)
+        .eq("status", "active")
+        .single();
+
+      if (resellerData?.phone) {
+        setResellerWhatsApp(resellerData.phone);
+      }
+    }
+
+    fetchResellerWhatsApp();
+  }, [loggedIn, isStoreOwner, storeName]);
 
   // ── Handlers ──────────────────────────────────────
 
@@ -492,6 +517,22 @@ export function StoreContent({
     await navigator.clipboard.writeText(text);
     setCopiedAccount(accountId);
     setTimeout(() => setCopiedAccount(null), 2000);
+  };
+
+  // Update the handleSupportClick function:
+  const handleSupportClick = () => {
+    if (resellerWhatsApp) {
+      // Format phone number (remove spaces, dashes, ensure it starts with 234 or 0)
+      let phone = resellerWhatsApp.replace(/[\s\-()]/g, "");
+      if (phone.startsWith("0")) {
+        phone = "234" + phone.slice(1);
+      } else if (!phone.startsWith("234")) {
+        phone = "234" + phone;
+      }
+      window.open(`https://wa.me/${phone}`, "_blank");
+    } else {
+      alert("Store support will be available soon!");
+    }
   };
 
   // ── Buy button handler ───────────────────────────
@@ -1672,10 +1713,7 @@ export function StoreContent({
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <button
-              style={navBtnStyle(onPrimary)}
-              onClick={() => alert("WhatsApp support coming soon!")}
-            >
+            <button style={navBtnStyle(onPrimary)} onClick={handleSupportClick}>
               <MessageCircle size={15} />
             </button>
             {loggedIn ? (
@@ -1743,9 +1781,26 @@ export function StoreContent({
           <p
             style={{ fontSize: "0.78rem", color: "#A16207", margin: "4px 0 0" }}
           >
-            {!storeStatus.hasVirtualAccount
-              ? "The store owner is still setting up their payment system."
-              : "The store owner needs to fund their wallet to start accepting orders."}
+            {!storeStatus.hasWhatsApp ? (
+              <>
+                The store owner needs to add their WhatsApp number in{" "}
+                <a
+                  href="/dashboard/settings"
+                  style={{
+                    color: "#A16207",
+                    fontWeight: 600,
+                    textDecoration: "underline",
+                  }}
+                >
+                  Dashboard Settings
+                </a>{" "}
+                to start accepting orders.
+              </>
+            ) : !storeStatus.hasVirtualAccount ? (
+              "The store owner is still setting up their payment system."
+            ) : (
+              "The store owner needs to fund their wallet to start accepting orders."
+            )}
           </p>
         </div>
       )}

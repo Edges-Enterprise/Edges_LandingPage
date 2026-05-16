@@ -31,6 +31,27 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
     setSaving(true);
     setMessage(null);
 
+    // Validate WhatsApp number
+    if (!phone.trim()) {
+      setMessage({
+        type: "error",
+        text: "WhatsApp number is required for your store",
+      });
+      setSaving(false);
+      return;
+    }
+
+    // Basic phone validation
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    if (cleanPhone.length < 10 || cleanPhone.length > 13) {
+      setMessage({
+        type: "error",
+        text: "Please enter a valid phone number (10-13 digits)",
+      });
+      setSaving(false);
+      return;
+    }
+
     try {
       const result = await updateResellerSettings({
         resellerId: reseller.id,
@@ -53,6 +74,7 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
       setSaving(false);
     }
   };
+
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -206,9 +228,21 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
         >
           <Phone size={18} style={{ color: "var(--accent)" }} />
           Contact Information
+          <span
+            style={{
+              fontSize: "0.7rem",
+              background: "rgba(239,68,68,0.1)",
+              color: "#EF4444",
+              padding: "2px 8px",
+              borderRadius: 100,
+              marginLeft: 8,
+            }}
+          >
+            Required
+          </span>
         </h2>
         <div>
-          <label style={labelStyle}>WhatsApp / Phone Number</label>
+          <label style={labelStyle}>WhatsApp Number *</label>
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <div
               style={{
@@ -234,13 +268,20 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
               onChange={(e) =>
                 setPhone(e.target.value.replace(/[^0-9\s\-()]/g, ""))
               }
-              style={inputStyle}
-              placeholder="0801 000 0000"
+              style={{ ...inputStyle, flex: 1 }}
+              placeholder="801 000 0000"
             />
           </div>
           <p style={{ fontSize: "0.75rem", color: "var(--dim)", marginTop: 4 }}>
-            Used for account notifications and customer support.
+            Used for customer support. Customers will be able to message you on
+            WhatsApp.
           </p>
+          {!phone.trim() && (
+            <p style={{ fontSize: "0.75rem", color: "#EF4444", marginTop: 4 }}>
+              ⚠️ Phone number is required before customers can purchase from
+              your store.
+            </p>
+          )}
         </div>
       </Card>
 

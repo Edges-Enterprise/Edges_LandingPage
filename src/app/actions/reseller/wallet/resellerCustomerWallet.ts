@@ -10,6 +10,7 @@ interface ResellerStatus {
   canSell: boolean;
   hasVirtualAccount: boolean;
   hasBalance: boolean;
+  hasWhatsApp: boolean;
   balance: number;
   reason: string | null;
 }
@@ -48,7 +49,7 @@ export async function checkResellerCanSell(
   // 1. Find the reseller
   const { data: reseller } = await supabase
     .from("resellers")
-    .select("id, store_name")
+    .select("id, store_name, phone")
     .eq("store_name", storeName)
     .eq("status", "active")
     .single();
@@ -58,12 +59,16 @@ export async function checkResellerCanSell(
       canSell: false,
       hasVirtualAccount: false,
       hasBalance: false,
+      hasWhatsApp: false,
       balance: 0,
       reason: "Store not found",
     };
   }
 
-  // 2. Check if reseller has a virtual account
+  // 2. Check if reseller has WhatsApp number
+  const hasWhatsApp = !!reseller.phone && reseller.phone.trim().length > 0;
+
+  // 3. Check if reseller has a virtual account
   const { data: virtualAccount } = await supabase
     .from("reseller_virtual_accounts")
     .select("id")
@@ -74,7 +79,7 @@ export async function checkResellerCanSell(
 
   const hasVirtualAccount = !!virtualAccount;
 
-  // 3. Check wallet balance
+  // 4. Check wallet balance
   const { data: wallet } = await supabase
     .from("reseller_wallets")
     .select("balance")
@@ -83,12 +88,14 @@ export async function checkResellerCanSell(
 
   const balance = wallet?.balance || 0;
   const hasBalance = balance > 0;
-  const canSell = hasVirtualAccount && hasBalance;
+  const canSell = hasWhatsApp && hasVirtualAccount && hasBalance;
 
-  // 4. Determine the reason if they can't sell
+  // 5. Determine the reason if they can't sell
   let reason: string | null = null;
   if (!canSell) {
-    if (!hasVirtualAccount) {
+    if (!hasWhatsApp) {
+      reason = "Store owner hasn't set up WhatsApp support. Please check back later.";
+    } else if (!hasVirtualAccount) {
       reason = "Store is not fully set up yet. Please check back later.";
     } else if (!hasBalance) {
       reason = "Store is temporarily unavailable. Please check back later.";
@@ -99,6 +106,7 @@ export async function checkResellerCanSell(
     canSell,
     hasVirtualAccount,
     hasBalance,
+    hasWhatsApp,
     balance,
     reason,
   };
@@ -110,6 +118,14 @@ export async function checkResellerStatusById(
 ): Promise<ResellerStatus> {
   const supabase = await createServerClient();
 
+  const { data: reseller } = await supabase
+    .from("resellers")
+    .select("phone")
+    .eq("id", resellerId)
+    .single();
+
+  const hasWhatsApp = !!reseller?.phone && reseller.phone.trim().length > 0;
+
   const { data: virtualAccount } = await supabase
     .from("reseller_virtual_accounts")
     .select("id")
@@ -129,9 +145,10 @@ export async function checkResellerStatusById(
   const hasBalance = balance > 0;
 
   return {
-    canSell: hasVirtualAccount && hasBalance,
+    canSell: hasWhatsApp && hasVirtualAccount && hasBalance,
     hasVirtualAccount,
     hasBalance,
+    hasWhatsApp,
     balance,
     reason: null,
   };

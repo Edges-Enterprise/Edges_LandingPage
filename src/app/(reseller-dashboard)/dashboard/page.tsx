@@ -52,7 +52,7 @@ export default async function DashboardOverview() {
           {month} {year} — Your store performance at a glance
         </p>
       </div>
-
+      
       {!resellerStatus.canSell && (
         <div
           style={{
@@ -87,7 +87,22 @@ export default async function DashboardOverview() {
                 lineHeight: 1.6,
               }}
             >
-              {!resellerStatus.hasVirtualAccount ? (
+              {!resellerStatus.hasWhatsApp ? (
+                <>
+                  You need to add your WhatsApp number so customers can contact
+                  you.{" "}
+                  <Link
+                    href="/dashboard/settings"
+                    style={{
+                      color: "var(--accent)",
+                      fontWeight: 600,
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Add WhatsApp number →
+                  </Link>
+                </>
+              ) : !resellerStatus.hasVirtualAccount ? (
                 <>
                   You need to create a virtual account before customers can
                   purchase from your store.{" "}
@@ -122,7 +137,6 @@ export default async function DashboardOverview() {
           </div>
         </div>
       )}
-
       {/* Stats Grid */}
       <div
         style={{
@@ -291,7 +305,6 @@ export default async function DashboardOverview() {
           </div>
         </Card>
       </div>
-
       {/* Recent Orders */}
       <Card padding="none">
         <div
