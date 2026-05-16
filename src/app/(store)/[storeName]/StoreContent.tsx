@@ -2050,7 +2050,7 @@ export function StoreContent({
             // background: `linear-gradient(135deg, ${gradFrom}, ${gradTo})`,
             background: `linear-gradient(180deg, ${tint(primary, 0.12)}, transparent)`,
             // padding: "1rem 1.5rem",
-            padding: "1.5rem 1.5rem 1rem",
+            padding: "1.5rem 2.5rem 1rem",
             color: onPrimary,
             // borderBottom: "1px solid rgba(255,255,255,0.1)",
             borderBottom: `1px solid ${tint(primary, 0.15)}`,
