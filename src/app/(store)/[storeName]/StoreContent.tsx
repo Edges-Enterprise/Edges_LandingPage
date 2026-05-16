@@ -21,6 +21,7 @@ import {
   Wifi,
   Zap,
   MessageCircle,
+  MessageCircleCheck,
   Download,
   ShoppingCart,
   X,
@@ -160,6 +161,7 @@ export function StoreContent({
 
   // Add this state near other states:
   const [resellerWhatsApp, setResellerWhatsApp] = useState<string | null>(null);
+  const [supportModalOpen, setSupportModalOpen] = useState(false);
 
   // ── Effects ───────────────────────────────────────
   useEffect(() => {
@@ -263,8 +265,6 @@ export function StoreContent({
   // Add this useEffect to fetch reseller WhatsApp number when logged in as customer
   useEffect(() => {
     async function fetchResellerWhatsApp() {
-      if (!loggedIn || isStoreOwner) return;
-
       const supabase = createClient();
       const { data: resellerData } = await supabase
         .from("resellers")
@@ -279,7 +279,7 @@ export function StoreContent({
     }
 
     fetchResellerWhatsApp();
-  }, [loggedIn, isStoreOwner, storeName]);
+  }, [storeName]);
 
   // ── Handlers ──────────────────────────────────────
 
@@ -520,18 +520,32 @@ export function StoreContent({
   };
 
   // Update the handleSupportClick function:
+  // Add the handleSupportClick function:
   const handleSupportClick = () => {
+    setSupportModalOpen(true);
+  };
+
+  // Add the function to open WhatsApp:
+  const openWhatsApp = () => {
     if (resellerWhatsApp) {
-      // Format phone number (remove spaces, dashes, ensure it starts with 234 or 0)
+      // Format phone number for WhatsApp
       let phone = resellerWhatsApp.replace(/[\s\-()]/g, "");
+
+      // Remove any leading '+'
+      phone = phone.replace(/^\+/, "");
+
+      // If it starts with 0, replace with 234 (Nigeria code)
       if (phone.startsWith("0")) {
         phone = "234" + phone.slice(1);
-      } else if (!phone.startsWith("234")) {
+      }
+      // If it doesn't start with 234 and is 10 digits, add 234
+      else if (!phone.startsWith("234") && phone.length === 10) {
         phone = "234" + phone;
       }
+
+      // Open WhatsApp chat
       window.open(`https://wa.me/${phone}`, "_blank");
-    } else {
-      alert("Store support will be available soon!");
+      setSupportModalOpen(false);
     }
   };
 
@@ -942,7 +956,6 @@ export function StoreContent({
           </div>
         </div>
       )}
-
       {/* ─── Funding Modal (when user has virtual accounts) ─── */}
       {showFundingModal && (
         <div
@@ -1153,7 +1166,6 @@ export function StoreContent({
           </div>
         </div>
       )}
-
       {/* ─── Create Virtual Account Form Modal ─── */}
       {showVirtualForm && (
         <div
@@ -1371,7 +1383,230 @@ export function StoreContent({
           </div>
         </div>
       )}
+     
+      {/* ─── Support Modal ──────────────────────────────── */}
+      {supportModalOpen && (
+        <div
+          onClick={() => setSupportModalOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 20,
+              padding: "2rem",
+              width: "100%",
+              maxWidth: 400,
+              position: "relative",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.2)",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 4,
+                borderRadius: "20px 20px 0 0",
+                background: `linear-gradient(90deg, ${gradFrom}, ${gradTo})`,
+              }}
+            />
 
+            <button
+              onClick={() => setSupportModalOpen(false)}
+              style={{
+                position: "absolute",
+                top: 16,
+                right: 16,
+                background: "#F3F4F6",
+                border: "none",
+                cursor: "pointer",
+                color: "#6B7280",
+                borderRadius: 8,
+                width: 32,
+                height: 32,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <X size={17} />
+            </button>
+
+            {resellerWhatsApp ? (
+              <>
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    background: `linear-gradient(135deg, ${gradFrom}, ${gradTo})`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 1rem auto",
+                  }}
+                >
+                  <MessageCircleCheck size={32} color="#FFFFFF" />
+                </div>
+
+                <h2
+                  style={{
+                    fontSize: "1.3rem",
+                    fontWeight: 700,
+                    color: "#111827",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  Chat with Support
+                </h2>
+
+                <p
+                  style={{
+                    fontSize: "0.88rem",
+                    color: "#6B7280",
+                    marginBottom: "1.5rem",
+                  }}
+                >
+                  Click the button below to start a WhatsApp conversation with
+                  the store owner.
+                </p>
+
+                <button
+                  onClick={openWhatsApp}
+                  style={{
+                    width: "100%",
+                    padding: "0.85rem",
+                    background: `linear-gradient(135deg, ${gradFrom}, ${gradTo})`,
+                    color: onPrimary,
+                    border: "none",
+                    borderRadius: 12,
+                    fontSize: "0.95rem",
+                    fontWeight: 700,
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  <MessageCircle size={18} />
+                  Open WhatsApp
+                </button>
+
+                <p
+                  style={{
+                    fontSize: "0.72rem",
+                    color: "#9CA3AF",
+                    marginTop: "1rem",
+                  }}
+                >
+                  You'll be redirected to WhatsApp. Message the store owner
+                  directly.
+                </p>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    background: "#F3F4F6",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 1rem auto",
+                  }}
+                >
+                  <MessageCircle size={32} color="#9CA3AF" />
+                </div>
+
+                <h2
+                  style={{
+                    fontSize: "1.3rem",
+                    fontWeight: 700,
+                    color: "#111827",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  Support Coming Soon
+                </h2>
+
+                <p
+                  style={{
+                    fontSize: "0.88rem",
+                    color: "#6B7280",
+                    marginBottom: "1.5rem",
+                  }}
+                >
+                  The store owner hasn't set up WhatsApp support yet. Please
+                  check back later.
+                </p>
+
+                {isStoreOwner && (
+                  <button
+                    onClick={() => {
+                      setSupportModalOpen(false);
+                      router.push("/dashboard/settings");
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "0.85rem",
+                      background: "#F3F4F6",
+                      color: "#374151",
+                      border: "1.5px solid #E5E7EB",
+                      borderRadius: 12,
+                      fontSize: "0.95rem",
+                      fontWeight: 600,
+                      fontFamily: "inherit",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                    }}
+                  >
+                    Go to Settings
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setSupportModalOpen(false)}
+                  style={{
+                    width: "100%",
+                    padding: "0.85rem",
+                    background: "transparent",
+                    color: "#6B7280",
+                    border: "none",
+                    fontSize: "0.9rem",
+                    fontWeight: 500,
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                    marginTop: "0.75rem",
+                  }}
+                >
+                  Close
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {/* ─── Purchase Modal ───────────────────────────── */}
       {purchaseModalOpen && selectedPlan && (
         <div
@@ -1644,7 +1879,6 @@ export function StoreContent({
           </div>
         </div>
       )}
-
       {/* ─── Header ───────────────────────────────────── */}
       <header
         style={{
@@ -1714,7 +1948,7 @@ export function StoreContent({
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <button style={navBtnStyle(onPrimary)} onClick={handleSupportClick}>
-              <MessageCircle size={15} />
+              <MessageCircleCheck size={15} />
             </button>
             {loggedIn ? (
               <button
@@ -1751,7 +1985,6 @@ export function StoreContent({
           </div>
         </div>
       </header>
-
       {/* ─── Store Status Banner ──────────────────────── */}
       {!storeStatusLoading && storeStatus && !storeStatus.canSell && (
         <div
@@ -1804,7 +2037,6 @@ export function StoreContent({
           </p>
         </div>
       )}
-
       {/* ─── Wallet Balance Strip (same gradient as header) ─── */}
       {loggedIn && !customerDataLoading && (
         <div
@@ -1932,7 +2164,6 @@ export function StoreContent({
           </div>
         </div>
       )}
-
       {/* Show welcome message when not logged in (with same gradient) */}
       {!loggedIn && (
         <div
@@ -1988,7 +2219,6 @@ export function StoreContent({
           </div>
         </div>
       )}
-
       <main style={{ maxWidth: 1100, margin: "0 auto", padding: "1.5rem" }}>
         {/* ─── Featured Plans ─────────────────────────── */}
         {featuredPlans.length > 0 && activeTab === "MTN" && (
@@ -2355,7 +2585,6 @@ export function StoreContent({
           </button>
         </div>
       </main>
-
       <footer
         style={{
           marginTop: "3rem",
@@ -2701,7 +2930,7 @@ function PlanGrid({
                   key={i}
                   onClick={() => goToPage(actualPageIndex)}
                   style={{
-                    width: isActive ? 24 : 8,
+                    width: isActive ? 12 : 8,
                     height: 8,
                     borderRadius: "100%",
                     border: "none",
