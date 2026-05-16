@@ -1954,6 +1954,7 @@ export function StoreContent({
                   onClick={handleSupportClick}
                 >
                   <MessageCircleCheck size={15} />
+                  <span>Contact</span>
                 </button>
                 <button
                   style={{
