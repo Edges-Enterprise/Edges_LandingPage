@@ -1383,7 +1383,7 @@ export function StoreContent({
           </div>
         </div>
       )}
-     
+
       {/* ─── Support Modal ──────────────────────────────── */}
       {supportModalOpen && (
         <div
@@ -1947,28 +1947,33 @@ export function StoreContent({
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <button style={navBtnStyle(onPrimary)} onClick={handleSupportClick}>
-              <MessageCircleCheck size={15} />
-            </button>
             {loggedIn ? (
-              <button
-                style={{
-                  ...navBtnStyle(onPrimary),
-                  opacity: logoutLoading ? 0.7 : 1,
-                }}
-                onClick={handleLogout}
-                disabled={logoutLoading}
-              >
-                {logoutLoading ? (
-                  <Loader2
-                    size={15}
-                    style={{ animation: "spin 1s linear infinite" }}
-                  />
-                ) : (
-                  <LogOut size={15} />
-                )}
-                <span>Log out</span>
-              </button>
+              <>
+                <button
+                  style={navBtnStyle(onPrimary)}
+                  onClick={handleSupportClick}
+                >
+                  <MessageCircleCheck size={15} />
+                </button>
+                <button
+                  style={{
+                    ...navBtnStyle(onPrimary),
+                    opacity: logoutLoading ? 0.7 : 1,
+                  }}
+                  onClick={handleLogout}
+                  disabled={logoutLoading}
+                >
+                  {logoutLoading ? (
+                    <Loader2
+                      size={15}
+                      style={{ animation: "spin 1s linear infinite" }}
+                    />
+                  ) : (
+                    <LogOut size={15} />
+                  )}
+                  <span>Log out</span>
+                </button>
+              </>
             ) : (
               <button
                 style={{
@@ -1979,7 +1984,7 @@ export function StoreContent({
                 }}
                 onClick={() => setLoginOpen(true)}
               >
-                <LogIn size={15} /> <span>Sign in</span>
+                <span>Sign in</span>
               </button>
             )}
           </div>
@@ -2195,10 +2200,11 @@ export function StoreContent({
                 Welcome to {displayName}
               </h2>
               <p style={{ fontSize: "0.85rem", opacity: 0.9 }}>
-                Sign in to buy data, fund your wallet, and track purchases
+                Sign in/Sign up to buy data, fund your wallet, and track
+                purchases
               </p>
             </div>
-            <button
+            {/* <button
               onClick={() => setLoginOpen(true)}
               style={{
                 background: "rgba(255,255,255,0.2)",
@@ -2215,7 +2221,7 @@ export function StoreContent({
             >
               <LogIn size={16} />
               Sign In / Sign Up
-            </button>
+            </button> */}
           </div>
         </div>
       )}
