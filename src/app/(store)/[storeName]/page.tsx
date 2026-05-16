@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { StoreContent } from "./StoreContent";
 import { getResellerByStoreName } from "@/app/actions/reseller/getReseller";
 import { getStorePlans } from "@/app/actions/reseller/plans/getPlans";
+import { getStoreAsset } from "@/app/actions/reseller/getStoreAsset";
 
 /** Slightly darken a hex colour — used server-side for gradient end stop */
 function darken(hex: string, amt = 30): string {
@@ -56,6 +57,9 @@ export default async function StorePage({
     bg: tintBg(primary),
   };
 
+  // Fetch store icon/logo if exists
+  const storeIcon = await getStoreAsset(reseller.id);
+
   const displayName = storeName
     .split("-")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -68,6 +72,7 @@ export default async function StorePage({
       colors={colors}
       featuredPlans={featuredPlans}
       allPlans={allPlans}
+      storeIcon={storeIcon}
     />
   );
 }
