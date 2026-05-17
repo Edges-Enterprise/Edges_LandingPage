@@ -77,7 +77,10 @@ const BUILD_STEPS = [
   { icon: Cpu, message: "Compiling native code with maximum effort..." },
   { icon: HardDrive, message: "Allocating memory for greatness..." },
   { icon: Wifi, message: "Downloading extra goodness packets..." },
-  { icon: Globe, message: "Translating app codes to human readable language..." },
+  {
+    icon: Globe,
+    message: "Translating app codes to human readable language...",
+  },
   { icon: Lock, message: "Encrypting secrets with double ROT13..." },
   { icon: Settings, message: "Fine-tuning all the knobs and dials..." },
   { icon: Terminal, message: "Running final terminal incantations..." },
@@ -283,7 +286,7 @@ export function AppBuildClient({
               <Badge variant={current.variant}>{current.label}</Badge>
             </div>
           </div>
-          <button
+          {/* <button
             onClick={handleBuild}
             disabled={
               building || status === "building" || status === "configuring"
@@ -319,7 +322,87 @@ export function AppBuildClient({
               <RefreshCw size={16} />
             )}
             {status === "completed" ? "Rebuild" : "Build Now"}
-          </button>
+          </button> */}
+          {/* // In the button, change the condition and text */}
+
+          {/* <button
+  onClick={handleBuild}
+  disabled={
+    building || status === "building" || status === "configuring" || status === "completed"
+  }
+  style={{
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "0.6rem 1.2rem",
+    background: "var(--accent)",
+    border: "none",
+    borderRadius: 10,
+    color: "#FDF8F3",
+    fontWeight: 600,
+    fontSize: "0.9rem",
+    cursor:
+      building || status === "building" || status === "configuring" || status === "completed"
+        ? "not-allowed"
+        : "pointer",
+    fontFamily: "inherit",
+    opacity:
+      building || status === "building" || status === "configuring" || status === "completed"
+        ? 0.7
+        : 1,
+  }}
+>
+  {building ? (
+    <Loader2
+      size={16}
+      style={{ animation: "spin 1s linear infinite" }}
+    />
+  ) : (
+    <RefreshCw size={16} />
+  )}
+  {status === "completed" ? "App Built" : status === "building" || status === "configuring" ? "Building..." : "Build Now"}
+</button> */}
+
+          {/* Only show build button if status is NOT completed */}
+          {status !== "completed" && (
+            <button
+              onClick={handleBuild}
+              disabled={
+                building || status === "building" || status === "configuring"
+              }
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "0.6rem 1.2rem",
+                background: "var(--accent)",
+                border: "none",
+                borderRadius: 10,
+                color: "#FDF8F3",
+                fontWeight: 600,
+                fontSize: "0.9rem",
+                cursor:
+                  building || status === "building" || status === "configuring"
+                    ? "not-allowed"
+                    : "pointer",
+                fontFamily: "inherit",
+                opacity:
+                  building || status === "building" || status === "configuring"
+                    ? 0.7
+                    : 1,
+              }}
+            >
+              {building ? (
+                <Loader2
+                  size={16}
+                  style={{ animation: "spin 1s linear infinite" }}
+                />
+              ) : (
+                <RefreshCw size={16} />
+              )}
+              {status === "failed" ? "Retry Build" : "Build Now"}
+            </button>
+          )}
         </div>
 
         {/* Animated build progress */}
@@ -419,8 +502,8 @@ export function AppBuildClient({
                 textAlign: "center",
               }}
             >
-              ⏱️ Estimated time: 120-240 minutes. You can leave this page and come
-              back.
+              ⏱️ Estimated time: 120-240 minutes. You can leave this page and
+              come back.
             </p>
           </div>
         )}
@@ -506,7 +589,7 @@ export function AppBuildClient({
       </Card>
 
       {/* App Details */}
-      {buildConfig?.config && (
+      {/* {buildConfig?.config && (
         <Card>
           <h3
             style={{
@@ -576,7 +659,7 @@ export function AppBuildClient({
             </div>
           </div>
         </Card>
-      )}
+      )} */}
 
       {/* Instructions */}
       <Card>

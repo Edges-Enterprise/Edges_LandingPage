@@ -5,16 +5,22 @@
 import { useState } from "react";
 import { Card } from "../Card";
 import type { Reseller } from "@/types";
-import { createClient } from "@/lib/supabase/client";
-import { Loader2, Check, Store, Mail, Palette } from "lucide-react";
-
-// We need a client-side supabase instance
-// Create this file if it doesn't exist
+import { updateResellerSettings } from "@/app/actions/reseller/r-settings/updateSettings";
+import {
+  Loader2,
+  Check,
+  Store,
+  Mail,
+  Phone,
+  Palette,
+  Bell,
+} from "lucide-react";
 
 export function SettingsClient({ reseller }: { reseller: Reseller }) {
-  const [storeName, setStoreName] = useState(reseller.store_name);
-  const [email, setEmail] = useState(reseller.email);
-  const [theme, setTheme] = useState(reseller.theme);
+  const [phone, setPhone] = useState(reseller.phone || "");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(
+    reseller.notifications_enabled || false,
+  );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -25,36 +31,50 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
     setSaving(true);
     setMessage(null);
 
-    // Simulate save - in production, call a server action
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Validate WhatsApp number
+    if (!phone.trim()) {
+      setMessage({
+        type: "error",
+        text: "WhatsApp number is required for your store",
+      });
+      setSaving(false);
+      return;
+    }
 
-    setMessage({ type: "success", text: "Settings saved successfully" });
-    setSaving(false);
+    // Basic phone validation
+    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    if (cleanPhone.length < 10 || cleanPhone.length > 13) {
+      setMessage({
+        type: "error",
+        text: "Please enter a valid phone number (10-13 digits)",
+      });
+      setSaving(false);
+      return;
+    }
 
-    // Clear message after 3 seconds
-    setTimeout(() => setMessage(null), 3000);
+    try {
+      const result = await updateResellerSettings({
+        resellerId: reseller.id,
+        phone,
+        notificationsEnabled,
+      });
+
+      if (result.success) {
+        setMessage({ type: "success", text: "Settings saved successfully" });
+        setTimeout(() => setMessage(null), 3000);
+      } else {
+        setMessage({
+          type: "error",
+          text: result.error || "Failed to save settings",
+        });
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: "An unexpected error occurred" });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const themes = [
-    {
-      value: "light" as const,
-      label: "Light",
-      gradient: "linear-gradient(135deg, #FFFFFF, #F0F0F0)",
-      border: "#D1D5DB",
-    },
-    {
-      value: "dark" as const,
-      label: "Dark",
-      gradient: "linear-gradient(135deg, #1F2937, #111827)",
-      border: "#374151",
-    },
-    {
-      value: "custom" as const,
-      label: "Custom",
-      gradient: "linear-gradient(135deg, #8B5CF6, #6366F1)",
-      border: "#7C3AED",
-    },
-  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -97,12 +117,12 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
             gap: 8,
           }}
         >
-          {message.type === "success" && <Check size={16} />}
+          {message.type === "success" ? <Check size={16} /> : null}
           {message.text}
         </div>
       )}
 
-      {/* Store Information */}
+      {/* Store Information (Read-only) */}
       <Card>
         <h2
           style={{
@@ -119,20 +139,23 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
           Store Information
         </h2>
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {/* Store Name - Read only */}
           <div>
             <label style={labelStyle}>Store Name</label>
             <input
               type="text"
-              value={storeName}
-              onChange={(e) => setStoreName(e.target.value.toLowerCase())}
-              style={inputStyle}
+              value={reseller.store_name}
+              disabled
+              style={{ ...inputStyle, opacity: 0.7, cursor: "not-allowed" }}
             />
             <p
               style={{ fontSize: "0.75rem", color: "var(--dim)", marginTop: 4 }}
             >
-              edges-landing.vercel.app/{storeName}
+              {process.env.NEXT_PUBLIC_STORE_URL}/{reseller.store_name}
             </p>
           </div>
+
+          {/* Email - Read only */}
           <div>
             <label style={labelStyle}>
               <Mail size={14} style={{ display: "inline", marginRight: 4 }} />
@@ -140,15 +163,57 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
             </label>
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={inputStyle}
+              value={reseller.email}
+              disabled
+              style={{ ...inputStyle, opacity: 0.7, cursor: "not-allowed" }}
             />
+            <p
+              style={{ fontSize: "0.75rem", color: "var(--dim)", marginTop: 4 }}
+            >
+              Email cannot be changed. Contact support for assistance.
+            </p>
+          </div>
+
+          {/* Brand Color - Read only */}
+          <div>
+            <label style={labelStyle}>
+              <Palette
+                size={14}
+                style={{ display: "inline", marginRight: 4 }}
+              />
+              Brand Color
+            </label>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: reseller.theme || "#2563EB",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontFamily: "monospace",
+                  color: "var(--text)",
+                  fontSize: "0.9rem",
+                }}
+              >
+                {(reseller.theme || "#2563EB").toUpperCase()}
+              </span>
+            </div>
+            <p
+              style={{ fontSize: "0.75rem", color: "var(--dim)", marginTop: 4 }}
+            >
+              Set during registration and cannot be changed.
+            </p>
           </div>
         </div>
       </Card>
 
-      {/* Theme */}
+      {/* Contact Information (Editable) */}
       <Card>
         <h2
           style={{
@@ -161,59 +226,138 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
             marginBottom: "1.25rem",
           }}
         >
-          <Palette size={18} style={{ color: "var(--accent)" }} />
-          Store Theme
+          <Phone size={18} style={{ color: "var(--accent)" }} />
+          Contact Information
+          <span
+            style={{
+              fontSize: "0.7rem",
+              background: "rgba(239,68,68,0.1)",
+              color: "#EF4444",
+              padding: "2px 8px",
+              borderRadius: 100,
+              marginLeft: 8,
+            }}
+          >
+            Required
+          </span>
+        </h2>
+        <div>
+          <label style={labelStyle}>WhatsApp Number *</label>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                padding: "0.7rem 0.9rem",
+                background: "var(--bg2)",
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                color: "var(--dim)",
+                fontSize: "0.9rem",
+                fontFamily: "monospace",
+                flexShrink: 0,
+                gap: 6,
+              }}
+            >
+              <span style={{ fontSize: "1rem" }}>🇳🇬</span>
+              <span>+234</span>
+            </div>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) =>
+                setPhone(e.target.value.replace(/[^0-9\s\-()]/g, ""))
+              }
+              style={{ ...inputStyle, flex: 1 }}
+              placeholder="801 000 0000"
+            />
+          </div>
+          <p style={{ fontSize: "0.75rem", color: "var(--dim)", marginTop: 4 }}>
+            Used for customer support. Customers will be able to message you on
+            WhatsApp.
+          </p>
+          {!phone.trim() && (
+            <p style={{ fontSize: "0.75rem", color: "#EF4444", marginTop: 4 }}>
+              ⚠️ Phone number is required before customers can purchase from
+              your store.
+            </p>
+          )}
+        </div>
+      </Card>
+
+      {/* Notification Preferences */}
+      {/* <Card>
+        <h2
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontWeight: 600,
+            color: "var(--text)",
+            fontSize: "1rem",
+            marginBottom: "1.25rem",
+          }}
+        >
+          <Bell size={18} style={{ color: "var(--accent)" }} />
+          Notifications
         </h2>
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: "0.75rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0.75rem 0",
           }}
         >
-          {themes.map((t) => (
-            <button
-              key={t.value}
-              onClick={() => setTheme(t.value)}
+          <div>
+            <p
               style={{
-                padding: "1rem",
-                borderRadius: 12,
-                border:
-                  theme === t.value
-                    ? "2px solid var(--accent)"
-                    : "1px solid var(--border)",
-                background:
-                  theme === t.value ? "rgba(201,138,84,0.08)" : "var(--bg2)",
-                cursor: "pointer",
-                textAlign: "center",
-                transition: "all 0.2s",
-                fontFamily: "inherit",
+                fontWeight: 500,
+                color: "var(--text)",
+                fontSize: "0.9rem",
               }}
             >
-              <div
-                style={{
-                  width: "100%",
-                  height: 36,
-                  borderRadius: 8,
-                  background: t.gradient,
-                  border: `1px solid ${t.border}`,
-                  marginBottom: 10,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: "0.85rem",
-                  fontWeight: 600,
-                  color:
-                    theme === t.value ? "var(--accent-lt)" : "var(--muted)",
-                }}
-              >
-                {t.label}
-              </span>
-            </button>
-          ))}
+              Push Notifications
+            </p>
+            <p
+              style={{ fontSize: "0.78rem", color: "var(--dim)", marginTop: 2 }}
+            >
+              Receive alerts for orders, payments, and updates
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+            style={{
+              width: 48,
+              height: 28,
+              borderRadius: 100,
+              background: notificationsEnabled ? "var(--accent)" : "var(--bg3)",
+              border: notificationsEnabled
+                ? "1px solid var(--accent)"
+                : "1px solid var(--border2)",
+              cursor: "pointer",
+              position: "relative",
+              transition: "all 0.2s",
+              flexShrink: 0,
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: 3,
+                left: notificationsEnabled ? 23 : 3,
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                background: "#fff",
+                transition: "left 0.2s",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+              }}
+            />
+          </button>
         </div>
-      </Card>
+      </Card> */}
 
       {/* Store Status */}
       <Card>
@@ -278,7 +422,7 @@ export function SettingsClient({ reseller }: { reseller: Reseller }) {
             color: "#FDF8F3",
             fontWeight: 600,
             fontSize: "0.9rem",
-            cursor: "pointer",
+            cursor: saving ? "not-allowed" : "pointer",
             fontFamily: "inherit",
             opacity: saving ? 0.7 : 1,
           }}
