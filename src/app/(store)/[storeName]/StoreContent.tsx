@@ -111,6 +111,11 @@ export function StoreContent({
   const [loginLoading, setLoginLoading] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+
+  // Add these with the other state declarations (around line 80-90)
+  const [showPassword, setShowPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+
   const [isStoreOwner, setIsStoreOwner] = useState(false);
 
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
@@ -120,7 +125,8 @@ export function StoreContent({
   );
   const [isCreatingPin, setIsCreatingPin] = useState(false);
   const [showPinInfo, setShowPinInfo] = useState(false);
-
+  const [showPin, setShowPin] = useState(false);
+  const [showCreatePin, setShowCreatePin] = useState(false);
 
   // Store status
   const [storeStatus, setStoreStatus] = useState<{
@@ -639,56 +645,58 @@ export function StoreContent({
   // };
 
   const handleBuyClick = async (plan: StorePlan) => {
-  if (!loggedIn) {
-    setLoginOpen(true);
-    return;
-  }
-  if (!storeStatus?.canSell) return;
+    if (!loggedIn) {
+      setLoginOpen(true);
+      return;
+    }
+    if (!storeStatus?.canSell) return;
 
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
 
-  const { data: resellerData } = await supabase
-    .from("resellers")
-    .select("id")
-    .eq("store_name", storeName)
-    .eq("status", "active")
-    .single();
-
-  if (!resellerData) return;
-
-  // Check PIN from the correct table
-  let hasPin = false;
-
-  if (isStoreOwner) {
-    // Reseller: check resellers.transaction_pin
-    const { data: resellerRecord } = await supabase
+    const { data: resellerData } = await supabase
       .from("resellers")
-      .select("transaction_pin")
-      .eq("auth_user_id", user.id)
+      .select("id")
+      .eq("store_name", storeName)
+      .eq("status", "active")
       .single();
-    hasPin = !!resellerRecord?.transaction_pin;
-  } else {
-    // Customer: check reseller_customers.transaction_pin
-    const { data: customerRecord } = await supabase
-      .from("reseller_customers")
-      .select("transaction_pin")
-      .eq("auth_user_id", user.id)
-      .eq("reseller_id", resellerData.id)
-      .maybeSingle();
-    hasPin = !!customerRecord?.transaction_pin;
-  }
 
-  setHasTransactionPin(hasPin);
-  setIsCreatingPin(!hasPin);
-  setSelectedPlan(plan);
-  setPurchasePhone("");
-  setPurchasePin("");
-  setPurchaseError("");
-  setPurchaseSuccess("");
-  setPurchaseModalOpen(true);
-};
+    if (!resellerData) return;
+
+    // Check PIN from the correct table
+    let hasPin = false;
+
+    if (isStoreOwner) {
+      // Reseller: check resellers.transaction_pin
+      const { data: resellerRecord } = await supabase
+        .from("resellers")
+        .select("transaction_pin")
+        .eq("auth_user_id", user.id)
+        .single();
+      hasPin = !!resellerRecord?.transaction_pin;
+    } else {
+      // Customer: check reseller_customers.transaction_pin
+      const { data: customerRecord } = await supabase
+        .from("reseller_customers")
+        .select("transaction_pin")
+        .eq("auth_user_id", user.id)
+        .eq("reseller_id", resellerData.id)
+        .maybeSingle();
+      hasPin = !!customerRecord?.transaction_pin;
+    }
+
+    setHasTransactionPin(hasPin);
+    setIsCreatingPin(!hasPin);
+    setSelectedPlan(plan);
+    setPurchasePhone("");
+    setPurchasePin("");
+    setPurchaseError("");
+    setPurchaseSuccess("");
+    setPurchaseModalOpen(true);
+  };
 
   // const handlePurchase = async () => {
   //   if (!selectedPlan) return;
@@ -862,6 +870,8 @@ export function StoreContent({
         fontFamily: "'Instrument Sans', system-ui, sans-serif",
       }}
     >
+      {/* ─── Login Modal ──────────────────────────────── */}
+      {/* ─── Login Modal ──────────────────────────────── */}
       {/* ─── Login Modal ──────────────────────────────── */}
       {loginOpen && (
         <div
@@ -1048,15 +1058,60 @@ export function StoreContent({
                   <Lock size={13} style={{ color: primary }} />
                   Password
                 </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  minLength={6}
-                  style={modalInputStyle}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={
+                      authMode === "signup"
+                        ? showSignupPassword
+                          ? "text"
+                          : "password"
+                        : showPassword
+                          ? "text"
+                          : "password"
+                    }
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                    style={{ ...modalInputStyle, paddingRight: "2.5rem" }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (authMode === "signup") {
+                        setShowSignupPassword(!showSignupPassword);
+                      } else {
+                        setShowPassword(!showPassword);
+                      }
+                    }}
+                    style={{
+                      position: "absolute",
+                      right: "0.75rem",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#9CA3AF",
+                      display: "flex",
+                      alignItems: "center",
+                      padding: 0,
+                    }}
+                    type="button"
+                  >
+                    {authMode === "signup" ? (
+                      showSignupPassword ? (
+                        <EyeOff size={16} />
+                      ) : (
+                        <Eye size={16} />
+                      )
+                    ) : showPassword ? (
+                      <EyeOff size={16} />
+                    ) : (
+                      <Eye size={16} />
+                    )}
+                  </button>
+                </div>
                 {authMode === "signup" && (
                   <p
                     style={{
@@ -1975,6 +2030,7 @@ export function StoreContent({
             </div>
 
             {/* PIN section — creation or entry */}
+            {/* PIN section — creation or entry */}
             {isCreatingPin ? (
               <>
                 {/* PIN Info Modal */}
@@ -2009,7 +2065,7 @@ export function StoreContent({
                           position: "absolute",
                           top: 12,
                           right: 12,
-                          background: tint(primary, 1.23),
+                          background: "#F3F4F6",
                           border: "none",
                           cursor: "pointer",
                           borderRadius: 6,
@@ -2170,82 +2226,54 @@ export function StoreContent({
                       </svg>
                     </button>
                   </label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    value={purchasePin}
-                    onChange={(e) =>
-                      setPurchasePin(
-                        e.target.value.replace(/[^0-9]/g, "").slice(0, 4),
-                      )
-                    }
-                    placeholder="Choose a 4-digit PIN"
-                    maxLength={4}
-                    style={{ ...modalInputStyle, letterSpacing: "0.3em" }}
-                  />
-                </div>
-
-                {/* <div style={{ marginBottom: "1rem" }}>
-                  <label
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showCreatePin ? "text" : "password"}
+                      inputMode="numeric"
+                      value={purchasePin}
+                      onChange={(e) =>
+                        setPurchasePin(
+                          e.target.value.replace(/[^0-9]/g, "").slice(0, 4),
+                        )
+                      }
+                      placeholder="Choose a 4-digit PIN"
+                      maxLength={4}
+                      style={{
+                        ...modalInputStyle,
+                        letterSpacing: "0.3em",
+                        paddingRight: "2.5rem",
+                      }}
+                    />
+                    <button
+                      onClick={() => setShowCreatePin(!showCreatePin)}
+                      style={{
+                        position: "absolute",
+                        right: "0.75rem",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "#9CA3AF",
+                        display: "flex",
+                        alignItems: "center",
+                        padding: 0,
+                      }}
+                      type="button"
+                    >
+                      {showCreatePin ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <p
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      fontSize: "0.82rem",
-                      fontWeight: 600,
-                      color: "#374151",
-                      marginBottom: "0.4rem",
+                      fontSize: "0.7rem",
+                      color: "#9CA3AF",
+                      marginTop: 4,
                     }}
                   >
-                    <Shield size={13} style={{ color: primary }} /> Confirm PIN
-                  </label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    value={purchasePinConfirm}
-                    onChange={(e) =>
-                      setPurchasePinConfirm(
-                        e.target.value.replace(/[^0-9]/g, "").slice(0, 4),
-                      )
-                    }
-                    placeholder="Re-enter your PIN"
-                    maxLength={4}
-                    style={{
-                      ...modalInputStyle,
-                      letterSpacing: "0.3em",
-                      borderColor:
-                        purchasePinConfirm.length === 4
-                          ? purchasePin === purchasePinConfirm
-                            ? "#6EBD8A"
-                            : "#EF4444"
-                          : "#E5E7EB",
-                    }}
-                  />
-                  {purchasePinConfirm.length === 4 &&
-                    purchasePin !== purchasePinConfirm && (
-                      <p
-                        style={{
-                          fontSize: "0.72rem",
-                          color: "#EF4444",
-                          marginTop: 4,
-                        }}
-                      >
-                        PINs don't match
-                      </p>
-                    )}
-                  {purchasePinConfirm.length === 4 &&
-                    purchasePin === purchasePinConfirm && (
-                      <p
-                        style={{
-                          fontSize: "0.72rem",
-                          color: "#6EBD8A",
-                          marginTop: 4,
-                        }}
-                      >
-                        ✓ PINs match
-                      </p>
-                    )}
-                </div> */}
+                    You'll use this PIN to authorise every purchase
+                  </p>
+                </div>
               </>
             ) : (
               <div style={{ marginBottom: "1rem" }}>
@@ -2263,19 +2291,44 @@ export function StoreContent({
                   <Shield size={13} style={{ color: primary }} /> Transaction
                   PIN
                 </label>
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  value={purchasePin}
-                  onChange={(e) =>
-                    setPurchasePin(
-                      e.target.value.replace(/[^0-9]/g, "").slice(0, 4),
-                    )
-                  }
-                  placeholder="Enter your 4-digit PIN"
-                  maxLength={4}
-                  style={{ ...modalInputStyle, letterSpacing: "0.3em" }}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPin ? "text" : "password"}
+                    inputMode="numeric"
+                    value={purchasePin}
+                    onChange={(e) =>
+                      setPurchasePin(
+                        e.target.value.replace(/[^0-9]/g, "").slice(0, 4),
+                      )
+                    }
+                    placeholder="Enter your 4-digit PIN"
+                    maxLength={4}
+                    style={{
+                      ...modalInputStyle,
+                      letterSpacing: "0.3em",
+                      paddingRight: "2.5rem",
+                    }}
+                  />
+                  <button
+                    onClick={() => setShowPin(!showPin)}
+                    style={{
+                      position: "absolute",
+                      right: "0.75rem",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#9CA3AF",
+                      display: "flex",
+                      alignItems: "center",
+                      padding: 0,
+                    }}
+                    type="button"
+                  >
+                    {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </div>
             )}
 
