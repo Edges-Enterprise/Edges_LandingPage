@@ -13,9 +13,9 @@ export default function StoreLayout({
 export async function generateMetadata({
   params,
 }: {
-  params?: { storeName?: string };
+  params: Promise<{ storeName: string }>;
 }): Promise<Metadata> {
-  const storeName = params?.storeName ?? "store";
+  const { storeName } = await params;
 
   const reseller = await getResellerByStoreName(storeName);
 

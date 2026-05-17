@@ -159,6 +159,10 @@ export function StoreContent({
   const [purchaseError, setPurchaseError] = useState("");
   const [purchaseSuccess, setPurchaseSuccess] = useState("");
 
+  // Add this state near other states (around line 100):
+  const [customerName, setCustomerName] = useState<string>("");
+  const [customerEmail, setCustomerEmail] = useState<string>("");
+
   // Add this state near other states:
   const [resellerWhatsApp, setResellerWhatsApp] = useState<string | null>(null);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
@@ -260,6 +264,59 @@ export function StoreContent({
     }
 
     fetchCustomerData();
+  }, [loggedIn, storeName]);
+
+  // Add this useEffect to fetch customer profile data (add after the existing useEffect hooks):
+  useEffect(() => {
+    async function fetchCustomerProfile() {
+      if (!loggedIn) return;
+
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        // Get profile data
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, username, email")
+          .eq("id", user.id)
+          .single();
+
+        // Also check customer registration for this store
+        const { data: resellerData } = await supabase
+          .from("resellers")
+          .select("id")
+          .eq("store_name", storeName)
+          .single();
+
+        if (resellerData) {
+          const { data: customer } = await supabase
+            .from("reseller_customers")
+            .select("full_name, email")
+            .eq("reseller_id", resellerData.id)
+            .eq("customer_id", user.id)
+            .maybeSingle();
+
+          if (customer?.full_name) {
+            setCustomerName(customer.full_name);
+            setCustomerEmail(customer.email || user.email || "");
+          } else if (profile?.full_name) {
+            setCustomerName(profile.full_name);
+            setCustomerEmail(profile.email || user.email || "");
+          } else if (profile?.username) {
+            setCustomerName(profile.username);
+            setCustomerEmail(user.email || "");
+          } else {
+            setCustomerName(user.email?.split("@")[0] || "Customer");
+            setCustomerEmail(user.email || "");
+          }
+        }
+      }
+    }
+
+    fetchCustomerProfile();
   }, [loggedIn, storeName]);
 
   // Add this useEffect to fetch reseller WhatsApp number when logged in as customer
@@ -1880,6 +1937,19 @@ export function StoreContent({
         </div>
       )}
       {/* ─── Header ───────────────────────────────────── */}
+      <style>{`
+  @media (max-width: 480px) {
+    .header-customer-name { display: none !important; }
+    .header-contact-label { display: none !important; }
+    .header-logout-label { display: none !important; }
+    .header-store-subtitle { display: none !important; }
+    .header-inner { padding: 0.7rem 1rem !important; }
+  }
+  @media (max-width: 360px) {
+    .header-store-name { font-size: 0.95rem !important; }
+    .header-icon { width: 34px !important; height: 34px !important; }
+  }
+`}</style>
       <header
         style={{
           background: `linear-gradient(135deg, ${gradFrom}, ${gradTo})`,
@@ -1891,6 +1961,7 @@ export function StoreContent({
         }}
       >
         <div
+          className="header-inner"
           style={{
             maxWidth: 1100,
             margin: "0 auto",
@@ -1898,13 +1969,26 @@ export function StoreContent({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            gap: "0.5rem",
+            minWidth: 0,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {/* Logo + Store Name */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              minWidth: 0,
+              flex: "1 1 auto",
+            }}
+          >
             <div
+              className="header-icon"
               style={{
                 width: 40,
                 height: 40,
+                flexShrink: 0,
                 borderRadius: 10,
                 background: "rgba(255,255,255,0.2)",
                 display: "flex",
@@ -1920,49 +2004,117 @@ export function StoreContent({
                 <img
                   src={storeIcon.url}
                   alt={displayName}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
                 <Signal size={20} style={{ color: onPrimary }} />
               )}
             </div>
 
-            <div>
+            <div style={{ minWidth: 0 }}>
               <h1
+                className="header-store-name"
                 style={{
-                  fontSize: "1.15rem",
+                  fontSize: "1.1rem",
                   fontWeight: 700,
                   lineHeight: 1.2,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: "clamp(100px, 28vw, 280px)",
                 }}
               >
                 {displayName}
               </h1>
-              <p style={{ fontSize: "0.72rem", opacity: 0.8, marginTop: 1 }}>
+              <p
+                className="header-store-subtitle"
+                style={{
+                  fontSize: "0.72rem",
+                  opacity: 0.8,
+                  marginTop: 1,
+                  whiteSpace: "nowrap",
+                }}
+              >
                 Data & Airtime Store
               </p>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+
+          {/* Actions */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              flexShrink: 0,
+            }}
+          >
             {loggedIn ? (
               <>
+                {/* Avatar pill — name hidden on small screens */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
+                    padding: "0.3rem 0.65rem 0.3rem 0.35rem",
+                    background: "rgba(255,255,255,0.15)",
+                    borderRadius: 40,
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: "50%",
+                      background: "rgba(255,255,255,0.25)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {customerName.charAt(0).toUpperCase()}
+                  </div>
+                  <span
+                    className="header-customer-name"
+                    style={{
+                      fontSize: "0.82rem",
+                      fontWeight: 500,
+                      maxWidth: 90,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {customerName.split(" ")[0]}
+                  </span>
+                </div>
+
+                {/* Contact — label hidden on small screens, icon stays */}
                 <button
                   style={navBtnStyle(onPrimary)}
                   onClick={handleSupportClick}
+                  aria-label="Contact support"
                 >
                   <MessageCircleCheck size={15} />
-                  <span>Contact</span>
+                  <span className="header-contact-label">Contact</span>
                 </button>
+
+                {/* Logout — label hidden on small screens, icon stays */}
                 <button
                   style={{
                     ...navBtnStyle(onPrimary),
                     opacity: logoutLoading ? 0.7 : 1,
+                    padding: "0.4rem 0.6rem",
                   }}
                   onClick={handleLogout}
                   disabled={logoutLoading}
+                  aria-label="Log out"
                 >
                   {logoutLoading ? (
                     <Loader2
@@ -1972,7 +2124,7 @@ export function StoreContent({
                   ) : (
                     <LogOut size={15} />
                   )}
-                  <span>Log out</span>
+                  <span className="header-logout-label">Log out</span>
                 </button>
               </>
             ) : (
@@ -1982,9 +2134,11 @@ export function StoreContent({
                   background: "rgba(255,255,255,0.25)",
                   border: "1px solid rgba(255,255,255,0.35)",
                   fontWeight: 700,
+                  whiteSpace: "nowrap",
                 }}
                 onClick={() => setLoginOpen(true)}
               >
+                <LogIn size={15} />
                 <span>Sign in</span>
               </button>
             )}
@@ -2045,130 +2199,160 @@ export function StoreContent({
       )}
       {/* ─── Wallet Balance Strip (same gradient as header) ─── */}
       {loggedIn && !customerDataLoading && (
-        <div
-          style={{
-            // background: `linear-gradient(135deg, ${gradFrom}, ${gradTo})`,
-            background: `linear-gradient(180deg, ${tint(primary, 0.12)}, transparent)`,
-            // padding: "1rem 1.5rem",
-            padding: "1.5rem 2.5rem 1rem",
-            color: onPrimary,
-            // borderBottom: "1px solid rgba(255,255,255,0.1)",
-            borderBottom: `1px solid ${tint(primary, 0.15)}`,
-          }}
-        >
+        <>
+          <style>{`
+      @media (max-width: 480px) {
+        .wallet-strip { padding: 1rem 1rem 0.85rem !important; }
+        .wallet-label { display: none !important; }
+        .wallet-fund-label { display: none !important; }
+        .wallet-balance { font-size: 1.2rem !important; }
+      }
+    `}</style>
           <div
+            className="wallet-strip"
             style={{
-              maxWidth: 1100,
-              margin: "0 auto",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "1rem",
+              background: `linear-gradient(180deg, ${tint(primary, 0.12)}, transparent)`,
+              padding: "1.5rem 2.5rem 1rem",
+              borderBottom: `1px solid ${tint(primary, 0.15)}`,
             }}
           >
             <div
               style={{
+                maxWidth: 1100,
+                margin: "0 auto",
                 display: "flex",
                 alignItems: "center",
-                color: "#111827",
-                gap: "1rem",
-                flexWrap: "wrap",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+                minWidth: 0,
               }}
             >
+              {/* Balance left side */}
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "0.5rem",
+                  gap: "0.75rem",
+                  minWidth: 0,
+                  flex: "1 1 auto",
+                  flexWrap: "wrap",
                 }}
               >
-                <Wallet size={20} style={{ opacity: 0.9 }} />
-                <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>
-                  Wallet Balance:
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                }}
-              >
-                <span
+                <div
                   style={{
-                    fontSize: "1.5rem",
-                    fontWeight: 500,
-                    letterSpacing: "-0.02em",
-                  }}
-                >
-                  {showBalance ? formatNaira(walletBalance) : "••••••"}
-                </span>
-                <button
-                  onClick={() => setShowBalance(!showBalance)}
-                  style={{
-                    background: tint(primary, 0.87),
-                    border: "none",
-                    borderRadius: 6,
-                    padding: "4px",
-                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    color: onPrimary,
+                    gap: "0.4rem",
+                    flexShrink: 0,
                   }}
                 >
-                  {showBalance ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-            </div>
+                  <Wallet
+                    size={18}
+                    style={{ color: "#111827", opacity: 0.8 }}
+                  />
+                  <span
+                    className="wallet-label"
+                    style={{
+                      fontSize: "0.85rem",
+                      fontWeight: 500,
+                      color: "#111827",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Wallet Balance:
+                  </span>
+                </div>
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                marginLeft: "auto",
-                color: "#111827",
-              }}
-            >
-              <button
-                onClick={handlePlusClick}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <span
+                    className="wallet-balance"
+                    style={{
+                      fontSize: "1.5rem",
+                      fontWeight: 500,
+                      letterSpacing: "-0.02em",
+                      color: "#111827",
+                    }}
+                  >
+                    {showBalance ? formatNaira(walletBalance) : "••••••"}
+                  </span>
+                  <button
+                    onClick={() => setShowBalance(!showBalance)}
+                    style={{
+                      background: tint(primary, 0.87),
+                      border: "none",
+                      borderRadius: 6,
+                      padding: "4px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#eef3fd",
+                      flexShrink: 0,
+                    }}
+                    aria-label={showBalance ? "Hide balance" : "Show balance"}
+                  >
+                    {showBalance ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Fund wallet right side */}
+              <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: "0.5rem",
-                  background: tint(primary, 0.87),
-                  border: "1px solid rgba(255,255,255,0.3)",
-                  borderRadius: "50%",
-                  padding: "0.5rem",
-                  cursor: "pointer",
-                  color: onPrimary,
-                  fontWeight: 600,
-                  fontSize: "0.85rem",
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = tint(primary, 0.72);
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = tint(primary, 1.5);
+                  flexShrink: 0,
                 }}
               >
-                <Plus size={16} />
-                {/* Fund Wallet */}
-              </button>
-              <span
-                style={{
-                  fontWeight: 500,
-                  fontSize: "0.95rem",
-                }}
-              >
-                Fund Wallet
-              </span>
+                <button
+                  onClick={handlePlusClick}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    background: tint(primary, 0.87),
+                    border: "1px solid rgba(255,255,255,0.3)",
+                    borderRadius: "50%",
+                    padding: "0.5rem",
+                    cursor: "pointer",
+                    color: "#eef3fd",
+                    fontWeight: 600,
+                    fontSize: "0.85rem",
+                    transition: "all 0.2s",
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = tint(primary, 0.72);
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = tint(primary, 1.5);
+                  }}
+                  aria-label="Fund wallet"
+                >
+                  <Plus size={16} />
+                </button>
+                <span
+                  className="wallet-fund-label"
+                  style={{
+                    fontWeight: 500,
+                    fontSize: "0.95rem",
+                    color: "#111827",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Fund Wallet
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
       {/* Show welcome message when not logged in (with same gradient) */}
       {!loggedIn && (
