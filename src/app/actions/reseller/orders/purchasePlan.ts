@@ -105,12 +105,12 @@ export async function purchasePlan(
 
   // 3. Check if user is the store owner (resellers can't buy from their own store)
   const isOwner = user.user_metadata?.store_name === input.storeName;
-  if (isOwner) {
-    return {
-      success: false,
-      error: "Store owners cannot purchase from their own store",
-    };
-  }
+  // if (isOwner) {
+  //   return {
+  //     success: false,
+  //     error: "Store owners cannot purchase from their own store",
+  //   };
+  // }
 
   // 4. Get the plan config with pricing
   const { data: rawPlanConfig, error: planError } = await supabase
@@ -183,20 +183,36 @@ export async function purchasePlan(
   }
 
   // 8. Verify transaction PIN
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("transaction_pin")
-    .eq("id", user.id)
-    .single();
+  let storedPin: string | null = null;
 
-  if (profileError || !profile?.transaction_pin) {
+  // const isOwner = user.user_metadata?.store_name === input.storeName;
+
+  if (isOwner) {
+    // Reseller buying from their own store is already blocked above,
+    // but handle defensively anyway
+    const { data: resellerRecord } = await supabase
+      .from("resellers")
+      .select("transaction_pin")
+      .eq("auth_user_id", user.id)
+      .single();
+    storedPin = resellerRecord?.transaction_pin ?? null;
+  } else {
+    const { data: customerRecord } = await supabase
+      .from("reseller_customers")
+      .select("transaction_pin")
+      .eq("auth_user_id", user.id)
+      .eq("reseller_id", reseller.id)
+      .maybeSingle();
+    storedPin = customerRecord?.transaction_pin ?? null;
+  }
+  if (!storedPin) {
     return {
       success: false,
-      error: "Please set a transaction PIN in your account settings first",
+      error: "No transaction PIN found. Please set your PIN and try again.",
     };
   }
 
-  if (input.transactionPin !== profile.transaction_pin) {
+  if (input.transactionPin !== storedPin) {
     return { success: false, error: "Invalid transaction PIN" };
   }
 
