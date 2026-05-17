@@ -3,6 +3,7 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin"; // ← add this
 import { calculateResellerPrice } from "@/lib/pricing/calculatePrice";
 import type { PlanWithPricing, StorePlan } from "@/types";
 
@@ -73,7 +74,7 @@ export async function getResellerPlans(
   resellerId: string,
   network?: string,
 ): Promise<PlanWithPricing[]> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
 
   let query = supabase
     .from("reseller_plan_configs")
@@ -202,7 +203,7 @@ export async function getStorePlans(
   storeName: string,
   network?: string,
 ): Promise<StorePlan[]> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
 
   const { data: reseller, error: resellerError } = await supabase
     .from("resellers")
