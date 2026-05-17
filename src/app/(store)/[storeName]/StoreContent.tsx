@@ -119,6 +119,8 @@ export function StoreContent({
     null,
   );
   const [isCreatingPin, setIsCreatingPin] = useState(false);
+  const [showPinInfo, setShowPinInfo] = useState(false);
+
 
   // Store status
   const [storeStatus, setStoreStatus] = useState<{
@@ -608,46 +610,161 @@ export function StoreContent({
 
   // ── Buy button handler ───────────────────────────
 
+  // const handleBuyClick = async (plan: StorePlan) => {
+  //   if (!loggedIn) {
+  //     setLoginOpen(true);
+  //     return;
+  //   }
+  //   if (!storeStatus?.canSell) {
+  //     return;
+  //   }
+
+  //   const supabase = createClient();
+  //   const { data: profile } = await supabase
+  //     .from("profiles")
+  //     .select("transaction_pin, wallet_balance")
+  //     .eq("id", (await supabase.auth.getUser()).data.user?.id)
+  //     .single();
+
+  //   const hasPin = !!profile?.transaction_pin;
+  //   setHasTransactionPin(hasPin);
+
+  //   setSelectedPlan(plan);
+  //   setPurchasePhone("");
+  //   setPurchasePin("");
+  //   setPurchaseError("");
+  //   setPurchaseSuccess("");
+  //   setIsCreatingPin(!hasPin);
+  //   setPurchaseModalOpen(true);
+  // };
+
   const handleBuyClick = async (plan: StorePlan) => {
-    if (!loggedIn) {
-      setLoginOpen(true);
-      return;
-    }
-    if (!storeStatus?.canSell) {
-      return;
-    }
+  if (!loggedIn) {
+    setLoginOpen(true);
+    return;
+  }
+  if (!storeStatus?.canSell) return;
 
-    const supabase = createClient();
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("transaction_pin, wallet_balance")
-      .eq("id", (await supabase.auth.getUser()).data.user?.id)
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: resellerData } = await supabase
+    .from("resellers")
+    .select("id")
+    .eq("store_name", storeName)
+    .eq("status", "active")
+    .single();
+
+  if (!resellerData) return;
+
+  // Check PIN from the correct table
+  let hasPin = false;
+
+  if (isStoreOwner) {
+    // Reseller: check resellers.transaction_pin
+    const { data: resellerRecord } = await supabase
+      .from("resellers")
+      .select("transaction_pin")
+      .eq("auth_user_id", user.id)
       .single();
+    hasPin = !!resellerRecord?.transaction_pin;
+  } else {
+    // Customer: check reseller_customers.transaction_pin
+    const { data: customerRecord } = await supabase
+      .from("reseller_customers")
+      .select("transaction_pin")
+      .eq("auth_user_id", user.id)
+      .eq("reseller_id", resellerData.id)
+      .maybeSingle();
+    hasPin = !!customerRecord?.transaction_pin;
+  }
 
-    const hasPin = !!profile?.transaction_pin;
-    setHasTransactionPin(hasPin);
+  setHasTransactionPin(hasPin);
+  setIsCreatingPin(!hasPin);
+  setSelectedPlan(plan);
+  setPurchasePhone("");
+  setPurchasePin("");
+  setPurchaseError("");
+  setPurchaseSuccess("");
+  setPurchaseModalOpen(true);
+};
 
-    setSelectedPlan(plan);
-    setPurchasePhone("");
-    setPurchasePin("");
-    setPurchaseError("");
-    setPurchaseSuccess("");
-    setIsCreatingPin(!hasPin);
-    setPurchaseModalOpen(true);
-  };
+  // const handlePurchase = async () => {
+  //   if (!selectedPlan) return;
+
+  //   if (!purchasePhone || purchasePhone.length < 11) {
+  //     setPurchaseError("Please enter a valid phone number");
+  //     return;
+  //   }
+  //   if (!purchasePin || purchasePin.length < 4) {
+  //     setPurchaseError(
+  //       isCreatingPin
+  //         ? "Please create a 4-digit transaction PIN"
+  //         : "Please enter your 4-digit transaction PIN",
+  //     );
+  //     return;
+  //   }
+
+  //   setPurchaseLoading(true);
+  //   setPurchaseError("");
+  //   setPurchaseSuccess("");
+
+  //   if (isCreatingPin) {
+  //     const supabase = createClient();
+  //     const {
+  //       data: { user },
+  //     } = await supabase.auth.getUser();
+  //     if (user) {
+  //       const { error: pinError } = await supabase.from("profiles").upsert({
+  //         id: user.id,
+  //         transaction_pin: purchasePin,
+  //         updated_at: new Date().toISOString(),
+  //       });
+
+  //       if (pinError) {
+  //         setPurchaseError("Failed to save transaction PIN. Please try again.");
+  //         setPurchaseLoading(false);
+  //         return;
+  //       }
+  //     }
+  //   }
+
+  //   const result = await purchasePlan({
+  //     storeName,
+  //     planId: selectedPlan.plan_id,
+  //     phoneNumber: purchasePhone,
+  //     transactionPin: purchasePin,
+  //   });
+
+  //   if (result.error) {
+  //     setPurchaseError(result.error);
+  //   } else {
+  //     setPurchaseSuccess(result.message || "Purchase successful!");
+  //     setHasTransactionPin(true);
+  //     setIsCreatingPin(false);
+  //     // Refresh wallet balance after purchase
+  //     await refreshWalletData();
+  //     setTimeout(() => {
+  //       setPurchaseModalOpen(false);
+  //       setPurchasePhone("");
+  //       setPurchasePin("");
+  //       setPurchaseSuccess("");
+  //     }, 2500);
+  //   }
+  //   setPurchaseLoading(false);
+  // };
 
   const handlePurchase = async () => {
     if (!selectedPlan) return;
 
     if (!purchasePhone || purchasePhone.length < 11) {
-      setPurchaseError("Please enter a valid phone number");
+      setPurchaseError("Please enter a valid 11-digit phone number");
       return;
     }
     if (!purchasePin || purchasePin.length < 4) {
       setPurchaseError(
-        isCreatingPin
-          ? "Please create a 4-digit transaction PIN"
-          : "Please enter your 4-digit transaction PIN",
+        isCreatingPin ? "Please create a 4-digit PIN" : "Please enter your PIN",
       );
       return;
     }
@@ -661,15 +778,47 @@ export function StoreContent({
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user) {
-        const { error: pinError } = await supabase.from("profiles").upsert({
-          id: user.id,
-          transaction_pin: purchasePin,
-          updated_at: new Date().toISOString(),
-        });
+      if (!user) {
+        setPurchaseError("Session expired. Please sign in again.");
+        setPurchaseLoading(false);
+        return;
+      }
+
+      const { data: resellerData } = await supabase
+        .from("resellers")
+        .select("id")
+        .eq("store_name", storeName)
+        .eq("status", "active")
+        .single();
+
+      if (!resellerData) {
+        setPurchaseError("Store not found.");
+        setPurchaseLoading(false);
+        return;
+      }
+
+      if (isStoreOwner) {
+        // Save to resellers table
+        const { error: pinError } = await supabase
+          .from("resellers")
+          .update({ transaction_pin: purchasePin })
+          .eq("auth_user_id", user.id);
 
         if (pinError) {
-          setPurchaseError("Failed to save transaction PIN. Please try again.");
+          setPurchaseError("Failed to save PIN. Please try again.");
+          setPurchaseLoading(false);
+          return;
+        }
+      } else {
+        // Save to reseller_customers table
+        const { error: pinError } = await supabase
+          .from("reseller_customers")
+          .update({ transaction_pin: purchasePin })
+          .eq("auth_user_id", user.id)
+          .eq("reseller_id", resellerData.id);
+
+        if (pinError) {
+          setPurchaseError("Failed to save PIN. Please try again.");
           setPurchaseLoading(false);
           return;
         }
@@ -689,7 +838,6 @@ export function StoreContent({
       setPurchaseSuccess(result.message || "Purchase successful!");
       setHasTransactionPin(true);
       setIsCreatingPin(false);
-      // Refresh wallet balance after purchase
       await refreshWalletData();
       setTimeout(() => {
         setPurchaseModalOpen(false);
@@ -1724,6 +1872,7 @@ export function StoreContent({
               <X size={17} />
             </button>
 
+            {/* Title */}
             <h2
               style={{
                 fontSize: "1.2rem",
@@ -1735,6 +1884,7 @@ export function StoreContent({
               Confirm Purchase
             </h2>
 
+            {/* Plan summary */}
             <div
               style={{
                 background: "#F9FAFB",
@@ -1795,6 +1945,7 @@ export function StoreContent({
               </div>
             </div>
 
+            {/* Phone number */}
             <div style={{ marginBottom: "1rem" }}>
               <label
                 style={{
@@ -1823,37 +1974,312 @@ export function StoreContent({
               />
             </div>
 
-            <div style={{ marginBottom: "1rem" }}>
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: "0.82rem",
-                  fontWeight: 600,
-                  color: "#374151",
-                  marginBottom: "0.4rem",
-                }}
-              >
-                <Shield size={13} style={{ color: primary }} /> Transaction PIN
-              </label>
-              <input
-                type="password"
-                value={purchasePin}
-                onChange={(e) =>
-                  setPurchasePin(
-                    e.target.value.replace(/[^0-9]/g, "").slice(0, 4),
-                  )
-                }
-                placeholder="••••"
-                maxLength={4}
-                style={{
-                  ...modalInputStyle,
-                  letterSpacing: "0.3em",
-                }}
-              />
-            </div>
+            {/* PIN section — creation or entry */}
+            {isCreatingPin ? (
+              <>
+                {/* PIN Info Modal */}
+                {showPinInfo && (
+                  <div
+                    onClick={() => setShowPinInfo(false)}
+                    style={{
+                      position: "fixed",
+                      inset: 0,
+                      background: "rgba(0,0,0,0.5)",
+                      zIndex: 200,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "1rem",
+                    }}
+                  >
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        background: "#FFFFFF",
+                        borderRadius: 16,
+                        padding: "1.5rem",
+                        maxWidth: 320,
+                        width: "100%",
+                        position: "relative",
+                      }}
+                    >
+                      <button
+                        onClick={() => setShowPinInfo(false)}
+                        style={{
+                          position: "absolute",
+                          top: 12,
+                          right: 12,
+                          background: tint(primary, 1.23),
+                          border: "none",
+                          cursor: "pointer",
+                          borderRadius: 6,
+                          width: 28,
+                          height: 28,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <X size={14} />
+                      </button>
 
+                      <div
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: "50%",
+                          background: `rgba(${hexToRgb(primary)},0.1)`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          margin: "0 auto 1rem auto",
+                        }}
+                      >
+                        <Shield size={24} style={{ color: primary }} />
+                      </div>
+
+                      <h3
+                        style={{
+                          fontSize: "1.1rem",
+                          fontWeight: 700,
+                          color: "#111827",
+                          marginBottom: "0.5rem",
+                          textAlign: "center",
+                        }}
+                      >
+                        Transaction PIN
+                      </h3>
+
+                      <p
+                        style={{
+                          fontSize: "0.85rem",
+                          color: "#6B7280",
+                          marginBottom: "1rem",
+                          textAlign: "center",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        Your transaction PIN is a 4-digit code you'll use to
+                        authorise every purchase.
+                      </p>
+
+                      <div
+                        style={{
+                          background: "#F9FAFB",
+                          borderRadius: 12,
+                          padding: "0.75rem",
+                          marginBottom: "1rem",
+                        }}
+                      >
+                        <p
+                          style={{
+                            fontSize: "0.8rem",
+                            color: "#374151",
+                            marginBottom: "0.5rem",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Important:
+                        </p>
+                        <ul
+                          style={{
+                            margin: 0,
+                            paddingLeft: "1.2rem",
+                            fontSize: "0.75rem",
+                            color: "#6B7280",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          <li>Keep your PIN safe and never share it</li>
+                          <li>You'll use this PIN for every purchase</li>
+                          <li>PINs cannot be changed after creation</li>
+                          <li>Choose a number you'll remember easily</li>
+                        </ul>
+                      </div>
+
+                      <button
+                        onClick={() => setShowPinInfo(false)}
+                        style={{
+                          width: "100%",
+                          padding: "0.6rem",
+                          background: primary,
+                          border: "none",
+                          borderRadius: 10,
+                          color: contrastText(primary),
+                          fontWeight: 600,
+                          fontSize: "0.85rem",
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        Got it
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: "1rem" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      color: "#374151",
+                      marginBottom: "0.4rem",
+                    }}
+                  >
+                    <Shield size={13} style={{ color: primary }} /> Create PIN{" "}
+                    <button
+                      onClick={() => setShowPinInfo(true)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 4,
+                        borderRadius: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: primary,
+                        opacity: 0.7,
+                        transition: "opacity 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = "1";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = "0.7";
+                      }}
+                      aria-label="PIN information"
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="12" x2="12" y2="16" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </button>
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    value={purchasePin}
+                    onChange={(e) =>
+                      setPurchasePin(
+                        e.target.value.replace(/[^0-9]/g, "").slice(0, 4),
+                      )
+                    }
+                    placeholder="Choose a 4-digit PIN"
+                    maxLength={4}
+                    style={{ ...modalInputStyle, letterSpacing: "0.3em" }}
+                  />
+                </div>
+
+                {/* <div style={{ marginBottom: "1rem" }}>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      color: "#374151",
+                      marginBottom: "0.4rem",
+                    }}
+                  >
+                    <Shield size={13} style={{ color: primary }} /> Confirm PIN
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    value={purchasePinConfirm}
+                    onChange={(e) =>
+                      setPurchasePinConfirm(
+                        e.target.value.replace(/[^0-9]/g, "").slice(0, 4),
+                      )
+                    }
+                    placeholder="Re-enter your PIN"
+                    maxLength={4}
+                    style={{
+                      ...modalInputStyle,
+                      letterSpacing: "0.3em",
+                      borderColor:
+                        purchasePinConfirm.length === 4
+                          ? purchasePin === purchasePinConfirm
+                            ? "#6EBD8A"
+                            : "#EF4444"
+                          : "#E5E7EB",
+                    }}
+                  />
+                  {purchasePinConfirm.length === 4 &&
+                    purchasePin !== purchasePinConfirm && (
+                      <p
+                        style={{
+                          fontSize: "0.72rem",
+                          color: "#EF4444",
+                          marginTop: 4,
+                        }}
+                      >
+                        PINs don't match
+                      </p>
+                    )}
+                  {purchasePinConfirm.length === 4 &&
+                    purchasePin === purchasePinConfirm && (
+                      <p
+                        style={{
+                          fontSize: "0.72rem",
+                          color: "#6EBD8A",
+                          marginTop: 4,
+                        }}
+                      >
+                        ✓ PINs match
+                      </p>
+                    )}
+                </div> */}
+              </>
+            ) : (
+              <div style={{ marginBottom: "1rem" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: "0.4rem",
+                  }}
+                >
+                  <Shield size={13} style={{ color: primary }} /> Transaction
+                  PIN
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  value={purchasePin}
+                  onChange={(e) =>
+                    setPurchasePin(
+                      e.target.value.replace(/[^0-9]/g, "").slice(0, 4),
+                    )
+                  }
+                  placeholder="Enter your 4-digit PIN"
+                  maxLength={4}
+                  style={{ ...modalInputStyle, letterSpacing: "0.3em" }}
+                />
+              </div>
+            )}
+
+            {/* Error / Success feedback */}
             {purchaseError && (
               <div
                 style={{
@@ -1867,7 +2293,10 @@ export function StoreContent({
                   gap: 8,
                 }}
               >
-                <AlertCircle size={16} style={{ color: "#EF4444" }} />
+                <AlertCircle
+                  size={16}
+                  style={{ color: "#EF4444", flexShrink: 0 }}
+                />
                 <span style={{ fontSize: "0.85rem", color: "#EF4444" }}>
                   {purchaseError}
                 </span>
@@ -1886,13 +2315,17 @@ export function StoreContent({
                   gap: 8,
                 }}
               >
-                <CheckCircle size={16} style={{ color: "#6EBD8A" }} />
+                <CheckCircle
+                  size={16}
+                  style={{ color: "#6EBD8A", flexShrink: 0 }}
+                />
                 <span style={{ fontSize: "0.85rem", color: "#6EBD8A" }}>
                   {purchaseSuccess}
                 </span>
               </div>
             )}
 
+            {/* Submit button */}
             <button
               onClick={handlePurchase}
               disabled={purchaseLoading || !!purchaseSuccess}
@@ -1924,18 +2357,24 @@ export function StoreContent({
                   <Loader2
                     size={17}
                     style={{ animation: "spin 1s linear infinite" }}
-                  />{" "}
-                  Processing…
+                  />
+                  {isCreatingPin ? "Setting PIN & processing…" : "Processing…"}
                 </>
               ) : purchaseSuccess ? (
                 <>✅ Purchase Complete</>
               ) : (
-                <>Pay {formatNaira(selectedPlan.price)}</>
+                <>
+                  {isCreatingPin ? <Shield size={16} /> : null}
+                  {isCreatingPin
+                    ? `Set PIN & Pay ${formatNaira(selectedPlan.price)}`
+                    : `Pay ${formatNaira(selectedPlan.price)}`}
+                </>
               )}
             </button>
           </div>
         </div>
       )}
+
       {/* ─── Header ───────────────────────────────────── */}
       <style>{`
   @media (max-width: 480px) {
@@ -2839,7 +3278,7 @@ function PlanGrid({
     setShowControls(true);
     hideTimeoutRef.current = setTimeout(() => {
       setShowControls(false);
-    }, 3000);
+    }, 5000);
   };
 
   const goToNext = () => {
