@@ -1,3 +1,5 @@
+// app/(store)/[storeName]/layout.tsx
+
 import type { Metadata } from "next";
 import { getResellerByStoreName } from "@/app/actions/reseller/getReseller";
 import { getStoreAsset } from "@/app/actions/reseller/getStoreAsset";
