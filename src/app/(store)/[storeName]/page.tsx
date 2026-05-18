@@ -1,5 +1,5 @@
 // app/(store)/[storeName]/page.tsx
-
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata, ResolvingMetadata } from "next";
 import { StoreContent } from "./StoreContent";
@@ -35,6 +35,12 @@ export async function generateMetadata(
   parent: ResolvingMetadata,
 ): Promise<Metadata> {
   const { storeName } = await params;
+  const headersList = await headers();
+
+  // Detect actual host from request headers
+  const host = headersList.get("host") || "";
+  const proto = headersList.get("x-forwarded-proto") || "https";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`;
 
   const reseller = await getResellerByStoreName(storeName);
   if (!reseller) {
@@ -52,7 +58,7 @@ export async function generateMetadata(
   const storeIcon = await getStoreAsset(reseller.id);
 
   // Build the favicon URL
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  // const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const faviconUrl = `${baseUrl}/api/store/${storeName}/favicon`;
 
   return {
