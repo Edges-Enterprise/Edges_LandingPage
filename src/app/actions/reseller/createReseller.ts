@@ -166,10 +166,8 @@ export async function createReseller(
 
   // ── Trigger App Build (background) ─────────
   if (androidApp) {
-    try {
-      await triggerAppBuild(reseller.id);
-    } catch (err) {
-      console.error("App build trigger failed:", err);
+    triggerAppBuild(reseller.id).catch (err) {
+      console.error("App build trigger failed:", reseller.id, ":", err);
     }
   }
 
