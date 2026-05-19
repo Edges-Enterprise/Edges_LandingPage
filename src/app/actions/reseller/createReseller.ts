@@ -211,24 +211,16 @@ ${password}
 ${androidApp ? "\n📱 Your branded APK is being built. We'll email you when it's ready." : ""}
 `;
 
-  try {
-    await sendAdminEmail({
-      to: email,
-      subject: `🎉 Your ${displayName} Store is Ready!`,
-      message: emailMessage,
-      recipientName: displayName,
-      isHtml: false,
-    });
-  } catch (err) {
-    console.error("Email error:", err);
-  }
+  const emailResult = await sendAdminEmailWithBrevo({
+  to: email,
+  subject: `🎉 Your ${displayName} Store is Ready!`,
+  message: emailMessage,
+  recipientName: displayName,
+});
 
-  revalidatePath("/reseller");
-
-  return {
-    success: true,
-    resellerId: reseller.id,
-    storeUrl: `/${storeName}`,
-    message: "Check your email for login credentials.",
-  };
+if (!emailResult.success) {
+  console.error("Brevo email failed:", emailResult.error);
+  console.log("Store created but email failed. Password:", password);
+} else {
+  console.log("Email sent successfully via Brevo");
 }
