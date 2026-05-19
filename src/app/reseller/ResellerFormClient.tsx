@@ -242,6 +242,12 @@ export function ResellerFormClient() {
   return (
     <form
       onSubmit={handleSubmit}
+      onKeyDown={(e) => {
+    // Prevent Enter from submitting ANY form field
+    if (e.key === 'Enter') {
+      e.preventDefault();
+    }
+  }}
       style={{
         background: "var(--card)",
         border: "1px solid var(--border2)",
