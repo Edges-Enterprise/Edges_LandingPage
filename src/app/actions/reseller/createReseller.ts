@@ -224,4 +224,13 @@ if (!emailResult.success) {
 } else {
   console.log("Email sent successfully via Brevo");
 }
-}
+revalidatePath("/reseller");
+
+  return {
+    success: true,
+    resellerId: reseller.id,
+    storeUrl: `/${storeName}`,
+    message: emailResult.success 
+      ? "Check your email for login credentials." 
+      : "Store created! Please contact support for your password.",
+  };
