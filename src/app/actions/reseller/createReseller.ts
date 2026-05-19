@@ -224,3 +224,4 @@ if (!emailResult.success) {
 } else {
   console.log("Email sent successfully via Brevo");
 }
+}
