@@ -166,9 +166,9 @@ export async function createReseller(
 
   // ── Trigger App Build (background) ─────────
   if (androidApp) {
-    triggerAppBuild(reseller.id).catch (err) {
+    triggerAppBuild(reseller.id).catch((err) => {
       console.error("App build trigger failed:", reseller.id, ":", err);
-    }
+    });
   }
 
   // ── Sign in ────────────────────────────────
