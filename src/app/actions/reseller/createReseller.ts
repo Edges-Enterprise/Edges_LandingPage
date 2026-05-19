@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import type { CreateResellerResult } from "@/types";
 import { sendAdminEmail } from "@/lib/email/email";
+import { sendAdminEmailWithBrevo } from "@/lib/email/brevo-api";
 import { triggerAppBuild } from "./triggerAppBuild";
 
 function generatePassword(storeName: string, email: string): string {
