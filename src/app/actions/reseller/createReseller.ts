@@ -234,3 +234,4 @@ revalidatePath("/reseller");
       ? "Check your email for login credentials." 
       : "Store created! Please contact support for your password.",
   };
+}
