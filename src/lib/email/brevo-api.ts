@@ -62,4 +62,4 @@ export async function sendAdminEmailWithBrevo({
     console.error("Brevo fetch error:", error.message);
     return { success: false, error: error.message };
   }
-    }
+}
