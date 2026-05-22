@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { configId, resellerId, status } = body;
+    const { configId, resellerId, status, apkUrl } = body;
 
     if (!configId || !resellerId || !status) {
       return NextResponse.json(
@@ -29,7 +29,18 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    console.log("Updating build status:", { configId, resellerId, status });
+    // Store APK URL if provided (for successful builds)
+    if (apkUrl) {
+      updateData.apk_url = apkUrl;
+      console.log("Storing APK URL:", apkUrl);
+    }
+
+    console.log("Updating build status:", {
+      configId,
+      resellerId,
+      status,
+      hasApkUrl: !!apkUrl,
+    });
 
     const { error } = await admin
       .from("reseller_app_configs")
@@ -48,6 +59,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Build status updated to: ${status}`,
+      apkUrl: apkUrl || null,
     });
   } catch (error: any) {
     console.error("Webhook error:", error);
