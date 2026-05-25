@@ -1,4 +1,3 @@
-// app/generate-icon/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -18,8 +17,9 @@ export default function GenerateIconPage() {
       a.click();
       URL.revokeObjectURL(url);
       alert(`${storeName} icon downloaded!`);
-    } catch (error) {
-      alert(`Error: ${error.message}`);
+    } catch (error: any) {
+      // ← Add : any here
+      alert(`Error: ${error?.message || "Unknown error"}`);
     }
     setLoading(false);
   };
@@ -33,6 +33,7 @@ export default function GenerateIconPage() {
           gap: "20px",
           justifyContent: "center",
           marginTop: "40px",
+          flexWrap: "wrap",
         }}
       >
         <button
