@@ -88,6 +88,7 @@ export function StoreContent({
   featuredPlans,
   allPlans,
   storeIcon,
+  apkUrl,
 }: {
   storeName: string;
   displayName: string;
@@ -95,6 +96,7 @@ export function StoreContent({
   featuredPlans: StorePlan[];
   allPlans: StorePlan[];
   storeIcon?: { url: string; file_name: string; mime_type: string } | null;
+  apkUrl?: string | null;
 }) {
   const router = useRouter();
   const primary = colors.primary;
@@ -3206,67 +3208,86 @@ export function StoreContent({
         </section>
 
         {/* ─── App Banner ─────────────────────────────── */}
-        <div
-          style={{
-            marginTop: "2.5rem",
-            background: `linear-gradient(135deg, ${gradFrom}, ${gradTo})`,
-            borderRadius: 20,
-            padding: "2rem 1.75rem",
-            color: onPrimary,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "1.25rem",
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
+
+        {apkUrl && (
           <div
             style={{
-              position: "absolute",
-              right: -30,
-              top: -30,
-              width: 140,
-              height: 140,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,0.07)",
-              pointerEvents: "none",
-            }}
-          />
-          <div>
-            <p
-              style={{ fontWeight: 800, fontSize: "1.15rem", marginBottom: 4 }}
-            >
-              📱 Get the {displayName} App
-            </p>
-            <p style={{ opacity: 0.85, fontSize: "0.85rem" }}>
-              Buy data and airtime faster from your phone
-            </p>
-          </div>
-          <button
-            onClick={() => alert("Android app download coming soon!")}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "0.75rem 1.5rem",
-              background: "rgba(255,255,255,0.22)",
-              border: "1.5px solid rgba(255,255,255,0.4)",
-              borderRadius: 12,
+              marginTop: "2.5rem",
+              background: `linear-gradient(135deg, ${gradFrom}, ${gradTo})`,
+              borderRadius: 20,
+              padding: "2rem 1.75rem",
               color: onPrimary,
-              fontWeight: 700,
-              fontSize: "0.88rem",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "1.25rem",
               position: "relative",
-              zIndex: 1,
+              overflow: "hidden",
             }}
           >
-            <Download size={16} /> Download Android App
-          </button>
-        </div>
+            <div
+              style={{
+                position: "absolute",
+                right: -30,
+                top: -30,
+                width: 140,
+                height: 140,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.07)",
+                pointerEvents: "none",
+              }}
+            />
+            <div>
+              <p
+                style={{
+                  fontWeight: 800,
+                  fontSize: "1.15rem",
+                  marginBottom: 4,
+                }}
+              >
+                📱 Get the {displayName} App
+              </p>
+              <p style={{ opacity: 0.85, fontSize: "0.85rem" }}>
+                Buy data and airtime faster from your phone
+              </p>
+            </div>
+            <a
+              href={apkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "0.75rem 1.5rem",
+                background: "rgba(255,255,255,0.22)",
+                border: "1.5px solid rgba(255,255,255,0.4)",
+                borderRadius: 12,
+                color: onPrimary,
+                fontWeight: 700,
+                fontSize: "0.88rem",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                backdropFilter: "blur(4px)",
+                position: "relative",
+                zIndex: 1,
+                textDecoration: "none",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.32)";
+                e.currentTarget.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.22)";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              <Download size={16} /> Download Android App
+            </a>
+          </div>
+        )}
       </main>
       <footer
         style={{

@@ -6,6 +6,7 @@ import { StoreContent } from "./StoreContent";
 import { getResellerByStoreName } from "@/app/actions/reseller/getReseller";
 import { getStorePlans } from "@/app/actions/reseller/plans/getPlans";
 import { getStoreAsset } from "@/app/actions/reseller/getStoreAsset";
+import { createServerClient } from "@/lib/supabase/server";
 
 /** Slightly darken a hex colour — used server-side for gradient end stop */
 function darken(hex: string, amt = 30): string {
@@ -88,6 +89,16 @@ export default async function StorePage({
   const reseller = await getResellerByStoreName(storeName);
   if (!reseller) notFound();
 
+  // ─── Fetch APK URL for this specific reseller ───
+  const supabase = await createServerClient();
+  const { data: appConfig } = await supabase
+    .from("reseller_app_configs")
+    .select("apk_url")
+    .eq("reseller_id", reseller.id)
+    .maybeSingle();
+
+  const apkUrl = appConfig?.apk_url || null;
+
   const allPlans = await getStorePlans(storeName);
   const mtnPlans = allPlans.filter((p) => p.network === "MTN");
   const featuredPlans = mtnPlans.slice(0, 3);
@@ -114,6 +125,7 @@ export default async function StorePage({
       featuredPlans={featuredPlans}
       allPlans={allPlans}
       storeIcon={storeIcon}
+      apkUrl={apkUrl}
     />
   );
 }
