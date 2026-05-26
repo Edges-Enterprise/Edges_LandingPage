@@ -281,6 +281,15 @@ export async function createResellerVirtualAccount(
       name: input.fullName,
     });
 
+    // Add these logs right before the XixaPay call
+    console.log("XixaPay Request:", {
+      url: "https://api.xixapay.com/api/v1/createVirtualAccount",
+      payload: xixapayPayload,
+      hasSecretKey: !!secretKey,
+      hasApiKey: !!apiKey,
+      hasBusinessId: !!businessId,
+    });
+
     // Call XixaPay API
     const xixapayResponse = await fetch(
       "https://api.xixapay.com/api/v1/createVirtualAccount",
@@ -301,6 +310,14 @@ export async function createResellerVirtualAccount(
       status: xixapayData.status,
       message: xixapayData.message,
       accountsCount: xixapayData.bankAccounts?.length,
+    });
+
+    // Log the full response
+    console.log("XixaPay Full Response:", {
+      status: xixapayResponse.status,
+      ok: xixapayResponse.ok,
+      data: xixapayData,
+      bankAccountsCount: xixapayData.bankAccounts?.length,
     });
 
     if (!xixapayResponse.ok || xixapayData.status !== "success") {
