@@ -390,7 +390,7 @@ export function ResellerFormClient() {
         <div style={{ marginTop: "0.5rem" }}>
           <p style={{ fontSize: "0.78rem", color: "var(--dim)" }}>
             /* {process.env.NEXT_PUBLIC_STORE_URL}/{storeName || "storename"} */
-            https://telcos.govt.hu/{storeName} || "storename"}
+            https://telcos.govt.hu/{storeName || "storename"}
           </p>
         </div>
       </div>
