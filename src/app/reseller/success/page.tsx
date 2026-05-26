@@ -96,7 +96,7 @@ export default async function SuccessPage({
           }}
         >
           <code style={{ color: "var(--accent-lt)", fontSize: "0.95rem" }}>
-            /* {process.env.NEXT_PUBLIC_STORE_URL}/{storeName} */
+            {/* {process.env.NEXT_PUBLIC_STORE_URL}/{storeName} */}
             https://telcos.govt.hu/{storeName}
           </code>
         </div>
