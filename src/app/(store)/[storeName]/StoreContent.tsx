@@ -13,6 +13,7 @@ import {
   getCustomerWalletWithAccounts,
 } from "@/app/actions/reseller/wallet/customerVirtualAccount";
 import { registerCustomerToReseller } from "@/app/actions/reseller/registerCustomer";
+import { getCustomerAuthEmail } from "@/app/actions/reseller/getCustomerAuthEmail";
 import { getResellerVirtualAccounts } from "@/app/actions/reseller/wallet/resellerCustomerWallet";
 import { createResellerVirtualAccount } from "@/app/actions/reseller/wallet/resellerCustomerWallet";
 import { purchasePlan } from "@/app/actions/reseller/orders/purchasePlan";
@@ -370,6 +371,7 @@ export function StoreContent({
           data: {
             username: username,
             role: "customer",
+            original_email: email, // ✅ STORE THE ORIGINAL EMAIL HERE
           },
         },
       });
@@ -381,14 +383,33 @@ export function StoreContent({
       }
 
       if (data.user) {
-        await registerCustomerToReseller(storeName, data.user.id, email);
+        await registerCustomerToReseller(
+          storeName,
+          data.user.id,
+          email,
+          storeEmail,
+        );
         setLoginOpen(false);
         setEmail("");
         setPassword("");
       }
     } else {
+      // LOGIN FLOW - Use the stored auth_email
+      setLoginError("");
+
+      // Try to get auth_email from server action (bypasses RLS)
+      const authEmail = await getCustomerAuthEmail(email, storeName);
+
+      let loginEmail = email; // Default to provided email
+
+      if (authEmail) {
+        // Customer found - use their stored auth email
+        loginEmail = authEmail;
+      }
+
+      // Attempt login with the correct email
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: loginEmail,
         password,
       });
 
@@ -408,9 +429,9 @@ export function StoreContent({
           setPassword("");
         }
       }
+      setLoginLoading(false);
     }
-    setLoginLoading(false);
-  };
+  }
 
   const switchAuthMode = (mode: "signin" | "signup") => {
     setAuthMode(mode);
