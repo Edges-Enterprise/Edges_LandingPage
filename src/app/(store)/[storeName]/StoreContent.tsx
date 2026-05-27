@@ -243,15 +243,28 @@ export function StoreContent({
         const accounts = await getResellerVirtualAccounts(resellerData.id);
         setVirtualAccounts(accounts || []);
       } else {
+        // ✅ FIX: First get the customer's UUID from reseller_customers
+        const { data: customerRecord } = await supabase
+          .from("reseller_customers")
+          .select("id")
+          .eq("auth_user_id", user.id)
+          .eq("reseller_id", resellerData.id)
+          .single();
+
+        if (!customerRecord) {
+          console.error("Customer record not found for user:", user.id);
+          setCustomerDataLoading(false);
+          return;
+        }
         const { data: wallet } = await supabase
           .from("reseller_customer_wallets")
           .select("balance")
           .eq("reseller_id", resellerData.id)
-          .eq("customer_id", user.id)
+          .eq("customer_id", customerRecord.id)
           .maybeSingle();
         setWalletBalance(wallet?.balance || 0);
         const accounts = await getCustomerVirtualAccounts(
-          user.id,
+          customerRecord.id,
           resellerData.id,
         );
         setVirtualAccounts(accounts || []);
@@ -448,18 +461,29 @@ export function StoreContent({
       const accounts = await getResellerVirtualAccounts(resellerData.id);
       setVirtualAccounts(accounts || []);
     } else {
-      const { data: wallet } = await supabase
-        .from("reseller_customer_wallets")
-        .select("balance")
+      // ✅ FIX: Get customer UUID first
+      const { data: customerRecord } = await supabase
+        .from("reseller_customers")
+        .select("id")
+        .eq("auth_user_id", user.id)
         .eq("reseller_id", resellerData.id)
-        .eq("customer_id", user.id)
-        .maybeSingle();
-      setWalletBalance(wallet?.balance || 0);
-      const accounts = await getCustomerVirtualAccounts(
-        user.id,
-        resellerData.id,
-      );
-      setVirtualAccounts(accounts || []);
+        .single();
+
+      if (customerRecord) {
+        const { data: wallet } = await supabase
+          .from("reseller_customer_wallets")
+          .select("balance")
+          .eq("reseller_id", resellerData.id)
+          .eq("customer_id", customerRecord.id)
+          .maybeSingle();
+        setWalletBalance(wallet?.balance || 0);
+
+        const accounts = await getCustomerVirtualAccounts(
+          customerRecord.id,
+          resellerData.id,
+        );
+        setVirtualAccounts(accounts || []);
+      }
     }
   };
 
@@ -1314,7 +1338,7 @@ export function StoreContent({
               </div>
             ))}
 
-            <div
+            {/* <div
               style={{
                 marginTop: "1rem",
                 padding: "0.75rem",
@@ -1326,7 +1350,7 @@ export function StoreContent({
             >
               <strong>💡 Tip:</strong> Use your registered name as the depositor
               name for faster confirmation.
-            </div>
+            </div> */}
           </div>
         </div>
       )}
@@ -1453,7 +1477,7 @@ export function StoreContent({
               {virtualLoading ? "Creating..." : "Create Virtual Account →"}
             </button>
 
-            <button
+            {/* <button
               onClick={() => setShowVirtualForm(false)}
               style={{
                 width: "100%",
@@ -1468,7 +1492,7 @@ export function StoreContent({
               }}
             >
               Cancel
-            </button>
+            </button> */}
           </div>
         </div>
       )}
