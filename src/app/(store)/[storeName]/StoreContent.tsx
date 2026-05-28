@@ -13,6 +13,7 @@ import {
   getCustomerWalletWithAccounts,
 } from "@/app/actions/reseller/wallet/customerVirtualAccount";
 import { registerCustomerToReseller } from "@/app/actions/reseller/registerCustomer";
+import { getCustomerAuthEmail } from "@/app/actions/reseller/getCustomerAuthEmail";
 import { getResellerVirtualAccounts } from "@/app/actions/reseller/wallet/resellerCustomerWallet";
 import { createResellerVirtualAccount } from "@/app/actions/reseller/wallet/resellerCustomerWallet";
 import { purchasePlan } from "@/app/actions/reseller/orders/purchasePlan";
@@ -114,7 +115,6 @@ export function StoreContent({
   const [loggedIn, setLoggedIn] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
-  // Add these with the other state declarations (around line 80-90)
   const [showPassword, setShowPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
 
@@ -148,11 +148,6 @@ export function StoreContent({
   const [showBalance, setShowBalance] = useState(true);
   const [showFundingModal, setShowFundingModal] = useState(false);
   const [showVirtualForm, setShowVirtualForm] = useState(false);
-  const [virtualForm, setVirtualForm] = useState({
-    fullName: "",
-    phoneNumber: "",
-    email: "",
-  });
   const [virtualLoading, setVirtualLoading] = useState(false);
   const [virtualMessage, setVirtualMessage] = useState<{
     type: "success" | "error";
@@ -169,11 +164,9 @@ export function StoreContent({
   const [purchaseError, setPurchaseError] = useState("");
   const [purchaseSuccess, setPurchaseSuccess] = useState("");
 
-  // Add this state near other states (around line 100):
   const [customerName, setCustomerName] = useState<string>("");
   const [customerEmail, setCustomerEmail] = useState<string>("");
 
-  // Add this state near other states:
   const [resellerWhatsApp, setResellerWhatsApp] = useState<string | null>(null);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
 
@@ -242,30 +235,37 @@ export function StoreContent({
       setIsStoreOwner(isOwner);
 
       if (isOwner) {
-        // For store owner: get their wallet balance and virtual accounts
         const { data: wallet } = await supabase
           .from("reseller_wallets")
           .select("balance")
           .eq("reseller_id", resellerData.id)
           .single();
-
         setWalletBalance(wallet?.balance || 0);
-
         const accounts = await getResellerVirtualAccounts(resellerData.id);
         setVirtualAccounts(accounts || []);
       } else {
-        // For customer: get their wallet balance and virtual accounts
+        // ✅ FIX: First get the customer's UUID from reseller_customers
+        const { data: customerRecord } = await supabase
+          .from("reseller_customers")
+          .select("id")
+          .eq("auth_user_id", user.id)
+          .eq("reseller_id", resellerData.id)
+          .single();
+
+        if (!customerRecord) {
+          console.error("Customer record not found for user:", user.id);
+          setCustomerDataLoading(false);
+          return;
+        }
         const { data: wallet } = await supabase
           .from("reseller_customer_wallets")
           .select("balance")
           .eq("reseller_id", resellerData.id)
-          .eq("customer_id", user.id)
+          .eq("customer_id", customerRecord.id)
           .maybeSingle();
-
         setWalletBalance(wallet?.balance || 0);
-
         const accounts = await getCustomerVirtualAccounts(
-          user.id,
+          customerRecord.id,
           resellerData.id,
         );
         setVirtualAccounts(accounts || []);
@@ -276,7 +276,6 @@ export function StoreContent({
     fetchCustomerData();
   }, [loggedIn, storeName]);
 
-  // Add this useEffect to fetch customer profile data (add after the existing useEffect hooks):
   useEffect(() => {
     async function fetchCustomerProfile() {
       if (!loggedIn) return;
@@ -287,14 +286,12 @@ export function StoreContent({
       } = await supabase.auth.getUser();
 
       if (user) {
-        // Get profile data
         const { data: profile } = await supabase
           .from("profiles")
           .select("full_name, username, email")
           .eq("id", user.id)
           .single();
 
-        // Also check customer registration for this store
         const { data: resellerData } = await supabase
           .from("resellers")
           .select("id")
@@ -329,7 +326,6 @@ export function StoreContent({
     fetchCustomerProfile();
   }, [loggedIn, storeName]);
 
-  // Add this useEffect to fetch reseller WhatsApp number when logged in as customer
   useEffect(() => {
     async function fetchResellerWhatsApp() {
       const supabase = createClient();
@@ -339,12 +335,10 @@ export function StoreContent({
         .eq("store_name", storeName)
         .eq("status", "active")
         .single();
-
       if (resellerData?.phone) {
         setResellerWhatsApp(resellerData.phone);
       }
     }
-
     fetchResellerWhatsApp();
   }, [storeName]);
 
@@ -368,7 +362,6 @@ export function StoreContent({
       const suffix = Math.floor(Math.random() * 9) + 1;
       const separator = localPart.includes("+") ? "" : "+";
       const storeEmail = `${localPart}${separator}${storeName}${suffix}@${domain}`;
-
       const username = email.split("@")[0];
 
       const { data, error } = await supabase.auth.signUp({
@@ -378,6 +371,7 @@ export function StoreContent({
           data: {
             username: username,
             role: "customer",
+            original_email: email, // ✅ STORE THE ORIGINAL EMAIL HERE
           },
         },
       });
@@ -389,14 +383,33 @@ export function StoreContent({
       }
 
       if (data.user) {
-        await registerCustomerToReseller(storeName, data.user.id, email);
+        await registerCustomerToReseller(
+          storeName,
+          data.user.id,
+          email,
+          storeEmail,
+        );
         setLoginOpen(false);
         setEmail("");
         setPassword("");
       }
     } else {
+      // LOGIN FLOW - Use the stored auth_email
+      setLoginError("");
+
+      // Try to get auth_email from server action (bypasses RLS)
+      const authEmail = await getCustomerAuthEmail(email, storeName);
+
+      let loginEmail = email; // Default to provided email
+
+      if (authEmail) {
+        // Customer found - use their stored auth email
+        loginEmail = authEmail;
+      }
+
+      // Attempt login with the correct email
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: loginEmail,
         password,
       });
 
@@ -416,8 +429,8 @@ export function StoreContent({
           setPassword("");
         }
       }
+      setLoginLoading(false);
     }
-    setLoginLoading(false);
   };
 
   const switchAuthMode = (mode: "signin" | "signup") => {
@@ -427,18 +440,25 @@ export function StoreContent({
     setPassword("");
   };
 
+  // const handleLogout = async () => {
+  //   setLogoutLoading(true);
+  //   const supabase = createClient();
+  //   const {
+  //     data: { user },
+  //   } = await supabase.auth.getUser();
+  //   if (user?.user_metadata?.store_name === storeName) {
+  //     await logoutReseller();
+  //   } else {
+  //     await logoutCustomer(storeName);
+  //   }
+  //   setLogoutLoading(false);
+  // };
+
   const handleLogout = async () => {
     setLogoutLoading(true);
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user?.user_metadata?.store_name === storeName) {
-      await logoutReseller();
-    } else {
-      await logoutCustomer(storeName);
-    }
-    setLogoutLoading(false);
+    await supabase.auth.signOut();
+    window.location.href = `/${storeName}`;
   };
 
   const refreshWalletData = async () => {
@@ -466,39 +486,36 @@ export function StoreContent({
         .eq("reseller_id", resellerData.id)
         .single();
       setWalletBalance(wallet?.balance || 0);
-
       const accounts = await getResellerVirtualAccounts(resellerData.id);
       setVirtualAccounts(accounts || []);
     } else {
-      const { data: wallet } = await supabase
-        .from("reseller_customer_wallets")
-        .select("balance")
+      // ✅ FIX: Get customer UUID first
+      const { data: customerRecord } = await supabase
+        .from("reseller_customers")
+        .select("id")
+        .eq("auth_user_id", user.id)
         .eq("reseller_id", resellerData.id)
-        .eq("customer_id", user.id)
-        .maybeSingle();
-      setWalletBalance(wallet?.balance || 0);
+        .single();
 
-      const accounts = await getCustomerVirtualAccounts(
-        user.id,
-        resellerData.id,
-      );
-      setVirtualAccounts(accounts || []);
+      if (customerRecord) {
+        const { data: wallet } = await supabase
+          .from("reseller_customer_wallets")
+          .select("balance")
+          .eq("reseller_id", resellerData.id)
+          .eq("customer_id", customerRecord.id)
+          .maybeSingle();
+        setWalletBalance(wallet?.balance || 0);
+
+        const accounts = await getCustomerVirtualAccounts(
+          customerRecord.id,
+          resellerData.id,
+        );
+        setVirtualAccounts(accounts || []);
+      }
     }
   };
 
   const handleCreateVirtualAccount = async () => {
-    if (
-      !virtualForm.fullName ||
-      !virtualForm.phoneNumber ||
-      !virtualForm.email
-    ) {
-      setVirtualMessage({
-        type: "error",
-        text: "All fields are required",
-      });
-      return;
-    }
-
     setVirtualLoading(true);
     setVirtualMessage(null);
 
@@ -506,12 +523,8 @@ export function StoreContent({
     const {
       data: { user },
     } = await supabase.auth.getUser();
-
     if (!user) {
-      setVirtualMessage({
-        type: "error",
-        text: "Please sign in first",
-      });
+      setVirtualMessage({ type: "error", text: "Please sign in first" });
       setVirtualLoading(false);
       return;
     }
@@ -529,38 +542,20 @@ export function StoreContent({
       return;
     }
 
-    if (isStoreOwner) {
-      const result = await createResellerVirtualAccount({
-        ...virtualForm,
-        resellerId: resellerData.id,
-      });
-      if (result.error) {
-        setVirtualMessage({ type: "error", text: result.error });
-      } else {
-        setVirtualMessage({
-          type: "success",
-          text: result.message || "Virtual account created!",
-        });
-        setShowVirtualForm(false);
-        await refreshWalletData();
-      }
+    const result = await createCustomerVirtualAccount(
+      resellerData.id,
+      storeName,
+    );
+
+    if (result.error) {
+      setVirtualMessage({ type: "error", text: result.error });
     } else {
-      const result = await createCustomerVirtualAccount({
-        ...virtualForm,
-        resellerId: resellerData.id,
-        customerId: user.id,
-        storeSlug: storeName,
+      setVirtualMessage({
+        type: "success",
+        text: result.message || "Virtual account created successfully!",
       });
-      if (result.error) {
-        setVirtualMessage({ type: "error", text: result.error });
-      } else {
-        setVirtualMessage({
-          type: "success",
-          text: result.message || "Virtual account created!",
-        });
-        setShowVirtualForm(false);
-        await refreshWalletData();
-      }
+      await refreshWalletData();
+      setTimeout(() => setShowVirtualForm(false), 2000);
     }
     setVirtualLoading(false);
   };
@@ -572,10 +567,8 @@ export function StoreContent({
     }
 
     if (virtualAccounts.length > 0) {
-      // Show funding modal with existing accounts
       setShowFundingModal(true);
     } else {
-      // Show form to create virtual account
       setShowVirtualForm(true);
     }
   };
@@ -586,65 +579,23 @@ export function StoreContent({
     setTimeout(() => setCopiedAccount(null), 2000);
   };
 
-  // Update the handleSupportClick function:
-  // Add the handleSupportClick function:
   const handleSupportClick = () => {
     setSupportModalOpen(true);
   };
 
-  // Add the function to open WhatsApp:
   const openWhatsApp = () => {
     if (resellerWhatsApp) {
-      // Format phone number for WhatsApp
       let phone = resellerWhatsApp.replace(/[\s\-()]/g, "");
-
-      // Remove any leading '+'
       phone = phone.replace(/^\+/, "");
-
-      // If it starts with 0, replace with 234 (Nigeria code)
       if (phone.startsWith("0")) {
         phone = "234" + phone.slice(1);
-      }
-      // If it doesn't start with 234 and is 10 digits, add 234
-      else if (!phone.startsWith("234") && phone.length === 10) {
+      } else if (!phone.startsWith("234") && phone.length === 10) {
         phone = "234" + phone;
       }
-
-      // Open WhatsApp chat
       window.open(`https://wa.me/${phone}`, "_blank");
       setSupportModalOpen(false);
     }
   };
-
-  // ── Buy button handler ───────────────────────────
-
-  // const handleBuyClick = async (plan: StorePlan) => {
-  //   if (!loggedIn) {
-  //     setLoginOpen(true);
-  //     return;
-  //   }
-  //   if (!storeStatus?.canSell) {
-  //     return;
-  //   }
-
-  //   const supabase = createClient();
-  //   const { data: profile } = await supabase
-  //     .from("profiles")
-  //     .select("transaction_pin, wallet_balance")
-  //     .eq("id", (await supabase.auth.getUser()).data.user?.id)
-  //     .single();
-
-  //   const hasPin = !!profile?.transaction_pin;
-  //   setHasTransactionPin(hasPin);
-
-  //   setSelectedPlan(plan);
-  //   setPurchasePhone("");
-  //   setPurchasePin("");
-  //   setPurchaseError("");
-  //   setPurchaseSuccess("");
-  //   setIsCreatingPin(!hasPin);
-  //   setPurchaseModalOpen(true);
-  // };
 
   const handleBuyClick = async (plan: StorePlan) => {
     if (!loggedIn) {
@@ -668,11 +619,9 @@ export function StoreContent({
 
     if (!resellerData) return;
 
-    // Check PIN from the correct table
     let hasPin = false;
 
     if (isStoreOwner) {
-      // Reseller: check resellers.transaction_pin
       const { data: resellerRecord } = await supabase
         .from("resellers")
         .select("transaction_pin")
@@ -680,7 +629,6 @@ export function StoreContent({
         .single();
       hasPin = !!resellerRecord?.transaction_pin;
     } else {
-      // Customer: check reseller_customers.transaction_pin
       const { data: customerRecord } = await supabase
         .from("reseller_customers")
         .select("transaction_pin")
@@ -699,71 +647,6 @@ export function StoreContent({
     setPurchaseSuccess("");
     setPurchaseModalOpen(true);
   };
-
-  // const handlePurchase = async () => {
-  //   if (!selectedPlan) return;
-
-  //   if (!purchasePhone || purchasePhone.length < 11) {
-  //     setPurchaseError("Please enter a valid phone number");
-  //     return;
-  //   }
-  //   if (!purchasePin || purchasePin.length < 4) {
-  //     setPurchaseError(
-  //       isCreatingPin
-  //         ? "Please create a 4-digit transaction PIN"
-  //         : "Please enter your 4-digit transaction PIN",
-  //     );
-  //     return;
-  //   }
-
-  //   setPurchaseLoading(true);
-  //   setPurchaseError("");
-  //   setPurchaseSuccess("");
-
-  //   if (isCreatingPin) {
-  //     const supabase = createClient();
-  //     const {
-  //       data: { user },
-  //     } = await supabase.auth.getUser();
-  //     if (user) {
-  //       const { error: pinError } = await supabase.from("profiles").upsert({
-  //         id: user.id,
-  //         transaction_pin: purchasePin,
-  //         updated_at: new Date().toISOString(),
-  //       });
-
-  //       if (pinError) {
-  //         setPurchaseError("Failed to save transaction PIN. Please try again.");
-  //         setPurchaseLoading(false);
-  //         return;
-  //       }
-  //     }
-  //   }
-
-  //   const result = await purchasePlan({
-  //     storeName,
-  //     planId: selectedPlan.plan_id,
-  //     phoneNumber: purchasePhone,
-  //     transactionPin: purchasePin,
-  //   });
-
-  //   if (result.error) {
-  //     setPurchaseError(result.error);
-  //   } else {
-  //     setPurchaseSuccess(result.message || "Purchase successful!");
-  //     setHasTransactionPin(true);
-  //     setIsCreatingPin(false);
-  //     // Refresh wallet balance after purchase
-  //     await refreshWalletData();
-  //     setTimeout(() => {
-  //       setPurchaseModalOpen(false);
-  //       setPurchasePhone("");
-  //       setPurchasePin("");
-  //       setPurchaseSuccess("");
-  //     }, 2500);
-  //   }
-  //   setPurchaseLoading(false);
-  // };
 
   const handlePurchase = async () => {
     if (!selectedPlan) return;
@@ -808,25 +691,21 @@ export function StoreContent({
       }
 
       if (isStoreOwner) {
-        // Save to resellers table
         const { error: pinError } = await supabase
           .from("resellers")
           .update({ transaction_pin: purchasePin })
           .eq("auth_user_id", user.id);
-
         if (pinError) {
           setPurchaseError("Failed to save PIN. Please try again.");
           setPurchaseLoading(false);
           return;
         }
       } else {
-        // Save to reseller_customers table
         const { error: pinError } = await supabase
           .from("reseller_customers")
           .update({ transaction_pin: purchasePin })
           .eq("auth_user_id", user.id)
           .eq("reseller_id", resellerData.id);
-
         if (pinError) {
           setPurchaseError("Failed to save PIN. Please try again.");
           setPurchaseLoading(false);
@@ -864,6 +743,7 @@ export function StoreContent({
     [allPlans, activeTab],
   );
 
+  // ─── Return JSX ─────────────────────────────────────
   return (
     <div
       style={{
@@ -872,8 +752,6 @@ export function StoreContent({
         fontFamily: "'Instrument Sans', system-ui, sans-serif",
       }}
     >
-      {/* ─── Login Modal ──────────────────────────────── */}
-      {/* ─── Login Modal ──────────────────────────────── */}
       {/* ─── Login Modal ──────────────────────────────── */}
       {loginOpen && (
         <div
@@ -915,7 +793,6 @@ export function StoreContent({
                 background: `linear-gradient(90deg, ${gradFrom}, ${gradTo})`,
               }}
             />
-
             <button
               onClick={() => setLoginOpen(false)}
               style={{
@@ -1218,7 +1095,8 @@ export function StoreContent({
           </div>
         </div>
       )}
-      {/* ─── Funding Modal (when user has virtual accounts) ─── */}
+
+      {/* ─── Funding Modal ─────────────────────────────── */}
       {showFundingModal && (
         <div
           onClick={() => setShowFundingModal(false)}
@@ -1412,7 +1290,7 @@ export function StoreContent({
               </div>
             ))}
 
-            <div
+            {/* <div
               style={{
                 marginTop: "1rem",
                 padding: "0.75rem",
@@ -1424,11 +1302,12 @@ export function StoreContent({
             >
               <strong>💡 Tip:</strong> Use your registered name as the depositor
               name for faster confirmation.
-            </div>
+            </div> */}
           </div>
         </div>
       )}
-      {/* ─── Create Virtual Account Form Modal ─── */}
+
+      {/* ─── Create Virtual Account Modal (One-Click) ─── */}
       {showVirtualForm && (
         <div
           onClick={() => setShowVirtualForm(false)}
@@ -1507,9 +1386,7 @@ export function StoreContent({
                 textAlign: "center",
               }}
             >
-              {isStoreOwner
-                ? "Create an account so customers can fund your store"
-                : "Create an account to fund your wallet via bank transfer"}
+              One-click setup to fund your wallet instantly
             </p>
 
             {virtualMessage && (
@@ -1531,122 +1408,48 @@ export function StoreContent({
               </div>
             )}
 
-            <div style={{ marginBottom: "0.75rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  color: "#374151",
-                  marginBottom: 4,
-                }}
-              >
-                Full Name
-              </label>
-              <input
-                type="text"
-                value={virtualForm.fullName}
-                onChange={(e) =>
-                  setVirtualForm({ ...virtualForm, fullName: e.target.value })
-                }
-                placeholder="John Doe"
-                style={modalInputStyle}
-              />
-            </div>
+            <button
+              onClick={handleCreateVirtualAccount}
+              disabled={virtualLoading}
+              style={{
+                width: "100%",
+                padding: "0.85rem",
+                background: primary,
+                border: "none",
+                borderRadius: 10,
+                color: contrastText(primary),
+                fontWeight: 600,
+                fontSize: "0.95rem",
+                cursor: virtualLoading ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+                opacity: virtualLoading ? 0.7 : 1,
+                marginBottom: "1rem",
+              }}
+            >
+              {virtualLoading ? "Creating..." : "Create Virtual Account →"}
+            </button>
 
-            <div style={{ marginBottom: "0.75rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  color: "#374151",
-                  marginBottom: 4,
-                }}
-              >
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                value={virtualForm.phoneNumber}
-                onChange={(e) =>
-                  setVirtualForm({
-                    ...virtualForm,
-                    phoneNumber: e.target.value
-                      .replace(/[^0-9]/g, "")
-                      .slice(0, 11),
-                  })
-                }
-                placeholder="08012345678"
-                maxLength={11}
-                style={modalInputStyle}
-              />
-            </div>
-
-            <div style={{ marginBottom: "1.5rem" }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  color: "#374151",
-                  marginBottom: 4,
-                }}
-              >
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={virtualForm.email}
-                onChange={(e) =>
-                  setVirtualForm({ ...virtualForm, email: e.target.value })
-                }
-                placeholder="you@example.com"
-                style={modalInputStyle}
-              />
-            </div>
-
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button
-                onClick={handleCreateVirtualAccount}
-                disabled={virtualLoading}
-                style={{
-                  flex: 1,
-                  padding: "0.7rem",
-                  background: primary,
-                  border: "none",
-                  borderRadius: 10,
-                  color: contrastText(primary),
-                  fontWeight: 600,
-                  fontSize: "0.85rem",
-                  cursor: virtualLoading ? "not-allowed" : "pointer",
-                  fontFamily: "inherit",
-                  opacity: virtualLoading ? 0.7 : 1,
-                }}
-              >
-                {virtualLoading ? "Creating..." : "Create Account"}
-              </button>
-              <button
-                onClick={() => setShowVirtualForm(false)}
-                style={{
-                  padding: "0.7rem 1.2rem",
-                  background: "#F3F4F6",
-                  border: "1px solid #E5E7EB",
-                  borderRadius: 10,
-                  color: "#6B7280",
-                  fontSize: "0.85rem",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
+            {/* <button
+              onClick={() => setShowVirtualForm(false)}
+              style={{
+                width: "100%",
+                padding: "0.7rem",
+                background: "#F3F4F6",
+                border: "1px solid #E5E7EB",
+                borderRadius: 8,
+                color: "#6B7280",
+                fontSize: "0.85rem",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Cancel
+            </button> */}
           </div>
         </div>
       )}
 
-      {/* ─── Support Modal ──────────────────────────────── */}
+      {/* ─── Support Modal ─────────────────────────────── */}
       {supportModalOpen && (
         <div
           onClick={() => setSupportModalOpen(false)}
@@ -1869,6 +1672,7 @@ export function StoreContent({
           </div>
         </div>
       )}
+
       {/* ─── Purchase Modal ───────────────────────────── */}
       {purchaseModalOpen && selectedPlan && (
         <div
@@ -1929,7 +1733,6 @@ export function StoreContent({
               <X size={17} />
             </button>
 
-            {/* Title */}
             <h2
               style={{
                 fontSize: "1.2rem",
@@ -1941,7 +1744,6 @@ export function StoreContent({
               Confirm Purchase
             </h2>
 
-            {/* Plan summary */}
             <div
               style={{
                 background: "#F9FAFB",
@@ -2002,7 +1804,6 @@ export function StoreContent({
               </div>
             </div>
 
-            {/* Phone number */}
             <div style={{ marginBottom: "1rem" }}>
               <label
                 style={{
@@ -2031,11 +1832,8 @@ export function StoreContent({
               />
             </div>
 
-            {/* PIN section — creation or entry */}
-            {/* PIN section — creation or entry */}
             {isCreatingPin ? (
               <>
-                {/* PIN Info Modal */}
                 {showPinInfo && (
                   <div
                     onClick={() => setShowPinInfo(false)}
@@ -2080,7 +1878,6 @@ export function StoreContent({
                       >
                         <X size={14} />
                       </button>
-
                       <div
                         style={{
                           width: 48,
@@ -2095,7 +1892,6 @@ export function StoreContent({
                       >
                         <Shield size={24} style={{ color: primary }} />
                       </div>
-
                       <h3
                         style={{
                           fontSize: "1.1rem",
@@ -2107,7 +1903,6 @@ export function StoreContent({
                       >
                         Transaction PIN
                       </h3>
-
                       <p
                         style={{
                           fontSize: "0.85rem",
@@ -2120,7 +1915,6 @@ export function StoreContent({
                         Your transaction PIN is a 4-digit code you'll use to
                         authorise every purchase.
                       </p>
-
                       <div
                         style={{
                           background: "#F9FAFB",
@@ -2154,7 +1948,6 @@ export function StoreContent({
                           <li>Choose a number you'll remember easily</li>
                         </ul>
                       </div>
-
                       <button
                         onClick={() => setShowPinInfo(false)}
                         style={{
@@ -2334,7 +2127,6 @@ export function StoreContent({
               </div>
             )}
 
-            {/* Error / Success feedback */}
             {purchaseError && (
               <div
                 style={{
@@ -2380,7 +2172,6 @@ export function StoreContent({
               </div>
             )}
 
-            {/* Submit button */}
             <button
               onClick={handlePurchase}
               disabled={purchaseLoading || !!purchaseSuccess}
@@ -2432,18 +2223,18 @@ export function StoreContent({
 
       {/* ─── Header ───────────────────────────────────── */}
       <style>{`
-  @media (max-width: 480px) {
-    .header-customer-name { display: none !important; }
-    .header-contact-label { display: none !important; }
-    .header-logout-label { display: none !important; }
-    .header-store-subtitle { display: none !important; }
-    .header-inner { padding: 0.7rem 1rem !important; }
-  }
-  @media (max-width: 360px) {
-    .header-store-name { font-size: 0.95rem !important; }
-    .header-icon { width: 34px !important; height: 34px !important; }
-  }
-`}</style>
+        @media (max-width: 480px) {
+          .header-customer-name { display: none !important; }
+          .header-contact-label { display: none !important; }
+          .header-logout-label { display: none !important; }
+          .header-store-subtitle { display: none !important; }
+          .header-inner { padding: 0.7rem 1rem !important; }
+        }
+        @media (max-width: 360px) {
+          .header-store-name { font-size: 0.95rem !important; }
+          .header-icon { width: 34px !important; height: 34px !important; }
+        }
+      `}</style>
       <header
         style={{
           background: `linear-gradient(135deg, ${gradFrom}, ${gradTo})`,
@@ -2467,7 +2258,6 @@ export function StoreContent({
             minWidth: 0,
           }}
         >
-          {/* Logo + Store Name */}
           <div
             style={{
               display: "flex",
@@ -2494,7 +2284,6 @@ export function StoreContent({
               }}
             >
               {storeIcon?.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={storeIcon.url}
                   alt={displayName}
@@ -2534,7 +2323,6 @@ export function StoreContent({
             </div>
           </div>
 
-          {/* Actions */}
           <div
             style={{
               display: "flex",
@@ -2545,7 +2333,6 @@ export function StoreContent({
           >
             {loggedIn ? (
               <>
-                {/* Avatar pill — name hidden on small screens */}
                 <div
                   style={{
                     display: "flex",
@@ -2589,7 +2376,6 @@ export function StoreContent({
                   </span>
                 </div>
 
-                {/* Contact — label hidden on small screens, icon stays */}
                 <button
                   style={navBtnStyle(onPrimary)}
                   onClick={handleSupportClick}
@@ -2599,7 +2385,6 @@ export function StoreContent({
                   <span className="header-contact-label">Contact</span>
                 </button>
 
-                {/* Logout — label hidden on small screens, icon stays */}
                 <button
                   style={{
                     ...navBtnStyle(onPrimary),
@@ -2639,6 +2424,7 @@ export function StoreContent({
           </div>
         </div>
       </header>
+
       {/* ─── Store Status Banner ──────────────────────── */}
       {!storeStatusLoading && storeStatus && !storeStatus.canSell && (
         <div
@@ -2691,17 +2477,18 @@ export function StoreContent({
           </p>
         </div>
       )}
-      {/* ─── Wallet Balance Strip (same gradient as header) ─── */}
+
+      {/* ─── Wallet Balance Strip ──────────────────────── */}
       {loggedIn && !customerDataLoading && (
         <>
           <style>{`
-      @media (max-width: 480px) {
-        .wallet-strip { padding: 1rem 1rem 0.85rem !important; }
-        .wallet-label { display: none !important; }
-        .wallet-fund-label { display: none !important; }
-        .wallet-balance { font-size: 1.2rem !important; }
-      }
-    `}</style>
+            @media (max-width: 480px) {
+              .wallet-strip { padding: 1rem 1rem 0.85rem !important; }
+              .wallet-label { display: none !important; }
+              .wallet-fund-label { display: none !important; }
+              .wallet-balance { font-size: 1.2rem !important; }
+            }
+          `}</style>
           <div
             className="wallet-strip"
             style={{
@@ -2721,7 +2508,6 @@ export function StoreContent({
                 minWidth: 0,
               }}
             >
-              {/* Balance left side */}
               <div
                 style={{
                   display: "flex",
@@ -2796,7 +2582,6 @@ export function StoreContent({
                 </div>
               </div>
 
-              {/* Fund wallet right side */}
               <div
                 style={{
                   display: "flex",
@@ -2848,7 +2633,8 @@ export function StoreContent({
           </div>
         </>
       )}
-      {/* Show welcome message when not logged in (with same gradient) */}
+
+      {/* ─── Welcome Message (Not Logged In) ───────────── */}
       {!loggedIn && (
         <div
           style={{
@@ -2883,27 +2669,10 @@ export function StoreContent({
                 purchases
               </p>
             </div>
-            {/* <button
-              onClick={() => setLoginOpen(true)}
-              style={{
-                background: "rgba(255,255,255,0.2)",
-                border: "1px solid rgba(255,255,255,0.3)",
-                borderRadius: 40,
-                padding: "0.6rem 1.5rem",
-                cursor: "pointer",
-                color: onPrimary,
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <LogIn size={16} />
-              Sign In / Sign Up
-            </button> */}
           </div>
         </div>
       )}
+
       <main style={{ maxWidth: 1100, margin: "0 auto", padding: "1.5rem" }}>
         {/* ─── Featured Plans ─────────────────────────── */}
         {featuredPlans.length > 0 && activeTab === "MTN" && (
@@ -3208,7 +2977,6 @@ export function StoreContent({
         </section>
 
         {/* ─── App Banner ─────────────────────────────── */}
-
         {apkUrl && (
           <div
             style={{
@@ -3289,6 +3057,7 @@ export function StoreContent({
           </div>
         )}
       </main>
+
       <footer
         style={{
           marginTop: "3rem",
@@ -3321,7 +3090,7 @@ export function StoreContent({
   );
 }
 
-// ─── PlanGrid & PlanCard ──────────────────────────────
+// ─── PlanGrid & PlanCard (Outside StoreContent) ─────────
 const PLANS_PER_PAGE = 15;
 
 function PlanGrid({
@@ -3381,7 +3150,6 @@ function PlanGrid({
     };
   }, []);
 
-  // Responsive grid styles
   const gridStyles: React.CSSProperties = {
     display: "grid",
     gap: "0.5rem",

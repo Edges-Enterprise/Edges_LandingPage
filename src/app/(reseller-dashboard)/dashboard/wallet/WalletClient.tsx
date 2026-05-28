@@ -133,31 +133,50 @@ export function WalletClient({
     };
   }, [selectedBank, accountNumber]);
 
+  // const handleCreateVirtualAccount = async () => {
+  //   if (
+  //     !virtualForm.fullName ||
+  //     !virtualForm.phoneNumber ||
+  //     !virtualForm.email
+  //   ) {
+  //     setVirtualMessage({ type: "error", text: "All fields are required" });
+  //     return;
+  //   }
+  //   setVirtualLoading(true);
+  //   setVirtualMessage(null);
+
+  //   const result = await createResellerVirtualAccount({
+  //     ...virtualForm,
+  //     resellerId,
+  //   });
+
+  //   if (result.error) {
+  //     setVirtualMessage({ type: "error", text: result.error });
+  //   } else {
+  //     setVirtualMessage({
+  //       type: "success",
+  //       text: result.message || "Virtual account created!",
+  //     });
+  //     setShowVirtualForm(false);
+  //     const accounts = await getResellerVirtualAccounts(resellerId);
+  //     setVirtualAccounts(accounts || []);
+  //   }
+  //   setVirtualLoading(false);
+  // };
+
   const handleCreateVirtualAccount = async () => {
-    if (
-      !virtualForm.fullName ||
-      !virtualForm.phoneNumber ||
-      !virtualForm.email
-    ) {
-      setVirtualMessage({ type: "error", text: "All fields are required" });
-      return;
-    }
     setVirtualLoading(true);
     setVirtualMessage(null);
 
-    const result = await createResellerVirtualAccount({
-      ...virtualForm,
-      resellerId,
-    });
+    const result = await createResellerVirtualAccount(resellerId);
 
     if (result.error) {
       setVirtualMessage({ type: "error", text: result.error });
     } else {
       setVirtualMessage({
         type: "success",
-        text: result.message || "Virtual account created!",
+        text: result.message || "Virtual account created successfully!",
       });
-      setShowVirtualForm(false);
       const accounts = await getResellerVirtualAccounts(resellerId);
       setVirtualAccounts(accounts || []);
     }
@@ -337,7 +356,7 @@ export function WalletClient({
       ) : (
         <Card>
           <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
-            <p
+            {/* <p
               style={{
                 fontWeight: 600,
                 color: "var(--text)",
@@ -354,8 +373,8 @@ export function WalletClient({
               }}
             >
               Get your unique account number to fund your wallet instantly
-            </p>
-
+            </p> */}
+            {/* 
             {!showVirtualForm ? (
               <button
                 onClick={() => setShowVirtualForm(true)}
@@ -496,7 +515,44 @@ export function WalletClient({
                   </button>
                 </div>
               </div>
-            )}
+            )}  */}
+
+            {/* // Replace the form with this simplified UI: */}
+
+            {!showVirtualForm ? (
+              <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
+                <p style={{ fontWeight: 600, marginBottom: "0.5rem" }}>
+                  Get Your Virtual Account
+                </p>
+                <p
+                  style={{
+                    fontSize: "0.85rem",
+                    color: "var(--muted)",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  One-click setup. <em> Fund your wallet instantly</em>.
+                </p>
+                <button
+                  onClick={handleCreateVirtualAccount}
+                  disabled={virtualLoading}
+                  style={{
+                    padding: "0.6rem 1.5rem",
+                    background: "var(--accent)",
+                    border: "none",
+                    borderRadius: 10,
+                    color: "#FDF8F3",
+                    fontWeight: 600,
+                    fontSize: "0.9rem",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    opacity: virtualLoading ? 0.7 : 1,
+                  }}
+                >
+                  {virtualLoading ? "Creating..." : "Create Virtual Account →"}
+                </button>
+              </div>
+            ) : null}
           </div>
         </Card>
       )}

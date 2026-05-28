@@ -213,84 +213,317 @@ export async function getResellerVirtualAccounts(resellerId: string) {
 }
 
 // ─── Create a virtual account for a reseller ───────────
+// export async function createResellerVirtualAccount(
+//   input: CreateVirtualAccountInput,
+// ): Promise<CreateVirtualAccountResult> {
+//   try {
+//     const admin = createAdminClient();
+
+//     // Validate required fields
+//     if (!input.fullName || !input.phoneNumber || !input.email) {
+//       return { error: "Name, phone number, and email are required" };
+//     }
+
+//     if (!input.resellerId) {
+//       return { error: "Reseller ID is required" };
+//     }
+
+//     // Check if already has an active virtual account
+//     const { data: existing } = await admin
+//       .from("reseller_virtual_accounts")
+//       .select("id")
+//       .eq("reseller_id", input.resellerId)
+//       .eq("status", "active")
+//       .limit(1);
+
+//     if (existing?.length) {
+//       return { error: "You already have an active virtual account" };
+//     }
+
+//     // Validate environment variables
+//     const secretKey = process.env.NEXT_PUBLIC_XIXAPAY_SECRET_KEY;
+//     const apiKey = process.env.NEXT_PUBLIC_XIXAPAY_API_KEY;
+//     const businessId = process.env.NEXT_PUBLIC_XIXAPAY_BUSINESS_ID;
+
+//     if (!secretKey || !apiKey || !businessId) {
+//       console.error("Missing Xixapay config:", {
+//         secretKey: !!secretKey,
+//         apiKey: !!apiKey,
+//         businessId: !!businessId,
+//       });
+//       return {
+//         error:
+//           "Payment provider configuration missing. Please contact support.",
+//       };
+//     }
+
+//     // Generate unique email for this store
+//     const [localPart, domain] = input.email.split("@");
+//     const suffix = Math.floor(Math.random() * 9) + 1;
+//     const separator = localPart.includes("+") ? "" : "+";
+//     const virtualEmail = `${localPart}${separator}${input.resellerId.slice(0, 8)}${suffix}@${domain}`;
+
+//     // Prepare XixaPay request payload
+//     const xixapayPayload = {
+//       email: virtualEmail,
+//       name: input.fullName,
+//       phoneNumber: input.phoneNumber,
+//       bankCode: ["20867"], // PalmPay
+//       businessId,
+//       accountType: "static",
+//       id_type: "bvn",
+//       id_number: "22465899564", // Placeholder BVN
+//     };
+
+//     console.log("Creating virtual account for reseller:", {
+//       resellerId: input.resellerId,
+//       virtualEmail,
+//       name: input.fullName,
+//     });
+
+//     // Add these logs right before the XixaPay call
+//     console.log("XixaPay Request:", {
+//       url: "https://api.xixapay.com/api/v1/createVirtualAccount",
+//       payload: xixapayPayload,
+//       hasSecretKey: !!secretKey,
+//       hasApiKey: !!apiKey,
+//       hasBusinessId: !!businessId,
+//     });
+
+//     // Call XixaPay API
+//     const xixapayResponse = await fetch(
+//       "https://api.xixapay.com/api/v1/createVirtualAccount",
+//       {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           Authorization: `Bearer ${secretKey}`,
+//           "api-key": apiKey,
+//         },
+//         body: JSON.stringify(xixapayPayload),
+//       },
+//     );
+
+//     const xixapayData = await xixapayResponse.json();
+
+//     console.log("XixaPay response:", {
+//       status: xixapayData.status,
+//       message: xixapayData.message,
+//       accountsCount: xixapayData.bankAccounts?.length,
+//     });
+
+//     // Log the full response
+//     console.log("XixaPay Full Response:", {
+//       status: xixapayResponse.status,
+//       ok: xixapayResponse.ok,
+//       data: xixapayData,
+//       bankAccountsCount: xixapayData.bankAccounts?.length,
+//     });
+
+//     if (!xixapayResponse.ok || xixapayData.status !== "success") {
+//       return {
+//         error:
+//           xixapayData.message ||
+//           "Failed to create virtual account. Please try again.",
+//       };
+//     }
+
+//     const bankAccounts = xixapayData.bankAccounts || [];
+//     if (bankAccounts.length === 0) {
+//       return { error: "No virtual accounts were created" };
+//     }
+
+//     // Store in database
+//     const accountRecords = bankAccounts.map((bank: any) => ({
+//       reseller_id: input.resellerId,
+//       bank_name: bank.bankName,
+//       account_number: bank.accountNumber,
+//       account_name: bank.accountName,
+//       account_type: bank.accountType || "static",
+//       tracking_reference: bank.Reserved_Account_Id,
+//       provider: "xixapay",
+//       customer_email: virtualEmail,
+//       customer_name: input.fullName,
+//       customer_phone: input.phoneNumber,
+//       customer_bvn: "22222222222",
+//       customer_nin: null,
+//       status: "active",
+//     }));
+
+//     const { error: insertError } = await admin
+//       .from("reseller_virtual_accounts")
+//       .insert(accountRecords);
+
+//     if (insertError) {
+//       console.error("Insert error:", insertError);
+//       return { error: "Failed to save virtual account. Please try again." };
+//     }
+
+//     revalidatePath("/dashboard/wallet");
+//     revalidatePath("/dashboard");
+
+//     return {
+//       success: true,
+//       message: "Virtual account created successfully!",
+//       virtualEmail,
+//       accounts: bankAccounts.map((bank: any) => ({
+//         bankName: bank.bankName,
+//         accountNumber: bank.accountNumber,
+//         accountName: bank.accountName,
+//       })),
+//     };
+//   } catch (error) {
+//     console.error("Create virtual account error:", error);
+//     return { error: "Something went wrong. Please try again." };
+//   }
+// }
+
+// ─── Create a virtual account for a reseller (auto-assigns from waitlist) ───
 export async function createResellerVirtualAccount(
-  input: CreateVirtualAccountInput,
+  resellerId: string,
 ): Promise<CreateVirtualAccountResult> {
   try {
     const admin = createAdminClient();
+    const supabase = await createServerClient();
 
-    // Validate required fields
-    if (!input.fullName || !input.phoneNumber || !input.email) {
-      return { error: "Name, phone number, and email are required" };
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { error: "You must be logged in" };
     }
 
-    if (!input.resellerId) {
-      return { error: "Reseller ID is required" };
-    }
-
-    // Check if already has an active virtual account
-    const { data: existing } = await admin
+    // 1. Check if reseller already has a virtual account
+    const { data: existingVirtualAccount } = await admin
       .from("reseller_virtual_accounts")
       .select("id")
-      .eq("reseller_id", input.resellerId)
+      .eq("reseller_id", resellerId)
       .eq("status", "active")
       .limit(1);
 
-    if (existing?.length) {
+    if (existingVirtualAccount?.length) {
       return { error: "You already have an active virtual account" };
     }
 
-    // Validate environment variables
+    // 2. Get reseller record
+    const { data: reseller, error: resellerError } = await admin
+      .from("resellers")
+      .select("id, store_name, email, phone, bvn")
+      .eq("id", resellerId)
+      .single();
+
+    if (resellerError || !reseller) {
+      return { error: "Reseller not found" };
+    }
+
+    // 3. Check if reseller already has a BVN assigned
+    let bvnToUse = reseller.bvn;
+
+    if (!bvnToUse) {
+      // 4. Fetch first unused BVN from waitlist (transaction to prevent race conditions)
+      const { data: waitlistEntry, error: waitlistError } = await admin
+        .from("waitlist")
+        .select("id, full_name, bvn, mobile")
+        .eq("status", "pending")
+        .limit(1)
+        .order("created_at", { ascending: true });
+
+      if (waitlistError || !waitlistEntry || waitlistEntry.length === 0) {
+        return { error: "No BVNs available. Please contact support." };
+      }
+
+      const entry = waitlistEntry[0];
+      bvnToUse = entry.bvn;
+
+      // 5. Assign BVN to reseller and mark waitlist as used
+      const { error: updateResellerError } = await admin
+        .from("resellers")
+        .update({ bvn: bvnToUse })
+        .eq("id", resellerId);
+
+      if (updateResellerError) {
+        return { error: "Failed to assign BVN. Please try again." };
+      }
+
+      const { error: updateWaitlistError } = await admin
+        .from("waitlist")
+        .update({
+          status: "used",
+          assigned_to: user.id,
+          assigned_to_type: "reseller",
+          used_at: new Date().toISOString(),
+        })
+        .eq("id", entry.id);
+
+      if (updateWaitlistError) {
+        // Rollback: remove BVN from reseller
+        await admin.from("resellers").update({ bvn: null }).eq("id", resellerId);
+        return { error: "Failed to reserve BVN. Please try again." };
+      }
+
+      // Store the waitlist data for later use
+      var waitlistName = entry.full_name;
+      var waitlistPhone = entry.mobile;
+    } else {
+      // Reseller already has BVN - need to find the waitlist entry
+      const { data: waitlistEntry } = await admin
+        .from("waitlist")
+        .select("full_name, mobile")
+        .eq("bvn", bvnToUse)
+        .single();
+
+      if (waitlistEntry) {
+        var waitlistName = waitlistEntry.full_name;
+        var waitlistPhone = waitlistEntry.mobile;
+      } else {
+        // Fallback to reseller's own name if waitlist entry not found
+        var waitlistName = reseller.store_name;
+        var waitlistPhone = reseller.phone || "";
+      }
+    }
+
+    // 6. Validate BVN format
+    if (!bvnToUse || !/^\d{11}$/.test(bvnToUse)) {
+      return { error: "Invalid BVN format. Please contact support." };
+    }
+
+    // 7. Validate environment variables
     const secretKey = process.env.NEXT_PUBLIC_XIXAPAY_SECRET_KEY;
     const apiKey = process.env.NEXT_PUBLIC_XIXAPAY_API_KEY;
     const businessId = process.env.NEXT_PUBLIC_XIXAPAY_BUSINESS_ID;
 
     if (!secretKey || !apiKey || !businessId) {
-      console.error("Missing Xixapay config:", {
-        secretKey: !!secretKey,
-        apiKey: !!apiKey,
-        businessId: !!businessId,
-      });
+      console.error("Missing Xixapay config");
       return {
-        error:
-          "Payment provider configuration missing. Please contact support.",
+        error: "Payment provider configuration missing. Please contact support.",
       };
     }
 
-    // Generate unique email for this store
-    const [localPart, domain] = input.email.split("@");
+    // 8. Generate unique email for this store
+    const [localPart, domain] = reseller.email.split("@");
     const suffix = Math.floor(Math.random() * 9) + 1;
     const separator = localPart.includes("+") ? "" : "+";
-    const virtualEmail = `${localPart}${separator}${input.resellerId.slice(0, 8)}${suffix}@${domain}`;
+    const virtualEmail = `${localPart}${separator}${reseller.id.slice(0, 8)}${suffix}@${domain}`;
 
-    // Prepare XixaPay request payload
+    // 9. Prepare XixaPay request payload - using waitlist person's name and phone
     const xixapayPayload = {
       email: virtualEmail,
-      name: input.fullName,
-      phoneNumber: input.phoneNumber,
+      name: waitlistName,  // ← Name from waitlist (BVN owner)
+      phoneNumber: waitlistPhone,  // ← Phone from waitlist (BVN owner)
       bankCode: ["20867"], // PalmPay
       businessId,
       accountType: "static",
       id_type: "bvn",
-      id_number: "22222222222", // Placeholder BVN
+      id_number: bvnToUse,  // ← BVN from waitlist
     };
 
     console.log("Creating virtual account for reseller:", {
-      resellerId: input.resellerId,
+      resellerId,
       virtualEmail,
-      name: input.fullName,
+      waitlistName,
+      hasBvn: !!bvnToUse,
     });
 
-    // Add these logs right before the XixaPay call
-    console.log("XixaPay Request:", {
-      url: "https://api.xixapay.com/api/v1/createVirtualAccount",
-      payload: xixapayPayload,
-      hasSecretKey: !!secretKey,
-      hasApiKey: !!apiKey,
-      hasBusinessId: !!businessId,
-    });
-
-    // Call XixaPay API
+    // 10. Call XixaPay API
     const xixapayResponse = await fetch(
       "https://api.xixapay.com/api/v1/createVirtualAccount",
       {
@@ -312,19 +545,9 @@ export async function createResellerVirtualAccount(
       accountsCount: xixapayData.bankAccounts?.length,
     });
 
-    // Log the full response
-    console.log("XixaPay Full Response:", {
-      status: xixapayResponse.status,
-      ok: xixapayResponse.ok,
-      data: xixapayData,
-      bankAccountsCount: xixapayData.bankAccounts?.length,
-    });
-
     if (!xixapayResponse.ok || xixapayData.status !== "success") {
       return {
-        error:
-          xixapayData.message ||
-          "Failed to create virtual account. Please try again.",
+        error: xixapayData.message || "Failed to create virtual account. Please try again.",
       };
     }
 
@@ -333,9 +556,9 @@ export async function createResellerVirtualAccount(
       return { error: "No virtual accounts were created" };
     }
 
-    // Store in database
+    // 11. Store in database
     const accountRecords = bankAccounts.map((bank: any) => ({
-      reseller_id: input.resellerId,
+      reseller_id: resellerId,
       bank_name: bank.bankName,
       account_number: bank.accountNumber,
       account_name: bank.accountName,
@@ -343,9 +566,9 @@ export async function createResellerVirtualAccount(
       tracking_reference: bank.Reserved_Account_Id,
       provider: "xixapay",
       customer_email: virtualEmail,
-      customer_name: input.fullName,
-      customer_phone: input.phoneNumber,
-      customer_bvn: "22222222222",
+      customer_name: waitlistName,  // ← Store waitlist name
+      customer_phone: waitlistPhone,  // ← Store waitlist phone
+      customer_bvn: bvnToUse,  // ← Store real BVN
       customer_nin: null,
       status: "active",
     }));
@@ -358,9 +581,6 @@ export async function createResellerVirtualAccount(
       console.error("Insert error:", insertError);
       return { error: "Failed to save virtual account. Please try again." };
     }
-
-    revalidatePath("/dashboard/wallet");
-    revalidatePath("/dashboard");
 
     return {
       success: true,
