@@ -278,7 +278,9 @@ export async function createCustomerVirtualAccount(
     const supabase = await createServerClient();
 
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return { error: "You must be logged in" };
     }
@@ -291,7 +293,7 @@ export async function createCustomerVirtualAccount(
       .eq("auth_user_id", user.id)
       .eq("status", "active")
       .limit(1);
-    
+
     if (existingVirtualAccount?.length) {
       return {
         error: "You already have an active virtual account in this store",
@@ -311,7 +313,7 @@ export async function createCustomerVirtualAccount(
       return { error: "Customer record not found. Please contact support." };
     }
 
-     const customerId = customer.id;
+    const customerId = customer.id;
 
     // 3. Check if customer already has a BVN assigned
     let bvnToUse = customer.bvn;
@@ -354,7 +356,10 @@ export async function createCustomerVirtualAccount(
 
       if (updateWaitlistError) {
         // Rollback: remove BVN from customer
-        await admin.from("reseller_customers").update({ bvn: null }).eq("id", customerId);
+        await admin
+          .from("reseller_customers")
+          .update({ bvn: null })
+          .eq("id", customerId);
         return { error: "Failed to reserve BVN. Please try again." };
       }
 
@@ -392,7 +397,8 @@ export async function createCustomerVirtualAccount(
     if (!secretKey || !apiKey || !businessId) {
       console.error("Missing Xixapay config");
       return {
-        error: "Payment provider configuration missing. Please contact support.",
+        error:
+          "Payment provider configuration missing. Please contact support.",
       };
     }
 
@@ -405,13 +411,13 @@ export async function createCustomerVirtualAccount(
     // 9. Prepare XixaPay request payload - using waitlist person's name and phone
     const xixapayPayload = {
       email: virtualEmail,
-      name: waitlistName,  // ← Name from waitlist (BVN owner)
-      phoneNumber: waitlistPhone,  // ← Phone from waitlist (BVN owner)
+      name: waitlistName, // ← Name from waitlist (BVN owner)
+      phoneNumber: waitlistPhone, // ← Phone from waitlist (BVN owner)
       bankCode: ["20867"], // PalmPay
       businessId,
       accountType: "static",
       id_type: "bvn",
-      id_number: bvnToUse,  // ← BVN from waitlist
+      id_number: bvnToUse, // ← BVN from waitlist
     };
 
     console.log("Creating customer virtual account:", {
@@ -438,9 +444,15 @@ export async function createCustomerVirtualAccount(
 
     const xixapayData = await xixapayResponse.json();
 
+    // ✅ Add detailed logging
+    console.log("XixaPay Response Status:", xixapayResponse.status);
+    console.log("XixaPay Response Data:", JSON.stringify(xixapayData, null, 2));
+
     if (!xixapayResponse.ok || xixapayData.status !== "success") {
       return {
-        error: xixapayData.message || "Failed to create virtual account. Please try again.",
+        error:
+          xixapayData.message ||
+          "Failed to create virtual account. Please try again.",
       };
     }
 
@@ -460,9 +472,9 @@ export async function createCustomerVirtualAccount(
       tracking_reference: bank.Reserved_Account_Id,
       provider: "xixapay",
       customer_email: virtualEmail,
-      customer_name: waitlistName,  // ← Store waitlist name
-      customer_phone: waitlistPhone,  // ← Store waitlist phone
-      customer_bvn: bvnToUse,  // ← Store real BVN
+      customer_name: waitlistName, // ← Store waitlist name
+      customer_phone: waitlistPhone, // ← Store waitlist phone
+      customer_bvn: bvnToUse, // ← Store real BVN
       customer_nin: null,
       status: "active",
     }));
@@ -495,7 +507,8 @@ export async function createCustomerVirtualAccount(
 
     return {
       success: true,
-      message: "Virtual account created successfully! You can now fund your wallet.",
+      message:
+        "Virtual account created successfully! You can now fund your wallet.",
       virtualEmail,
       accounts: bankAccounts.map((bank: any) => ({
         bankName: bank.bankName,
