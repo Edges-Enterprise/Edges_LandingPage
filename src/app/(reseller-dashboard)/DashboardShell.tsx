@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { logoutReseller } from "../actions/reseller/logout";
+import { createClient } from "@/lib/supabase/client";
 
 export function DashboardShell({
   children,
@@ -69,6 +70,12 @@ export function DashboardShell({
       label: "Settings",
     },
   ];
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = `/${storeSlug}`;
+  };
 
   return (
     <div
@@ -210,7 +217,7 @@ export function DashboardShell({
             <ExternalLink size={16} />
             View Store
           </a>
-          <form action={logoutReseller}>
+          <button onClick={handleLogout} >
             <button
               style={{
                 display: "flex",
@@ -239,7 +246,7 @@ export function DashboardShell({
               <LogOut size={16} />
               Logout
             </button>
-          </form>
+          </button>
         </div>
       </aside>
 
