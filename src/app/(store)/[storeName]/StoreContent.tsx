@@ -431,7 +431,7 @@ export function StoreContent({
       }
       setLoginLoading(false);
     }
-  }
+  };
 
   const switchAuthMode = (mode: "signin" | "signup") => {
     setAuthMode(mode);
@@ -440,18 +440,25 @@ export function StoreContent({
     setPassword("");
   };
 
+  // const handleLogout = async () => {
+  //   setLogoutLoading(true);
+  //   const supabase = createClient();
+  //   const {
+  //     data: { user },
+  //   } = await supabase.auth.getUser();
+  //   if (user?.user_metadata?.store_name === storeName) {
+  //     await logoutReseller();
+  //   } else {
+  //     await logoutCustomer(storeName);
+  //   }
+  //   setLogoutLoading(false);
+  // };
+
   const handleLogout = async () => {
     setLogoutLoading(true);
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user?.user_metadata?.store_name === storeName) {
-      await logoutReseller();
-    } else {
-      await logoutCustomer(storeName);
-    }
-    setLogoutLoading(false);
+    await supabase.auth.signOut();
+    window.location.href = `/${storeName}`;
   };
 
   const refreshWalletData = async () => {
