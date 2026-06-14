@@ -27,6 +27,9 @@ export async function createReseller(
   const androidApp = formData.get("androidApp") === "true";
   const appIconFile = formData.get("appIcon") as File | null;
 
+  // ── Upload Notification Icon (generated client-side) ───
+  const notificationIconFile = formData.get("notificationIcon") as File | null;
+
   // ── Validation ─────────────────────────────
   if (!storeName || !email) {
     return { error: "Store name and email are required" };
@@ -152,6 +155,40 @@ export async function createReseller(
       }
     } catch (err) {
       console.error("Icon upload error:", err);
+    }
+  }
+
+  if (androidApp && notificationIconFile) {
+    try {
+      const buffer = Buffer.from(await notificationIconFile.arrayBuffer());
+      const fileName = `reseller-${reseller.id}-notification-icon-${Date.now()}.png`;
+      const filePath = `${reseller.id}/${fileName}`;
+
+      const { error: uploadError } = await admin.storage
+        .from("reseller-assets")
+        .upload(filePath, buffer, {
+          contentType: "image/png",
+          upsert: true,
+        });
+
+      if (!uploadError) {
+        const { data: urlData } = admin.storage
+          .from("reseller-assets")
+          .getPublicUrl(filePath);
+
+        await admin.from("reseller_assets").insert({
+          reseller_id: reseller.id,
+          type: "notification_icon",
+          url: urlData.publicUrl,
+          file_name: fileName,
+          file_size: notificationIconFile.size,
+          mime_type: "image/png",
+        });
+      } else {
+        console.error("Notification icon upload failed:", uploadError);
+      }
+    } catch (err) {
+      console.error("Notification icon upload error:", err);
     }
   }
 
