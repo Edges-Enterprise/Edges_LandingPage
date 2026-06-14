@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { checkStoreName } from "../actions/reseller/checkStoreName";
 import { createReseller } from "../actions/reseller/createReseller";
-import { generateIconPng } from "./generateIcon";
+import { generateIconPng, generateNotificationIcon } from "./generateIcon";
 
 // Curated palette of 8 swatches resellers can pick from
 const SWATCHES = [
@@ -203,6 +203,21 @@ export function ResellerFormClient() {
         fd.append("appIcon", iconFile);
       } catch (err) {
         console.error("Failed to generate icon:", err);
+      }
+    }
+
+    // Notification icon (separate from app icon — always generated)
+    if (androidApp) {
+      try {
+        const notifBlob = await generateNotificationIcon(storeName.trim());
+        const notifFile = new File(
+          [notifBlob],
+          `${storeName.trim()}-notification-icon.png`,
+          { type: "image/png" },
+        );
+        fd.append("notificationIcon", notifFile);
+      } catch (err) {
+        console.error("Failed to generate notification icon:", err);
       }
     }
 
