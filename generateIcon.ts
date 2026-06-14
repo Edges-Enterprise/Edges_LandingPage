@@ -1,4 +1,4 @@
-// app/reseller/generateIcon.ts
+// generateIcon.ts
 
 /**
  * Generates a premium, wow-factor PNG app icon.
