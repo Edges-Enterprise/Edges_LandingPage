@@ -17,6 +17,10 @@ export async function triggerAppBuild(resellerId: string) {
 
   const iconUrl =
     reseller.assets?.find((a: any) => a.type === "icon")?.url || "";
+  
+  const notificationIconUrl =
+    reseller.assets?.find((a: any) => a.type === "notification_icon")?.url ||
+    "";
 
   const appName = reseller.store_name
     .split("-")
@@ -44,6 +48,7 @@ export async function triggerAppBuild(resellerId: string) {
       splash: iconUrl,
       logo: iconUrl,
       adaptiveIcon: iconUrl,
+      notificationIcon: notificationIconUrl,
     },
     config: {
       androidPackageName: `com.edges.${reseller.store_name.replace(/-/g, "")}`,
