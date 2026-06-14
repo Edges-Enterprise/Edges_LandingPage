@@ -1,4 +1,4 @@
-// app/reseller/generateIcon.ts
+// generateIcon.ts
 
 /**
  * Generates a premium, wow-factor PNG app icon.
@@ -374,4 +374,45 @@ function drawRoundedSquare(
   ctx.lineTo(x, y + radius);
   ctx.quadraticCurveTo(x, y, x + radius, y);
   ctx.closePath();
+}
+
+
+/**
+ * Generates a notification icon (96x96, white silhouette on transparent).
+ * Android 5+ ignores RGB on small icons and uses only the alpha channel —
+ * the brand color comes from the notification payload / plugin config, not this PNG.
+ */
+export async function generateNotificationIcon(
+  storeName: string,
+): Promise<Blob> {
+  const size = 96;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.clearRect(0, 0, size, size);
+
+  const initial = storeName.charAt(0).toUpperCase();
+  const cx = size / 2;
+  const cy = size / 2;
+
+  ctx.font = `bold ${size * 0.6}px "Georgia", "Playfair Display", "Times New Roman", serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // White silhouette — only alpha matters on Android
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(initial, cx, cy);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Failed to generate notification icon"));
+      },
+      "image/png",
+      1.0,
+    );
+  });
 }
