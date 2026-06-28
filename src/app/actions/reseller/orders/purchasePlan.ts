@@ -25,7 +25,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 async function callLizzyDataProxy(payload: {
-  network: string;
+  network: number;
   phone: string;
   data_plan: number;
   "request-id": string;
@@ -49,7 +49,7 @@ async function callLizzyDataProxy(payload: {
 }
 
 async function callLizzyAirtimeProxy(payload: {
-  network: string;
+  network: number;
   phone: string;
   amount: number;
   "request-id": string;
@@ -245,25 +245,41 @@ export async function purchasePlan(
   // 11. Call Lizzysub API
   const isAirtime = plan.plan_type?.toLowerCase() === "airtime";
 
-  console.log("Calling Lizzysub:", {
-    planType: plan.plan_type,
-    network: plan.network,
-    phone: input.phoneNumber.slice(0, 4) + "***" + input.phoneNumber.slice(-4),
-    requestId,
-  });
+  const NETWORK_MAP: Record<string, number> = {
+    MTN: 1,
+    AIRTEL: 2,
+    GLO: 3,
+    "9MOBILE": 4,
+  };
+
+  const networkId = NETWORK_MAP[plan.network];
+  if (!networkId) {
+    return {
+      success: false,
+      error: `Unsupported network: ${plan.network}`,
+    };
+  }
+
+ console.log("Calling Lizzysub:", {
+   planType: plan.plan_type,
+   network: plan.network,
+   networkId: networkId,
+   phone: input.phoneNumber.slice(0, 4) + "***" + input.phoneNumber.slice(-4),
+   requestId,
+ });
 
   let lizzyResult: any;
 
   if (isAirtime) {
     lizzyResult = await callLizzyAirtimeProxy({
-      network: plan.network,
+      network: networkId,
       phone: input.phoneNumber,
       amount: plan.amount,
       "request-id": requestId,
     });
   } else {
     lizzyResult = await callLizzyDataProxy({
-      network: plan.network,
+      network: networkId,
       phone: input.phoneNumber,
       data_plan: plan.plan_id, // Use the numeric plan_id here
       "request-id": requestId,
