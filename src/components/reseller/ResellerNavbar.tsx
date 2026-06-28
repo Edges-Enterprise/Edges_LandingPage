@@ -55,7 +55,7 @@ export default function Navbar() {
             width={40}
             height={40}
           /> */}
-          <span style={{fontFamily: "'Playfair Display', serif",}} className="text-[#FFFFFF] font-bold text-lg">
+          <span style={{fontFamily: "'Playfair Display', serif",}} className="text-[#FFFFFF] font-bold text-2xl">
             Telcos
           </span>
         </Link>
