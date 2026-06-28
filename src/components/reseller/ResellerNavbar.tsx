@@ -49,14 +49,14 @@ export default function Navbar() {
         }}
       >
         <Link href="/" className="flex items-center space-x-2">
-          <Image
+          {/* <Image
             src="/edgesnetworkicon.png"
             alt="Edges Network Logo"
             width={40}
             height={40}
-          />
-          <span style={{fontFamily: "'Playfair Display', serif",}} className="text-[#D7A77F] font-bold text-lg">
-            Edges Network
+          /> */}
+          <span style={{fontFamily: "'Playfair Display', serif",}} className="text-[#FFFFFF] font-bold text-lg">
+            Telcos
           </span>
         </Link>
 
