@@ -153,19 +153,35 @@ export async function purchasePlan(
   const profit = finalPrice - plan.amount;
 
   // 7. Get or create customer wallet
+  const { data: customerRecord, error: customerError } = await supabase
+    .from("reseller_customers")
+    .select("id")
+    .eq("reseller_id", reseller.id)
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+
+  if (customerError || !customerRecord) {
+    return {
+      success: false,
+      error: "Customer profile not found. Please try again.",
+    };
+  }
+
+  // Now look up the wallet using the customer's actual ID from reseller_customers
   let { data: customerWallet } = await supabase
     .from("reseller_customer_wallets")
     .select("id, balance")
     .eq("reseller_id", reseller.id)
-    .eq("customer_id", user.id)
+    .eq("customer_id", customerRecord.id) // <- Use the correct customer_id
     .maybeSingle();
 
   if (!customerWallet) {
+    // Create wallet if it doesn't exist
     const { data: newWallet, error: createError } = await supabase
       .from("reseller_customer_wallets")
       .insert({
         reseller_id: reseller.id,
-        customer_id: user.id,
+        customer_id: customerRecord.id, // <- Use the correct customer_id
         balance: 0,
         total_spent: 0,
       })
