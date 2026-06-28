@@ -297,7 +297,7 @@ export async function purchasePlan(
     await supabase.from("reseller_orders").insert({
       reseller_id: reseller.id,
       customer_email: user.email,
-      plan_id: input.planId,
+      plan_id: basePlan.id,
       amount: finalPrice,
       profit,
       status: "failed",
@@ -371,7 +371,7 @@ export async function purchasePlan(
     .insert({
       reseller_id: reseller.id,
       customer_email: user.email,
-      plan_id: input.planId,
+      plan_id: basePlan.id,
       amount: finalPrice,
       profit,
       status: "completed",
@@ -401,7 +401,7 @@ export async function purchasePlan(
     reference: order?.id || requestId,
     metadata: {
       order_id: order?.id,
-      plan_id: input.planId,
+      plan_id: basePlan.id,
       plan_name: plan.plan_name,
       customer_email: user.email,
       phone_number: input.phoneNumber,
