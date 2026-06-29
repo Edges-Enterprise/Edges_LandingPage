@@ -177,7 +177,7 @@ export default async function DashboardOverview() {
           </div>
         </Card>
 
-        <Card>
+        {/* <Card>
           <div
             style={{
               display: "flex",
@@ -207,7 +207,7 @@ export default async function DashboardOverview() {
             </div>
             <span style={{ fontSize: "2rem" }}>💸</span>
           </div>
-        </Card>
+        </Card> */}
 
         <Card>
           <div
