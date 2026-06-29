@@ -421,7 +421,7 @@ export function WalletClient({
                 marginBottom: 4,
               }}
             >
-              Available Balance
+              Withdrawable Balance
             </p>
             <p
               style={{
