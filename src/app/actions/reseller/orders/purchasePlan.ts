@@ -300,13 +300,14 @@ export async function purchasePlan(
         "Service temporarily unavailable. Please try again later.";
     }
 
-    await supabase.from("reseller_orders").insert({
-      reseller_id: reseller.id,
-      customer_email: user.email,
-      plan_id: basePlan.id,
-      amount: finalPrice,
-      profit,
-      status: "failed",
+    // Create failed order via RPC (bypasses RLS)
+    await supabase.rpc("create_purchase_order", {
+      p_reseller_id: reseller.id,
+      p_customer_email: user.email,
+      p_plan_id: basePlan.id,
+      p_amount: finalPrice,
+      p_profit: profit,
+      p_status: "failed",
     });
 
     return {
@@ -368,43 +369,39 @@ export async function purchasePlan(
       },
     });
 
-    const { data: order } = await supabase
-      .from("reseller_orders")
-      .insert({
-        reseller_id: reseller.id,
-        customer_email: user.email,
-        plan_id: basePlan.id,
-        amount: finalPrice,
-        profit,
-        status: "pending_reconciliation",
-      })
-      .select()
-      .single();
+    // Create pending reconciliation order via RPC
+    const { data: orderId } = await supabase.rpc("create_purchase_order", {
+      p_reseller_id: reseller.id,
+      p_customer_email: user.email,
+      p_plan_id: basePlan.id,
+      p_amount: finalPrice,
+      p_profit: profit,
+      p_status: "pending_reconciliation",
+    });
 
     return {
       success: true,
       message: `${plan.plan_name} purchased successfully! (Please contact support if you don't see your balance updated)`,
       planName: lizzyResult.dataplan || plan.plan_name,
       amount: finalPrice,
-      orderId: order?.id,
+      orderId: orderId,
     };
   }
 
   console.log("[Purchase] Deductions successful:", deductionResult);
 
   // 16. Create completed order
-  const { data: order, error: orderError } = await supabase
-    .from("reseller_orders")
-    .insert({
-      reseller_id: reseller.id,
-      customer_email: user.email,
-      plan_id: basePlan.id,
-      amount: finalPrice,
-      profit,
-      status: "completed",
-    })
-    .select()
-    .single();
+  const { data: orderId, error: orderError } = await supabase.rpc(
+    "create_purchase_order",
+    {
+      p_reseller_id: reseller.id,
+      p_customer_email: user.email,
+      p_plan_id: basePlan.id,
+      p_amount: finalPrice,
+      p_profit: profit,
+      p_status: "completed",
+    },
+  );
 
   if (orderError) {
     console.error("[Purchase] Order creation error:", orderError);
@@ -416,9 +413,9 @@ export async function purchasePlan(
     amount: finalPrice,
     type: "purchase",
     status: "completed",
-    reference: order?.id || requestId,
+    reference: orderId || requestId,
     metadata: {
-      order_id: order?.id,
+      order_id: orderId,
       plan_id: input.planId,
       plan_name: plan.plan_name,
       customer_email: user.email,
@@ -444,7 +441,7 @@ export async function purchasePlan(
     message: lizzyResult.message || `${plan.plan_name} purchased successfully!`,
     planName: lizzyResult.dataplan || plan.plan_name,
     amount: finalPrice,
-    orderId: order?.id,
+    orderId: orderId,
   };
 }
 
