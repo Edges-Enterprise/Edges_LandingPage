@@ -177,37 +177,7 @@ export default async function DashboardOverview() {
           </div>
         </Card>
 
-        {/* <Card>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <div>
-              <p
-                style={{
-                  fontSize: "0.8rem",
-                  color: "var(--dim)",
-                  marginBottom: 4,
-                }}
-              >
-                Total Sales
-              </p>
-              <p
-                style={{
-                  fontSize: "1.6rem",
-                  fontWeight: 700,
-                  color: "var(--text)",
-                }}
-              >
-                {formatNaira(stats.totalSales)}
-              </p>
-            </div>
-            <span style={{ fontSize: "2rem" }}>💸</span>
-          </div>
-        </Card> */}
+    
 
         <Card>
           <div
