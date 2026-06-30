@@ -77,7 +77,7 @@ export function WalletClient({
 
   // Calculate withdrawable amount: balance + total_profit
   const withdrawableAmount =
-    (wallet?.balance || 0) + (wallet?.total_profit || 0);
+    (wallet?.balance || 0) + (wallet?.total_sales || 0);
 
   // Fetch banks on mount
   useEffect(() => {
