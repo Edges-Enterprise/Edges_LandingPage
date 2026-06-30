@@ -62,7 +62,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
                 >
                   <th style={thStyle}>Customer</th>
                   <th style={thStyle}>Total Orders</th>
-                  <th style={thStyle}>Total Spent</th>
+                  {/* <th style={thStyle}>Total Spent</th> */}
                   <th style={thStyle}>Last Order</th>
                   <th style={thStyle}>Joined</th>
                 </tr>
@@ -139,9 +139,9 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
                         {(customer.total_orders || 0) !== 1 ? "s" : ""}
                       </span>
                     </td>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>
+                    {/* <td style={{ ...tdStyle, fontWeight: 600 }}>
                       {formatNaira(customer.total_spent || 0)}
-                    </td>
+                    </td> */}
                     <td
                       style={{
                         ...tdStyle,
