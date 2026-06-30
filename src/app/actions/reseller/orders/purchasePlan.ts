@@ -495,21 +495,6 @@ export async function purchasePlan(
     },
   });
 
-  // 21. Update customer last purchase
-  // const { error: updateCustomerError } = await supabase
-  //   .from("reseller_customers")
-  //   .update({
-  //     last_purchase_at: new Date().toISOString(),
-  //   })
-  //   .eq("id", customerRecord.id);
-
-  // if (updateCustomerError) {
-  //   console.error(
-  //     "[Purchase] Failed to update customer last_purchase_at:",
-  //     updateCustomerError,
-  //   );
-  // }
-
   revalidatePath(`/${input.storeName}`);
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/orders");
