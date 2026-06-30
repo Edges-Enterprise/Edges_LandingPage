@@ -67,14 +67,14 @@ export function OrdersClient({ orders }: { orders: Order[] }) {
             {orders.length}
           </p>
         </Card>
-        <Card>
+        {/* <Card>
           <p style={{ fontSize: "0.8rem", color: "var(--dim)", marginBottom: 4 }}>
             Total Revenue
           </p>
           <p style={{ fontSize: "1.6rem", fontWeight: 700, color: "var(--accent-lt)" }}>
             {formatNaira(totalRevenue)}
           </p>
-        </Card>
+        </Card> */}
         <Card>
           <p style={{ fontSize: "0.8rem", color: "var(--dim)", marginBottom: 4 }}>
             Total Profit
