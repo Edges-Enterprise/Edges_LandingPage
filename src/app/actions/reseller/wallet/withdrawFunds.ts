@@ -127,6 +127,8 @@ export async function verifyBankAccount(
   }
 }
 
+const MIN_WITHDRAWAL_AMOUNT = 100;
+
 export async function withdrawFunds(input: WithdrawInput): Promise<{
   success?: boolean;
   error?: string;
@@ -134,6 +136,13 @@ export async function withdrawFunds(input: WithdrawInput): Promise<{
   netAmount?: number;
 }> {
   const supabase = await createServerClient();
+
+  // ✅ Add minimum amount validation
+  if (input.amount < MIN_WITHDRAWAL_AMOUNT) {
+    return {
+      error: `Minimum withdrawal amount is ₦${MIN_WITHDRAWAL_AMOUNT}`,
+    };
+  }
 
   if (input.amount <= 0) {
     return { error: "Amount must be greater than zero" };
