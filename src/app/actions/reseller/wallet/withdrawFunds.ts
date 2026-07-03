@@ -127,7 +127,6 @@ export async function verifyBankAccount(
   }
 }
 
-
 export async function withdrawFunds(input: WithdrawInput): Promise<{
   success?: boolean;
   error?: string;
@@ -159,9 +158,9 @@ export async function withdrawFunds(input: WithdrawInput): Promise<{
   }
 
   // Calculate fee (2%)
-  const fee = Math.ceil(input.amount * 0.02);
-  const totalDeduction = input.amount + fee;
-  const netAmount = input.amount;
+  const fee = Math.round(input.amount * 0.02);
+  const totalDeduction = input.amount;
+  const netAmount = input.amount - fee; // 102 - 2 = 100
 
   // // 1. Check balance
   // const { data: wallet } = await supabase
@@ -223,7 +222,7 @@ export async function withdrawFunds(input: WithdrawInput): Promise<{
     "update_wallet_after_withdrawal",
     {
       p_reseller_id: input.resellerId,
-      p_amount: input.amount,
+      p_amount: totalDeduction,
       p_fee: fee,
     },
   );
@@ -258,9 +257,10 @@ export async function withdrawFunds(input: WithdrawInput): Promise<{
       status: "pending",
       reference,
       metadata: {
-        withdrawal_amount: input.amount,
-        fee,
-        net_amount: netAmount,
+        requested_amount: input.amount, // ← 102
+        fee: fee, // ← 2
+        net_amount: netAmount, // ← 100 (user receives this)
+        total_deducted: totalDeduction, // ← 102
         bank_code: input.bankCode,
         account_number: input.accountNumber,
         account_name: verification.accountName,
@@ -318,10 +318,11 @@ export async function withdrawFunds(input: WithdrawInput): Promise<{
     );
 
     const payoutData = await payoutResponse.json();
+    console.log("XIXAPAY_PAYOUT_RESPONSE", JSON.stringify(payoutData));
 
     if (payoutData.status === "success") {
       // 6. Mark transaction as completed
-      await supabase
+      const { error: updateError } = await supabase
         .from("reseller_transactions")
         .update({
           status: "completed",
@@ -332,6 +333,16 @@ export async function withdrawFunds(input: WithdrawInput): Promise<{
           },
         })
         .eq("id", (transaction as any)?.id);
+
+      if (updateError) {
+        console.error(
+          "FAILED TO MARK TRANSACTION COMPLETED AFTER SUCCESSFUL PAYOUT",
+          updateError,
+          transaction,
+        );
+        // this is the dangerous case: money moved, ledger didn't update.
+        // alert/page yourself here — this is not a case to fail silently.
+      }
 
       // ✅ Recalculate wallet to update cache
       await supabase.rpc("recalculate_reseller_wallet", {
