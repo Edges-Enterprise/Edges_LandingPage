@@ -27,6 +27,9 @@ import {
   createResellerVirtualAccount,
   getResellerVirtualAccounts,
 } from "@/app/actions/reseller/wallet/resellerCustomerWallet";
+// Add this constant at the top of the component
+
+const MIN_WITHDRAWAL_AMOUNT = 100;
 
 export function WalletClient({
   resellerId,
@@ -459,7 +462,7 @@ export function WalletClient({
                       type="number"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      placeholder="Enter amount"
+                      placeholder={`Enter amount (min. ₦${MIN_WITHDRAWAL_AMOUNT})`}
                       style={{
                         width: "100%",
                         padding: "0.7rem 1rem",
@@ -471,12 +474,22 @@ export function WalletClient({
                         outline: "none",
                         fontFamily: "inherit",
                       }}
-                      min="100"
+                      min={MIN_WITHDRAWAL_AMOUNT}
                     />
                   </div>
                   <button
-                    onClick={() => setWithdrawStep("bank")}
-                    disabled={!amount || Number(amount) <= 0}
+                    onClick={() => {
+                      const amountNum = Number(amount);
+                      if (amountNum < MIN_WITHDRAWAL_AMOUNT) {
+                        setMessage({
+                          type: "error",
+                          text: `Minimum withdrawal amount is ₦${MIN_WITHDRAWAL_AMOUNT}`,
+                        });
+                        return;
+                      }
+                      setWithdrawStep("bank");
+                    }}
+                    disabled={!amount || Number(amount) <= 99}
                     style={{
                       padding: "0.7rem 1.5rem",
                       background: "var(--accent)",
@@ -487,7 +500,7 @@ export function WalletClient({
                       fontSize: "0.9rem",
                       cursor: "pointer",
                       fontFamily: "inherit",
-                      opacity: !amount || Number(amount) <= 0 ? 0.5 : 1,
+                      opacity: !amount || Number(amount) <= 99 ? 0.5 : 1,
                     }}
                   >
                     Continue
