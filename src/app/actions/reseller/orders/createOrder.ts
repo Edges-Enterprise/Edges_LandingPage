@@ -113,7 +113,7 @@ export async function createOrder(
     "update_wallet_after_sale",
     {
       p_reseller_id: reseller.id,
-      p_amount: finalPrice,
+      p_selling_price: finalPrice,
       p_profit: profit,
     },
   );
