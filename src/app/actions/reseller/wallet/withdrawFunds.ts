@@ -172,6 +172,27 @@ export async function withdrawFunds(input: WithdrawInput): Promise<{
   const netAmount = input.amount - fee; // 102 - 2 = 100
 
   // // 1. Check balance
+  // ✅ CORRECT: Get balance directly (not withdrawable)
+  const { data: wallet, error: walletErrr } = await supabase
+    .from("reseller_wallets")
+    .select("balance")
+    .eq("reseller_id", input.resellerId)
+    .single();
+
+  if (walletErrr || !wallet) {
+    return {
+      error: "Wallet not found. Please contact support.",
+    };
+  }
+
+  // ✅ Check balance only
+  if (wallet.balance < input.amount) {
+    // Use input.amount, not totalDeduction
+    return {
+      error: `Insufficient balance. Your balance is ₦${wallet.balance.toLocaleString()} but you need ₦${input.amount.toLocaleString()}.`,
+    };
+  }
+
   // const { data: wallet } = await supabase
   //   .from("reseller_wallets")
   //   .select("balance")
@@ -193,29 +214,29 @@ export async function withdrawFunds(input: WithdrawInput): Promise<{
   // ============================================================
   // ✅ FIX: Get fresh withdrawable from RPC (source of truth)
   // ============================================================
-  const { data: walletData, error: recalcError } = await supabase.rpc(
-    "recalculate_reseller_wallet",
-    {
-      p_reseller_id: input.resellerId,
-      p_for_update: true, // ← Locks the row!
-    },
-  );
+  // const { data: walletData, error: recalcError } = await supabase.rpc(
+  //   "recalculate_reseller_wallet",
+  //   {
+  //     p_reseller_id: input.resellerId,
+  //     p_for_update: true, // ← Locks the row!
+  //   },
+  // );
 
-  if (recalcError || !walletData?.success) {
-    console.error("Error recalculating wallet:", recalcError || walletData);
-    return {
-      error: "Failed to verify wallet balance. Please try again.",
-    };
-  }
+  // if (recalcError || !walletData?.success) {
+  //   console.error("Error recalculating wallet:", recalcError || walletData);
+  //   return {
+  //     error: "Failed to verify wallet balance. Please try again.",
+  //   };
+  // }
 
-  const withdrawable = walletData.withdrawable || 0;
+  // const withdrawable = walletData.withdrawable || 0;
 
   // ✅ Check if enough funds using withdrawable (balance + total_sales)
-  if (withdrawable < totalDeduction) {
-    return {
-      error: `Insufficient balance. Your withdrawable balance is ₦${withdrawable.toLocaleString()} but you need ₦${totalDeduction.toLocaleString()} (amount + ₦${fee.toLocaleString()} fee).`,
-    };
-  }
+  // if (withdrawable < totalDeduction) {
+  //   return {
+  //     error: `Insufficient balance. Your withdrawable balance is ₦${withdrawable.toLocaleString()} but you need ₦${totalDeduction.toLocaleString()} (amount + ₦${fee.toLocaleString()} fee).`,
+  //   };
+  // }
 
   // 2. Verify bank account before proceeding
   const verification = await verifyBankAccount(
