@@ -78,9 +78,8 @@ export function WalletClient({
   // Ref for debounce timeout
   const verifyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Calculate withdrawable amount: balance + total_profit
-  const withdrawableAmount =
-    (wallet?.balance || 0) + (wallet?.total_sales || 0);
+  // ✅ CORRECT: Withdrawable = balance only
+  const withdrawableAmount = wallet?.balance || 0; // ✅ FIXED
 
   // Fetch banks on mount
   useEffect(() => {
