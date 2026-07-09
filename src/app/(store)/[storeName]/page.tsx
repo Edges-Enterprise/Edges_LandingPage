@@ -6,7 +6,8 @@ import { StoreContent } from "./StoreContent";
 import { getResellerByStoreName } from "@/app/actions/reseller/getReseller";
 import { getStorePlans } from "@/app/actions/reseller/plans/getPlans";
 import { getStoreAsset } from "@/app/actions/reseller/getStoreAsset";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";  // ← This is what you need
+
 
 /** Slightly darken a hex colour — used server-side for gradient end stop */
 function darken(hex: string, amt = 30): string {
@@ -38,7 +39,6 @@ export async function generateMetadata(
   const { storeName } = await params;
   const headersList = await headers();
 
-  // Detect actual host from request headers
   const host = headersList.get("host") || "";
   const proto = headersList.get("x-forwarded-proto") || "https";
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`;
@@ -57,9 +57,6 @@ export async function generateMetadata(
     .join(" ");
 
   const storeIcon = await getStoreAsset(reseller.id);
-
-  // Build the favicon URL
-  // const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const faviconUrl = `${baseUrl}/api/store/${storeName}/favicon`;
 
   return {
@@ -89,9 +86,11 @@ export default async function StorePage({
   const reseller = await getResellerByStoreName(storeName);
   if (!reseller) notFound();
 
+  // ✅ Use your existing admin client
+  const supabaseAdmin = createAdminClient();
+
   // ─── Fetch APK URL for this specific reseller ───
-  const supabase = await createServerClient();
-  const { data: appConfig } = await supabase
+  const { data: appConfig } = await supabaseAdmin
     .from("reseller_app_configs")
     .select("apk_url")
     .eq("reseller_id", reseller.id)

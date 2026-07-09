@@ -57,7 +57,7 @@ export default function Navbar() {
           /> */}
           <span
             style={{ fontFamily: "'Playfair Display', serif" }}
-            className="text-[#FFFFFF] font-bold text-3xl tracking-wider"
+            className="text-[#FFFFFF] font-bold text-xl tracking-wider"
           >
             Telcos
           </span>

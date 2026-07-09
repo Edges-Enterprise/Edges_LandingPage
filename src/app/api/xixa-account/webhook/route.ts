@@ -202,54 +202,61 @@ async function processResellerDeposit(
     const newBalance = currentBalance + finalNetAmount;
 
     // Record transaction
-    const { error: txError } = await supabase.from("reseller_transactions").insert({
-      reseller_id: account.reseller_id,
-      amount: finalNetAmount,
-      type: "deposit",
-      status: "completed",
-      reference,
-      metadata: {
-        payment_method: "bank_transfer",
-        bank_name: sender.bank,
-        account_number: sender.account_number,
-        sender_name: sender.name,
-        receiver_account: receiver.account_number,
-        receiver_bank: receiver.bank,
-        gross_amount: grossAmount,
-        platform_fees: platformFees,
-        xixa_fee: xixaFee,
-        final_net: finalNetAmount,
-        previous_balance: currentBalance,
-        new_balance: newBalance,
-        customer_name: customer?.name,
-        customer_email: customer?.email,
-        timestamp,
-        provider: "xixapay",
-        verified_by: "reseller-webhook",
-      },
-    });
+    const { error: txError } = await supabase
+      .from("reseller_transactions")
+      .insert({
+        reseller_id: account.reseller_id,
+        amount: finalNetAmount,
+        type: "deposit",
+        status: "completed",
+        reference,
+        metadata: {
+          payment_method: "bank_transfer",
+          bank_name: sender.bank,
+          account_number: sender.account_number,
+          sender_name: sender.name,
+          receiver_account: receiver.account_number,
+          receiver_bank: receiver.bank,
+          gross_amount: grossAmount,
+          platform_fees: platformFees,
+          xixa_fee: xixaFee,
+          final_net: finalNetAmount,
+          previous_balance: currentBalance,
+          new_balance: newBalance,
+          customer_name: customer?.name,
+          customer_email: customer?.email,
+          timestamp,
+          provider: "xixapay",
+          verified_by: "reseller-webhook",
+        },
+      });
 
     if (txError) {
       console.error("[Reseller Store] Failed to record transaction:", txError);
     }
 
     // Notification
-    const { error: notifError } = await supabase.from("reseller_notifications").insert({
-      reseller_id: account.reseller_id,
-      notification_type: "deposit",
-      message: `₦${finalNetAmount.toLocaleString("en-NG", { minimumFractionDigits: 2 })} has been added to your wallet from ${sender.bank} (after ₦${platformFees.toLocaleString()} fee)`,
-      is_read: false,
-      metadata: {
-        transaction_id: reference,
-        amount: finalNetAmount,
-        fee_charged: platformFees,
-        sender: sender.name,
-        bank: sender.bank,
-      },
-    });
+    const { error: notifError } = await supabase
+      .from("reseller_notifications")
+      .insert({
+        reseller_id: account.reseller_id,
+        notification_type: "deposit",
+        message: `₦${finalNetAmount.toLocaleString("en-NG", { minimumFractionDigits: 2 })} has been added to your wallet from ${sender.bank} (after ₦${platformFees.toLocaleString()} fee)`,
+        is_read: false,
+        metadata: {
+          transaction_id: reference,
+          amount: finalNetAmount,
+          fee_charged: platformFees,
+          sender: sender.name,
+          bank: sender.bank,
+        },
+      });
 
     if (notifError) {
-      console.error("[Reseller Store] Failed to create notification:", notifError);
+      console.error(
+        "[Reseller Store] Failed to create notification:",
+        notifError,
+      );
     }
 
     console.log("[Reseller Store] Reseller wallet funded:", {
@@ -257,7 +264,6 @@ async function processResellerDeposit(
       final_net: finalNetAmount,
       new_balance: newBalance,
     });
-
   } else {
     // ================================================================
     // CUSTOMER DEPOSIT
@@ -295,40 +301,77 @@ async function processResellerDeposit(
     const newBalance = currentBalance + finalNetAmount;
 
     // Record order as deposit
-    const { error: orderError } = await supabase.from("reseller_orders").insert({
-      reseller_id: account.reseller_id,
-      customer_email: account.customer_email,
-      amount: finalNetAmount,
-      profit: 0,
-      status: "completed",
-    });
+    // ✅ RECORD CUSTOMER TRANSACTION
+    const { error: txError } = await supabase
+      .from("reseller_customer_transactions")
+      .insert({
+        reseller_id: account.reseller_id,
+        customer_id: account.customer_id,
+        type: "deposit",
+        amount: grossAmount, // Original amount before fees
+        fee: platformFees, // Total fees charged
+        net_amount: finalNetAmount, // Amount actually credited
+        previous_balance: currentBalance,
+        new_balance: newBalance,
+        reference: `DEP_${transaction_id}`,
+        status: "completed",
+        description: `Wallet funding via ${sender.bank}`,
+        metadata: {
+          payment_method: "bank_transfer",
+          bank_name: sender.bank,
+          account_number: sender.account_number,
+          sender_name: sender.name,
+          receiver_account: receiver.account_number,
+          receiver_bank: receiver.bank,
+          gross_amount: grossAmount,
+          platform_fees: platformFees,
+          xixa_fee: xixaFee,
+          xixa_settlement_amount: xixaSettlementAmount,
+          customer_email: account.customer_email,
+          customer_name: account.customer_name,
+          timestamp,
+          provider: "xixapay",
+          verified_by: "reseller-webhook",
+        },
+      });
 
-    if (orderError) {
-      console.error("[Reseller Store] Failed to record order:", orderError);
+    if (txError) {
+      console.error(
+        "[Reseller Store] Failed to record customer transaction:",
+        txError,
+      );
     }
 
     // Notification
-    const { error: notifError } = await supabase.from("reseller_customer_notifications").insert({
-      reseller_id: account.reseller_id,
-      customer_id: account.customer_id,
-      notification_type: "deposit",
-      message: `₦${finalNetAmount.toLocaleString("en-NG", { minimumFractionDigits: 2 })} has been added to your wallet from ${sender.bank} (after ₦${platformFees.toLocaleString()} fee)`,
-      is_read: false,
-      metadata: {
-        amount: finalNetAmount,
-        fee_charged: platformFees,
-        sender: sender.name,
-        bank: sender.bank,
-      },
-    });
+    const { error: notifError } = await supabase
+      .from("reseller_customer_notifications")
+      .insert({
+        reseller_id: account.reseller_id,
+        customer_id: account.customer_id,
+        notification_type: "deposit",
+        message: `₦${finalNetAmount.toLocaleString("en-NG", { minimumFractionDigits: 2 })} has been added to your wallet from ${sender.bank} (after ₦${platformFees.toLocaleString()} fee)`,
+        is_read: false,
+        metadata: {
+          transaction_id: `DEP_${transaction_id}`,
+          amount: finalNetAmount,
+          fee_charged: platformFees,
+          sender: sender.name,
+          bank: sender.bank,
+        },
+      });
 
     if (notifError) {
-      console.error("[Reseller Store] Failed to create notification:", notifError);
+      console.error(
+        "[Reseller Store] Failed to create notification:",
+        notifError,
+      );
     }
 
     console.log("[Reseller Store] Customer wallet funded:", {
       customer_id: account.customer_id,
       reseller_id: account.reseller_id,
+      gross: grossAmount,
+      fees: platformFees,
       final_net: finalNetAmount,
       new_balance: newBalance,
     });

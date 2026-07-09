@@ -27,6 +27,9 @@ import {
   createResellerVirtualAccount,
   getResellerVirtualAccounts,
 } from "@/app/actions/reseller/wallet/resellerCustomerWallet";
+// Add this constant at the top of the component
+
+const MIN_WITHDRAWAL_AMOUNT = 100;
 
 export function WalletClient({
   resellerId,
@@ -74,6 +77,9 @@ export function WalletClient({
 
   // Ref for debounce timeout
   const verifyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ✅ CORRECT: Withdrawable = balance only
+  const withdrawableAmount = wallet?.balance || 0; // ✅ FIXED
 
   // Fetch banks on mount
   useEffect(() => {
@@ -132,37 +138,6 @@ export function WalletClient({
       }
     };
   }, [selectedBank, accountNumber]);
-
-  // const handleCreateVirtualAccount = async () => {
-  //   if (
-  //     !virtualForm.fullName ||
-  //     !virtualForm.phoneNumber ||
-  //     !virtualForm.email
-  //   ) {
-  //     setVirtualMessage({ type: "error", text: "All fields are required" });
-  //     return;
-  //   }
-  //   setVirtualLoading(true);
-  //   setVirtualMessage(null);
-
-  //   const result = await createResellerVirtualAccount({
-  //     ...virtualForm,
-  //     resellerId,
-  //   });
-
-  //   if (result.error) {
-  //     setVirtualMessage({ type: "error", text: result.error });
-  //   } else {
-  //     setVirtualMessage({
-  //       type: "success",
-  //       text: result.message || "Virtual account created!",
-  //     });
-  //     setShowVirtualForm(false);
-  //     const accounts = await getResellerVirtualAccounts(resellerId);
-  //     setVirtualAccounts(accounts || []);
-  //   }
-  //   setVirtualLoading(false);
-  // };
 
   const handleCreateVirtualAccount = async () => {
     setVirtualLoading(true);
@@ -356,169 +331,6 @@ export function WalletClient({
       ) : (
         <Card>
           <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
-            {/* <p
-              style={{
-                fontWeight: 600,
-                color: "var(--text)",
-                marginBottom: "0.5rem",
-              }}
-            >
-              Create Virtual Account
-            </p>
-            <p
-              style={{
-                fontSize: "0.85rem",
-                color: "var(--muted)",
-                marginBottom: "1rem",
-              }}
-            >
-              Get your unique account number to fund your wallet instantly
-            </p> */}
-            {/* 
-            {!showVirtualForm ? (
-              <button
-                onClick={() => setShowVirtualForm(true)}
-                style={{
-                  padding: "0.6rem 1.5rem",
-                  background: "var(--accent)",
-                  border: "none",
-                  borderRadius: 10,
-                  color: "#FDF8F3",
-                  fontWeight: 600,
-                  fontSize: "0.9rem",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Create Virtual Account
-              </button>
-            ) : (
-              <div
-                style={{ textAlign: "left", maxWidth: 400, margin: "0 auto" }}
-              >
-                {virtualMessage && (
-                  <div
-                    style={{
-                      padding: "0.6rem 1rem",
-                      borderRadius: 8,
-                      marginBottom: "1rem",
-                      background:
-                        virtualMessage.type === "success"
-                          ? "rgba(110,189,138,0.1)"
-                          : "rgba(239,68,68,0.1)",
-                      color:
-                        virtualMessage.type === "success"
-                          ? "#6EBD8A"
-                          : "#F87171",
-                      fontSize: "0.85rem",
-                    }}
-                  >
-                    {virtualMessage.text}
-                  </div>
-                )}
-
-                <div style={{ marginBottom: "0.75rem" }}>
-                  <label style={labelStyle}>Full Name</label>
-                  <input
-                    type="text"
-                    value={virtualForm.fullName}
-                    onChange={(e) =>
-                      setVirtualFormState({
-                        ...virtualForm,
-                        fullName: e.target.value,
-                      })
-                    }
-                    placeholder="John Doe"
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div style={{ marginBottom: "0.75rem" }}>
-                  <label style={labelStyle}>Phone Number</label>
-                  <input
-                    type="text"
-                    value={virtualForm.phoneNumber}
-                    onChange={(e) =>
-                      setVirtualFormState({
-                        ...virtualForm,
-                        phoneNumber: e.target.value,
-                      })
-                    }
-                    placeholder="08012345678"
-                    maxLength={11}
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div style={{ marginBottom: "1rem" }}>
-                  <label style={labelStyle}>Email Address</label>
-                  <input
-                    type="email"
-                    value={virtualForm.email}
-                    onChange={(e) =>
-                      setVirtualFormState({
-                        ...virtualForm,
-                        email: e.target.value,
-                      })
-                    }
-                    placeholder="you@example.com"
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button
-                    onClick={handleCreateVirtualAccount}
-                    disabled={virtualLoading}
-                    style={{
-                      flex: 1,
-                      padding: "0.6rem",
-                      background: "var(--accent)",
-                      border: "none",
-                      borderRadius: 8,
-                      color: "#FDF8F3",
-                      fontWeight: 600,
-                      fontSize: "0.85rem",
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      opacity: virtualLoading ? 0.7 : 1,
-                    }}
-                  >
-                    {virtualLoading ? (
-                      <Loader2
-                        size={16}
-                        style={{
-                          animation: "spin 1s linear infinite",
-                          display: "inline",
-                        }}
-                      />
-                    ) : null}
-                    {virtualLoading ? " Creating..." : "Create"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowVirtualForm(false);
-                      setVirtualMessage(null);
-                    }}
-                    style={{
-                      padding: "0.6rem 1rem",
-                      background: "var(--bg2)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      color: "var(--muted)",
-                      fontSize: "0.85rem",
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}  */}
-
-            {/* // Replace the form with this simplified UI: */}
-
             {!showVirtualForm ? (
               <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
                 <p style={{ fontWeight: 600, marginBottom: "0.5rem" }}>
@@ -581,7 +393,7 @@ export function WalletClient({
                 marginBottom: 4,
               }}
             >
-              Available Balance
+              Withdrawable Balance
             </p>
             <p
               style={{
@@ -591,7 +403,7 @@ export function WalletClient({
                 color: "var(--text)",
               }}
             >
-              {formatNaira(currentBalance)}
+              {formatNaira(withdrawableAmount)}
             </p>
           </div>
           <button
@@ -600,7 +412,7 @@ export function WalletClient({
               setAmount("");
               setMessage(null);
             }}
-            disabled={currentBalance <= 0}
+            disabled={withdrawableAmount <= 0}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -612,9 +424,9 @@ export function WalletClient({
               borderRadius: 10,
               fontSize: "0.85rem",
               fontWeight: 600,
-              cursor: currentBalance <= 0 ? "not-allowed" : "pointer",
+              cursor: withdrawableAmount <= 0 ? "not-allowed" : "pointer",
               fontFamily: "inherit",
-              opacity: currentBalance <= 0 ? 0.5 : 1,
+              opacity: withdrawableAmount <= 0 ? 0.5 : 1,
             }}
           >
             <ArrowUpRight size={16} />
@@ -649,7 +461,7 @@ export function WalletClient({
                       type="number"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      placeholder="Enter amount"
+                      placeholder={`Enter amount (min. ₦${MIN_WITHDRAWAL_AMOUNT})`}
                       style={{
                         width: "100%",
                         padding: "0.7rem 1rem",
@@ -661,12 +473,22 @@ export function WalletClient({
                         outline: "none",
                         fontFamily: "inherit",
                       }}
-                      min="100"
+                      min={MIN_WITHDRAWAL_AMOUNT}
                     />
                   </div>
                   <button
-                    onClick={() => setWithdrawStep("bank")}
-                    disabled={!amount || Number(amount) <= 0}
+                    onClick={() => {
+                      const amountNum = Number(amount);
+                      if (amountNum < MIN_WITHDRAWAL_AMOUNT) {
+                        setMessage({
+                          type: "error",
+                          text: `Minimum withdrawal amount is ₦${MIN_WITHDRAWAL_AMOUNT}`,
+                        });
+                        return;
+                      }
+                      setWithdrawStep("bank");
+                    }}
+                    disabled={!amount || Number(amount) <= 99}
                     style={{
                       padding: "0.7rem 1.5rem",
                       background: "var(--accent)",
@@ -677,7 +499,7 @@ export function WalletClient({
                       fontSize: "0.9rem",
                       cursor: "pointer",
                       fontFamily: "inherit",
-                      opacity: !amount || Number(amount) <= 0 ? 0.5 : 1,
+                      opacity: !amount || Number(amount) <= 99 ? 0.5 : 1,
                     }}
                   >
                     Continue
@@ -894,7 +716,7 @@ export function WalletClient({
         >
           <div>
             <p style={{ fontSize: "0.75rem", color: "var(--dim)" }}>
-              Total Sales
+              Account Balance
             </p>
             <p
               style={{
@@ -903,7 +725,8 @@ export function WalletClient({
                 color: "var(--text)",
               }}
             >
-              {formatNaira(wallet?.total_sales || 0)}
+              {formatNaira(currentBalance)}
+              {/* {formatNaira(wallet?.total_sales || 0)} */}
             </p>
           </div>
           <div>
@@ -1085,7 +908,7 @@ const tdStyle: React.CSSProperties = {
 // // app/(reseller-dashboard)/wallet/WalletClient.tsx
 
 // "use client";
-// import { useEffect, useState } from "react";
+// import { useEffect, useState, useRef } from "react";
 // import { Card } from "../Card";
 // import { Badge } from "../Badge";
 // import {
@@ -1156,6 +979,9 @@ const tdStyle: React.CSSProperties = {
 //   const fee = amount ? calculateWithdrawalFee(Number(amount)) : 0;
 //   const netAmount = amount ? Number(amount) - fee : 0;
 
+//   // Ref for debounce timeout
+//   const verifyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
 //   // Fetch banks on mount
 //   useEffect(() => {
 //     async function fetchBanks() {
@@ -1174,53 +1000,94 @@ const tdStyle: React.CSSProperties = {
 //     fetchAccounts();
 //   }, [resellerId]);
 
-//   const handleCreateVirtualAccount = async () => {
-//     if (
-//       !virtualForm.fullName ||
-//       !virtualForm.phoneNumber ||
-//       !virtualForm.email
-//     ) {
-//       setVirtualMessage({ type: "error", text: "All fields are required" });
+//   // Auto-verify when bank and account number are complete
+//   useEffect(() => {
+//     // Clear previous timeout
+//     if (verifyTimeoutRef.current) {
+//       clearTimeout(verifyTimeoutRef.current);
+//     }
+
+//     // Clear account name if inputs are incomplete
+//     if (!selectedBank || !accountNumber || accountNumber.length !== 10) {
+//       setAccountName("");
+//       setVerifying(false);
 //       return;
 //     }
+
+//     // Debounce verification by 600ms
+//     setVerifying(true);
+//     verifyTimeoutRef.current = setTimeout(async () => {
+//       const result = await verifyBankAccount(selectedBank, accountNumber);
+
+//       if (result.success && result.accountName) {
+//         setAccountName(result.accountName);
+//       } else {
+//         setAccountName("");
+//         // Only show error if the API returned a specific message
+//         if (result.error) {
+//           setMessage({ type: "error", text: result.error });
+//           // Clear error after 4 seconds
+//           setTimeout(() => setMessage(null), 4000);
+//         }
+//       }
+//       setVerifying(false);
+//     }, 600);
+
+//     return () => {
+//       if (verifyTimeoutRef.current) {
+//         clearTimeout(verifyTimeoutRef.current);
+//       }
+//     };
+//   }, [selectedBank, accountNumber]);
+
+//   // const handleCreateVirtualAccount = async () => {
+//   //   if (
+//   //     !virtualForm.fullName ||
+//   //     !virtualForm.phoneNumber ||
+//   //     !virtualForm.email
+//   //   ) {
+//   //     setVirtualMessage({ type: "error", text: "All fields are required" });
+//   //     return;
+//   //   }
+//   //   setVirtualLoading(true);
+//   //   setVirtualMessage(null);
+
+//   //   const result = await createResellerVirtualAccount({
+//   //     ...virtualForm,
+//   //     resellerId,
+//   //   });
+
+//   //   if (result.error) {
+//   //     setVirtualMessage({ type: "error", text: result.error });
+//   //   } else {
+//   //     setVirtualMessage({
+//   //       type: "success",
+//   //       text: result.message || "Virtual account created!",
+//   //     });
+//   //     setShowVirtualForm(false);
+//   //     const accounts = await getResellerVirtualAccounts(resellerId);
+//   //     setVirtualAccounts(accounts || []);
+//   //   }
+//   //   setVirtualLoading(false);
+//   // };
+
+//   const handleCreateVirtualAccount = async () => {
 //     setVirtualLoading(true);
 //     setVirtualMessage(null);
 
-//     const result = await createResellerVirtualAccount({
-//       ...virtualForm,
-//       resellerId,
-//     });
+//     const result = await createResellerVirtualAccount(resellerId);
 
 //     if (result.error) {
 //       setVirtualMessage({ type: "error", text: result.error });
 //     } else {
 //       setVirtualMessage({
 //         type: "success",
-//         text: result.message || "Virtual account created!",
+//         text: result.message || "Virtual account created successfully!",
 //       });
-//       setShowVirtualForm(false);
 //       const accounts = await getResellerVirtualAccounts(resellerId);
 //       setVirtualAccounts(accounts || []);
 //     }
 //     setVirtualLoading(false);
-//   };
-
-//   // Verify bank account
-//   const handleVerifyAccount = async () => {
-//     if (!selectedBank || !accountNumber || accountNumber.length !== 10) return;
-
-//     setVerifying(true);
-//     const result = await verifyBankAccount(selectedBank, accountNumber);
-
-//     if (result.success && result.accountName) {
-//       setAccountName(result.accountName);
-//     } else {
-//       setMessage({
-//         type: "error",
-//         text: result.error || "Verification failed",
-//       });
-//     }
-//     setVerifying(false);
 //   };
 
 //   const handleWithdraw = async () => {
@@ -1230,33 +1097,34 @@ const tdStyle: React.CSSProperties = {
 //     setLoading(true);
 //     setMessage(null);
 
-//    const result = await withdrawFunds({
-//      resellerId,
-//      amount: Number(amount),
-//      bankCode: selectedBank,
-//      accountNumber,
-//      accountName,
-//    });
-
-//   if (result.error) {
-//     setMessage({ type: "error", text: result.error });
-//   } else {
-//     setCurrentBalance(
-//       (prev) => prev - Number(amount) - calculateWithdrawalFee(Number(amount)),
-//     );
-//     setAmount("");
-//     setSelectedBank("");
-//     setAccountNumber("");
-//     setAccountName("");
-//     setShowWithdraw(false);
-//     setWithdrawStep("amount");
-//     setMessage({
-//       type: "success",
-//       text: `Withdrawal of ${formatNaira(Number(amount))} initiated successfully!`,
+//     const result = await withdrawFunds({
+//       resellerId,
+//       amount: Number(amount),
+//       bankCode: selectedBank,
+//       accountNumber,
+//       accountName,
 //     });
-//   }
 
-//   setLoading(false);
+//     if (result.error) {
+//       setMessage({ type: "error", text: result.error });
+//     } else {
+//       setCurrentBalance(
+//         (prev) =>
+//           prev - Number(amount) - calculateWithdrawalFee(Number(amount)),
+//       );
+//       setAmount("");
+//       setSelectedBank("");
+//       setAccountNumber("");
+//       setAccountName("");
+//       setShowWithdraw(false);
+//       setWithdrawStep("amount");
+//       setMessage({
+//         type: "success",
+//         text: `Withdrawal of ${formatNaira(Number(amount))} initiated successfully!`,
+//       });
+//     }
+
+//     setLoading(false);
 //   };
 
 //   const copyToClipboard = (text: string) => {
@@ -1395,166 +1263,42 @@ const tdStyle: React.CSSProperties = {
 //       ) : (
 //         <Card>
 //           <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
-//             <p
-//               style={{
-//                 fontWeight: 600,
-//                 color: "var(--text)",
-//                 marginBottom: "0.5rem",
-//               }}
-//             >
-//               Create Virtual Account
-//             </p>
-//             <p
-//               style={{
-//                 fontSize: "0.85rem",
-//                 color: "var(--muted)",
-//                 marginBottom: "1rem",
-//               }}
-//             >
-//               Get your unique account number to fund your wallet instantly
-//             </p>
+//             {/* // Replace the form with this simplified UI: */}
 
 //             {!showVirtualForm ? (
-//               <button
-//                 onClick={() => setShowVirtualForm(true)}
-//                 style={{
-//                   padding: "0.6rem 1.5rem",
-//                   background: "var(--accent)",
-//                   border: "none",
-//                   borderRadius: 10,
-//                   color: "#FDF8F3",
-//                   fontWeight: 600,
-//                   fontSize: "0.9rem",
-//                   cursor: "pointer",
-//                   fontFamily: "inherit",
-//                 }}
-//               >
-//                 Create Virtual Account
-//               </button>
-//             ) : (
-//               <div
-//                 style={{ textAlign: "left", maxWidth: 400, margin: "0 auto" }}
-//               >
-//                 {virtualMessage && (
-//                   <div
-//                     style={{
-//                       padding: "0.6rem 1rem",
-//                       borderRadius: 8,
-//                       marginBottom: "1rem",
-//                       background:
-//                         virtualMessage.type === "success"
-//                           ? "rgba(110,189,138,0.1)"
-//                           : "rgba(239,68,68,0.1)",
-//                       color:
-//                         virtualMessage.type === "success"
-//                           ? "#6EBD8A"
-//                           : "#F87171",
-//                       fontSize: "0.85rem",
-//                     }}
-//                   >
-//                     {virtualMessage.text}
-//                   </div>
-//                 )}
-
-//                 <div style={{ marginBottom: "0.75rem" }}>
-//                   <label style={labelStyle}>Full Name</label>
-//                   <input
-//                     type="text"
-//                     value={virtualForm.fullName}
-//                     onChange={(e) =>
-//                       setVirtualFormState({
-//                         ...virtualForm,
-//                         fullName: e.target.value,
-//                       })
-//                     }
-//                     placeholder="John Doe"
-//                     style={inputStyle}
-//                   />
-//                 </div>
-
-//                 <div style={{ marginBottom: "0.75rem" }}>
-//                   <label style={labelStyle}>Phone Number</label>
-//                   <input
-//                     type="text"
-//                     value={virtualForm.phoneNumber}
-//                     onChange={(e) =>
-//                       setVirtualFormState({
-//                         ...virtualForm,
-//                         phoneNumber: e.target.value,
-//                       })
-//                     }
-//                     placeholder="08012345678"
-//                     maxLength={11}
-//                     style={inputStyle}
-//                   />
-//                 </div>
-
-//                 <div style={{ marginBottom: "1rem" }}>
-//                   <label style={labelStyle}>Email Address</label>
-//                   <input
-//                     type="email"
-//                     value={virtualForm.email}
-//                     onChange={(e) =>
-//                       setVirtualFormState({
-//                         ...virtualForm,
-//                         email: e.target.value,
-//                       })
-//                     }
-//                     placeholder="you@example.com"
-//                     style={inputStyle}
-//                   />
-//                 </div>
-
-//                 <div style={{ display: "flex", gap: "0.5rem" }}>
-//                   <button
-//                     onClick={handleCreateVirtualAccount}
-//                     disabled={virtualLoading}
-//                     style={{
-//                       flex: 1,
-//                       padding: "0.6rem",
-//                       background: "var(--accent)",
-//                       border: "none",
-//                       borderRadius: 8,
-//                       color: "#FDF8F3",
-//                       fontWeight: 600,
-//                       fontSize: "0.85rem",
-//                       cursor: "pointer",
-//                       fontFamily: "inherit",
-//                       opacity: virtualLoading ? 0.7 : 1,
-//                     }}
-//                   >
-//                     {virtualLoading ? (
-//                       <Loader2
-//                         size={16}
-//                         style={{
-//                           animation: "spin 1s linear infinite",
-//                           display: "inline",
-//                         }}
-//                       />
-//                     ) : null}
-//                     {virtualLoading ? " Creating..." : "Create"}
-//                   </button>
-//                   <button
-//                     onClick={() => {
-//                       setShowVirtualForm(false);
-//                       setVirtualMessage(null);
-//                     }}
-//                     style={{
-//                       padding: "0.6rem 1rem",
-//                       background: "var(--bg2)",
-//                       border: "1px solid var(--border)",
-//                       borderRadius: 8,
-//                       color: "var(--muted)",
-//                       fontSize: "0.85rem",
-//                       cursor: "pointer",
-//                       fontFamily: "inherit",
-//                     }}
-//                   >
-//                     Cancel
-//                   </button>
-//                 </div>
+//               <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
+//                 <p style={{ fontWeight: 600, marginBottom: "0.5rem" }}>
+//                   Get Your Virtual Account
+//                 </p>
+//                 <p
+//                   style={{
+//                     fontSize: "0.85rem",
+//                     color: "var(--muted)",
+//                     marginBottom: "1rem",
+//                   }}
+//                 >
+//                   One-click setup. <em> Fund your wallet instantly</em>.
+//                 </p>
+//                 <button
+//                   onClick={handleCreateVirtualAccount}
+//                   disabled={virtualLoading}
+//                   style={{
+//                     padding: "0.6rem 1.5rem",
+//                     background: "var(--accent)",
+//                     border: "none",
+//                     borderRadius: 10,
+//                     color: "#FDF8F3",
+//                     fontWeight: 600,
+//                     fontSize: "0.9rem",
+//                     cursor: "pointer",
+//                     fontFamily: "inherit",
+//                     opacity: virtualLoading ? 0.7 : 1,
+//                   }}
+//                 >
+//                   {virtualLoading ? "Creating..." : "Create Virtual Account →"}
+//                 </button>
 //               </div>
-//             )}
+//             ) : null}
 //           </div>
 //         </Card>
 //       )}
@@ -1583,7 +1327,7 @@ const tdStyle: React.CSSProperties = {
 //                 marginBottom: 4,
 //               }}
 //             >
-//               Available Balance
+//               Withdrawable Balance
 //             </p>
 //             <p
 //               style={{
@@ -1593,7 +1337,8 @@ const tdStyle: React.CSSProperties = {
 //                 color: "var(--text)",
 //               }}
 //             >
-//               {formatNaira(currentBalance)}
+//               {formatNaira(currentBalance)} +{" "}
+//               {formatNaira(wallet?.total_profit || 0)}
 //             </p>
 //           </div>
 //           <button
@@ -1713,6 +1458,7 @@ const tdStyle: React.CSSProperties = {
 //                     value={selectedBank}
 //                     onChange={(e) => {
 //                       setSelectedBank(e.target.value);
+//                       setAccountNumber("");
 //                       setAccountName("");
 //                     }}
 //                     style={{
@@ -1731,7 +1477,7 @@ const tdStyle: React.CSSProperties = {
 
 //                 <div style={{ marginBottom: "1rem" }}>
 //                   <label style={labelStyle}>Account Number</label>
-//                   <div style={{ display: "flex", gap: "0.5rem" }}>
+//                   <div style={{ position: "relative" }}>
 //                     <input
 //                       type="text"
 //                       value={accountNumber}
@@ -1739,45 +1485,36 @@ const tdStyle: React.CSSProperties = {
 //                         setAccountNumber(
 //                           e.target.value.replace(/\D/g, "").slice(0, 10),
 //                         );
-//                         setAccountName("");
 //                       }}
 //                       placeholder="0123456789"
 //                       maxLength={10}
-//                       style={{ ...inputStyle, flex: 1 }}
-//                     />
-//                     <button
-//                       onClick={handleVerifyAccount}
-//                       disabled={
-//                         !selectedBank ||
-//                         !accountNumber ||
-//                         accountNumber.length !== 10 ||
-//                         verifying
-//                       }
 //                       style={{
-//                         padding: "0.6rem 1rem",
-//                         background: verifying ? "var(--bg3)" : "var(--accent)",
-//                         border: "none",
-//                         borderRadius: 8,
-//                         color: "#fff",
-//                         fontSize: "0.85rem",
-//                         fontWeight: 600,
-//                         cursor: "pointer",
-//                         fontFamily: "inherit",
-//                         whiteSpace: "nowrap",
+//                         ...inputStyle,
+//                         paddingRight: verifying ? "2.5rem" : "0.8rem",
 //                       }}
-//                     >
-//                       {verifying ? (
+//                     />
+//                     {verifying && (
+//                       <div
+//                         style={{
+//                           position: "absolute",
+//                           right: 12,
+//                           top: "50%",
+//                           transform: "translateY(-50%)",
+//                         }}
+//                       >
 //                         <Loader2
-//                           size={14}
-//                           style={{ animation: "spin 1s linear infinite" }}
+//                           size={16}
+//                           style={{
+//                             color: "var(--accent)",
+//                             animation: "spin 1s linear infinite",
+//                           }}
 //                         />
-//                       ) : (
-//                         "Verify"
-//                       )}
-//                     </button>
+//                       </div>
+//                     )}
 //                   </div>
 //                 </div>
 
+//                 {/* Verification result */}
 //                 {accountName && (
 //                   <div
 //                     style={{
@@ -1788,11 +1525,35 @@ const tdStyle: React.CSSProperties = {
 //                       marginBottom: "1rem",
 //                       fontSize: "0.85rem",
 //                       color: "#6EBD8A",
+//                       display: "flex",
+//                       alignItems: "center",
+//                       gap: 6,
 //                     }}
 //                   >
-//                     ✅ {accountName}
+//                     <Check size={16} />
+//                     {accountName}
 //                   </div>
 //                 )}
+
+//                 {/* No match found state */}
+//                 {!verifying &&
+//                   !accountName &&
+//                   accountNumber.length === 10 &&
+//                   selectedBank && (
+//                     <div
+//                       style={{
+//                         padding: "0.6rem 0.8rem",
+//                         background: "rgba(239,68,68,0.08)",
+//                         border: "1px solid rgba(239,68,68,0.2)",
+//                         borderRadius: 8,
+//                         marginBottom: "1rem",
+//                         fontSize: "0.82rem",
+//                         color: "#F87171",
+//                       }}
+//                     >
+//                       Could not verify account. Please check the details.
+//                     </div>
+//                   )}
 
 //                 <div
 //                   style={{
@@ -1889,7 +1650,8 @@ const tdStyle: React.CSSProperties = {
 //                 color: "var(--text)",
 //               }}
 //             >
-//               {formatNaira(wallet?.total_sales || 0)}
+//               {/* {formatNaira(wallet?.total_sales || 0)} */}
+//               {formatNaira(currentBalance)}
 //             </p>
 //           </div>
 //           <div>
