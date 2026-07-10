@@ -17,8 +17,8 @@ const links = [
 const countryRoutes = {
   Ghana: { path: "/gh", flag: flags.Ghana },
   Nigeria: { path: "/reseller", flag: flags.Nigeria },
-  Egypt: { path: "/ey", flag: flags.Egypt },
-  DRC: { path: "/drc", flag: flags.DRC },
+  Egypt: { path: "/eg", flag: flags.Egypt },
+  DRC: { path: "/cd", flag: flags.DRC },
   Rwanda: { path: "/rw", flag: flags.Rwanda },
   Zambia: { path: "/zm", flag: flags.Zambia },
 };
