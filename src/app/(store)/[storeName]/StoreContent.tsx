@@ -440,20 +440,6 @@ export function StoreContent({
     setPassword("");
   };
 
-  // const handleLogout = async () => {
-  //   setLogoutLoading(true);
-  //   const supabase = createClient();
-  //   const {
-  //     data: { user },
-  //   } = await supabase.auth.getUser();
-  //   if (user?.user_metadata?.store_name === storeName) {
-  //     await logoutReseller();
-  //   } else {
-  //     await logoutCustomer(storeName);
-  //   }
-  //   setLogoutLoading(false);
-  // };
-
   const handleLogout = async () => {
     setLogoutLoading(true);
     const supabase = createClient();
