@@ -120,3 +120,32 @@ body {
   -webkit-backface-visibility: hidden;
   will-change: transform;
 }
+
+/* ============================================
+   LIGHT THEME OVERRIDES
+   Append this block to reseller.css.
+   Activated by [data-theme="light"] on the
+   dashboard root wrapper (set in DashboardShell.tsx).
+   ============================================ */
+
+[data-theme="light"] {
+  --bg:         #FDF8F3;
+  --bg2:        #F5E9D9;
+  --bg3:        #EDD0AE;
+  --card:       #FFFFFF;
+  --card2:      #FBF3E7;
+  --border:     rgba(168,108,56,0.15);
+  --border2:    rgba(168,108,56,0.3);
+  --border3:    rgba(168,108,56,0.5);
+  --accent:     #A86C38;
+  --accent-lt:  #8A5429;
+  --text:       #2F1A0A;
+  --muted:      #6B3F1E;
+  --dim:        #A88060;
+  --green:      #2F7D4F;
+}
+
+/* Smooth transition when switching themes */
+[data-theme] * {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
