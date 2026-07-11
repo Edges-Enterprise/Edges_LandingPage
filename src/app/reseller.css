@@ -112,6 +112,15 @@ body {
   animation: shimmer 4s linear infinite;
 }
 
+/* Add to the end of your CSS */
+.card-wrapper, 
+[style*="background: var(--card)"] {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+}
+
 /* @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Instrument+Sans:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
