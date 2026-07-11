@@ -24,12 +24,16 @@ export function Card({
 
   return (
     <div
+      className={`card-wrapper ${className || ''}`}
       style={{
         background: "var(--card)",
         border: "1px solid var(--border)",
         borderRadius: 14,
         ...paddings[padding],
         ...style,
+        transform: 'translateZ(0)',
+        backfaceVisibility: 'hidden',
+        WebkitBackfaceVisibility: 'hidden'
       }}
     >
       {children}
