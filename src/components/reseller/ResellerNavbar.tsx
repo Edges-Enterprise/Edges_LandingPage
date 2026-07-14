@@ -80,28 +80,18 @@ export default function Navbar() {
           </span>
           {Object.entries(countryRoutes)
             .slice(0, 6)
-            .map(([country, { path, flag }]) => (
-              <button
+            .map(([country, { flag }]) => (
+              <span
                 key={country}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "0.5rem",
-                  width: "100%",
-                  padding: "0.2rem 0",
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--text)",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  fontSize: "0.9rem",
-                  transition: "color 0.2s",
+                  cursor: "default", // No pointer cursor
+                  // marginLeft: "0.25rem",
                 }}
               >
-                <span style={{ display: "flex", alignItems: "center" }}>
-                  {flag}
-                </span>
-              </button>
+                {flag}
+              </span>
             ))}
         </Link>
 
