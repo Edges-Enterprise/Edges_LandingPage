@@ -9,7 +9,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
+*.ps1
 # testing
 /coverage
 /src/app/api/test-build
