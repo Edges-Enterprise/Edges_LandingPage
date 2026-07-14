@@ -72,38 +72,37 @@ export default function Navbar() {
         }}
       >
         <Link href="/" className="flex items-center space-x-2">
-
           <span
             style={{ fontFamily: "'Playfair Display', serif" }}
             className="text-[#FFFFFF] font-bold text-3xl tracking-wider"
           >
             Telcos
           </span>
-          {Object.entries(countryRoutes).map(([country, { path, flag }]) => (
-            <button
-              key={country}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                width: "100%",
-                padding: "0.2rem 0",
-                background: "transparent",
-                border: "none",
-                color: "var(--text)",
-                textAlign: "left",
-                cursor: "pointer",
-                fontSize: "0.9rem",
-                transition: "color 0.2s",
-              }}
-              
-            >
-              <span style={{ display: "flex", alignItems: "center" }}>
-                {flag}
-              </span>
-              
-            </button>
-          ))}
+          {Object.entries(countryRoutes)
+            .slice(0, 6)
+            .map(([country, { path, flag }]) => (
+              <button
+                key={country}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  width: "100%",
+                  padding: "0.2rem 0",
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text)",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  fontSize: "0.9rem",
+                  transition: "color 0.2s",
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center" }}>
+                  {flag}
+                </span>
+              </button>
+            ))}
         </Link>
 
         <div
