@@ -7,12 +7,14 @@ import { COUNTRY_MA } from "./ma";
 import { COUNTRY_CD } from "./cd";
 import { COUNTRY_CM } from "./cm";
 import { COUNTRY_TG } from "./tg";
+import { flags } from "@/constants/flags";
 
 export interface CountryConfig {
   code: string;
   name: string;
   nativeName: string;
-  flag: string;
+  flag: string; // ✅ Now stores the SVG flag string
+  flagEmoji: string; // ✅ Keep emoji for fallback
   currency: string;
   currencySymbol: string;
   phoneCode: string;
@@ -85,4 +87,19 @@ export const getCountryByLanguage = (
   languageCode: string,
 ): CountryConfig | undefined => {
   return Object.values(COUNTRIES).find((c) => c.language.code === languageCode);
+};
+
+// ✅ Helper to render flag SVG
+export const renderFlag = (countryCode: string): string => {
+  const flagMap: Record<string, string> = {
+    ng: flags.Nigeria as unknown as string,
+    gh: flags.Ghana as unknown as string,
+    zm: flags.Zambia as unknown as string,
+    eg: flags.Egypt as unknown as string,
+    ma: flags.Morocco as unknown as string,
+    cd: flags.DRC as unknown as string,
+    cm: flags.Cameroon as unknown as string,
+    tg: flags.Togo as unknown as string,
+  };
+  return flagMap[countryCode] || (flags.Nigeria as unknown as string);
 };

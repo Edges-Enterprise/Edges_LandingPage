@@ -1,11 +1,13 @@
 // src/config/countries/ng.ts
 import { CountryConfig } from "./index";
+import { flags } from "@/constants/flags";
 
 export const COUNTRY_NG: CountryConfig = {
   code: "ng",
   name: "Nigeria",
   nativeName: "Nigeria",
-  flag: "🇳🇬",
+  flag: flags.Nigeria as unknown as string, // ✅ SVG flag
+  flagEmoji: "🇳🇬",
   currency: "NGN",
   currencySymbol: "₦",
   phoneCode: "+234",

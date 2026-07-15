@@ -1,11 +1,13 @@
 // src/config/countries/cm.ts
 import { CountryConfig } from "./index";
+import { flags } from "@/constants/flags";
 
 export const COUNTRY_CM: CountryConfig = {
   code: "cm",
   name: "Cameroon",
   nativeName: "Cameroun",
-  flag: "🇨🇲",
+  flag: flags.Cameroon as unknown as string, // ✅ Updated
+  flagEmoji: "🇨🇲",
   currency: "XAF",
   currencySymbol: "FCFA",
   phoneCode: "+237",

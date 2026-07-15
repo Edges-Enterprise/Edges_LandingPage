@@ -1,11 +1,13 @@
 // src/config/countries/eg.ts
 import { CountryConfig } from "./index";
+import { flags } from "@/constants/flags";
 
 export const COUNTRY_EG: CountryConfig = {
   code: "eg",
   name: "Egypt",
   nativeName: "مصر",
-  flag: "🇪🇬",
+  flag: flags.Egypt as unknown as string, // ✅ SVG flag
+  flagEmoji: "🇪🇬",
   currency: "EGP",
   currencySymbol: "E£",
   phoneCode: "+20",

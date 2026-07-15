@@ -1,11 +1,13 @@
 // src/config/countries/ma.ts
 import { CountryConfig } from "./index";
+import { flags } from "@/constants/flags";
 
 export const COUNTRY_MA: CountryConfig = {
   code: "ma",
   name: "Morocco",
   nativeName: "المغرب",
-  flag: "🇲🇦",
+  flag: flags.Morocco as unknown as string, // ✅ SVG flag
+  flagEmoji: "🇲🇦",
   currency: "MAD",
   currencySymbol: "DH",
   phoneCode: "+212",

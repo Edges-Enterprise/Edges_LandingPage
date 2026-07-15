@@ -1,11 +1,13 @@
 // src/config/countries/tg.ts
 import { CountryConfig } from "./index";
+import { flags } from "@/constants/flags";
 
 export const COUNTRY_TG: CountryConfig = {
   code: "tg",
   name: "Togo",
   nativeName: "Togo",
-  flag: "🇹🇬",
+  flag: flags.Togo as unknown as string, // ✅ SVG flag
+  flagEmoji: "🇹🇬",
   currency: "XOF",
   currencySymbol: "CFA",
   phoneCode: "+228",

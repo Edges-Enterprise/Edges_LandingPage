@@ -1,11 +1,13 @@
 // src/config/countries/gh.ts
 import { CountryConfig } from "./index";
+import { flags } from "@/constants/flags";
 
 export const COUNTRY_GH: CountryConfig = {
   code: "gh",
   name: "Ghana",
   nativeName: "Ghana",
-  flag: "🇬🇭",
+  flag: flags.Ghana as unknown as string, // ✅ SVG flag
+  flagEmoji: "🇬🇭",
   currency: "GHS",
   currencySymbol: "₵",
   phoneCode: "+233",

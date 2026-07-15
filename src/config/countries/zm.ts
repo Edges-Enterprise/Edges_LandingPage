@@ -1,11 +1,13 @@
 // src/config/countries/zm.ts
 import { CountryConfig } from "./index";
+import { flags } from "@/constants/flags";
 
 export const COUNTRY_ZM: CountryConfig = {
   code: "zm",
   name: "Zambia",
   nativeName: "Zambia",
-  flag: "🇿🇲",
+  flag: flags.Zambia as unknown as string, // ✅ SVG flag
+  flagEmoji: "🇿🇲",
   currency: "ZMW",
   currencySymbol: "ZK",
   phoneCode: "+260",
