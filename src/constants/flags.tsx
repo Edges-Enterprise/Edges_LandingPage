@@ -1,4 +1,4 @@
-// app/constants/flags.tsx
+// src/constants/flags.tsx
 export const flags = {
   Ghana: (
     <svg
@@ -266,6 +266,100 @@ export const flags = {
             d="M300.1 65s13.6 7.2 19.4 6.7a10 10 0 0 1-3.8 2c1.4.6 5.4 2.7 11.4 1.4l-3.3 3s5.2 2 11-1l-2.8 3.7 4.1.3"
           />
         </g>
+      </g>
+    </svg>
+  ),
+  // ✅ ADDED: Cameroon
+  Cameroon: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      xmlnsXlink="http://www.w3.org/1999/xlink"
+      viewBox="0 0 640 480"
+      width="24"
+      height="16"
+      style={{ display: "block" }}
+    >
+      <path fill="#007a5e" d="M0 0h213.3v480H0z" />
+      <path fill="#ce1126" d="M213.3 0h213.4v480H213.3z" />
+      <path fill="#fcd116" d="M426.7 0H640v480H426.7z" />
+      <g fill="#fcd116" transform="translate(320 240)scale(7.1111)">
+        <g id="cm-b">
+          <path id="cm-a" d="M0-8-2.5-.4 1.3.9z" />
+          <use
+            xlinkHref="#cm-a"
+            width="100%"
+            height="100%"
+            transform="scale(-1 1)"
+          />
+        </g>
+        <use
+          xlinkHref="#cm-b"
+          width="100%"
+          height="100%"
+          transform="rotate(72)"
+        />
+        <use
+          xlinkHref="#cm-b"
+          width="100%"
+          height="100%"
+          transform="rotate(144)"
+        />
+        <use
+          xlinkHref="#cm-b"
+          width="100%"
+          height="100%"
+          transform="rotate(-144)"
+        />
+        <use
+          xlinkHref="#cm-b"
+          width="100%"
+          height="100%"
+          transform="rotate(-72)"
+        />
+      </g>
+    </svg>
+  ),
+  // ✅ ADDED: Morocco
+  Morocco: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 640 480"
+      width="24"
+      height="16"
+      style={{ display: "block" }}
+    >
+      <path fill="#c1272d" d="M640 0H0v480h640z" />
+      <path
+        fill="none"
+        stroke="#006233"
+        strokeWidth="11.7"
+        d="M320 179.4 284.4 289l93.2-67.6H262.4l93.2 67.6z"
+      />
+    </svg>
+  ),
+  // ✅ ADDED: Togo
+  Togo: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 640 480"
+      width="24"
+      height="16"
+      style={{ display: "block" }}
+    >
+      <defs>
+        <clipPath id="tg-a">
+          <path fillOpacity=".7" d="M0 0h682.7v512H0z" />
+        </clipPath>
+      </defs>
+      <g fillRule="evenodd" clipPath="url(#tg-a)" transform="scale(.9375)">
+        <path fill="#ffe300" d="M0 0h767.6v512H0z" />
+        <path fill="#118600" d="M0 208.1h767.6V311H0zM0 .2h767.6v102.9H0z" />
+        <path fill="#d80000" d="M0 .3h306.5v310.6H0z" />
+        <path
+          fill="#fff"
+          d="M134.4 128.4c0-.8 18.9-53 18.9-53l17 52.2s57.4 1.7 57.4.8-45.3 34.3-45.3 34.3 21.4 60 20.5 58.2-49.6-36-49.6-36-49.7 34.3-48.8 34.3c.8 0 18.8-56.5 18.8-56.5l-44.5-33.4z"
+        />
+        <path fill="#118600" d="M0 409.2h767.6V512H0z" />
       </g>
     </svg>
   ),
