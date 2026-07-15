@@ -40,6 +40,15 @@ export default function CountryHero({
   const formatNumber = (num: number) => num.toLocaleString() + "+";
 
   const t = translations;
+
+  // ✅ Helper function to replace placeholders in translations
+  const replacePlaceholders = (text: string): string => {
+    if (!text) return text;
+    return text
+      .replace(/{monthlyProfit}/g, config.stats.monthlyProfit)
+      .replace(/{apkDeliveryDays}/g, config.stats.apkDeliveryDays);
+  };
+
   const stats = [
     {
       value: `${config.stats.apkDeliveryDays} days`,
@@ -64,6 +73,12 @@ export default function CountryHero({
     transform: sectionVisible ? "translateY(0)" : "translateY(28px)",
     transition: `opacity 0.65s ease ${delay}s, transform 0.65s ease ${delay}s`,
   });
+
+  // ✅ Get subtitle with placeholders replaced
+  const subtitle = replacePlaceholders(
+    t?.hero?.subtitle ||
+      `Join the Edges Network reseller program. Earn competitively up to {monthlyProfit} in profits per month. Start in minutes.`,
+  );
 
   return (
     <section
@@ -178,13 +193,14 @@ export default function CountryHero({
           maxWidth: 800,
         }}
         dangerouslySetInnerHTML={{
-          __html:
+          __html: replacePlaceholders(
             t?.hero?.title ||
-            'Turn Your Network Into a <span class="text-shimmer">Revenue Stream.</span>',
+              'Turn Your Network Into a <span class="text-shimmer">Revenue Stream.</span>',
+          ),
         }}
       />
 
-      {/* Subtext */}
+      {/* Subtext - ✅ Now properly replaced */}
       <p
         style={{
           ...reveal(0.2),
@@ -195,8 +211,7 @@ export default function CountryHero({
           marginBottom: "2.5rem",
         }}
       >
-        {t?.hero?.subtitle ||
-          `Join the Edges Network reseller program. Earn competitively up to ${config.stats.monthlyProfit} in profits per month. Start in minutes.`}
+        {subtitle}
       </p>
 
       {/* CTAs */}
