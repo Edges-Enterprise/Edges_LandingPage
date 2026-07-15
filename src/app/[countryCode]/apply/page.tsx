@@ -1,0 +1,1 @@
+// src/app/[countryCode]/apply/page.tsx
