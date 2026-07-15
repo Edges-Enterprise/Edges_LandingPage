@@ -1,0 +1,153 @@
+{
+  "hero": {
+    "badge": "Programme Partenaire Revendeur",
+    "title": "Transformez votre réseau en une <span class=\"text-shimmer\">source de revenus.</span>",
+    "subtitle": "Rejoignez le programme de revendeur Edges Network. Gagnez jusqu'à {monthlyProfit} de bénéfices par mois. Commencez en quelques minutes.",
+    "cta": "Devenir Revendeur",
+    "ctaSecondary": "Voir Comment ça Marche"
+  },
+  "stats": {
+    "apkDelivery": "Livraison APK",
+    "activeResellers": "Revendeurs Actifs",
+    "storeGoesLive": "Boutique en Ligne",
+    "toJoin": "Gratuit"
+  },
+  "howItWorks": {
+    "badge": "Comment ça Marche",
+    "title": "Commencez à gagner en <em>4 étapes simples</em>",
+    "subtitle": "Remplissez vos coordonnées, choisissez vos prix et commencez à réaliser des bénéfices dès aujourd'hui.",
+    "steps": [
+      {
+        "title": "Remplissez vos Coordonnées",
+        "desc": "Complétez un formulaire d'inscription rapide avec le nom de votre entreprise et vos préférences. Aucun frais initial, aucune expérience technique requise."
+      },
+      {
+        "title": "Obtenez votre Boutique Instantanément",
+        "desc": "Votre boutique personnalisée est en ligne immédiatement après l'inscription, prête à accepter les clients et à traiter les commandes."
+      },
+      {
+        "title": "Définissez vos Propres Prix",
+        "desc": "Ajoutez votre marge sur n'importe quel forfait de données ou crédit téléphonique. Vous contrôlez vos marges ; vos clients paient votre prix."
+      },
+      {
+        "title": "Gagnez Directement",
+        "desc": "Chaque vente réalisée via votre boutique vous rapporte la différence entre votre marge et le prix de base, payée directement sur votre compte."
+      }
+    ]
+  },
+  "benefits": {
+    "badge": "Pourquoi Edges Network",
+    "title": "Tout ce dont vous avez besoin<br />pour <em>gagner de l'argent</em>",
+    "items": [
+      {
+        "title": "Vous Fixez les Prix",
+        "desc": "Ajoutez la marge de votre choix sur les forfaits de données et le crédit téléphonique. Votre boutique, vos marges, vos bénéfices — un contrôle total, toujours."
+      },
+      {
+        "title": "Boutique en Ligne Instantanée",
+        "desc": "Remplissez vos coordonnées et votre boutique personnalisée est prête immédiatement — sans attente, sans approbation, sans délai."
+      },
+      {
+        "title": "Application Android Optionnelle",
+        "desc": "Vous voulez votre propre application ? Sélectionnez l'option APK lors de l'inscription et recevez votre application Android personnalisée par email sous 3 à 5 jours ouvrables."
+      },
+      {
+        "title": "Tableau de Bord en Direct",
+        "desc": "Suivez chaque commande, client et gain en temps réel depuis votre portail revendeur personnel."
+      },
+      {
+        "title": "Tous les Réseaux Couverts",
+        "desc": "Vendez des forfaits de données et du crédit téléphonique de tous les principaux opérateurs — le tout depuis une seule boutique."
+      },
+      {
+        "title": "Propulsé par Edges Network",
+        "desc": "Votre boutique fonctionne sur la même infrastructure fiable qui alimente des milliers de personnes quotidiennement. Livraison fiable, à chaque fois."
+      }
+    ]
+  },
+  "pricing": {
+    "badge": "Plans Boutique",
+    "title": "Choisissez le plan qui<br /><em>vous donne la liberté financière</em>",
+    "subtitle": "Lancez votre entreprise dès aujourd'hui, commencez à gagner immédiatement avec une boutique web gratuite ou passez à l'étape supérieure avec votre propre application Android.",
+    "webStore": {
+      "name": "Boutique Web",
+      "label": "Gratuit",
+      "desc": "Votre propre boutique web personnalisée, en ligne instantanément. Vendez des forfaits de données et du crédit téléphonique à vos propres prix sans frais de démarrage.",
+      "cta": "Ouvrir ma Boutique",
+      "perks": [
+        "Boutique web personnalisée instantanée",
+        "Fixez vos propres prix et marges",
+        "Tous les réseaux couverts",
+        "Tableau de bord des ventes en temps réel",
+        "Gestion des commandes clients"
+      ]
+    },
+    "mobileApp": {
+      "name": "Web + Application Android",
+      "label": "Le Plus Populaire",
+      "desc": "Tout dans la boutique web, plus votre propre application Android personnalisée à votre nom et livrée à vos clients.",
+      "badge": "Le Plus Populaire",
+      "cta": "Obtenir mon Application",
+      "perks": [
+        "Tout dans la Boutique Web",
+        "APK Android personnalisé (votre marque)",
+        "APK livré en {apkDeliveryDays} jours ouvrables",
+        "Lien de téléchargement envoyé par email",
+        "Mises à jour de l'application",
+        "Support d'intégration prioritaire"
+      ]
+    },
+    "enterprise": {
+      "name": "Entreprise",
+      "label": "Personnalisé",
+      "desc": "Pour les opérateurs et entreprises à grand volume. Intégrations personnalisées, marque blanche et un gestionnaire de compte dédié.",
+      "cta": "Contacter les Ventes",
+      "perks": [
+        "Tout dans Web + Android",
+        "Marque blanche",
+        "Domaine personnalisé pour votre boutique",
+        "Gestionnaire de compte dédié",
+        "Tarifs de gros et remises sur volume",
+        "Support avec SLA"
+      ]
+    }
+  },
+  "faq": {
+    "badge": "FAQ",
+    "title": "Questions fréquentes",
+    "items": [
+      {
+        "q": "Y a-t-il des frais pour ouvrir ma boutique revendeur ?",
+        "a": "Non. La création de votre boutique web sur Edges Network est entièrement gratuite. Il n'y a pas de frais d'inscription, de frais mensuels ou de coûts cachés pour commencer."
+      },
+      {
+        "q": "Quand ma boutique sera-t-elle en ligne ?",
+        "a": "Immédiatement. Remplissez vos coordonnées, soumettez le formulaire, et votre boutique personnalisée est en ligne et prête à accepter des clients immédiatement, sans période d'attente."
+      },
+      {
+        "q": "Puis-je fixer mes propres prix ?",
+        "a": "Oui, c'est le principe. Vous ajoutez votre propre marge sur le prix de base pour tout forfait de données ou crédit téléphonique. Ce que votre client paie au-dessus du prix de base est votre bénéfice, payé directement sur votre compte."
+      },
+      {
+        "q": "Qu'est-ce que l'option APK Android ?",
+        "a": "Si vous voulez votre propre application mobile, sélectionnez l'option APK Android lors de l'inscription. Nous construirons une application personnalisée pour votre boutique et enverrons le lien de téléchargement à votre email sous {apkDeliveryDays} jours ouvrables."
+      },
+      {
+        "q": "Quels réseaux et produits puis-je vendre ?",
+        "a": "Votre boutique couvre tous les principaux réseaux de votre pays pour les forfaits de données et les recharges de crédit téléphonique. De nouveaux produits sont ajoutés régulièrement au catalogue."
+      },
+      {
+        "q": "Comment reçois-je mes gains ?",
+        "a": "Votre bénéfice est la différence entre votre prix fixé et le prix de base. Les gains sont suivis dans votre tableau de bord et payés directement sur votre compte bancaire ou portefeuille mobile."
+      }
+    ]
+  },
+  "cta": {
+    "badge": "Prêt à Commencer ?",
+    "title": "Rejoignez le Programme Revendeur<br /><span class=\"text-shimmer\">Edges Network Aujourd'hui</span>",
+    "subtitle": "Inscrivez-vous en quelques minutes, configurez votre boutique personnalisée et commencez à gagner. Vous voulez une application Android aussi ? Sélectionnez l'option APK et nous vous la livrerons dans votre boîte mail sous {apkDeliveryDays} jours ouvrables.",
+    "button": "Postuler comme Revendeur",
+    "buttonWhatsApp": "Discuter sur WhatsApp",
+    "footer": "✓ Gratuit · ✓ Sans contrat · ✓ Paiements quotidiens"
+  }
+}

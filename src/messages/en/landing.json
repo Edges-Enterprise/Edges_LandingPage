@@ -1,0 +1,153 @@
+{
+  "hero": {
+    "badge": "Reseller Partner Program",
+    "title": "Turn Your Network Into a <span class=\"text-shimmer\">Revenue Stream.</span>",
+    "subtitle": "Join the Edges Network reseller program. Earn competitively up to {monthlyProfit} in profits per month. Start in minutes.",
+    "cta": "Apply as Reseller",
+    "ctaSecondary": "See How It Works"
+  },
+  "stats": {
+    "apkDelivery": "APK Delivery",
+    "activeResellers": "Active Resellers",
+    "storeGoesLive": "Store Goes Live",
+    "toJoin": "To Join"
+  },
+  "howItWorks": {
+    "badge": "How It Works",
+    "title": "Start earning in <em>4 simple steps</em>",
+    "subtitle": "Fill in your details, pick your prices, and start making profits today.",
+    "steps": [
+      {
+        "title": "Fill Your Details",
+        "desc": "Complete a quick signup form with your business name and preferences. No upfront cost, no technical experience needed."
+      },
+      {
+        "title": "Get Your Storefront Instantly",
+        "desc": "Your personal branded store goes live immediately after signup, ready to accept customers and process orders right away."
+      },
+      {
+        "title": "Set Your Own Prices",
+        "desc": "Add your markup to any data bundle or airtime product. You control your margins; your customers pay your price."
+      },
+      {
+        "title": "Earn Directly",
+        "desc": "Every sale made through your storefront earns you the difference between your markup and the base price, paid straight to you."
+      }
+    ]
+  },
+  "benefits": {
+    "badge": "Why Edges Network",
+    "title": "Everything you need<br />to <em>make money</em>",
+    "items": [
+      {
+        "title": "You Set the Prices",
+        "desc": "Add any markup you want to data bundles and airtime. Your store, your margins, your profit — full control, always."
+      },
+      {
+        "title": "Store Goes Live Instantly",
+        "desc": "Fill in your details and your branded storefront is ready immediately — no waiting, no approvals, no delays."
+      },
+      {
+        "title": "Optional Android App",
+        "desc": "Want your own app? Select the APK option at signup and receive your custom-branded Android app by email within 3–5 business days."
+      },
+      {
+        "title": "Live Sales Dashboard",
+        "desc": "Track every order, customer, and earning in real time from your personal reseller portal."
+      },
+      {
+        "title": "All Networks Covered",
+        "desc": "Sell all major networks data bundles and airtime — all from a single storefront."
+      },
+      {
+        "title": "Backed by Edges Network",
+        "desc": "Your store runs on the same trusted infrastructure powering thousands daily. Reliable delivery, every time."
+      }
+    ]
+  },
+  "pricing": {
+    "badge": "Storefront Plans",
+    "title": "Pick the plan that<br /><em>gives you financial freedom</em>",
+    "subtitle": "Start your business today, start earning immediately with a free web store or go bigger with your own Android app.",
+    "webStore": {
+      "name": "Web Storefront",
+      "label": "Free",
+      "desc": "Your own branded web store, live instantly. Sell data bundles and airtime at your own prices with zero setup cost.",
+      "cta": "Open My Store",
+      "perks": [
+        "Instant branded web storefront",
+        "Set your own prices & markup",
+        "All networks covered",
+        "Real-time sales dashboard",
+        "Customer order management"
+      ]
+    },
+    "mobileApp": {
+      "name": "Web + Android App",
+      "label": "Most Popular",
+      "desc": "Everything in the web store, plus your own Android app branded with your name and delivered to your customers.",
+      "badge": "Most Popular",
+      "cta": "Get My App",
+      "perks": [
+        "Everything in Web Storefront",
+        "Custom Android APK (your branding)",
+        "APK delivered in {apkDeliveryDays} business days",
+        "Download link sent to your email",
+        "App updates when products change",
+        "Priority onboarding support"
+      ]
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "label": "Custom",
+      "desc": "For high-volume operators and businesses. Custom integrations, white-label branding, and a dedicated account manager.",
+      "cta": "Contact Sales",
+      "perks": [
+        "Everything in Web + Android",
+        "White-label branding",
+        "Custom domain for your store",
+        "Dedicated account manager",
+        "Bulk pricing & volume discounts",
+        "SLA-backed support"
+      ]
+    }
+  },
+  "faq": {
+    "badge": "FAQ",
+    "title": "Common questions",
+    "items": [
+      {
+        "q": "Is there any cost to open my reseller storefront?",
+        "a": "No. Creating your web storefront on Edges Network is completely free. There are no registration fees, monthly charges, or hidden costs to get started."
+      },
+      {
+        "q": "How quickly does my store go live?",
+        "a": "Immediately. Fill in your details, submit the form, and your branded storefront is live and ready to accept customers right away, no waiting period."
+      },
+      {
+        "q": "Can I set my own prices?",
+        "a": "Yes, that's the point. You add your own markup on top of the base price for any data bundle or airtime product. Whatever your customer pays above the base price is your profit, paid directly to you."
+      },
+      {
+        "q": "What is the Android APK option?",
+        "a": "If you want your own mobile app, select the Android APK option during signup. We'll build a custom-branded app for your store and send the download link to your email within {apkDeliveryDays} business days."
+      },
+      {
+        "q": "Which networks and products can I sell?",
+        "a": "Your store covers all major networks in your country for data bundles and airtime top-ups. New products are added to the catalog regularly."
+      },
+      {
+        "q": "How do I receive my earnings?",
+        "a": "Your profit is the difference between your set price and the base cost. Earnings are tracked in your dashboard and paid out directly to your bank account or mobile money wallet."
+      }
+    ]
+  },
+  "cta": {
+    "badge": "Ready to Start?",
+    "title": "Join the Edges Network<br /><span class=\"text-shimmer\">Reseller Program Today</span>",
+    "subtitle": "Sign up in minutes, set your branded storefront and start earning. Want an Android app too? Select the APK option and we'll deliver it to your inbox in {apkDeliveryDays} business days.",
+    "button": "Apply as a Reseller",
+    "buttonWhatsApp": "Chat on WhatsApp",
+    "footer": "✓ Free to join · ✓ No contracts · ✓ Payouts everyday"
+  }
+}
