@@ -1,21 +1,21 @@
-// src/config/countries/tg.ts
+// src/config/countries/zm.ts
 import { CountryConfig } from "./index";
 
-export const COUNTRY_TG: CountryConfig = {
-  code: "tg",
-  name: "Togo",
-  nativeName: "Togo",
-  flag: "🇹🇬",
-  currency: "XOF",
-  currencySymbol: "CFA",
-  phoneCode: "+228",
+export const COUNTRY_ZM: CountryConfig = {
+  code: "zm",
+  name: "Zambia",
+  nativeName: "Zambia",
+  flag: "🇿🇲",
+  currency: "ZMW",
+  currencySymbol: "ZK",
+  phoneCode: "+260",
   language: {
-    code: "fr",
-    name: "French",
+    code: "en",
+    name: "English",
     direction: "ltr",
   },
-  locale: "fr-TG",
-  timezone: "Africa/Lome",
+  locale: "en-ZM",
+  timezone: "Africa/Lusaka",
   defaultMarkup: 20,
   features: {
     data: true,
@@ -27,17 +27,17 @@ export const COUNTRY_TG: CountryConfig = {
   providers: {
     data: ["zendit"],
     airtime: ["zendit"],
-    payment: ["flutterwave", "korapay"],
+    payment: ["flutterwave", "juicyway"],
   },
   kyc: {
     requiredDocuments: ["government_id", "selfie"],
     optionalDocuments: ["business_reg"],
   },
-  applyUrl: "/tg/apply",
+  applyUrl: "/zm/apply",
   stats: {
-    activeResellers: 400,
+    activeResellers: 800,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "CFA 50,000 – CFA 80,000",
+    monthlyProfit: "ZK 1,200 – ZK 2,000",
   },
 };

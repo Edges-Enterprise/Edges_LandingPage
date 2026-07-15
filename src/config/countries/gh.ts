@@ -1,21 +1,21 @@
-// src/config/countries/tg.ts
+// src/config/countries/gh.ts
 import { CountryConfig } from "./index";
 
-export const COUNTRY_TG: CountryConfig = {
-  code: "tg",
-  name: "Togo",
-  nativeName: "Togo",
-  flag: "🇹🇬",
-  currency: "XOF",
-  currencySymbol: "CFA",
-  phoneCode: "+228",
+export const COUNTRY_GH: CountryConfig = {
+  code: "gh",
+  name: "Ghana",
+  nativeName: "Ghana",
+  flag: "🇬🇭",
+  currency: "GHS",
+  currencySymbol: "₵",
+  phoneCode: "+233",
   language: {
-    code: "fr",
-    name: "French",
+    code: "en",
+    name: "English",
     direction: "ltr",
   },
-  locale: "fr-TG",
-  timezone: "Africa/Lome",
+  locale: "en-GH",
+  timezone: "Africa/Accra",
   defaultMarkup: 20,
   features: {
     data: true,
@@ -25,19 +25,19 @@ export const COUNTRY_TG: CountryConfig = {
     betting: false,
   },
   providers: {
-    data: ["zendit"],
-    airtime: ["zendit"],
+    data: ["accrahub"],
+    airtime: ["accrahub"],
     payment: ["flutterwave", "korapay"],
   },
   kyc: {
     requiredDocuments: ["government_id", "selfie"],
     optionalDocuments: ["business_reg"],
   },
-  applyUrl: "/tg/apply",
+  applyUrl: "/gh/apply",
   stats: {
-    activeResellers: 400,
+    activeResellers: 1200,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "CFA 50,000 – CFA 80,000",
+    monthlyProfit: "₵1,500 – ₵2,500",
   },
 };
