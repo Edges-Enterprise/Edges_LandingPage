@@ -12,6 +12,19 @@ interface CountryCTAProps {
 export default function CountryCTA({ config, translations }: CountryCTAProps) {
   const t = translations;
 
+  // ✅ Helper function to replace placeholders
+  const replacePlaceholders = (text: string): string => {
+    if (!text) return text;
+    return text
+      .replace(/{monthlyProfit}/g, config.stats.monthlyProfit)
+      .replace(/{apkDeliveryDays}/g, config.stats.apkDeliveryDays);
+  };
+
+  const subtitle = replacePlaceholders(
+    t?.cta?.subtitle ||
+      `Sign up in minutes, set your branded storefront and start earning. Want an Android app too? Select the APK option and we'll deliver it to your inbox in {apkDeliveryDays} business days.`,
+  );
+
   return (
     <section
       id="join"
@@ -94,9 +107,10 @@ export default function CountryCTA({ config, translations }: CountryCTAProps) {
               marginBottom: "1.2rem",
             }}
             dangerouslySetInnerHTML={{
-              __html:
+              __html: replacePlaceholders(
                 t?.cta?.title ||
-                'Join the Edges Network<br /><span class="text-shimmer">Reseller Program Today</span>',
+                  'Join the Edges Network<br /><span class="text-shimmer">Reseller Program Today</span>',
+              ),
             }}
           />
           <p
@@ -108,8 +122,7 @@ export default function CountryCTA({ config, translations }: CountryCTAProps) {
               lineHeight: 1.75,
             }}
           >
-            {t?.cta?.subtitle ||
-              `Sign up in minutes, set your branded storefront and start earning. Want an Android app too? Select the APK option and we'll deliver it to your inbox in ${config.stats.apkDeliveryDays} business days.`}
+            {subtitle}
           </p>
           <div
             style={{
