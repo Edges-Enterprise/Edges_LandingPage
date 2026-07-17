@@ -1,0 +1,281 @@
+// src/components/reseller/application/ReviewStep.tsx
+"use client";
+
+import { ChevronLeft, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+
+interface ReviewStepProps {
+  data: any;
+  onSubmit: () => void;
+  onPrevious: () => void;
+  isSubmitting: boolean;
+  error: string | null;
+  config: any;
+}
+
+export default function ReviewStep({
+  data,
+  onSubmit,
+  onPrevious,
+  isSubmitting,
+  error,
+  config,
+}: ReviewStepProps) {
+  const sections = [
+    {
+      title: "Account Information",
+      fields: [
+        { label: "Full Name", value: data.fullName },
+        { label: "Email", value: data.email },
+        { label: "Phone", value: data.phone },
+      ],
+    },
+    {
+      title: "Store Configuration",
+      fields: [
+        { label: "Store Name", value: data.storeName },
+        { label: "Store URL", value: `/${config.code}/${data.storeSlug}` },
+        {
+          label: "Theme",
+          value: data.theme?.charAt(0).toUpperCase() + data.theme?.slice(1),
+        },
+        { label: "Brand Color", value: data.brandColor },
+      ],
+    },
+    {
+      title: "Compliance",
+      fields: [
+        {
+          label: "Terms of Service",
+          value: data.termsAccepted ? "✅ Accepted" : "❌ Not accepted",
+        },
+        {
+          label: "Privacy Policy",
+          value: data.privacyAccepted ? "✅ Accepted" : "❌ Not accepted",
+        },
+        {
+          label: "Acceptable Use Policy",
+          value: data.acceptableUseAccepted ? "✅ Accepted" : "❌ Not accepted",
+        },
+        {
+          label: "KYC Policy",
+          value: data.kycAccepted ? "✅ Accepted" : "❌ Not accepted",
+        },
+      ],
+    },
+  ];
+
+  // Check if all compliance is accepted
+  const allCompliant =
+    data.termsAccepted &&
+    data.privacyAccepted &&
+    data.acceptableUseAccepted &&
+    data.kycAccepted;
+
+  return (
+    <div>
+      <h2
+        style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: "1.5rem",
+          fontWeight: 700,
+          marginBottom: "0.5rem",
+        }}
+      >
+        Review & Submit
+      </h2>
+      <p
+        style={{
+          color: "var(--muted)",
+          fontSize: "0.9rem",
+          marginBottom: "1.5rem",
+        }}
+      >
+        Please review your information before submitting.
+      </p>
+
+      <div style={{ display: "grid", gap: "1.5rem" }}>
+        {sections.map((section) => (
+          <div
+            key={section.title}
+            style={{
+              background: "var(--bg2)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              padding: "1.25rem",
+            }}
+          >
+            <h3
+              style={{
+                fontSize: "0.9rem",
+                fontWeight: 600,
+                marginBottom: "0.75rem",
+                color: "var(--text)",
+              }}
+            >
+              {section.title}
+            </h3>
+            <div style={{ display: "grid", gap: "0.5rem" }}>
+              {section.fields.map((field) => (
+                <div
+                  key={field.label}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    padding: "0.25rem 0",
+                    borderBottom: "1px solid var(--border)",
+                  }}
+                >
+                  <span style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
+                    {field.label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "0.85rem",
+                      color: "var(--text)",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {field.value || "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Compliance Status */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            padding: "0.75rem 1rem",
+            background: allCompliant
+              ? "rgba(110,189,138,0.1)"
+              : "rgba(239,68,68,0.1)",
+            border: `1px solid ${allCompliant ? "rgba(110,189,138,0.3)" : "rgba(239,68,68,0.3)"}`,
+            borderRadius: 8,
+          }}
+        >
+          {allCompliant ? (
+            <CheckCircle size={20} style={{ color: "var(--green)" }} />
+          ) : (
+            <AlertCircle size={20} style={{ color: "#EF4444" }} />
+          )}
+          <span
+            style={{
+              fontSize: "0.85rem",
+              color: allCompliant ? "var(--green)" : "#EF4444",
+            }}
+          >
+            {allCompliant
+              ? "All policies accepted. You're ready to submit!"
+              : "Please accept all policies to submit your application."}
+          </span>
+        </div>
+
+        {error && (
+          <div
+            style={{
+              padding: "0.75rem 1rem",
+              background: "rgba(239,68,68,0.1)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              borderRadius: 8,
+              color: "#EF4444",
+              fontSize: "0.85rem",
+            }}
+          >
+            {error}
+          </div>
+        )}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: "1rem",
+          marginTop: "2rem",
+        }}
+      >
+        <button
+          type="button"
+          onClick={onPrevious}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "0.8rem 2rem",
+            background: "transparent",
+            color: "var(--text)",
+            border: "1px solid var(--border2)",
+            borderRadius: 10,
+            fontSize: "0.95rem",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "border-color 0.2s, background 0.2s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = "rgba(201,138,84,0.4)";
+            e.currentTarget.style.background = "rgba(201,138,84,0.05)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = "var(--border2)";
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <ChevronLeft size={18} /> Back
+        </button>
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={!allCompliant || isSubmitting}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "0.8rem 2rem",
+            background: allCompliant ? "var(--accent)" : "var(--dim)",
+            color: "#FDF8F3",
+            border: "none",
+            borderRadius: 10,
+            fontSize: "0.95rem",
+            fontWeight: 600,
+            cursor: allCompliant && !isSubmitting ? "pointer" : "not-allowed",
+            opacity: allCompliant && !isSubmitting ? 1 : 0.6,
+            transition: "opacity 0.2s, transform 0.2s",
+            flex: 1,
+            justifyContent: "center",
+          }}
+          onMouseEnter={(e) => {
+            if (allCompliant && !isSubmitting) {
+              e.currentTarget.style.opacity = "0.85";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2
+                size={18}
+                style={{ animation: "spin 1s linear infinite" }}
+              />
+              Submitting...
+            </>
+          ) : (
+            "Submit Application"
+          )}
+        </button>
+      </div>
+
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
