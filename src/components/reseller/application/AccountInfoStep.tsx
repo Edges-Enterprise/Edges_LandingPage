@@ -129,8 +129,7 @@ export default function AccountInfoStep({
           marginBottom: "1.5rem",
         }}
       >
-        {t?.account?.subtitle || "Create your reseller account."} {country.flag}{" "}
-        {country.name}
+        {t?.account?.subtitle || "Create your reseller account."} 
       </p>
 
       <input type="hidden" name="country" value={country.code} />
