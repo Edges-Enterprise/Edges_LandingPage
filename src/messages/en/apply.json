@@ -1,0 +1,55 @@
+{
+  "title": "Business in a Box",
+  "subtitle": "Create your own branded data and airtime store. Set your prices and start earning today.",
+  "steps": {
+    "account": "Account Information",
+    "store": "Store Configuration",
+    "review": "Review & Submit"
+  },
+  "account": {
+    "title": "Account Information",
+    "subtitle": "Create your reseller account.",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email Address",
+    "phone": "Phone Number",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "continue": "Continue"
+  },
+  "store": {
+    "title": "Store Configuration",
+    "subtitle": "Set up your branded storefront. This is what your customers will see.",
+    "storeName": "Store Name",
+    "storeUrl": "Store URL",
+    "storeUrlHint": "Your store URL is automatically generated from your store name.",
+    "logo": "Store Logo",
+    "logoHint": "Upload a 1024×1024px PNG, or we'll generate one for you.",
+    "brandColor": "Brand Color",
+    "androidApp": "Android App",
+    "androidAppHint": "Get a branded APK in 3–5 business days",
+    "back": "Back",
+    "continue": "Continue"
+  },
+  "review": {
+    "title": "Review & Submit",
+    "subtitle": "Please review your information before submitting.",
+    "accountInfo": "Account Information",
+    "storeConfig": "Store Configuration",
+    "agreement": "By submitting, you agree to the Terms of Service, Privacy Policy, and Acceptable Use Policy.",
+    "back": "Back",
+    "submit": "Submit Application"
+  },
+  "errors": {
+    "firstNameRequired": "First name is required",
+    "lastNameRequired": "Last name is required",
+    "emailRequired": "Email is required",
+    "emailInvalid": "Please enter a valid email",
+    "phoneRequired": "Phone number is required",
+    "passwordRequired": "Password is required",
+    "passwordMin": "Password must be at least 8 characters",
+    "passwordMismatch": "Passwords do not match",
+    "storeNameRequired": "Store name is required",
+    "storeNameMin": "Store name must be at least 2 characters"
+  }
+}

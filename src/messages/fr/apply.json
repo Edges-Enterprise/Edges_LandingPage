@@ -1,0 +1,55 @@
+{
+  "title": "Entreprise en Boîte",
+  "subtitle": "Créez votre propre boutique de données et de crédit téléphonique. Fixez vos prix et commencez à gagner dès aujourd'hui.",
+  "steps": {
+    "account": "Informations du Compte",
+    "store": "Configuration de la Boutique",
+    "review": "Révision & Soumission"
+  },
+  "account": {
+    "title": "Informations du Compte",
+    "subtitle": "Créez votre compte revendeur.",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "email": "Adresse Email",
+    "phone": "Numéro de Téléphone",
+    "password": "Mot de Passe",
+    "confirmPassword": "Confirmer le Mot de Passe",
+    "continue": "Continuer"
+  },
+  "store": {
+    "title": "Configuration de la Boutique",
+    "subtitle": "Configurez votre boutique personnalisée. C'est ce que vos clients verront.",
+    "storeName": "Nom de la Boutique",
+    "storeUrl": "URL de la Boutique",
+    "storeUrlHint": "L'URL de votre boutique est générée automatiquement à partir du nom de votre boutique.",
+    "logo": "Logo de la Boutique",
+    "logoHint": "Téléchargez un PNG 1024×1024px, ou nous en générerons un pour vous.",
+    "brandColor": "Couleur de Marque",
+    "androidApp": "Application Android",
+    "androidAppHint": "Recevez un APK personnalisé en 3–5 jours ouvrables",
+    "back": "Retour",
+    "continue": "Continuer"
+  },
+  "review": {
+    "title": "Révision & Soumission",
+    "subtitle": "Veuillez vérifier vos informations avant de soumettre.",
+    "accountInfo": "Informations du Compte",
+    "storeConfig": "Configuration de la Boutique",
+    "agreement": "En soumettant, vous acceptez les Conditions d'Utilisation, la Politique de Confidentialité et la Politique d'Utilisation Acceptable.",
+    "back": "Retour",
+    "submit": "Soumettre la Demande"
+  },
+  "errors": {
+    "firstNameRequired": "Le prénom est requis",
+    "lastNameRequired": "Le nom est requis",
+    "emailRequired": "L'email est requis",
+    "emailInvalid": "Veuillez entrer un email valide",
+    "phoneRequired": "Le numéro de téléphone est requis",
+    "passwordRequired": "Le mot de passe est requis",
+    "passwordMin": "Le mot de passe doit contenir au moins 8 caractères",
+    "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "storeNameRequired": "Le nom de la boutique est requis",
+    "storeNameMin": "Le nom de la boutique doit contenir au moins 2 caractères"
+  }
+}
