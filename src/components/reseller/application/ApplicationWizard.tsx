@@ -9,7 +9,6 @@ import AccountInfoStep from "./AccountInfoStep";
 import StoreConfigStep from "./StoreConfigStep";
 import ComplianceStep from "./ComplianceStep";
 import ReviewStep from "./ReviewStep";
-import { saveDraft, submitApplication } from "@/actions/reseller/application";
 
 interface ApplicationWizardProps {
   countryCode: string;
@@ -42,7 +41,6 @@ export default function ApplicationWizard({
   // Load draft on mount
   useEffect(() => {
     if (applicationId) {
-      // Fetch draft data
       const loadDraft = async () => {
         try {
           const { getApplicationDraft } =
@@ -65,18 +63,23 @@ export default function ApplicationWizard({
 
     // Auto-save draft
     if (currentStep > 0) {
-      saveDraft({
-        applicationId,
-        data: newData,
-        countryCode,
-        step: currentStep,
-      })
-        .then((result) => {
+      const saveDraft = async () => {
+        try {
+          const { saveDraft } = await import("@/actions/reseller/application");
+          const result = await saveDraft({
+            applicationId,
+            data: newData,
+            countryCode,
+            step: currentStep,
+          });
           if (result.success && result.applicationId) {
             onDraftSaved(result.applicationId);
           }
-        })
-        .catch(console.error);
+        } catch (error) {
+          console.error("Failed to save draft:", error);
+        }
+      };
+      saveDraft();
     }
   };
 
@@ -99,13 +102,21 @@ export default function ApplicationWizard({
     setError(null);
 
     try {
+      const { submitApplication } =
+        await import("@/actions/reseller/application");
+      // In the handleSubmit function:
       const result = await submitApplication({
-        ...formData,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        storeName: formData.storeName,
+        storeSlug: formData.storeSlug,
+        logo: formData.logo || "",
+        brandColor: formData.brandColor,
+        androidApp: formData.androidApp || false,
         countryCode,
-        terms_accepted: formData.termsAccepted,
-        privacy_accepted: formData.privacyAccepted,
-        acceptable_use_accepted: formData.acceptableUseAccepted,
-        kyc_accepted: formData.kycAccepted,
+        agreed: formData.agreed || true, // ✅ Default to true
       });
 
       if (result.success) {

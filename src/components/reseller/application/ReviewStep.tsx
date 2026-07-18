@@ -1,7 +1,7 @@
 // src/components/reseller/application/ReviewStep.tsx
 "use client";
 
-import { ChevronLeft, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2 } from "lucide-react";
 
 interface ReviewStepProps {
   data: any;
@@ -24,7 +24,8 @@ export default function ReviewStep({
     {
       title: "Account Information",
       fields: [
-        { label: "Full Name", value: data.fullName },
+        { label: "First Name", value: data.firstName },
+        { label: "Last Name", value: data.lastName },
         { label: "Email", value: data.email },
         { label: "Phone", value: data.phone },
       ],
@@ -34,42 +35,15 @@ export default function ReviewStep({
       fields: [
         { label: "Store Name", value: data.storeName },
         { label: "Store URL", value: `/${config.code}/${data.storeSlug}` },
-        {
-          label: "Theme",
-          value: data.theme?.charAt(0).toUpperCase() + data.theme?.slice(1),
-        },
         { label: "Brand Color", value: data.brandColor },
-      ],
-    },
-    {
-      title: "Compliance",
-      fields: [
+        { label: "Android App", value: data.androidApp ? "✅ Yes" : "❌ No" },
         {
-          label: "Terms of Service",
-          value: data.termsAccepted ? "✅ Accepted" : "❌ Not accepted",
-        },
-        {
-          label: "Privacy Policy",
-          value: data.privacyAccepted ? "✅ Accepted" : "❌ Not accepted",
-        },
-        {
-          label: "Acceptable Use Policy",
-          value: data.acceptableUseAccepted ? "✅ Accepted" : "❌ Not accepted",
-        },
-        {
-          label: "KYC Policy",
-          value: data.kycAccepted ? "✅ Accepted" : "❌ Not accepted",
+          label: "Logo",
+          value: data.logo ? "✅ Uploaded" : "🔄 Will be generated",
         },
       ],
     },
   ];
-
-  // Check if all compliance is accepted
-  const allCompliant =
-    data.termsAccepted &&
-    data.privacyAccepted &&
-    data.acceptableUseAccepted &&
-    data.kycAccepted;
 
   return (
     <div>
@@ -143,37 +117,6 @@ export default function ReviewStep({
           </div>
         ))}
 
-        {/* Compliance Status */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            padding: "0.75rem 1rem",
-            background: allCompliant
-              ? "rgba(110,189,138,0.1)"
-              : "rgba(239,68,68,0.1)",
-            border: `1px solid ${allCompliant ? "rgba(110,189,138,0.3)" : "rgba(239,68,68,0.3)"}`,
-            borderRadius: 8,
-          }}
-        >
-          {allCompliant ? (
-            <CheckCircle size={20} style={{ color: "var(--green)" }} />
-          ) : (
-            <AlertCircle size={20} style={{ color: "#EF4444" }} />
-          )}
-          <span
-            style={{
-              fontSize: "0.85rem",
-              color: allCompliant ? "var(--green)" : "#EF4444",
-            }}
-          >
-            {allCompliant
-              ? "All policies accepted. You're ready to submit!"
-              : "Please accept all policies to submit your application."}
-          </span>
-        </div>
-
         {error && (
           <div
             style={{
@@ -228,26 +171,26 @@ export default function ReviewStep({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={!allCompliant || isSubmitting}
+          disabled={isSubmitting}
           style={{
             display: "flex",
             alignItems: "center",
             gap: 8,
             padding: "0.8rem 2rem",
-            background: allCompliant ? "var(--accent)" : "var(--dim)",
+            background: "var(--accent)",
             color: "#FDF8F3",
             border: "none",
             borderRadius: 10,
             fontSize: "0.95rem",
             fontWeight: 600,
-            cursor: allCompliant && !isSubmitting ? "pointer" : "not-allowed",
-            opacity: allCompliant && !isSubmitting ? 1 : 0.6,
+            cursor: isSubmitting ? "not-allowed" : "pointer",
+            opacity: isSubmitting ? 0.6 : 1,
             transition: "opacity 0.2s, transform 0.2s",
             flex: 1,
             justifyContent: "center",
           }}
           onMouseEnter={(e) => {
-            if (allCompliant && !isSubmitting) {
+            if (!isSubmitting) {
               e.currentTarget.style.opacity = "0.85";
               e.currentTarget.style.transform = "translateY(-1px)";
             }

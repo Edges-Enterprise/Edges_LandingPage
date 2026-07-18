@@ -5,19 +5,17 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 interface SubmitApplicationParams {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   email: string;
   phone: string;
   storeName: string;
   storeSlug: string;
   logo?: string;
-  theme: string;
   brandColor: string;
+  androidApp: boolean;
   countryCode: string;
-  terms_accepted: boolean;
-  privacy_accepted: boolean;
-  acceptable_use_accepted: boolean;
-  kyc_accepted: boolean;
+  agreed: boolean;
 }
 
 export async function submitApplication(params: SubmitApplicationParams) {
@@ -82,20 +80,18 @@ export async function submitApplication(params: SubmitApplicationParams) {
     const { data: application, error: insertError } = await supabase
       .from("reseller_applications")
       .insert({
-        full_name: params.fullName,
+        irst_name: params.firstName,
+        last_name: params.lastName,
         email: params.email,
         phone: params.phone,
         country_code: params.countryCode,
         store_name: params.storeName,
         store_slug: params.storeSlug,
         logo: params.logo || null,
-        theme: params.theme,
         brand_color: params.brandColor,
+        android_app: params.androidApp,
         application_status: "submitted",
-        terms_accepted: params.terms_accepted,
-        privacy_accepted: params.privacy_accepted,
-        acceptable_use_accepted: params.acceptable_use_accepted,
-        kyc_accepted: params.kyc_accepted,
+        agreed: params.agreed,
         submitted_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

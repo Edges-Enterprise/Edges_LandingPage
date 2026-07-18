@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Eye, EyeOff } from "lucide-react";
 
 interface AccountInfoStepProps {
   data: any;
@@ -18,9 +18,13 @@ export default function AccountInfoStep({
   country,
 }: AccountInfoStepProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
 
   const [formData, setFormData] = useState({
-    fullName: data.fullName || "",
+    firstName: data.firstName || "",
+    lastName: data.lastName || "",
     email: data.email || "",
     phone: data.phone || "",
     password: data.password || "",
@@ -39,9 +43,12 @@ export default function AccountInfoStep({
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = "Full name is required";
-    }
+     if (!formData.firstName.trim()) {
+       newErrors.firstName = "First name is required";
+     }
+     if (!formData.lastName.trim()) {
+       newErrors.lastName = "Last name is required";
+     }
     if (!formData.email.trim()) {
       newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
@@ -83,6 +90,19 @@ export default function AccountInfoStep({
     transition: "border-color 0.2s",
   });
 
+  const passwordInputStyle = (hasError: boolean) => ({
+    width: "100%",
+    padding: "0.75rem 1rem",
+    paddingRight: "2.8rem",
+    background: "var(--bg2)",
+    border: `1px solid ${hasError ? "#EF4444" : "var(--border)"}`,
+    borderRadius: 8,
+    color: "var(--text)",
+    fontSize: "0.95rem",
+    outline: "none",
+    transition: "border-color 0.2s",
+  });
+
   return (
     <div>
       <h2
@@ -111,38 +131,78 @@ export default function AccountInfoStep({
 
       <form onSubmit={handleSubmit}>
         <div style={{ display: "grid", gap: "1.25rem" }}>
-          {/* Full Name */}
-          <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: "0.85rem",
-                fontWeight: 500,
-                marginBottom: "0.35rem",
-                color: "var(--text)",
-              }}
-            >
-              Full Name
-            </label>
-            <input
-              type="text"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              placeholder="Enter your full name"
-              style={inputStyle(!!errors.fullName)}
-            />
-            {errors.fullName && (
-              <p
+          {/* First Name + Last Name */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "1rem",
+            }}
+          >
+            <div>
+              <label
                 style={{
-                  color: "#EF4444",
-                  fontSize: "0.8rem",
-                  marginTop: "0.25rem",
+                  display: "block",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  marginBottom: "0.35rem",
+                  color: "var(--text)",
                 }}
               >
-                {errors.fullName}
-              </p>
-            )}
+                First Name
+              </label>
+              <input
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                placeholder="John"
+                style={inputStyle(!!errors.firstName)}
+              />
+              {errors.firstName && (
+                <p
+                  style={{
+                    color: "#EF4444",
+                    fontSize: "0.8rem",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  {errors.firstName}
+                </p>
+              )}
+            </div>
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  marginBottom: "0.35rem",
+                  color: "var(--text)",
+                }}
+              >
+                Last Name
+              </label>
+              <input
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+                placeholder="Doe"
+                style={inputStyle(!!errors.lastName)}
+              />
+              {errors.lastName && (
+                <p
+                  style={{
+                    color: "#EF4444",
+                    fontSize: "0.8rem",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  {errors.lastName}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Email */}
@@ -232,7 +292,7 @@ export default function AccountInfoStep({
             )}
           </div>
 
-          {/* Password */}
+          {/* Password with Eye Icon */}
           <div>
             <label
               style={{
@@ -245,14 +305,33 @@ export default function AccountInfoStep({
             >
               Password
             </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Min 8 characters"
-              style={inputStyle(!!errors.password)}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Min 8 characters"
+                style={passwordInputStyle(!!errors.password)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "0.75rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  color: "var(--dim)",
+                  cursor: "pointer",
+                  padding: "0.25rem",
+                }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {errors.password && (
               <p
                 style={{
@@ -266,7 +345,7 @@ export default function AccountInfoStep({
             )}
           </div>
 
-          {/* Confirm Password */}
+          {/* Confirm Password with Eye Icon */}
           <div>
             <label
               style={{
@@ -279,14 +358,33 @@ export default function AccountInfoStep({
             >
               Confirm Password
             </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              placeholder="Confirm your password"
-              style={inputStyle(!!errors.confirmPassword)}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Confirm your password"
+                style={passwordInputStyle(!!errors.confirmPassword)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={{
+                  position: "absolute",
+                  right: "0.75rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  color: "var(--dim)",
+                  cursor: "pointer",
+                  padding: "0.25rem",
+                }}
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             {errors.confirmPassword && (
               <p
                 style={{
