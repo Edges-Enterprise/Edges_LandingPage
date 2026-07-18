@@ -10,15 +10,18 @@ import { CountryConfig } from "@/config/countries";
 interface ApplicationClientProps {
   countryCode: string;
   config: CountryConfig;
+  translations: any;
 }
 
 export default function ApplicationClient({
   countryCode,
   config,
+  translations,
 }: ApplicationClientProps) {
   const router = useRouter();
   const country = useCountry();
   const [applicationId, setApplicationId] = useState<string | null>(null);
+  const t = translations;
 
   // Check for existing draft on mount
   useEffect(() => {
@@ -40,7 +43,7 @@ export default function ApplicationClient({
     localStorage.setItem("application_draft_id", id);
   };
 
-  // Render flag as HTML
+  // ✅ Render flag as HTML
   const renderFlag = (flag: string) => (
     <span
       style={{ display: "inline-block", width: 32, height: 22 }}
@@ -60,6 +63,7 @@ export default function ApplicationClient({
             marginBottom: "0.75rem",
           }}
         >
+          {/* ✅ Use renderFlag to display SVG flag */}
           {renderFlag(country.flag)}
           <span
             style={{
@@ -83,7 +87,7 @@ export default function ApplicationClient({
             marginBottom: "0.5rem",
           }}
         >
-          Business in-a Box
+          {t?.title || "Business in a Box"}
         </h1>
         <p
           style={{
@@ -93,7 +97,8 @@ export default function ApplicationClient({
             margin: "0 auto",
           }}
         >
-          Complete the form below to start earning today.
+          {t?.subtitle ||
+            "Create your own branded data and airtime store. Set your prices and start earning today."}
         </p>
       </div>
 
@@ -103,6 +108,7 @@ export default function ApplicationClient({
         applicationId={applicationId}
         onComplete={handleComplete}
         onDraftSaved={handleDraftSaved}
+        translations={t}
       />
     </div>
   );
