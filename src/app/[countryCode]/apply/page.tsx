@@ -1,4 +1,5 @@
 // src/app/[countryCode]/apply/page.tsx
+import { headers } from "next/headers";
 import { getCountryConfig } from "@/config/countries";
 import { CountryProvider } from "@/providers/CountryProvider";
 import ApplicationClient from "./ApplicationClient";
