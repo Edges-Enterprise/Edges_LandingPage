@@ -9,6 +9,7 @@ interface AccountInfoStepProps {
   onChange: (data: any) => void;
   onNext: () => void;
   country: any;
+  translations?: any; // ✅ Add translations prop
 }
 
 export default function AccountInfoStep({
@@ -16,11 +17,13 @@ export default function AccountInfoStep({
   onChange,
   onNext,
   country,
+  translations,
 }: AccountInfoStepProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const t = translations || {};
 
   const [formData, setFormData] = useState({
     firstName: data.firstName || "",
@@ -34,7 +37,6 @@ export default function AccountInfoStep({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-    // Clear error for this field
     if (errors[name]) {
       setErrors({ ...errors, [name]: "" });
     }
@@ -43,27 +45,32 @@ export default function AccountInfoStep({
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
-     if (!formData.firstName.trim()) {
-       newErrors.firstName = "First name is required";
-     }
-     if (!formData.lastName.trim()) {
-       newErrors.lastName = "Last name is required";
-     }
+    if (!formData.firstName.trim()) {
+      newErrors.firstName =
+        t?.errors?.firstNameRequired || "First name is required";
+    }
+    if (!formData.lastName.trim()) {
+      newErrors.lastName =
+        t?.errors?.lastNameRequired || "Last name is required";
+    }
     if (!formData.email.trim()) {
-      newErrors.email = "Email is required";
+      newErrors.email = t?.errors?.emailRequired || "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email";
+      newErrors.email = t?.errors?.emailInvalid || "Please enter a valid email";
     }
     if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
+      newErrors.phone = t?.errors?.phoneRequired || "Phone number is required";
     }
     if (!formData.password) {
-      newErrors.password = "Password is required";
+      newErrors.password =
+        t?.errors?.passwordRequired || "Password is required";
     } else if (formData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters";
+      newErrors.password =
+        t?.errors?.passwordMin || "Password must be at least 8 characters";
     }
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
+      newErrors.confirmPassword =
+        t?.errors?.passwordMismatch || "Passwords do not match";
     }
 
     setErrors(newErrors);
@@ -113,7 +120,7 @@ export default function AccountInfoStep({
           marginBottom: "0.5rem",
         }}
       >
-        Account Information
+        {t?.account?.title || "Account Information"}
       </h2>
       <p
         style={{
@@ -122,11 +129,10 @@ export default function AccountInfoStep({
           marginBottom: "1.5rem",
         }}
       >
-        Create your reseller account. Country is pre-filled based on your
-        location.
+        {t?.account?.subtitle || "Create your reseller account."} {country.flag}{" "}
+        {country.name}
       </p>
 
-      {/* Country (hidden from user) */}
       <input type="hidden" name="country" value={country.code} />
 
       <form onSubmit={handleSubmit}>
@@ -149,7 +155,7 @@ export default function AccountInfoStep({
                   color: "var(--text)",
                 }}
               >
-                First Name
+                {t?.account?.firstName || "First Name"}
               </label>
               <input
                 type="text"
@@ -181,7 +187,7 @@ export default function AccountInfoStep({
                   color: "var(--text)",
                 }}
               >
-                Last Name
+                {t?.account?.lastName || "Last Name"}
               </label>
               <input
                 type="text"
@@ -216,7 +222,7 @@ export default function AccountInfoStep({
                 color: "var(--text)",
               }}
             >
-              Email Address
+              {t?.account?.email || "Email Address"}
             </label>
             <input
               type="email"
@@ -250,7 +256,7 @@ export default function AccountInfoStep({
                 color: "var(--text)",
               }}
             >
-              Phone Number
+              {t?.account?.phone || "Phone Number"}
             </label>
             <div style={{ display: "flex", gap: "0.5rem" }}>
               <span
@@ -303,7 +309,7 @@ export default function AccountInfoStep({
                 color: "var(--text)",
               }}
             >
-              Password
+              {t?.account?.password || "Password"}
             </label>
             <div style={{ position: "relative" }}>
               <input
@@ -356,7 +362,7 @@ export default function AccountInfoStep({
                 color: "var(--text)",
               }}
             >
-              Confirm Password
+              {t?.account?.confirmPassword || "Confirm Password"}
             </label>
             <div style={{ position: "relative" }}>
               <input
@@ -427,7 +433,7 @@ export default function AccountInfoStep({
             e.currentTarget.style.transform = "translateY(0)";
           }}
         >
-          Continue <ChevronRight size={18} />
+          {t?.account?.continue || "Continue"} <ChevronRight size={18} />
         </button>
       </form>
     </div>

@@ -15,13 +15,14 @@ interface ApplicationWizardProps {
   applicationId: string | null;
   onComplete: (data: any) => void;
   onDraftSaved: (id: string) => void;
+  translations: any;
 }
 
-// ✅ 3 steps only
-const STEPS = [
-  { id: "account", label: "Account Information" },
-  { id: "store", label: "Store Configuration" },
-  { id: "review", label: "Review & Submit" },
+// ✅ Use translations for step labels
+const getSteps = (t: any) => [
+  { id: "account", label: t?.steps?.account || "Account Information" },
+  { id: "store", label: t?.steps?.store || "Store Configuration" },
+  { id: "review", label: t?.steps?.review || "Review & Submit" },
 ];
 
 export default function ApplicationWizard({
@@ -30,12 +31,15 @@ export default function ApplicationWizard({
   applicationId,
   onComplete,
   onDraftSaved,
+  translations,
 }: ApplicationWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<any>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const country = useCountry();
+  const t = translations;
+  const STEPS = getSteps(t);
 
   // Load draft on mount
   useEffect(() => {
@@ -114,7 +118,7 @@ export default function ApplicationWizard({
         brandColor: formData.brandColor,
         androidApp: formData.androidApp || false,
         countryCode,
-        agreed: true, // ✅ Always true when submitting
+        agreed: true,
       });
 
       if (result.success) {
@@ -139,6 +143,7 @@ export default function ApplicationWizard({
             onChange={updateFormData}
             onNext={goToNext}
             country={country}
+            translations={t}
           />
         );
       case 1:
@@ -150,6 +155,7 @@ export default function ApplicationWizard({
             onPrevious={goToPrevious}
             config={config}
             countryCode={countryCode}
+            translations={t}
           />
         );
       case 2:
@@ -161,6 +167,7 @@ export default function ApplicationWizard({
             isSubmitting={isSubmitting}
             error={error}
             config={config}
+            translations={t}
           />
         );
       default:

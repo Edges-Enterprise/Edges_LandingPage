@@ -10,6 +10,7 @@ interface ReviewStepProps {
   isSubmitting: boolean;
   error: string | null;
   config: any;
+  translations?: any; // ✅ Add translations prop
 }
 
 export default function ReviewStep({
@@ -19,26 +20,38 @@ export default function ReviewStep({
   isSubmitting,
   error,
   config,
+  translations,
 }: ReviewStepProps) {
+  const t = translations || {};
+
   const sections = [
     {
-      title: "Account Information",
+      title: t?.review?.accountInfo || "Account Information",
       fields: [
-        { label: "First Name", value: data.firstName },
-        { label: "Last Name", value: data.lastName },
-        { label: "Email", value: data.email },
-        { label: "Phone", value: data.phone },
+        { label: t?.account?.firstName || "First Name", value: data.firstName },
+        { label: t?.account?.lastName || "Last Name", value: data.lastName },
+        { label: t?.account?.email || "Email", value: data.email },
+        { label: t?.account?.phone || "Phone", value: data.phone },
       ],
     },
     {
-      title: "Store Configuration",
+      title: t?.review?.storeConfig || "Store Configuration",
       fields: [
-        { label: "Store Name", value: data.storeName },
-        { label: "Store URL", value: `/${config.code}/${data.storeSlug}` },
-        { label: "Brand Color", value: data.brandColor },
-        { label: "Android App", value: data.androidApp ? "✅ Yes" : "❌ No" },
+        { label: t?.store?.storeName || "Store Name", value: data.storeName },
         {
-          label: "Logo",
+          label: t?.store?.storeUrl || "Store URL",
+          value: `/${config.code}/${data.storeSlug}`,
+        },
+        {
+          label: t?.store?.brandColor || "Brand Color",
+          value: data.brandColor,
+        },
+        {
+          label: t?.store?.androidApp || "Android App",
+          value: data.androidApp ? "✅ Yes" : "❌ No",
+        },
+        {
+          label: t?.store?.logo || "Logo",
           value: data.logo ? "✅ Uploaded" : "🔄 Will be generated",
         },
       ],
@@ -55,7 +68,7 @@ export default function ReviewStep({
           marginBottom: "0.5rem",
         }}
       >
-        Review & Submit
+        {t?.review?.title || "Review & Submit"}
       </h2>
       <p
         style={{
@@ -64,7 +77,8 @@ export default function ReviewStep({
           marginBottom: "1.5rem",
         }}
       >
-        Please review your information before submitting.
+        {t?.review?.subtitle ||
+          "Please review your information before submitting."}
       </p>
 
       <div style={{ display: "grid", gap: "1.5rem" }}>
@@ -132,7 +146,7 @@ export default function ReviewStep({
           </div>
         )}
 
-        {/* ✅ Agreement Text - Before Submit Button */}
+        {/* Agreement Text */}
         <div
           style={{
             padding: "1rem 1.25rem",
@@ -148,7 +162,7 @@ export default function ReviewStep({
               lineHeight: 1.7,
             }}
           >
-            By submitting, you agree to the{" "}
+            {t?.review?.agreement || "By submitting, you agree to the"}{" "}
             <a
               href="/terms"
               target="_blank"
@@ -249,7 +263,7 @@ export default function ReviewStep({
             e.currentTarget.style.background = "transparent";
           }}
         >
-          <ChevronLeft size={18} /> Back
+          <ChevronLeft size={18} /> {t?.review?.back || "Back"}
         </button>
         <button
           type="button"
@@ -292,7 +306,7 @@ export default function ReviewStep({
               Submitting...
             </>
           ) : (
-            "Submit Application"
+            t?.review?.submit || "Submit Application"
           )}
         </button>
       </div>

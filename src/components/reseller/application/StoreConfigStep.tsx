@@ -6,11 +6,9 @@ import {
   ChevronRight,
   ChevronLeft,
   Upload,
-  X,
   Smartphone,
   Palette,
 } from "lucide-react";
-import Image from "next/image";
 
 interface StoreConfigStepProps {
   data: any;
@@ -19,6 +17,7 @@ interface StoreConfigStepProps {
   onPrevious: () => void;
   config: any;
   countryCode: string;
+  translations?: any; // ✅ Add translations prop
 }
 
 interface StoreFormData {
@@ -48,14 +47,16 @@ export default function StoreConfigStep({
   onPrevious,
   config,
   countryCode,
+  translations,
 }: StoreConfigStepProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [logoPreview, setLogoPreview] = useState<string | null>(
     data.logo || null,
   );
-  const [isGeneratingLogo, setIsGeneratingLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const colorInputRef = useRef<HTMLInputElement>(null);
+
+  const t = translations || {};
 
   // Auto-generate store URL from store name
   const generateSlug = (name: string) => {
@@ -66,13 +67,13 @@ export default function StoreConfigStep({
       .replace(/[^a-z0-9-]/g, "");
   };
 
-const [formData, setFormData] = useState<StoreFormData>({
-  storeName: data.storeName || "",
-  storeSlug: data.storeSlug || "",
-  logo: data.logo || "",
-  brandColor: data.brandColor || config.defaultColor || "#C98A54",
-  androidApp: data.androidApp || false,
-});
+  const [formData, setFormData] = useState<StoreFormData>({
+    storeName: data.storeName || "",
+    storeSlug: data.storeSlug || "",
+    logo: data.logo || "",
+    brandColor: data.brandColor || config.defaultColor || "#C98A54",
+    androidApp: data.androidApp || false,
+  });
 
   // Auto-generate slug when store name changes
   useEffect(() => {
@@ -101,13 +102,11 @@ const [formData, setFormData] = useState<StoreFormData>({
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith("image/")) {
         setErrors({ ...errors, logo: "Please upload an image file" });
         return;
       }
 
-      // Validate size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setErrors({ ...errors, logo: "Image must be under 5MB" });
         return;
@@ -138,10 +137,12 @@ const [formData, setFormData] = useState<StoreFormData>({
     const newErrors: Record<string, string> = {};
 
     if (!formData.storeName.trim()) {
-      newErrors.storeName = "Store name is required";
+      newErrors.storeName =
+        t?.errors?.storeNameRequired || "Store name is required";
     }
     if (formData.storeName.trim().length < 2) {
-      newErrors.storeName = "Store name must be at least 2 characters";
+      newErrors.storeName =
+        t?.errors?.storeNameMin || "Store name must be at least 2 characters";
     }
 
     setErrors(newErrors);
@@ -151,17 +152,10 @@ const [formData, setFormData] = useState<StoreFormData>({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
-      // If no logo uploaded, generate one (will be handled on submit)
       onChange(formData);
       onNext();
     }
   };
-
-  // Capitalize store name display
-  const displayStoreName = formData.storeName
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
 
   const inputStyle = (hasError: boolean) => ({
     width: "100%",
@@ -185,7 +179,7 @@ const [formData, setFormData] = useState<StoreFormData>({
           marginBottom: "0.5rem",
         }}
       >
-        Store Configuration
+        {t?.store?.title || "Store Configuration"}
       </h2>
       <p
         style={{
@@ -194,7 +188,8 @@ const [formData, setFormData] = useState<StoreFormData>({
           marginBottom: "1.5rem",
         }}
       >
-        Set up your branded storefront. This is what your customers will see.
+        {t?.store?.subtitle ||
+          "Set up your branded storefront. This is what your customers will see."}
       </p>
 
       <form onSubmit={handleSubmit}>
@@ -210,7 +205,7 @@ const [formData, setFormData] = useState<StoreFormData>({
                 color: "var(--text)",
               }}
             >
-              Store Name
+              {t?.store?.storeName || "Store Name"}
             </label>
             <input
               type="text"
@@ -233,7 +228,7 @@ const [formData, setFormData] = useState<StoreFormData>({
             )}
           </div>
 
-          {/* Store URL (auto-generated, read-only) */}
+          {/* Store URL */}
           <div>
             <label
               style={{
@@ -244,7 +239,7 @@ const [formData, setFormData] = useState<StoreFormData>({
                 color: "var(--text)",
               }}
             >
-              Store URL
+              {t?.store?.storeUrl || "Store URL"}
             </label>
             <div
               style={{
@@ -274,7 +269,8 @@ const [formData, setFormData] = useState<StoreFormData>({
                 marginTop: "0.35rem",
               }}
             >
-              Your store URL is automatically generated from your store name.
+              {t?.store?.storeUrlHint ||
+                "Your store URL is automatically generated from your store name."}
             </p>
           </div>
 
@@ -289,7 +285,7 @@ const [formData, setFormData] = useState<StoreFormData>({
                 color: "var(--text)",
               }}
             >
-              Store Logo{" "}
+              {t?.store?.logo || "Store Logo"}{" "}
               <span
                 style={{
                   fontSize: "0.75rem",
@@ -307,7 +303,8 @@ const [formData, setFormData] = useState<StoreFormData>({
                 marginBottom: "0.75rem",
               }}
             >
-              Upload a 1024×1024px PNG, or we'll generate one for you.
+              {t?.store?.logoHint ||
+                "Upload a 1024×1024px PNG, or we'll generate one for you."}
             </p>
             <div
               style={{
@@ -420,7 +417,7 @@ const [formData, setFormData] = useState<StoreFormData>({
                       size={14}
                       style={{ display: "inline", marginRight: 6 }}
                     />
-                    Upload Logo
+                    {t?.store?.logo || "Upload Logo"}
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -459,7 +456,7 @@ const [formData, setFormData] = useState<StoreFormData>({
               }}
             >
               <Palette size={16} style={{ color: "var(--accent)" }} />
-              Brand Color
+              {t?.store?.brandColor || "Brand Color"}
             </label>
             <div
               style={{
@@ -580,7 +577,7 @@ const [formData, setFormData] = useState<StoreFormData>({
                       color: "var(--text)",
                     }}
                   >
-                    Android App
+                    {t?.store?.androidApp || "Android App"}
                   </p>
                   <p
                     style={{
@@ -589,7 +586,8 @@ const [formData, setFormData] = useState<StoreFormData>({
                       marginTop: 2,
                     }}
                   >
-                    Get a branded APK in 3–5 business days
+                    {t?.store?.androidAppHint ||
+                      "Get a branded APK in 3–5 business days"}
                   </p>
                 </div>
               </div>
@@ -663,7 +661,7 @@ const [formData, setFormData] = useState<StoreFormData>({
               e.currentTarget.style.background = "transparent";
             }}
           >
-            <ChevronLeft size={18} /> Back
+            <ChevronLeft size={18} /> {t?.store?.back || "Back"}
           </button>
           <button
             type="submit"
@@ -692,7 +690,7 @@ const [formData, setFormData] = useState<StoreFormData>({
               e.currentTarget.style.transform = "translateY(0)";
             }}
           >
-            Continue <ChevronRight size={18} />
+            {t?.store?.continue || "Continue"} <ChevronRight size={18} />
           </button>
         </div>
       </form>

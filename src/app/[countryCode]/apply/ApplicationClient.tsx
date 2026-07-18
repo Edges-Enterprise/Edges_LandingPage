@@ -43,13 +43,16 @@ export default function ApplicationClient({
     localStorage.setItem("application_draft_id", id);
   };
 
-  // ✅ Render flag as HTML
-  const renderFlag = (flag: string) => (
-    <span
-      style={{ display: "inline-block", width: 32, height: 22 }}
-      dangerouslySetInnerHTML={{ __html: flag }}
-    />
-  );
+  // ✅ Fix: Properly render SVG flag using dangerouslySetInnerHTML
+  const renderFlag = (flag: string) => {
+    if (!flag) return null;
+    return (
+      <span
+        style={{ display: "inline-block", width: 32, height: 22 }}
+        dangerouslySetInnerHTML={{ __html: flag }}
+      />
+    );
+  };
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "2rem 5% 4rem" }}>
@@ -63,7 +66,7 @@ export default function ApplicationClient({
             marginBottom: "0.75rem",
           }}
         >
-          {/* ✅ Use renderFlag to display SVG flag */}
+          {/* ✅ Use renderFlag function properly */}
           {renderFlag(country.flag)}
           <span
             style={{
