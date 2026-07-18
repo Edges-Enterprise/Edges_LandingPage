@@ -6,7 +6,7 @@ export const COUNTRY_TG: CountryConfig = {
   code: "tg",
   name: "Togo",
   nativeName: "Togo",
-  flag: flags.Togo as unknown as string, // ✅ SVG flag
+  flag: flags.Togo, // ✅ SVG flag
   flagEmoji: "🇹🇬",
   currency: "XOF",
   currencySymbol: "CFA",

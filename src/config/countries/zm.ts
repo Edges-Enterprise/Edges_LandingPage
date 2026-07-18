@@ -6,7 +6,7 @@ export const COUNTRY_ZM: CountryConfig = {
   code: "zm",
   name: "Zambia",
   nativeName: "Zambia",
-  flag: flags.Zambia as unknown as string, // ✅ SVG flag
+  flag: flags.Zambia, // ✅ SVG flag
   flagEmoji: "🇿🇲",
   currency: "ZMW",
   currencySymbol: "ZK",

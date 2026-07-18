@@ -6,7 +6,7 @@ export const COUNTRY_CM: CountryConfig = {
   code: "cm",
   name: "Cameroon",
   nativeName: "Cameroun",
-  flag: flags.Cameroon as unknown as string, // ✅ Updated
+  flag: flags.Cameroon, // ✅ Updated
   flagEmoji: "🇨🇲",
   currency: "XAF",
   currencySymbol: "FCFA",

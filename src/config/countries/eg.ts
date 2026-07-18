@@ -6,7 +6,7 @@ export const COUNTRY_EG: CountryConfig = {
   code: "eg",
   name: "Egypt",
   nativeName: "مصر",
-  flag: flags.Egypt as unknown as string, // ✅ SVG flag
+  flag: flags.Egypt, // ✅ SVG flag
   flagEmoji: "🇪🇬",
   currency: "EGP",
   currencySymbol: "E£",

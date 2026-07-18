@@ -6,7 +6,7 @@ export const COUNTRY_NG: CountryConfig = {
   code: "ng",
   name: "Nigeria",
   nativeName: "Nigeria",
-  flag: flags.Nigeria as unknown as string, // ✅ SVG flag
+  flag: flags.Nigeria, // ✅ No cast needed - it's a ReactNode
   flagEmoji: "🇳🇬",
   currency: "NGN",
   currencySymbol: "₦",

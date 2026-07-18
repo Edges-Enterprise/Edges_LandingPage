@@ -6,7 +6,7 @@ export const COUNTRY_MA: CountryConfig = {
   code: "ma",
   name: "Morocco",
   nativeName: "المغرب",
-  flag: flags.Morocco as unknown as string, // ✅ SVG flag
+  flag: flags.Morocco, // ✅ SVG flag
   flagEmoji: "🇲🇦",
   currency: "MAD",
   currencySymbol: "DH",

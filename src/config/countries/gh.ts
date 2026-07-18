@@ -6,7 +6,7 @@ export const COUNTRY_GH: CountryConfig = {
   code: "gh",
   name: "Ghana",
   nativeName: "Ghana",
-  flag: flags.Ghana as unknown as string, // ✅ SVG flag
+  flag: flags.Ghana, // ✅ SVG flag
   flagEmoji: "🇬🇭",
   currency: "GHS",
   currencySymbol: "₵",

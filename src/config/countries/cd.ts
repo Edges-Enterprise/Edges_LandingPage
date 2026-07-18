@@ -6,7 +6,7 @@ export const COUNTRY_CD: CountryConfig = {
   code: "cd",
   name: "DRC",
   nativeName: "République Démocratique du Congo",
-  flag: flags.DRC as unknown as string, // ✅ SVG flag
+  flag: flags.DRC, // ✅ SVG flag
   flagEmoji: "🇨🇩",
   currency: "CDF",
   currencySymbol: "FC",
