@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCountry } from "@/providers/CountryProvider";
 import ApplicationWizard from "@/components/reseller/application/ApplicationWizard";
 import { CountryConfig } from "@/config/countries";
 
@@ -16,6 +17,7 @@ export default function ApplicationClient({
   config,
 }: ApplicationClientProps) {
   const router = useRouter();
+  const country = useCountry();
   const [applicationId, setApplicationId] = useState<string | null>(null);
 
   // Check for existing draft on mount
@@ -38,9 +40,39 @@ export default function ApplicationClient({
     localStorage.setItem("application_draft_id", id);
   };
 
+  // Render flag as HTML
+  const renderFlag = (flag: string) => (
+    <span
+      style={{ display: "inline-block", width: 32, height: 22 }}
+      dangerouslySetInnerHTML={{ __html: flag }}
+    />
+  );
+
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "2rem 5% 4rem" }}>
       <div style={{ marginBottom: "2.5rem", textAlign: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.75rem",
+            marginBottom: "0.75rem",
+          }}
+        >
+          {renderFlag(country.flag)}
+          <span
+            style={{
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              color: "var(--muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            {country.name}
+          </span>
+        </div>
         <h1
           style={{
             fontFamily: "'Playfair Display', serif",
@@ -61,7 +93,7 @@ export default function ApplicationClient({
             margin: "0 auto",
           }}
         >
-          Complete the form below to start.
+          Complete the form below to start earning today.
         </p>
       </div>
 
