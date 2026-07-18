@@ -7,7 +7,6 @@ import StepIndicator from "./StepIndicator";
 import StepContainer from "./StepContainer";
 import AccountInfoStep from "./AccountInfoStep";
 import StoreConfigStep from "./StoreConfigStep";
-import ComplianceStep from "./ComplianceStep";
 import ReviewStep from "./ReviewStep";
 
 interface ApplicationWizardProps {
@@ -18,10 +17,10 @@ interface ApplicationWizardProps {
   onDraftSaved: (id: string) => void;
 }
 
+// ✅ 3 steps only
 const STEPS = [
   { id: "account", label: "Account Information" },
   { id: "store", label: "Store Configuration" },
-  { id: "compliance", label: "Compliance" },
   { id: "review", label: "Review & Submit" },
 ];
 
@@ -104,7 +103,6 @@ export default function ApplicationWizard({
     try {
       const { submitApplication } =
         await import("@/actions/reseller/application");
-      // In the handleSubmit function:
       const result = await submitApplication({
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -116,7 +114,7 @@ export default function ApplicationWizard({
         brandColor: formData.brandColor,
         androidApp: formData.androidApp || false,
         countryCode,
-        agreed: formData.agreed || true, // ✅ Default to true
+        agreed: true, // ✅ Always true when submitting
       });
 
       if (result.success) {
@@ -155,15 +153,6 @@ export default function ApplicationWizard({
           />
         );
       case 2:
-        return (
-          <ComplianceStep
-            data={formData}
-            onChange={updateFormData}
-            onNext={goToNext}
-            onPrevious={goToPrevious}
-          />
-        );
-      case 3:
         return (
           <ReviewStep
             data={formData}
