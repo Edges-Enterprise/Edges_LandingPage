@@ -43,17 +43,6 @@ export default function ApplicationClient({
     localStorage.setItem("application_draft_id", id);
   };
 
-  // ✅ Fix: Properly render SVG flag using dangerouslySetInnerHTML
-  const renderFlag = (flag: string) => {
-    if (!flag) return null;
-    return (
-      <span
-        style={{ display: "inline-block", width: 32, height: 22 }}
-        dangerouslySetInnerHTML={{ __html: flag }}
-      />
-    );
-  };
-
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "2rem 5% 4rem" }}>
       <div style={{ marginBottom: "2.5rem", textAlign: "center" }}>
@@ -66,8 +55,10 @@ export default function ApplicationClient({
             marginBottom: "0.75rem",
           }}
         >
-          {/* ✅ Use renderFlag function properly */}
-          {renderFlag(country.flag)}
+          {/* ✅ Fix: Render country.flag directly as a React node */}
+          <span style={{ display: "inline-block" }}>
+            {country.flag}
+          </span>
           <span
             style={{
               fontSize: "0.85rem",
