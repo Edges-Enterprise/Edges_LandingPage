@@ -1,7 +1,7 @@
 // src/components/reseller/application/ReviewStep.tsx
 "use client";
 
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2, ExternalLink } from "lucide-react";
 
 interface ReviewStepProps {
   data: any;
@@ -131,6 +131,89 @@ export default function ReviewStep({
             {error}
           </div>
         )}
+
+        {/* ✅ Agreement Text - Before Submit Button */}
+        <div
+          style={{
+            padding: "1rem 1.25rem",
+            background: "var(--bg2)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+          }}
+        >
+          <p
+            style={{
+              fontSize: "0.85rem",
+              color: "var(--muted)",
+              lineHeight: 1.7,
+            }}
+          >
+            By submitting, you agree to the{" "}
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "var(--accent)",
+                textDecoration: "none",
+                borderBottom: "1px dashed rgba(201,138,84,0.3)",
+                transition: "border-color 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderBottomColor = "var(--accent)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderBottomColor =
+                  "rgba(201,138,84,0.3)";
+              }}
+            >
+              Terms of Service
+            </a>
+            ,{" "}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "var(--accent)",
+                textDecoration: "none",
+                borderBottom: "1px dashed rgba(201,138,84,0.3)",
+                transition: "border-color 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderBottomColor = "var(--accent)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderBottomColor =
+                  "rgba(201,138,84,0.3)";
+              }}
+            >
+              Privacy Policy
+            </a>
+            , and{" "}
+            <a
+              href="/acceptable-use"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "var(--accent)",
+                textDecoration: "none",
+                borderBottom: "1px dashed rgba(201,138,84,0.3)",
+                transition: "border-color 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderBottomColor = "var(--accent)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderBottomColor =
+                  "rgba(201,138,84,0.3)";
+              }}
+            >
+              Acceptable Use Policy
+            </a>
+            .
+          </p>
+        </div>
       </div>
 
       <div
