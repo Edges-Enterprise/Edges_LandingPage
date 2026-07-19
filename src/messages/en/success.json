@@ -1,0 +1,21 @@
+{
+  "title": "Application Submitted! 🎉",
+  "congratulations": "Congratulations",
+  "storeBeingSetUp": "Your store is being set up.",
+  "applicationId": "Application ID",
+  "emailSent": "We've sent a confirmation email to",
+  "emailSentWithCredentials": "with your login credentials.",
+  "emailArrival": "The email arrives within 5–15 minutes. Check your spam or junk folder if you don't see it.",
+  "androidAppBuilding": "Your Android app is being built. You'll get an email when it's ready!",
+  "goToDashboard": "Go to Dashboard",
+  "previewStore": "Preview Store",
+  "loggingIn": "Logging in...",
+  "applicationSubmitted": "✓ Application submitted",
+  "emailSentStatus": "✓ Email sent",
+  "buildQueued": "✓ Build queued",
+  "storeReady": "✓ Store ready",
+  "somethingWentWrong": "Something went wrong",
+  "applicationNotFound": "Application not found",
+  "goBackToApply": "Go back to Apply",
+  "loadingApplication": "Loading your application status..."
+}

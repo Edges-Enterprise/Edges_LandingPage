@@ -1,0 +1,21 @@
+{
+  "title": "Demande Soumise ! 🎉",
+  "congratulations": "Félicitations",
+  "storeBeingSetUp": "Votre boutique est en cours de configuration.",
+  "applicationId": "ID de la demande",
+  "emailSent": "Nous avons envoyé un email de confirmation à",
+  "emailSentWithCredentials": "avec vos identifiants de connexion.",
+  "emailArrival": "L'email arrive dans les 5 à 15 minutes. Vérifiez votre dossier spam ou courrier indésirable si vous ne le voyez pas.",
+  "androidAppBuilding": "Votre application Android est en cours de construction. Vous recevrez un email quand elle sera prête !",
+  "goToDashboard": "Aller au Tableau de Bord",
+  "previewStore": "Aperçu de la Boutique",
+  "loggingIn": "Connexion en cours...",
+  "applicationSubmitted": "✓ Demande soumise",
+  "emailSentStatus": "✓ Email envoyé",
+  "buildQueued": "✓ Construction en attente",
+  "storeReady": "✓ Boutique prête",
+  "somethingWentWrong": "Une erreur s'est produite",
+  "applicationNotFound": "Demande non trouvée",
+  "goBackToApply": "Retourner à la demande",
+  "loadingApplication": "Chargement du statut de votre demande..."
+}

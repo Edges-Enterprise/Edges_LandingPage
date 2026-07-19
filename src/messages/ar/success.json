@@ -1,0 +1,21 @@
+{
+  "title": "تم تقديم الطلب! 🎉",
+  "congratulations": "تهانينا",
+  "storeBeingSetUp": "يتم إعداد متجرك.",
+  "applicationId": "معرف الطلب",
+  "emailSent": "لقد أرسلنا بريدًا إلكترونيًا للتأكيد إلى",
+  "emailSentWithCredentials": "مع بيانات اعتماد تسجيل الدخول الخاصة بك.",
+  "emailArrival": "يصل البريد الإلكتروني خلال 5-15 دقيقة. تحقق من مجلد البريد العشوائي إذا لم تراه.",
+  "androidAppBuilding": "تطبيق Android الخاص بك قيد الإنشاء. ستتلقى بريدًا إلكترونيًا عندما يكون جاهزًا!",
+  "goToDashboard": "اذهب إلى لوحة التحكم",
+  "previewStore": "معاينة المتجر",
+  "loggingIn": "جاري تسجيل الدخول...",
+  "applicationSubmitted": "✓ تم تقديم الطلب",
+  "emailSentStatus": "✓ تم إرسال البريد الإلكتروني",
+  "buildQueued": "✓ قيد الإنشاء",
+  "storeReady": "✓ المتجر جاهز",
+  "somethingWentWrong": "حدث خطأ ما",
+  "applicationNotFound": "الطلب غير موجود",
+  "goBackToApply": "العودة إلى التقديم",
+  "loadingApplication": "جاري تحميل حالة طلبك..."
+}
