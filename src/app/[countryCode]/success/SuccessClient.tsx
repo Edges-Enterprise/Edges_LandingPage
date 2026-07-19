@@ -19,12 +19,14 @@ interface SuccessClientProps {
   countryCode: string;
   config: any;
   applicationId?: string;
+  translations: any;
 }
 
 export default function SuccessClient({
   countryCode,
   config,
   applicationId,
+  translations,
 }: SuccessClientProps) {
   const router = useRouter();
   const country = useCountry();
@@ -32,10 +34,11 @@ export default function SuccessClient({
   const [application, setApplication] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const t = translations || {};
 
   useEffect(() => {
     if (!applicationId) {
-      setError("Application ID not found");
+      setError(t?.applicationNotFound || "Application ID not found");
       setLoading(false);
       return;
     }
@@ -61,7 +64,9 @@ export default function SuccessClient({
               .join(" ") || data.store_name,
         });
       } catch (err) {
-        setError("Failed to fetch application status");
+        setError(
+          t?.applicationNotFound || "Failed to fetch application status",
+        );
         console.error(err);
       } finally {
         setLoading(false);
@@ -69,11 +74,10 @@ export default function SuccessClient({
     };
 
     fetchApplication();
-  }, [applicationId]);
+  }, [applicationId, t]);
 
   const handleAutoLogin = async () => {
     if (!application || !application.temp_password) {
-      // Fallback: redirect to sign-in page with email pre-filled
       router.push(
         `/${countryCode}/sign-in?email=${encodeURIComponent(application?.email || "")}`,
       );
@@ -84,15 +88,13 @@ export default function SuccessClient({
     try {
       const supabase = createClient();
 
-      // ✅ Sign in with the AUTH email (not the original email)
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: application.auth_email, // ✅ Use auth_email
+        email: application.auth_email,
         password: application.temp_password,
       });
 
       if (signInError) {
         console.error("Login error:", signInError);
-        // Fallback: redirect to sign-in page with email pre-filled
         router.push(
           `/${countryCode}/sign-in?email=${encodeURIComponent(application.email)}`,
         );
@@ -129,7 +131,7 @@ export default function SuccessClient({
           }}
         />
         <p style={{ color: "var(--muted)" }}>
-          Loading your application status...
+          {t?.loadingApplication || "Loading your application status..."}
         </p>
         <style>{`
           @keyframes spin {
@@ -174,10 +176,10 @@ export default function SuccessClient({
             fontWeight: 700,
           }}
         >
-          Something went wrong
+          {t?.somethingWentWrong || "Something went wrong"}
         </h2>
         <p style={{ color: "var(--muted)" }}>
-          {error || "Application not found"}
+          {error || t?.applicationNotFound || "Application not found"}
         </p>
         <Link
           href={`/${countryCode}/apply`}
@@ -191,7 +193,7 @@ export default function SuccessClient({
             fontWeight: 600,
           }}
         >
-          Go back to Apply
+          {t?.goBackToApply || "Go back to Apply"}
         </Link>
       </div>
     );
@@ -226,7 +228,7 @@ export default function SuccessClient({
             marginBottom: "0.5rem",
           }}
         >
-          Application Submitted! 🎉
+          {t?.title || "Application Submitted! 🎉"}
         </h1>
 
         <p
@@ -236,7 +238,7 @@ export default function SuccessClient({
             marginBottom: "0.25rem",
           }}
         >
-          Congratulations{" "}
+          {t?.congratulations || "Congratulations"}{" "}
           <strong style={{ color: "var(--accent-lt)" }}>
             {application.fullName}
           </strong>
@@ -249,11 +251,11 @@ export default function SuccessClient({
             marginBottom: "1.5rem",
           }}
         >
-          Your store{" "}
+          {t?.storeBeingSetUp || "Your store"}{" "}
           <strong style={{ color: "var(--text)" }}>
             {application.displayStoreName}
           </strong>{" "}
-          is being set up.
+          {t?.storeBeingSetUp || "is being set up."}
         </p>
 
         {/* Email Notice */}
@@ -283,8 +285,9 @@ export default function SuccessClient({
                 margin: 0,
               }}
             >
-              We've sent a confirmation email to{" "}
-              <strong>{application.email}</strong> with your login credentials.
+              {t?.emailSent || "We've sent a confirmation email to"}{" "}
+              <strong>{application.email}</strong>{" "}
+              {t?.emailSentWithCredentials || "with your login credentials."}
             </p>
             <p
               style={{
@@ -293,12 +296,11 @@ export default function SuccessClient({
                 marginTop: "0.25rem",
               }}
             >
-              The email arrives within 5–15 minutes. Check your spam or junk
-              folder if you don't see it.
+              {t?.emailArrival ||
+                "The email arrives within 5–15 minutes. Check your spam or junk folder if you don't see it."}
             </p>
           </div>
         </div>
-
 
         {/* Actions */}
         <div
@@ -347,12 +349,12 @@ export default function SuccessClient({
                   size={18}
                   style={{ animation: "spin 1s linear infinite" }}
                 />
-                Logging in...
+                {t?.loggingIn || "Logging in..."}
               </>
             ) : (
               <>
                 <LayoutDashboard size={18} />
-                Go to Dashboard
+                {t?.goToDashboard || "Go to Dashboard"}
               </>
             )}
           </button>
@@ -384,7 +386,7 @@ export default function SuccessClient({
             }}
           >
             <Store size={18} />
-            Preview Store <ExternalLink size={15} />
+            {t?.previewStore || "Preview Store"} <ExternalLink size={15} />
           </a>
         </div>
 
@@ -395,8 +397,11 @@ export default function SuccessClient({
             color: "var(--dim)",
           }}
         >
-          ✓ Application submitted · ✓ Email sent ·{" "}
-          {application.android_app ? "✓ Build queued" : "✓ Store ready"}
+          {t?.applicationSubmitted || "✓ Application submitted"} ·{" "}
+          {t?.emailSentStatus || "✓ Email sent"} ·{" "}
+          {application.android_app
+            ? t?.buildQueued || "✓ Build queued"
+            : t?.storeReady || "✓ Store ready"}
         </p>
       </div>
 

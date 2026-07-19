@@ -14,6 +14,16 @@ interface SuccessPageProps {
   };
 }
 
+async function getTranslations(language: string) {
+  try {
+    const translations = await import(`@/messages/${language}/success.json`);
+    return translations.default;
+  } catch {
+    const translations = await import("@/messages/en/success.json");
+    return translations.default;
+  }
+}
+
 export default async function SuccessPage({
   params,
   searchParams,
@@ -21,6 +31,8 @@ export default async function SuccessPage({
   const { countryCode } = await params;
   const { applicationId } = await searchParams;
   const config = getCountryConfig(countryCode);
+  const language = config.language.code;
+  const translations = await getTranslations(language);
 
   return (
     <CountryProvider config={config}>
@@ -29,6 +41,7 @@ export default async function SuccessPage({
           countryCode={countryCode}
           config={config}
           applicationId={applicationId}
+          translations={translations}
         />
       </main>
     </CountryProvider>
