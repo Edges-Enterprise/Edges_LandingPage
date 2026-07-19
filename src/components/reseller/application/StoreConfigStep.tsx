@@ -280,7 +280,7 @@ export default function StoreConfigStep({
                 name="storeName"
                 value={formData.storeName}
                 onChange={handleChange}
-                placeholder="Sparkle Store"
+                placeholder="Sparkle Data Store"
                 style={inputStyle(!!errors.storeName)}
               />
               <div
