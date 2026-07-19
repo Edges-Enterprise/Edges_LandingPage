@@ -8,6 +8,7 @@ import StepContainer from "./StepContainer";
 import AccountInfoStep from "./AccountInfoStep";
 import StoreConfigStep from "./StoreConfigStep";
 import ReviewStep from "./ReviewStep";
+import { submitApplication } from "@/actions/reseller/application";
 
 interface ApplicationWizardProps {
   countryCode: string;
@@ -18,7 +19,6 @@ interface ApplicationWizardProps {
   translations: any;
 }
 
-// ✅ Use translations for step labels
 const getSteps = (t: any) => [
   { id: "account", label: t?.steps?.account || "Account Information" },
   { id: "store", label: t?.steps?.store || "Store Configuration" },
@@ -41,7 +41,6 @@ export default function ApplicationWizard({
   const t = translations;
   const STEPS = getSteps(t);
 
-  // Load draft on mount
   useEffect(() => {
     if (applicationId) {
       const loadDraft = async () => {
@@ -64,7 +63,6 @@ export default function ApplicationWizard({
     const newData = { ...formData, ...stepData };
     setFormData(newData);
 
-    // Auto-save draft
     if (currentStep > 0) {
       const saveDraft = async () => {
         try {
@@ -97,31 +95,38 @@ export default function ApplicationWizard({
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
-
     }
   };
-  
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const { submitApplication } =
-        await import("@/actions/reseller/application");
-      const result = await submitApplication({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password, // ✅ Add user's password
-        storeName: formData.storeName,
-        storeSlug: formData.storeSlug,
-        logo: formData.logo || "",
-        brandColor: formData.brandColor,
-        androidApp: formData.androidApp || false,
-        countryCode,
-        agreed: true,
-      });
+      const formDataObj = new FormData();
+
+      // Add all fields
+      formDataObj.append("firstName", formData.firstName || "");
+      formDataObj.append("lastName", formData.lastName || "");
+      formDataObj.append("email", formData.email || "");
+      formDataObj.append("phone", formData.phone || "");
+      formDataObj.append("password", formData.password || "");
+      formDataObj.append("storeName", formData.storeName || "");
+      formDataObj.append("storeSlug", formData.storeSlug || "");
+      formDataObj.append("brandColor", formData.brandColor || "#C98A54");
+      formDataObj.append("androidApp", String(formData.androidApp || false));
+      formDataObj.append("countryCode", countryCode);
+      formDataObj.append("agreed", "true");
+
+      // ✅ Append the File object directly - NO CONVERSION NEEDED
+      if (formData.logoFile && formData.logoFile instanceof File) {
+        formDataObj.append("logo", formData.logoFile);
+        console.log(
+          `✅ Logo file attached: ${formData.logoFile.name}, ${formData.logoFile.size} bytes`,
+        );
+      }
+
+      const result = await submitApplication(formDataObj);
 
       if (result.success) {
         onComplete(result);
