@@ -1,4 +1,4 @@
-// app/reseller/ResellerFormClient.tsx
+// app/[countryCode]/ResellerFormClient.tsx
 
 "use client";
 
