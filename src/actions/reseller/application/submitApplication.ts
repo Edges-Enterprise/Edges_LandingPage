@@ -4,21 +4,6 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-interface SubmitApplicationParams {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  password: string;
-  storeName: string;
-  storeSlug: string;
-  logo?: string;
-  brandColor: string;
-  androidApp: boolean;
-  countryCode: string;
-  agreed: boolean;
-}
-
 function generateDashboardToken(): string {
   const timestamp = Date.now();
   const random = require("crypto").randomBytes(32).toString("hex");
@@ -37,76 +22,51 @@ function generateAuthEmail(
   return authEmail;
 }
 
-/**
- * Upload logo to Supabase storage
- * Handles both generated and custom logos
- */
-async function uploadLogo(
-  supabase: any,
-  applicationId: string,
-  logoDataUrl: string,
-): Promise<string | null> {
-  if (!logoDataUrl || !logoDataUrl.startsWith("data:image")) {
-    return null;
-  }
-
-  try {
-    // Extract base64 data from data URL
-    const matches = logoDataUrl.match(
-      /^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/,
-    );
-
-    if (!matches) {
-      console.error("Invalid data URL format");
-      return null;
-    }
-
-    const mimeType = matches[1];
-    const base64Data = matches[2];
-    const buffer = Buffer.from(base64Data, "base64");
-
-    const fileName = `reseller-${applicationId}-icon-${Date.now()}.png`;
-    const filePath = `${applicationId}/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("reseller-assets")
-      .upload(filePath, buffer, {
-        contentType: `image/${mimeType === "jpg" ? "jpeg" : mimeType}`,
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error("Logo upload failed:", uploadError);
-      return null;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from("reseller-assets")
-      .getPublicUrl(filePath);
-
-    return urlData.publicUrl;
-  } catch (error) {
-    console.error("Logo processing failed:", error);
-    return null;
-  }
-}
-
-export async function submitApplication(params: SubmitApplicationParams) {
+export async function submitApplication(formData: FormData) {
   try {
     const supabase = await createServerClient();
     const admin = createAdminClient();
 
-    const authEmail = generateAuthEmail(
-      params.email,
-      params.countryCode,
-      params.storeSlug,
-    );
+    // Extract all fields from FormData
+    const firstName = formData.get("firstName") as string;
+    const lastName = formData.get("lastName") as string;
+    const email = formData.get("email") as string;
+    const phone = formData.get("phone") as string;
+    const password = formData.get("password") as string;
+    const storeName = formData.get("storeName") as string;
+    const storeSlug = formData.get("storeSlug") as string;
+    const brandColor = (formData.get("brandColor") as string) || "#C98A54";
+    const androidApp = formData.get("androidApp") === "true";
+    const countryCode = formData.get("countryCode") as string;
+    const agreed = formData.get("agreed") === "true";
 
-    // ✅ Check if original email already exists
+    // ✅ Get the File directly - no conversion needed
+    const logoFile = formData.get("logo") as File | null;
+
+    // Validate required fields
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !phone ||
+      !password ||
+      !storeName ||
+      !storeSlug ||
+      !countryCode
+    ) {
+      return {
+        success: false,
+        error: "All required fields must be filled",
+      };
+    }
+
+    const authEmail = generateAuthEmail(email, countryCode, storeSlug);
+
+    // Check if original email already exists
     const { data: existing, error: checkError } = await supabase
       .from("global_reseller_applications")
       .select("id, original_email")
-      .eq("original_email", params.email)
+      .eq("original_email", email)
       .maybeSingle();
 
     if (checkError && checkError.code !== "PGRST116") {
@@ -121,11 +81,11 @@ export async function submitApplication(params: SubmitApplicationParams) {
       };
     }
 
-    // ✅ Check if store slug is available
+    // Check if store slug is available
     const { data: existingStore, error: storeCheckError } = await supabase
       .from("global_reseller_applications")
       .select("id")
-      .eq("store_slug", params.storeSlug)
+      .eq("store_slug", storeSlug)
       .maybeSingle();
 
     if (storeCheckError && storeCheckError.code !== "PGRST116") {
@@ -139,23 +99,23 @@ export async function submitApplication(params: SubmitApplicationParams) {
       };
     }
 
-    // ✅ Create Auth User
+    // Create Auth User
     let authUserId: string | null = null;
 
     try {
       const { data: authData, error: authError } =
         await admin.auth.admin.createUser({
           email: authEmail,
-          password: params.password,
+          password: password,
           email_confirm: true,
           user_metadata: {
-            original_email: params.email,
-            first_name: params.firstName,
-            last_name: params.lastName,
-            store_name: params.storeName,
-            store_slug: params.storeSlug,
+            original_email: email,
+            first_name: firstName,
+            last_name: lastName,
+            store_name: storeName,
+            store_slug: storeSlug,
             role: "reseller",
-            country_code: params.countryCode,
+            country_code: countryCode,
           },
         });
 
@@ -181,26 +141,26 @@ export async function submitApplication(params: SubmitApplicationParams) {
 
     const dashboardToken = generateDashboardToken();
 
-    // ✅ Insert application
+    // Insert application
     const { data: application, error: insertError } = await supabase
       .from("global_reseller_applications")
       .insert({
-        first_name: params.firstName,
-        last_name: params.lastName,
-        email: params.email,
-        original_email: params.email,
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        original_email: email,
         auth_email: authEmail,
-        phone: params.phone,
-        country_code: params.countryCode,
-        store_name: params.storeName,
-        store_slug: params.storeSlug,
+        phone: phone,
+        country_code: countryCode,
+        store_name: storeName,
+        store_slug: storeSlug,
         logo_url: null,
-        brand_color: params.brandColor,
-        android_app: params.androidApp,
+        brand_color: brandColor,
+        android_app: androidApp,
         application_status: "pending",
-        agreed: params.agreed,
+        agreed: agreed,
         auth_user_id: authUserId,
-        temp_password: params.password,
+        temp_password: password,
         dashboard_token: dashboardToken,
         submitted_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
@@ -225,29 +185,51 @@ export async function submitApplication(params: SubmitApplicationParams) {
     }
 
     // ============================================================
-    // ✅ UPLOAD LOGO - Handles BOTH generated AND custom logos
+    // ✅ UPLOAD LOGO - Like createReseller.ts (File object, no base64)
     // ============================================================
     let logoUrl: string | null = null;
 
-    if (params.logo && params.logo.startsWith("data:image")) {
-      // ✅ This handles both:
-      // 1. Generated logo (base64 from generateIconPng)
-      // 2. Custom logo (user uploaded image as base64)
-      logoUrl = await uploadLogo(supabase, application.id, params.logo);
+    
+    if (logoFile) {
+      try {
+        const arrayBuffer = await logoFile.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
 
-      if (logoUrl) {
-        // ✅ Update the application with the logo URL
-        await supabase
-          .from("global_reseller_applications")
-          .update({ logo_url: logoUrl })
-          .eq("id", application.id);
+        const fileName = `reseller-${application.id}-icon-${Date.now()}.png`;
+        const filePath = `${application.id}/${fileName}`;
 
-        console.log(`✅ Logo uploaded for application: ${application.id}`);
+        // ✅ Use admin client for upload
+        const { error: uploadError } = await admin.storage
+          .from("reseller-assets")
+          .upload(filePath, buffer, {
+            contentType: logoFile.type || "image/png",
+            upsert: true,
+          });
+
+        if (!uploadError) {
+          // Get public URL (this works with any client)
+          const { data: urlData } = admin.storage
+            .from("reseller-assets")
+            .getPublicUrl(filePath);
+
+          logoUrl = urlData.publicUrl;
+
+          await supabase
+            .from("global_reseller_applications")
+            .update({ logo_url: logoUrl })
+            .eq("id", application.id);
+
+          console.log(`✅ Logo uploaded for application: ${application.id}`);
+        } else {
+          console.error("Logo upload failed:", uploadError);
+        }
+      } catch (err) {
+        console.error("Logo upload error:", err);
       }
     }
 
-    // ✅ Queue Android build if selected
-    if (params.androidApp) {
+    // Queue Android build if selected
+    if (androidApp) {
       await supabase.from("global_app_builds").insert({
         application_id: application.id,
         build_status: "queued",
@@ -255,21 +237,21 @@ export async function submitApplication(params: SubmitApplicationParams) {
       });
     }
 
-    // ✅ Trigger Edge Function for email
+    // Trigger Edge Function for email
     try {
       const { error: edgeError } = await supabase.functions.invoke(
         "send-global-reseller-welcome",
         {
           body: {
             applicationId: application.id,
-            firstName: params.firstName,
-            lastName: params.lastName,
-            email: params.email,
-            password: params.password,
-            storeName: params.storeName,
-            storeSlug: params.storeSlug,
-            countryCode: params.countryCode,
-            androidApp: params.androidApp,
+            firstName: firstName,
+            lastName: lastName,
+            email: email,
+            password: password,
+            storeName: storeName,
+            storeSlug: storeSlug,
+            countryCode: countryCode,
+            androidApp: androidApp,
             logoUrl: logoUrl,
           },
         },
@@ -282,7 +264,7 @@ export async function submitApplication(params: SubmitApplicationParams) {
       console.error("Failed to trigger email:", emailError);
     }
 
-    // ✅ Log email
+    // Log email
     await supabase.from("global_email_logs").insert({
       application_id: application.id,
       email_type: "welcome",
@@ -294,9 +276,9 @@ export async function submitApplication(params: SubmitApplicationParams) {
       success: true,
       applicationId: application.id,
       status: "pending",
-      email: params.email,
-      storeSlug: params.storeSlug,
-      androidApp: params.androidApp,
+      email: email,
+      storeSlug: storeSlug,
+      androidApp: androidApp,
       logoUrl: logoUrl,
       message: "Application submitted successfully!",
     };
