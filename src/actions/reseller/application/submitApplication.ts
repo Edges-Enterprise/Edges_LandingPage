@@ -9,7 +9,7 @@ interface SubmitApplicationParams {
   lastName: string;
   email: string;
   phone: string;
-  password: string; // ✅ User's password from the form
+  password: string;
   storeName: string;
   storeSlug: string;
   logo?: string;
@@ -25,25 +25,70 @@ function generateDashboardToken(): string {
   return `${timestamp}_${random}`;
 }
 
-/**
- * Generate a unique auth email
- * Format: {originalEmail}+reseller-{countryCode}-{storeSlug}-{random}@gmail.com
- * Example: erudite885+reseller-ng-alice-store-7x9k2@gmail.com
- */
-function generateAuthEmail(originalEmail: string, countryCode: string, storeSlug: string): string {
-  // Extract the username and domain from the original email
-  const [username, domain] = originalEmail.split('@');
-  
-  // Generate a random 5-character string
+function generateAuthEmail(
+  originalEmail: string,
+  countryCode: string,
+  storeSlug: string,
+): string {
+  const [username, domain] = originalEmail.split("@");
   const randomStr = Math.random().toString(36).substring(2, 7);
-  
-  // Clean the storeSlug (remove special chars)
-  const cleanStoreSlug = storeSlug.replace(/[^a-zA-Z0-9-]/g, '');
-  
-  // Create the auth email
+  const cleanStoreSlug = storeSlug.replace(/[^a-zA-Z0-9-]/g, "");
   const authEmail = `${username}+reseller-${countryCode}-${cleanStoreSlug}-${randomStr}@${domain}`;
-  
   return authEmail;
+}
+
+/**
+ * Upload logo to Supabase storage
+ * Handles both generated and custom logos
+ */
+async function uploadLogo(
+  supabase: any,
+  applicationId: string,
+  logoDataUrl: string,
+): Promise<string | null> {
+  if (!logoDataUrl || !logoDataUrl.startsWith("data:image")) {
+    return null;
+  }
+
+  try {
+    // Extract base64 data from data URL
+    const matches = logoDataUrl.match(
+      /^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/,
+    );
+
+    if (!matches) {
+      console.error("Invalid data URL format");
+      return null;
+    }
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    const buffer = Buffer.from(base64Data, "base64");
+
+    const fileName = `reseller-${applicationId}-icon-${Date.now()}.png`;
+    const filePath = `${applicationId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("reseller-assets")
+      .upload(filePath, buffer, {
+        contentType: `image/${mimeType === "jpg" ? "jpeg" : mimeType}`,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Logo upload failed:", uploadError);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("reseller-assets")
+      .getPublicUrl(filePath);
+
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error("Logo processing failed:", error);
+    return null;
+  }
 }
 
 export async function submitApplication(params: SubmitApplicationParams) {
@@ -51,14 +96,13 @@ export async function submitApplication(params: SubmitApplicationParams) {
     const supabase = await createServerClient();
     const admin = createAdminClient();
 
-    // ✅ Generate the auth email
     const authEmail = generateAuthEmail(
       params.email,
       params.countryCode,
       params.storeSlug,
     );
 
-    // ✅ Check if original email already exists in global applications
+    // ✅ Check if original email already exists
     const { data: existing, error: checkError } = await supabase
       .from("global_reseller_applications")
       .select("id, original_email")
@@ -95,17 +139,17 @@ export async function submitApplication(params: SubmitApplicationParams) {
       };
     }
 
-    // ✅ Create Auth User with the auth email (not the original email)
+    // ✅ Create Auth User
     let authUserId: string | null = null;
 
     try {
       const { data: authData, error: authError } =
         await admin.auth.admin.createUser({
-          email: authEmail, // ✅ Use the generated auth email
+          email: authEmail,
           password: params.password,
           email_confirm: true,
           user_metadata: {
-            original_email: params.email, // Store original email in metadata
+            original_email: params.email,
             first_name: params.firstName,
             last_name: params.lastName,
             store_name: params.storeName,
@@ -135,39 +179,37 @@ export async function submitApplication(params: SubmitApplicationParams) {
       };
     }
 
-    // ✅ Generate dashboard token
     const dashboardToken = generateDashboardToken();
 
-    // ✅ Insert application (store both original and auth emails)
+    // ✅ Insert application
     const { data: application, error: insertError } = await supabase
       .from("global_reseller_applications")
       .insert({
         first_name: params.firstName,
         last_name: params.lastName,
-        email: params.email, // ✅ Original email for display/communication
-        original_email: params.email, // ✅ Store original email
-        auth_email: authEmail, // ✅ Store the auth email for login lookup
+        email: params.email,
+        original_email: params.email,
+        auth_email: authEmail,
         phone: params.phone,
         country_code: params.countryCode,
         store_name: params.storeName,
         store_slug: params.storeSlug,
-        logo_url: params.logo || null,
+        logo_url: null,
         brand_color: params.brandColor,
         android_app: params.androidApp,
         application_status: "pending",
         agreed: params.agreed,
         auth_user_id: authUserId,
-        temp_password: params.password, // ✅ Store the password temporarily
+        temp_password: params.password,
         dashboard_token: dashboardToken,
         submitted_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .select("id, original_email, auth_email")
+      .select("id")
       .single();
 
     if (insertError) {
-      // Rollback auth user if created
       if (authUserId) {
         try {
           await admin.auth.admin.deleteUser(authUserId);
@@ -182,6 +224,28 @@ export async function submitApplication(params: SubmitApplicationParams) {
       };
     }
 
+    // ============================================================
+    // ✅ UPLOAD LOGO - Handles BOTH generated AND custom logos
+    // ============================================================
+    let logoUrl: string | null = null;
+
+    if (params.logo && params.logo.startsWith("data:image")) {
+      // ✅ This handles both:
+      // 1. Generated logo (base64 from generateIconPng)
+      // 2. Custom logo (user uploaded image as base64)
+      logoUrl = await uploadLogo(supabase, application.id, params.logo);
+
+      if (logoUrl) {
+        // ✅ Update the application with the logo URL
+        await supabase
+          .from("global_reseller_applications")
+          .update({ logo_url: logoUrl })
+          .eq("id", application.id);
+
+        console.log(`✅ Logo uploaded for application: ${application.id}`);
+      }
+    }
+
     // ✅ Queue Android build if selected
     if (params.androidApp) {
       await supabase.from("global_app_builds").insert({
@@ -191,9 +255,8 @@ export async function submitApplication(params: SubmitApplicationParams) {
       });
     }
 
-    // ✅ Trigger Edge Function for email (instead of direct Brevo)
+    // ✅ Trigger Edge Function for email
     try {
-      // Call Supabase Edge Function to send welcome email
       const { error: edgeError } = await supabase.functions.invoke(
         "send-global-reseller-welcome",
         {
@@ -202,25 +265,24 @@ export async function submitApplication(params: SubmitApplicationParams) {
             firstName: params.firstName,
             lastName: params.lastName,
             email: params.email,
-            password: params.password, // ✅ Send the password for the email
+            password: params.password,
             storeName: params.storeName,
             storeSlug: params.storeSlug,
             countryCode: params.countryCode,
             androidApp: params.androidApp,
+            logoUrl: logoUrl,
           },
         },
       );
 
       if (edgeError) {
         console.error("Edge Function error:", edgeError);
-        // Continue even if email fails
       }
     } catch (emailError) {
       console.error("Failed to trigger email:", emailError);
-      // Continue even if email fails
     }
 
-    // ✅ Log email (will be updated by Edge Function)
+    // ✅ Log email
     await supabase.from("global_email_logs").insert({
       application_id: application.id,
       email_type: "welcome",
@@ -235,6 +297,7 @@ export async function submitApplication(params: SubmitApplicationParams) {
       email: params.email,
       storeSlug: params.storeSlug,
       androidApp: params.androidApp,
+      logoUrl: logoUrl,
       message: "Application submitted successfully!",
     };
   } catch (error) {
