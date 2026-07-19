@@ -30,7 +30,8 @@ interface StoreConfigStepProps {
 interface StoreFormData {
   storeName: string;
   storeSlug: string;
-  logo: string;
+  logoFile: File | null; // ✅ File object, not base64
+  logoPreview: string | null;
   brandColor: string;
   androidApp: boolean;
 }
@@ -45,11 +46,7 @@ export default function StoreConfigStep({
   translations,
 }: StoreConfigStepProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [logoPreview, setLogoPreview] = useState<string | null>(
-    data.logo || null,
-  );
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
-  const [generatedPreview, setGeneratedPreview] = useState<string | null>(null);
   const [fileInputRef, setFileInputRef] = useState<HTMLInputElement | null>(
     null,
   );
@@ -76,7 +73,8 @@ export default function StoreConfigStep({
   const [formData, setFormData] = useState<StoreFormData>({
     storeName: data.storeName || "",
     storeSlug: data.storeSlug || "",
-    logo: data.logo || "",
+    logoFile: null,
+    logoPreview: data.logoPreview || null,
     brandColor: data.brandColor || config.defaultColor || "#C98A54",
     androidApp: data.androidApp || false,
   });
@@ -91,18 +89,16 @@ export default function StoreConfigStep({
     }
   }, [formData.storeName]);
 
-  // ✅ Generate icon preview when store name or brand color changes (no logo uploaded)
+  // ✅ Generate icon preview and store as File
   useEffect(() => {
     const generatePreview = async () => {
       // Skip if user uploaded a custom logo
-      if (logoPreview) {
-        setGeneratedPreview(null);
+      if (formData.logoFile) {
         return;
       }
 
       // Skip if no store name
       if (!formData.storeName || formData.storeName.length < 1) {
-        setGeneratedPreview(null);
         return;
       }
 
@@ -112,26 +108,37 @@ export default function StoreConfigStep({
           formData.storeName,
           formData.brandColor,
         );
-        const url = URL.createObjectURL(blob);
-        setGeneratedPreview(url);
+
+        // ✅ Create a File object directly from the blob
+        const file = new File(
+          [blob],
+          `${formData.storeSlug || "store"}-logo.png`,
+          {
+            type: "image/png",
+          },
+        );
+
+        // ✅ Create preview URL
+        const previewUrl = URL.createObjectURL(blob);
+
+        // ✅ Store both the File and the preview URL
+        setFormData((prev) => ({
+          ...prev,
+          logoFile: file,
+          logoPreview: previewUrl,
+        }));
+        setIsGeneratingPreview(false);
       } catch (error) {
         console.error("Failed to generate icon preview:", error);
-        setGeneratedPreview(null);
-      } finally {
         setIsGeneratingPreview(false);
       }
     };
 
-    // Debounce the generation
     const timer = setTimeout(generatePreview, 300);
     return () => {
       clearTimeout(timer);
-      // Clean up old preview URL
-      if (generatedPreview) {
-        URL.revokeObjectURL(generatedPreview);
-      }
     };
-  }, [formData.storeName, formData.brandColor, logoPreview]);
+  }, [formData.storeName, formData.brandColor]);
 
   // Check store name availability with debounce
   useEffect(() => {
@@ -194,110 +201,51 @@ export default function StoreConfigStep({
     setFormData({ ...formData, brandColor: color });
   };
 
-  // ✅ Update the logo upload handler with 1MB limit
+  // ✅ Updated logo upload handler - stores as File directly
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // ✅ Validate file type
+    // Validate file type
     if (!file.type.startsWith("image/")) {
       setErrors({ ...errors, logo: "Please upload an image file" });
       return;
     }
 
-    // ✅ Validate file size (max 1MB)
+    // Validate file size (max 1MB)
     if (file.size > 1 * 1024 * 1024) {
       setErrors({ ...errors, logo: "Image must be under 1MB" });
       return;
     }
 
-    // ✅ Check and resize image to 1024x1024
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        // Check if already 1024x1024
-        if (img.width === 1024 && img.height === 1024) {
-          const result = event.target?.result as string;
-          setLogoPreview(result);
-          setFormData({ ...formData, logo: result });
-          if (errors.logo) {
-            setErrors({ ...errors, logo: "" });
-          }
-          return;
-        }
+    // ✅ Create preview URL
+    const previewUrl = URL.createObjectURL(file);
 
-        // ✅ Resize to 1024x1024 (maintain aspect ratio with center crop)
-        const canvas = document.createElement("canvas");
-        canvas.width = 1024;
-        canvas.height = 1024;
-        const ctx = canvas.getContext("2d")!;
+    // ✅ Store the File object and preview URL directly
+    setFormData({
+      ...formData,
+      logoFile: file,
+      logoPreview: previewUrl,
+    });
 
-        // Calculate crop to maintain aspect ratio
-        let sx = 0,
-          sy = 0,
-          sw = img.width,
-          sh = img.height;
-
-        if (img.width > img.height) {
-          // Landscape - crop width
-          sw = img.height;
-          sx = (img.width - sw) / 2;
-        } else if (img.height > img.width) {
-          // Portrait - crop height
-          sh = img.width;
-          sy = (img.height - sh) / 2;
-        }
-
-        // Draw the image centered and cropped to square
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, 1024, 1024);
-
-        // Convert to PNG
-        const resizedDataUrl = canvas.toDataURL("image/png", 0.92);
-
-        // ✅ Check the resized file size (for PNG, check data URL length)
-        // If still too large, compress more
-        let finalDataUrl = resizedDataUrl;
-        let quality = 0.92;
-
-        // If the data URL is too large (roughly > 1MB), reduce quality
-        while (finalDataUrl.length > 1.4 * 1024 * 1024 && quality > 0.5) {
-          quality -= 0.1;
-          finalDataUrl = canvas.toDataURL("image/png", quality);
-        }
-
-        setLogoPreview(finalDataUrl);
-        setFormData({ ...formData, logo: finalDataUrl });
-
-        // Show a success message with the resizing info
-        if (img.width !== 1024 || img.height !== 1024) {
-          setErrors({
-            ...errors,
-            logo: `✓ Resized from ${img.width}×${img.height}px to 1024×1024px`,
-          });
-          setTimeout(() => {
-            setErrors((prev) => {
-              const newErrors = { ...prev };
-              if (newErrors.logo?.startsWith("✓ Resized")) {
-                delete newErrors.logo;
-              }
-              return newErrors;
-            });
-          }, 3000);
-        }
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+    if (errors.logo) {
+      setErrors({ ...errors, logo: "" });
+    }
   };
 
   const removeLogo = () => {
-    setLogoPreview(null);
-    setFormData({ ...formData, logo: "" });
+    // Clean up preview URL
+    if (formData.logoPreview) {
+      URL.revokeObjectURL(formData.logoPreview);
+    }
+    setFormData({
+      ...formData,
+      logoFile: null,
+      logoPreview: null,
+    });
     if (fileInputRef) {
       fileInputRef.value = "";
     }
-    // Generated preview will reappear via useEffect
   };
 
   const validate = () => {
@@ -323,14 +271,8 @@ export default function StoreConfigStep({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
-      // If no logo uploaded but we have a generated preview, use the generated one
-      if (!formData.logo && generatedPreview) {
-        // Convert the preview blob to base64 or keep as is
-        // The actual generation will happen on the server
-        onChange({ ...formData, logo: generatedPreview });
-      } else {
-        onChange(formData);
-      }
+      // ✅ Pass the File object - no conversion needed
+      onChange(formData);
       onNext();
     }
   };
@@ -349,7 +291,7 @@ export default function StoreConfigStep({
   });
 
   // Determine which preview to show
-  const displayPreview = logoPreview || generatedPreview;
+  const displayPreview = formData.logoPreview;
 
   return (
     <div>
@@ -447,6 +389,7 @@ export default function StoreConfigStep({
               </p>
             )}
           </div>
+
           {/* Store URL */}
           <div>
             <label
@@ -494,7 +437,6 @@ export default function StoreConfigStep({
           </div>
 
           {/* Logo Upload - Show Generated Preview */}
-
           <div>
             <label
               style={{
@@ -597,7 +539,7 @@ export default function StoreConfigStep({
                   )}
                 </div>
                 <div style={{ flex: 1 }}>
-                  {logoPreview ? (
+                  {formData.logoFile ? (
                     <div>
                       <p
                         style={{
@@ -607,7 +549,11 @@ export default function StoreConfigStep({
                           marginBottom: 2,
                         }}
                       >
-                        ✅ Custom logo uploaded
+                        ✅{" "}
+                        {formData.logoPreview?.startsWith("blob:")
+                          ? "Auto-generated"
+                          : "Custom"}{" "}
+                        logo ready
                       </p>
                       <p
                         style={{
@@ -615,30 +561,9 @@ export default function StoreConfigStep({
                           color: "var(--dim)",
                         }}
                       >
-                        {t?.store?.logoUploaded ||
-                          "Resized to 1024×1024px automatically"}
-                      </p>
-                    </div>
-                  ) : generatedPreview ? (
-                    <div>
-                      <p
-                        style={{
-                          fontSize: "0.85rem",
-                          color: "var(--text)",
-                          fontWeight: 600,
-                          marginBottom: 2,
-                        }}
-                      >
-                        ✨ Auto-generated logo preview
-                      </p>
-                      <p
-                        style={{
-                          fontSize: "0.7rem",
-                          color: "var(--dim)",
-                        }}
-                      >
-                        {t?.store?.autoGeneratedHint ||
-                          "This will be used if you don't upload your own logo."}
+                        {formData.logoPreview?.startsWith("blob:")
+                          ? "Generated from your store name"
+                          : `${Math.round(formData.logoFile.size / 1024)} KB · ${formData.logoFile.type}`}
                       </p>
                     </div>
                   ) : (
@@ -684,12 +609,12 @@ export default function StoreConfigStep({
                     alignItems: "center",
                     gap: 8,
                     padding: "0.5rem 1.2rem",
-                    background: logoPreview
+                    background: formData.logoFile
                       ? "rgba(201,138,84,0.1)"
                       : "var(--accent)",
-                    border: `1px solid ${logoPreview ? "rgba(201,138,84,0.25)" : "var(--accent)"}`,
+                    border: `1px solid ${formData.logoFile ? "rgba(201,138,84,0.25)" : "var(--accent)"}`,
                     borderRadius: 8,
-                    color: logoPreview ? "var(--accent-lt)" : "#FDF8F3",
+                    color: formData.logoFile ? "var(--accent-lt)" : "#FDF8F3",
                     fontSize: "0.85rem",
                     fontWeight: 600,
                     cursor: "pointer",
@@ -704,7 +629,7 @@ export default function StoreConfigStep({
                   }}
                 >
                   <Upload size={16} />
-                  {logoPreview
+                  {formData.logoFile
                     ? t?.store?.changeLogo || "Change Logo"
                     : t?.store?.uploadLogo || "Upload Custom Logo"}
                   <input
@@ -716,8 +641,8 @@ export default function StoreConfigStep({
                   />
                 </label>
 
-                {/* Remove/Reset Button - only show if logo uploaded or generated */}
-                {(logoPreview || generatedPreview) && (
+                {/* Remove/Reset Button */}
+                {formData.logoFile && (
                   <button
                     type="button"
                     onClick={removeLogo}
@@ -744,7 +669,7 @@ export default function StoreConfigStep({
                     }}
                   >
                     <X size={16} />
-                    {t?.store?.resetToGenerated || "Reset to Generated"}
+                    {t?.store?.resetToGenerated || "Remove Logo"}
                   </button>
                 )}
               </div>
@@ -772,7 +697,7 @@ export default function StoreConfigStep({
               )}
 
               {/* File requirements hint */}
-              {!logoPreview && !errors.logo && (
+              {!formData.logoFile && !errors.logo && (
                 <div
                   style={{
                     fontSize: "0.7rem",
@@ -900,6 +825,7 @@ export default function StoreConfigStep({
               </span>
             </div>
           </div>
+
           {/* Android App Toggle */}
           <div>
             <div
