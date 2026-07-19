@@ -97,9 +97,10 @@ export default function ApplicationWizard({
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
+
     }
   };
-
+  
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setError(null);
@@ -112,6 +113,7 @@ export default function ApplicationWizard({
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
+        password: formData.password, // ✅ Add user's password
         storeName: formData.storeName,
         storeSlug: formData.storeSlug,
         logo: formData.logo || "",
