@@ -8,7 +8,11 @@ import {
   Upload,
   Smartphone,
   Palette,
+  Loader2,
+  Check,
+  X,
 } from "lucide-react";
+import { checkStoreSlug } from "@/actions/reseller/application/checkStoreSlug";
 
 interface StoreConfigStepProps {
   data: any;
@@ -17,7 +21,7 @@ interface StoreConfigStepProps {
   onPrevious: () => void;
   config: any;
   countryCode: string;
-  translations?: any; // ✅ Add translations prop
+  translations?: any;
 }
 
 interface StoreFormData {
@@ -53,8 +57,17 @@ export default function StoreConfigStep({
   const [logoPreview, setLogoPreview] = useState<string | null>(
     data.logo || null,
   );
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileInputRef, setFileInputRef] = useState<HTMLInputElement | null>(
+    null,
+  );
   const colorInputRef = useRef<HTMLInputElement>(null);
+
+  // Store name check states
+  const [storeNameStatus, setStoreNameStatus] = useState<
+    "idle" | "checking" | "available" | "taken"
+  >("idle");
+  const [storeNameMessage, setStoreNameMessage] = useState("");
+  const [isChecking, setIsChecking] = useState(false);
 
   const t = translations || {};
 
@@ -80,8 +93,57 @@ export default function StoreConfigStep({
     if (formData.storeName) {
       const slug = generateSlug(formData.storeName);
       setFormData((prev) => ({ ...prev, storeSlug: slug }));
+      // Reset status when name changes
+      setStoreNameStatus("idle");
+      setStoreNameMessage("");
     }
   }, [formData.storeName]);
+
+  // Check store name availability with debounce
+  useEffect(() => {
+    const checkAvailability = async () => {
+      const slug = formData.storeSlug;
+      if (!slug || slug.length < 3) {
+        setStoreNameStatus("idle");
+        setStoreNameMessage("");
+        return;
+      }
+
+      if (!/^[a-z0-9-]+$/.test(slug)) {
+        setStoreNameStatus("taken");
+        setStoreNameMessage(
+          "Only lowercase letters, numbers, and hyphens allowed",
+        );
+        return;
+      }
+
+      setIsChecking(true);
+      setStoreNameStatus("checking");
+
+      try {
+        const result = await checkStoreSlug(slug);
+        if (result.available) {
+          setStoreNameStatus("available");
+          setStoreNameMessage("This store name is available ✓");
+        } else {
+          setStoreNameStatus("taken");
+          setStoreNameMessage(
+            result.error || "This store name is already taken",
+          );
+        }
+      } catch (error) {
+        console.error("Error checking store name:", error);
+        setStoreNameStatus("idle");
+        setStoreNameMessage("");
+      } finally {
+        setIsChecking(false);
+      }
+    };
+
+    // Debounce the check
+    const timer = setTimeout(checkAvailability, 500);
+    return () => clearTimeout(timer);
+  }, [formData.storeSlug]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -128,8 +190,8 @@ export default function StoreConfigStep({
   const removeLogo = () => {
     setLogoPreview(null);
     setFormData({ ...formData, logo: "" });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    if (fileInputRef) {
+      fileInputRef.value = "";
     }
   };
 
@@ -143,6 +205,10 @@ export default function StoreConfigStep({
     if (formData.storeName.trim().length < 2) {
       newErrors.storeName =
         t?.errors?.storeNameMin || "Store name must be at least 2 characters";
+    }
+    if (storeNameStatus === "taken") {
+      newErrors.storeName =
+        storeNameMessage || "Please choose a different store name";
     }
 
     setErrors(newErrors);
@@ -167,6 +233,7 @@ export default function StoreConfigStep({
     fontSize: "0.95rem",
     outline: "none",
     transition: "border-color 0.2s",
+    paddingRight: storeNameStatus !== "idle" ? "2.5rem" : "1rem",
   });
 
   return (
@@ -207,14 +274,52 @@ export default function StoreConfigStep({
             >
               {t?.store?.storeName || "Store Name"}
             </label>
-            <input
-              type="text"
-              name="storeName"
-              value={formData.storeName}
-              onChange={handleChange}
-              placeholder="Sparkle Store"
-              style={inputStyle(!!errors.storeName)}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type="text"
+                name="storeName"
+                value={formData.storeName}
+                onChange={handleChange}
+                placeholder="Sparkle Store"
+                style={inputStyle(!!errors.storeName)}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  right: 12,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                }}
+              >
+                {storeNameStatus === "checking" && (
+                  <Loader2
+                    size={18}
+                    style={{
+                      color: "var(--accent)",
+                      animation: "spin 1s linear infinite",
+                    }}
+                  />
+                )}
+                {storeNameStatus === "available" && (
+                  <Check size={18} style={{ color: "#6EBD8A" }} />
+                )}
+                {storeNameStatus === "taken" && (
+                  <X size={18} style={{ color: "#EF4444" }} />
+                )}
+              </div>
+            </div>
+            {storeNameMessage && !errors.storeName && (
+              <p
+                style={{
+                  fontSize: "0.78rem",
+                  marginTop: 6,
+                  color:
+                    storeNameStatus === "available" ? "#6EBD8A" : "#EF4444",
+                }}
+              >
+                {storeNameMessage}
+              </p>
+            )}
             {errors.storeName && (
               <p
                 style={{
@@ -228,7 +333,7 @@ export default function StoreConfigStep({
             )}
           </div>
 
-          {/* Store URL */}
+          {/* Store URL (auto-generated, read-only) */}
           <div>
             <label
               style={{
@@ -248,7 +353,7 @@ export default function StoreConfigStep({
                 gap: "0.5rem",
                 padding: "0.75rem 1rem",
                 background: "var(--bg3)",
-                border: "1px solid var(--border)",
+                border: `1px solid ${storeNameStatus === "taken" ? "#EF4444" : "var(--border)"}`,
                 borderRadius: 8,
                 color: "var(--muted)",
                 fontSize: "0.9rem",
@@ -372,7 +477,7 @@ export default function StoreConfigStep({
                       >
                         Change
                         <input
-                          ref={fileInputRef}
+                          ref={(el) => setFileInputRef(el)}
                           type="file"
                           accept="image/*"
                           onChange={handleLogoUpload}
@@ -419,7 +524,7 @@ export default function StoreConfigStep({
                     />
                     {t?.store?.logo || "Upload Logo"}
                     <input
-                      ref={fileInputRef}
+                      ref={(el) => setFileInputRef(el)}
                       type="file"
                       accept="image/*"
                       onChange={handleLogoUpload}
@@ -665,35 +770,71 @@ export default function StoreConfigStep({
           </button>
           <button
             type="submit"
+            disabled={
+              storeNameStatus === "checking" || storeNameStatus === "taken"
+            }
             style={{
               display: "flex",
               alignItems: "center",
               gap: 8,
               padding: "0.8rem 2rem",
-              background: "var(--accent)",
+              background:
+                storeNameStatus === "checking" || storeNameStatus === "taken"
+                  ? "var(--dim)"
+                  : "var(--accent)",
               color: "#FDF8F3",
               border: "none",
               borderRadius: 10,
               fontSize: "0.95rem",
               fontWeight: 600,
-              cursor: "pointer",
+              cursor:
+                storeNameStatus === "checking" || storeNameStatus === "taken"
+                  ? "not-allowed"
+                  : "pointer",
+              opacity:
+                storeNameStatus === "checking" || storeNameStatus === "taken"
+                  ? 0.6
+                  : 1,
               transition: "opacity 0.2s, transform 0.2s",
               flex: 1,
               justifyContent: "center",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.opacity = "0.85";
-              e.currentTarget.style.transform = "translateY(-1px)";
+              if (
+                storeNameStatus !== "checking" &&
+                storeNameStatus !== "taken"
+              ) {
+                e.currentTarget.style.opacity = "0.85";
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.opacity = "1";
               e.currentTarget.style.transform = "translateY(0)";
             }}
           >
-            {t?.store?.continue || "Continue"} <ChevronRight size={18} />
+            {storeNameStatus === "checking" ? (
+              <>
+                <Loader2
+                  size={18}
+                  style={{ animation: "spin 1s linear infinite" }}
+                />
+                Checking...
+              </>
+            ) : (
+              <>
+                {t?.store?.continue || "Continue"} <ChevronRight size={18} />
+              </>
+            )}
           </button>
         </div>
       </form>
+
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
