@@ -126,6 +126,17 @@ export default function ApplicationWizard({
         );
       }
 
+      // ✅ Append notification icon if Android App is enabled
+      if (
+        formData.androidApp &&
+        formData.notificationIconFile instanceof File
+      ) {
+        formDataObj.append("notificationIcon", formData.notificationIconFile);
+        console.log(
+          `✅ Notification icon attached: ${formData.notificationIconFile.name}, ${formData.notificationIconFile.size} bytes`,
+        );
+      }
+
       const result = await submitApplication(formDataObj);
 
       if (result.success) {
