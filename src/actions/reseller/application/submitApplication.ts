@@ -3,6 +3,7 @@
 
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { triggerAppBuild } from "@/actions/reseller/build/triggerAppBuild";
 
 function generateDashboardToken(): string {
   const timestamp = Date.now();
@@ -230,6 +231,7 @@ export async function submitApplication(formData: FormData) {
     // ============================================================
     // ✅ UPLOAD NOTIFICATION ICON (if provided)
     // ============================================================
+    
     if (notificationIconFile) {
       try {
         const arrayBuffer = await notificationIconFile.arrayBuffer();
@@ -250,14 +252,13 @@ export async function submitApplication(formData: FormData) {
             .from("reseller-assets")
             .getPublicUrl(filePath);
 
-          await admin.from("reseller_assets").insert({
-            reseller_id: application.id,
-            type: "notification_icon",
-            url: urlData.publicUrl,
-            file_name: fileName,
-            file_size: notificationIconFile.size,
-            mime_type: notificationIconFile.type || "image/png",
-          });
+          const notificationIconUrl = urlData.publicUrl;
+
+          // ✅ Store in the applications table (same as logo_url)
+          await supabase
+            .from("global_reseller_applications")
+            .update({ notification_icon_url: notificationIconUrl })
+            .eq("id", application.id);
 
           console.log(
             `✅ Notification icon uploaded for application: ${application.id}`,
@@ -267,17 +268,91 @@ export async function submitApplication(formData: FormData) {
         }
       } catch (err) {
         console.error("Notification icon upload error:", err);
-        // Continue - notification icon is optional
       }
     }
 
-    // Queue Android build if selected
+    // ============================================================
+    // ✅ QUEUE AND TRIGGER APP BUILD (if Android App enabled)
+    // ============================================================
     if (androidApp) {
-      await supabase.from("global_app_builds").insert({
-        application_id: application.id,
-        build_status: "queued",
-        queued_at: new Date().toISOString(),
-      });
+      try {
+        // ✅ Step 1: Queue the build
+        const { data: build, error: buildError } = await supabase
+          .from("global_app_builds")
+          .insert({
+            application_id: application.id,
+            build_status: "queued",
+            queued_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+
+        if (buildError) {
+          console.error("Failed to queue build:", buildError);
+        } else {
+          console.log(`✅ Build queued for application: ${application.id}`);
+
+          // ✅ Step 2: Trigger the actual build (GitHub Actions)
+          try {
+            const triggerResult = await triggerAppBuild({
+              applicationId: application.id,
+              buildId: build.id,
+              storeName: storeName,
+              storeSlug: storeSlug,
+              brandColor: brandColor,
+              logoUrl: logoUrl,
+              countryCode: countryCode,
+            });
+
+            if (triggerResult.success) {
+              console.log(
+                `✅ Build triggered for application: ${application.id}`,
+              );
+
+              // Update build status to "building"
+              await supabase
+                .from("global_app_builds")
+                .update({
+                  build_status: "building",
+                  building_at: new Date().toISOString(),
+                })
+                .eq("id", build.id);
+            } else if (triggerResult.queued) {
+              // Build queued but not triggered (no GitHub token)
+              console.log(
+                `⚠️ Build queued but not triggered: ${triggerResult.error}`,
+              );
+            } else {
+              console.error("Failed to trigger build:", triggerResult.error);
+
+              // Update build status to "failed"
+              await supabase
+                .from("global_app_builds")
+                .update({
+                  build_status: "failed",
+                  error_message: triggerResult.error || "Build trigger failed",
+                })
+                .eq("id", build.id);
+            }
+          } catch (triggerError) {
+            console.error("Build trigger error:", triggerError);
+
+            await supabase
+              .from("global_app_builds")
+              .update({
+                build_status: "failed",
+                error_message:
+                  triggerError instanceof Error
+                    ? triggerError.message
+                    : "Unknown error",
+              })
+              .eq("id", build.id);
+          }
+        }
+      } catch (err) {
+        console.error("Build queue/trigger error:", err);
+        // Continue - build is optional
+      }
     }
 
     // Trigger Edge Function for email
