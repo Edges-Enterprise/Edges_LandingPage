@@ -40,8 +40,10 @@ export async function submitApplication(formData: FormData) {
     const countryCode = formData.get("countryCode") as string;
     const agreed = formData.get("agreed") === "true";
 
-    // ✅ Get the File directly - no conversion needed
     const logoFile = formData.get("logo") as File | null;
+    const notificationIconFile = formData.get(
+      "notificationIcon",
+    ) as File | null; // ✅ Get notification icon
 
     // Validate required fields
     if (
@@ -185,11 +187,10 @@ export async function submitApplication(formData: FormData) {
     }
 
     // ============================================================
-    // ✅ UPLOAD LOGO - Like createReseller.ts (File object, no base64)
+    // ✅ UPLOAD LOGO (if provided)
     // ============================================================
     let logoUrl: string | null = null;
 
-    
     if (logoFile) {
       try {
         const arrayBuffer = await logoFile.arrayBuffer();
@@ -198,7 +199,6 @@ export async function submitApplication(formData: FormData) {
         const fileName = `reseller-${application.id}-icon-${Date.now()}.png`;
         const filePath = `${application.id}/${fileName}`;
 
-        // ✅ Use admin client for upload
         const { error: uploadError } = await admin.storage
           .from("reseller-assets")
           .upload(filePath, buffer, {
@@ -207,7 +207,6 @@ export async function submitApplication(formData: FormData) {
           });
 
         if (!uploadError) {
-          // Get public URL (this works with any client)
           const { data: urlData } = admin.storage
             .from("reseller-assets")
             .getPublicUrl(filePath);
@@ -225,6 +224,50 @@ export async function submitApplication(formData: FormData) {
         }
       } catch (err) {
         console.error("Logo upload error:", err);
+      }
+    }
+
+    // ============================================================
+    // ✅ UPLOAD NOTIFICATION ICON (if provided)
+    // ============================================================
+    if (notificationIconFile) {
+      try {
+        const arrayBuffer = await notificationIconFile.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        const fileName = `reseller-${application.id}-notification-icon-${Date.now()}.png`;
+        const filePath = `${application.id}/${fileName}`;
+
+        const { error: uploadError } = await admin.storage
+          .from("reseller-assets")
+          .upload(filePath, buffer, {
+            contentType: notificationIconFile.type || "image/png",
+            upsert: true,
+          });
+
+        if (!uploadError) {
+          const { data: urlData } = admin.storage
+            .from("reseller-assets")
+            .getPublicUrl(filePath);
+
+          await admin.from("reseller_assets").insert({
+            reseller_id: application.id,
+            type: "notification_icon",
+            url: urlData.publicUrl,
+            file_name: fileName,
+            file_size: notificationIconFile.size,
+            mime_type: notificationIconFile.type || "image/png",
+          });
+
+          console.log(
+            `✅ Notification icon uploaded for application: ${application.id}`,
+          );
+        } else {
+          console.error("Notification icon upload failed:", uploadError);
+        }
+      } catch (err) {
+        console.error("Notification icon upload error:", err);
+        // Continue - notification icon is optional
       }
     }
 
