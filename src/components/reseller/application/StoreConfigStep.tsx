@@ -31,6 +31,7 @@ interface StoreFormData {
   storeName: string;
   storeSlug: string;
   logoFile: File | null; // ✅ File object, not base64
+  notificationIconFile: File | null;
   logoPreview: string | null;
   brandColor: string;
   androidApp: boolean;
@@ -50,6 +51,11 @@ export default function StoreConfigStep({
   const [fileInputRef, setFileInputRef] = useState<HTMLInputElement | null>(
     null,
   );
+  // ✅ Add notification icon state
+  const [notificationIconFile, setNotificationIconFile] = useState<File | null>(
+    null,
+  );
+
   const colorInputRef = useRef<HTMLInputElement>(null);
 
   // Store name check states
@@ -74,6 +80,7 @@ export default function StoreConfigStep({
     storeName: data.storeName || "",
     storeSlug: data.storeSlug || "",
     logoFile: null,
+    notificationIconFile: null, // ✅ Initialize
     logoPreview: data.logoPreview || null,
     brandColor: data.brandColor || config.defaultColor || "#C98A54",
     androidApp: data.androidApp || false,
@@ -268,11 +275,47 @@ export default function StoreConfigStep({
     return Object.keys(newErrors).length === 0;
   };
 
+  // ✅ Generate notification icon when Android App is enabled
+  useEffect(() => {
+    if (!formData.androidApp) {
+      setNotificationIconFile(null);
+      return;
+    }
+
+    if (!formData.storeName || formData.storeName.length < 1) {
+      return;
+    }
+
+    const generateNotifIcon = async () => {
+      try {
+        // ✅ Import the client-side generator
+        const { generateNotificationIcon } =
+          await import("@/app/reseller/generateIcon");
+        const blob = await generateNotificationIcon(formData.storeName);
+        const file = new File(
+          [blob],
+          `${formData.storeSlug || "store"}-notification-icon.png`,
+          {
+            type: "image/png",
+          },
+        );
+        setNotificationIconFile(file);
+      } catch (error) {
+        console.error("Failed to generate notification icon:", error);
+      }
+    };
+
+    generateNotifIcon();
+  }, [formData.androidApp, formData.storeName, formData.storeSlug]);
+
+  // ✅ Pass notification icon to form data on submit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
-      // ✅ Pass the File object - no conversion needed
-      onChange(formData);
+      onChange({
+        ...formData,
+        notificationIconFile: notificationIconFile, // ✅ Add this
+      });
       onNext();
     }
   };
