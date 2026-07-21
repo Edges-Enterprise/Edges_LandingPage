@@ -41,47 +41,57 @@ export default function ApplicationWizard({
   const t = translations;
   const STEPS = getSteps(t);
 
-  useEffect(() => {
-    if (applicationId) {
-      const loadDraft = async () => {
-        try {
-          const { getApplicationDraft } =
-            await import("@/actions/reseller/application");
-          const draft = await getApplicationDraft(applicationId);
-          if (draft) {
-            setFormData(draft);
-          }
-        } catch (error) {
-          console.error("Failed to load draft:", error);
-        }
-      };
-      loadDraft();
-    }
-  }, [applicationId]);
+  // useEffect(() => {
+  //   if (applicationId) {
+  //     const loadDraft = async () => {
+  //       try {
+  //         const { getApplicationDraft } =
+  //           await import("@/actions/reseller/application");
+  //         const draft = await getApplicationDraft(applicationId);
+  //         if (draft) {
+  //           setFormData(draft);
+  //         }
+  //       } catch (error) {
+  //         console.error("Failed to load draft:", error);
+  //       }
+  //     };
+  //     loadDraft();
+  //   }
+  // }, [applicationId]);
 
+  // const updateFormData = (stepData: any) => {
+  //   const newData = { ...formData, ...stepData };
+  //   setFormData(newData);
+
+  //   if (currentStep > 0) {
+  //     const saveDraft = async () => {
+  //       try {
+  //         const { saveDraft } = await import("@/actions/reseller/application");
+
+  //         // ✅ Strip File objects — drafts are metadata only, not binary payloads
+  //         const { logoFile, notificationIconFile, ...draftSafeData } = newData;
+
+  //         const result = await saveDraft({
+  //           applicationId,
+  //           data: draftSafeData,
+  //           countryCode,
+  //           step: currentStep,
+  //         });
+  //         if (result.success && result.applicationId) {
+  //           onDraftSaved(result.applicationId);
+  //         }
+  //       } catch (error) {
+  //         console.error("Failed to save draft:", error);
+  //       }
+  //     };
+  //     saveDraft();
+  //   }
+  // };
+
+  // AFTER
+  
   const updateFormData = (stepData: any) => {
-    const newData = { ...formData, ...stepData };
-    setFormData(newData);
-
-    if (currentStep > 0) {
-      const saveDraft = async () => {
-        try {
-          const { saveDraft } = await import("@/actions/reseller/application");
-          const result = await saveDraft({
-            applicationId,
-            data: newData,
-            countryCode,
-            step: currentStep,
-          });
-          if (result.success && result.applicationId) {
-            onDraftSaved(result.applicationId);
-          }
-        } catch (error) {
-          console.error("Failed to save draft:", error);
-        }
-      };
-      saveDraft();
-    }
+    setFormData((prev: any) => ({ ...prev, ...stepData }));
   };
 
   const goToNext = () => {
