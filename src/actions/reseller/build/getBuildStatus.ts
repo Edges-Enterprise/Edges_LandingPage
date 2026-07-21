@@ -3,110 +3,137 @@
 
 import { createServerClient } from "@/lib/supabase/server";
 
-export async function getBuildStatus() {
+// ✅ Export the type so it can be imported
+export interface BuildStatus {
+  id: string;
+  build_status: "queued" | "building" | "completed" | "failed" | "pending";
+  queued_at: string;
+  building_at: string | null;
+  completed_at: string | null;
+  apk_url: string | null;
+  aab_url: string | null;
+  error_message: string | null;
+  config_id: string | null;
+  // Computed fields
+  is_queued: boolean;
+  is_building: boolean;
+  is_completed: boolean;
+  is_failed: boolean;
+  is_pending: boolean;
+  duration_seconds?: number;
+  status_label: string;
+  status_color: string;
+}
+
+export async function getBuildStatus(): Promise<{
+  success: boolean;
+  data?: BuildStatus | null;
+  error?: string;
+}> {
   try {
     const supabase = await createServerClient();
 
-    // Get the current user's session
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      throw new Error("Unauthorized");
+      return { success: false, error: "Unauthorized" };
     }
 
-    // Get the reseller application for this user
+    // Get the reseller's application
     const { data: application, error: appError } = await supabase
       .from("global_reseller_applications")
       .select("id")
       .eq("auth_user_id", user.id)
       .single();
 
-    if (appError) {
-      console.error("Failed to get application:", appError);
-      return null;
+    if (appError || !application) {
+      return { success: true, data: null };
     }
 
-    if (!application) {
-      return null;
-    }
-
-    // Get the latest build for this application
+    // Get the latest build
     const { data: build, error: buildError } = await supabase
       .from("global_app_builds")
-      .select(
-        `
-        id,
-        build_status,
-        queued_at,
-        building_at,
-        completed_at,
-        apk_url,
-        aab_url,
-        error_message,
-        config_id,
-        created_at,
-        updated_at
-      `,
-      )
+      .select("*")
       .eq("application_id", application.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
 
-    if (buildError && buildError.code !== "PGRST116") {
-      console.error("Failed to get build:", buildError);
-      return null;
+    if (buildError) {
+      if (buildError.code === "PGRST116") {
+        // No build found
+        return { success: true, data: null };
+      }
+      console.error("Build fetch error:", buildError);
+      return { success: false, error: buildError.message };
     }
 
     if (!build) {
-      return {
-        hasBuild: false,
-        message: "No build has been started yet.",
-      };
+      return { success: true, data: null };
     }
 
-    // Get config details if available
-    let config = null;
-    if (build.config_id) {
-      const { data: configData, error: configError } = await supabase
-        .from("global_reseller_app_configs")
-        .select("config")
-        .eq("id", build.config_id)
-        .single();
+    // Compute additional fields
+    const statusLabel = getStatusLabel(build.build_status);
+    const statusColor = getStatusColor(build.build_status);
 
-      if (!configError && configData) {
-        config = configData.config;
-      }
+    let durationSeconds: number | undefined;
+    if (build.completed_at && build.queued_at) {
+      const start = new Date(build.queued_at).getTime();
+      const end = new Date(build.completed_at).getTime();
+      durationSeconds = Math.round((end - start) / 1000);
     }
 
-    return {
-      hasBuild: true,
+    const buildStatus: BuildStatus = {
       id: build.id,
-      status: build.build_status,
-      queuedAt: build.queued_at,
-      buildingAt: build.building_at,
-      completedAt: build.completed_at,
-      apkUrl: build.apk_url,
-      aabUrl: build.aab_url,
-      errorMessage: build.error_message,
-      configId: build.config_id,
-      config: config,
-      // Helper booleans
-      isQueued: build.build_status === "queued",
-      isBuilding: build.build_status === "building",
-      isCompleted: build.build_status === "completed",
-      isFailed: build.build_status === "failed",
-      isPending: build.build_status === "pending",
+      build_status: build.build_status,
+      queued_at: build.queued_at,
+      building_at: build.building_at,
+      completed_at: build.completed_at,
+      apk_url: build.apk_url,
+      aab_url: build.aab_url,
+      error_message: build.error_message,
+      config_id: build.config_id,
+      is_queued: build.build_status === "queued",
+      is_building: build.build_status === "building",
+      is_completed: build.build_status === "completed",
+      is_failed: build.build_status === "failed",
+      is_pending: build.build_status === "pending",
+      duration_seconds: durationSeconds,
+      status_label: statusLabel,
+      status_color: statusColor,
     };
+
+    return { success: true, data: buildStatus };
   } catch (error) {
-    console.error("Get build status error:", error);
+    console.error("GetBuildStatus Error:", error);
     return {
-      hasBuild: false,
-      error:
-        error instanceof Error ? error.message : "Failed to get build status",
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
+}
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    queued: "Queued",
+    building: "Building",
+    completed: "Completed",
+    failed: "Failed",
+    pending: "Pending",
+  };
+  return labels[status] || status;
+}
+
+function getStatusColor(status: string): string {
+  const colors: Record<string, string> = {
+    queued: "yellow",
+    building: "blue",
+    completed: "green",
+    failed: "red",
+    pending: "orange",
+  };
+  return colors[status] || "gray";
 }
