@@ -11,6 +11,7 @@ interface TriggerAppBuildParams {
   storeSlug: string;
   brandColor: string;
   logoUrl: string | null;
+  notificationIconUrl: string | null;
   countryCode: string;
 }
 
@@ -26,10 +27,11 @@ export async function triggerAppBuild(params: TriggerAppBuildParams) {
       storeSlug,
       brandColor,
       logoUrl,
+      notificationIconUrl,
       countryCode,
     } = params;
 
-    // ✅ Get application details
+    // Get application details
     const { data: application, error: appError } = await supabase
       .from("global_reseller_applications")
       .select("*")
@@ -41,14 +43,17 @@ export async function triggerAppBuild(params: TriggerAppBuildParams) {
       return { success: false, error: appError.message };
     }
 
-    // ✅ Build the app config
+    // Build the app config
     const appName = storeName
       .split("-")
       .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" ");
 
     const finalLogoUrl = logoUrl || application.logo_url || "";
-    const finalNotificationIconUrl = application.notification_icon_url || "";
+    const finalNotificationIconUrl =
+      notificationIconUrl || application.notification_icon_url || "";
+
+    const packageName = `com.edges.${storeSlug.replace(/-/g, "")}`;
 
     const appConfig = {
       id: `reseller-global-${applicationId}`,
@@ -56,6 +61,8 @@ export async function triggerAppBuild(params: TriggerAppBuildParams) {
       storeName: storeSlug,
       appName: appName,
       slug: `edges-${storeSlug}`,
+      countryCode: countryCode,
+      androidPackageName: packageName,
       theme: {
         primary: brandColor,
         secondary: adjustHex(brandColor, -30),
@@ -72,7 +79,8 @@ export async function triggerAppBuild(params: TriggerAppBuildParams) {
         notificationIcon: finalNotificationIconUrl,
       },
       config: {
-        androidPackageName: `com.edges.${storeSlug.replace(/-/g, "")}`,
+        androidPackageName: packageName,
+        packageName: packageName,
         version: "1.0.0",
         buildNumber: 1,
         apiBaseUrl:
@@ -80,14 +88,13 @@ export async function triggerAppBuild(params: TriggerAppBuildParams) {
           "https://edges-landing-page.vercel.app",
         storeUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://edges-landing-page.vercel.app"}/${countryCode}/${storeSlug}`,
       },
-      countryCode: countryCode,
-      email: application.email,
-      firstName: application.first_name,
     };
 
     console.log(`📦 Building app config for: ${applicationId}`);
+    console.log(`📦 Package name: ${packageName}`);
+    console.log(`🌍 Country: ${countryCode}`);
 
-    // ✅ Save config to global_reseller_app_configs (new table)
+    // Save config to global_reseller_app_configs
     const { data: existingConfig } = await supabase
       .from("global_reseller_app_configs")
       .select("id")
@@ -128,7 +135,7 @@ export async function triggerAppBuild(params: TriggerAppBuildParams) {
 
     console.log(`✅ Config saved with ID: ${savedConfig.id}`);
 
-    // ✅ Update global_app_builds with the config reference
+    // Update global_app_builds with the config reference
     await supabase
       .from("global_app_builds")
       .update({
@@ -136,7 +143,7 @@ export async function triggerAppBuild(params: TriggerAppBuildParams) {
       })
       .eq("id", buildId);
 
-    // ✅ Try GitHub trigger
+    // ✅ Trigger GitHub Actions with NEW workflow
     if (
       process.env.GITHUB_TOKEN &&
       process.env.GITHUB_OWNER &&
@@ -144,7 +151,7 @@ export async function triggerAppBuild(params: TriggerAppBuildParams) {
     ) {
       try {
         const response = await fetch(
-          `https://api.github.com/repos/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/actions/workflows/build-reseller-apk.yml/dispatches`,
+          `https://api.github.com/repos/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/actions/workflows/build-global-reseller-apk.yml/dispatches`,
           {
             method: "POST",
             headers: {
@@ -158,6 +165,7 @@ export async function triggerAppBuild(params: TriggerAppBuildParams) {
                 reseller_id: applicationId,
                 config_id: savedConfig.id,
                 store_name: storeSlug,
+                country_code: countryCode,
                 environment: "production",
               },
             }),
