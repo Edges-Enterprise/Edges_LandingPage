@@ -30,7 +30,7 @@ interface StoreConfigStepProps {
 interface StoreFormData {
   storeName: string;
   storeSlug: string;
-  logoFile: File | null; // ✅ File object, not base64
+  logoFile: File | null;
   notificationIconFile: File | null;
   logoPreview: string | null;
   brandColor: string;
@@ -51,12 +51,13 @@ export default function StoreConfigStep({
   const [fileInputRef, setFileInputRef] = useState<HTMLInputElement | null>(
     null,
   );
-  // ✅ Add notification icon state
   const [notificationIconFile, setNotificationIconFile] = useState<File | null>(
     null,
   );
-
   const colorInputRef = useRef<HTMLInputElement>(null);
+
+  // ✅ Track if user uploaded their own logo vs auto-generated
+  const [isCustomLogo, setIsCustomLogo] = useState(false);
 
   // Store name check states
   const [storeNameStatus, setStoreNameStatus] = useState<
@@ -80,7 +81,7 @@ export default function StoreConfigStep({
     storeName: data.storeName || "",
     storeSlug: data.storeSlug || "",
     logoFile: null,
-    notificationIconFile: null, // ✅ Initialize
+    notificationIconFile: null,
     logoPreview: data.logoPreview || null,
     brandColor: data.brandColor || config.defaultColor || "#C98A54",
     androidApp: data.androidApp || false,
@@ -96,56 +97,42 @@ export default function StoreConfigStep({
     }
   }, [formData.storeName]);
 
-  // ✅ Generate icon preview and store as File
+  // ✅ Generate icon preview and store as File - gated by isCustomLogo
   useEffect(() => {
     const generatePreview = async () => {
-      // Skip if user uploaded a custom logo
-      if (formData.logoFile) {
-        return;
-      }
+      // ✅ Only skip if user uploaded their own logo
+      if (isCustomLogo) return;
 
-      // Skip if no store name
-      if (!formData.storeName || formData.storeName.length < 1) {
-        return;
-      }
+      if (!formData.storeName || formData.storeName.length < 1) return;
 
       setIsGeneratingPreview(true);
       try {
-        const blob = await generateIconPng(
-          formData.storeName,
-          formData.brandColor,
-        );
+        const blob = await generateIconPng(formData.storeName, formData.brandColor);
 
-        // ✅ Create a File object directly from the blob
         const file = new File(
           [blob],
           `${formData.storeSlug || "store"}-logo.png`,
           {
             type: "image/png",
-          },
+          }
         );
-
-        // ✅ Create preview URL
         const previewUrl = URL.createObjectURL(blob);
 
-        // ✅ Store both the File and the preview URL
         setFormData((prev) => ({
           ...prev,
           logoFile: file,
           logoPreview: previewUrl,
         }));
-        setIsGeneratingPreview(false);
       } catch (error) {
         console.error("Failed to generate icon preview:", error);
+      } finally {
         setIsGeneratingPreview(false);
       }
     };
 
     const timer = setTimeout(generatePreview, 300);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [formData.storeName, formData.brandColor]);
+    return () => clearTimeout(timer);
+  }, [formData.storeName, formData.brandColor, isCustomLogo]);
 
   // Check store name availability with debounce
   useEffect(() => {
@@ -192,6 +179,38 @@ export default function StoreConfigStep({
     return () => clearTimeout(timer);
   }, [formData.storeSlug]);
 
+  // ✅ Generate notification icon when Android App is enabled (separate, kept as-is)
+  useEffect(() => {
+    if (!formData.androidApp) {
+      setNotificationIconFile(null);
+      return;
+    }
+
+    if (!formData.storeName || formData.storeName.length < 1) {
+      return;
+    }
+
+    const generateNotifIcon = async () => {
+      try {
+        const { generateNotificationIcon } =
+          await import("@/app/reseller/generateIcon");
+        const blob = await generateNotificationIcon(formData.storeName);
+        const file = new File(
+          [blob],
+          `${formData.storeSlug || "store"}-notification-icon.png`,
+          {
+            type: "image/png",
+          },
+        );
+        setNotificationIconFile(file);
+      } catch (error) {
+        console.error("Failed to generate notification icon:", error);
+      }
+    };
+
+    generateNotifIcon();
+  }, [formData.androidApp, formData.storeName, formData.storeSlug]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
@@ -208,48 +227,48 @@ export default function StoreConfigStep({
     setFormData({ ...formData, brandColor: color });
   };
 
-  // ✅ Updated logo upload handler - stores as File directly
+  // ✅ Logo upload handler - sets isCustomLogo = true
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       setErrors({ ...errors, logo: "Please upload an image file" });
       return;
     }
 
-    // Validate file size (max 1MB)
     if (file.size > 1 * 1024 * 1024) {
       setErrors({ ...errors, logo: "Image must be under 1MB" });
       return;
     }
 
-    // ✅ Create preview URL
     const previewUrl = URL.createObjectURL(file);
 
-    // ✅ Store the File object and preview URL directly
     setFormData({
       ...formData,
       logoFile: file,
       logoPreview: previewUrl,
     });
+    setIsCustomLogo(true); // ✅ Mark as user-provided so auto-gen stops touching it
 
     if (errors.logo) {
       setErrors({ ...errors, logo: "" });
     }
   };
 
+  // ✅ Remove logo - resets isCustomLogo = false
   const removeLogo = () => {
-    // Clean up preview URL
     if (formData.logoPreview) {
       URL.revokeObjectURL(formData.logoPreview);
     }
+
     setFormData({
       ...formData,
       logoFile: null,
       logoPreview: null,
     });
+    setIsCustomLogo(false); // ✅ Resume auto-generation on next name/color change
+
     if (fileInputRef) {
       fileInputRef.value = "";
     }
@@ -275,47 +294,40 @@ export default function StoreConfigStep({
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ Generate notification icon when Android App is enabled
-  useEffect(() => {
-    if (!formData.androidApp) {
-      setNotificationIconFile(null);
-      return;
-    }
-
-    if (!formData.storeName || formData.storeName.length < 1) {
-      return;
-    }
-
-    const generateNotifIcon = async () => {
-      try {
-        // ✅ Import the client-side generator
-        const { generateNotificationIcon } =
-          await import("@/app/reseller/generateIcon");
-        const blob = await generateNotificationIcon(formData.storeName);
-        const file = new File(
-          [blob],
-          `${formData.storeSlug || "store"}-notification-icon.png`,
-          {
-            type: "image/png",
-          },
-        );
-        setNotificationIconFile(file);
-      } catch (error) {
-        console.error("Failed to generate notification icon:", error);
-      }
-    };
-
-    generateNotifIcon();
-  }, [formData.androidApp, formData.storeName, formData.storeSlug]);
-
-  // ✅ Pass notification icon to form data on submit
-  const handleSubmit = (e: React.FormEvent) => {
+  // ✅ Generate the actual logo file ONLY on submit (if Android App is enabled)
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
-      onChange({
-        ...formData,
-        notificationIconFile: notificationIconFile, // ✅ Add this
-      });
+      // If Android App is enabled and no custom logo uploaded, generate one
+      if (formData.androidApp && !isCustomLogo) {
+        setIsGeneratingPreview(true);
+        try {
+          const blob = await generateIconPng(formData.storeName, formData.brandColor);
+          const file = new File(
+            [blob],
+            `${formData.storeSlug || "store"}-logo.png`,
+            { type: "image/png" }
+          );
+          setIsGeneratingPreview(false);
+          onChange({
+            ...formData,
+            logoFile: file,
+            notificationIconFile: notificationIconFile,
+          });
+        } catch (error) {
+          console.error("Failed to generate logo:", error);
+          setIsGeneratingPreview(false);
+          onChange({
+            ...formData,
+            notificationIconFile: notificationIconFile,
+          });
+        }
+      } else {
+        onChange({
+          ...formData,
+          notificationIconFile: notificationIconFile,
+        });
+      }
       onNext();
     }
   };
@@ -479,7 +491,7 @@ export default function StoreConfigStep({
             </p>
           </div>
 
-          {/* Logo Upload - Show Generated Preview */}
+          {/* Logo Upload */}
           <div>
             <label
               style={{
@@ -541,7 +553,7 @@ export default function StoreConfigStep({
                     borderRadius: 14,
                     background: displayPreview
                       ? `url(${displayPreview}) center/cover`
-                      : `linear-gradient(135deg, ${formData.brandColor}, ${formData.brandColor}dd)`,
+                      : formData.brandColor,
                     border: "1px solid var(--border)",
                     display: "flex",
                     alignItems: "center",
@@ -592,11 +604,7 @@ export default function StoreConfigStep({
                           marginBottom: 2,
                         }}
                       >
-                        ✅{" "}
-                        {formData.logoPreview?.startsWith("blob:")
-                          ? "Auto-generated"
-                          : "Custom"}{" "}
-                        logo ready
+                        ✅ {isCustomLogo ? "Custom" : "Auto-generated"} logo ready
                       </p>
                       <p
                         style={{
@@ -604,9 +612,9 @@ export default function StoreConfigStep({
                           color: "var(--dim)",
                         }}
                       >
-                        {formData.logoPreview?.startsWith("blob:")
-                          ? "Generated from your store name"
-                          : `${Math.round(formData.logoFile.size / 1024)} KB · ${formData.logoFile.type}`}
+                        {isCustomLogo
+                          ? `${Math.round(formData.logoFile.size / 1024)} KB · ${formData.logoFile.type}`
+                          : "Generated from your store name"}
                       </p>
                     </div>
                   ) : (
@@ -645,7 +653,6 @@ export default function StoreConfigStep({
                   paddingTop: "0.75rem",
                 }}
               >
-                {/* Upload Button */}
                 <label
                   style={{
                     display: "inline-flex",
@@ -684,7 +691,6 @@ export default function StoreConfigStep({
                   />
                 </label>
 
-                {/* Remove/Reset Button */}
                 {formData.logoFile && (
                   <button
                     type="button"
