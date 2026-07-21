@@ -52,7 +52,7 @@ export default function ReviewStep({
         },
         {
           label: t?.store?.logo || "Logo",
-          value: data.logo ? "✅ Uploaded" : "🔄 Will be generated",
+          value: data.isCustomLogo ? "✅ Uploaded" : "🔄 Will be generated",
         },
       ],
     },
