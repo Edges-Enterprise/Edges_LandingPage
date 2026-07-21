@@ -17,7 +17,7 @@ import {
 } from "@/actions/reseller/wallet/getTransactions";
 import { FundWalletModal } from "@/components/reseller/modals/FundWalletModal";
 import { WithdrawModal } from "@/components/reseller/modals/WithdrawModal";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/helpers";
 
 interface WalletClientProps {
   countryCode: string;
