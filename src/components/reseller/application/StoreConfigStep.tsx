@@ -441,6 +441,7 @@ export default function StoreConfigStep({
             ...formData,
             logoFile: file,
             notificationIconFile: notificationIconFile,
+            isCustomLogo: false, // auto-generated
           });
         } catch (error) {
           console.error("Failed to generate logo:", error);
@@ -448,6 +449,7 @@ export default function StoreConfigStep({
           onChange({
             ...formData,
             notificationIconFile: notificationIconFile,
+            isCustomLogo: false,
           });
         }
       } else {
@@ -461,6 +463,7 @@ export default function StoreConfigStep({
         onChange({
           ...formData,
           notificationIconFile: notificationIconFile,
+          isCustomLogo: true, // user uploaded
         });
       }
       onNext();
