@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { getBuildStatus, BuildStatus } from "@/actions/reseller/build";
 import { triggerAppBuild } from "@/actions/reseller/build/triggerAppBuild";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/helpers";
 
 interface AppBuildClientProps {
   countryCode: string;
