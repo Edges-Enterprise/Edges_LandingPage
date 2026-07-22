@@ -2,9 +2,9 @@
 import { AppBuildClient } from "./AppBuildClient";
 
 interface AppBuildPageProps {
-  params: {
+  params: Promise<{
     countryCode: string;
-  };
+  }>;
 }
 
 export default async function AppBuildPage({ params }: AppBuildPageProps) {
