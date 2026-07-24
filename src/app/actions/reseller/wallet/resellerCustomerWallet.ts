@@ -4,6 +4,7 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { checkEmail } from "@/lib/email/validateEmail";
 
 // ─── Types ─────────────────────────────────────────────
 interface ResellerStatus {
@@ -221,7 +222,9 @@ export async function createResellerVirtualAccount(
     const supabase = await createServerClient();
 
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return { error: "You must be logged in" };
     }
@@ -247,6 +250,17 @@ export async function createResellerVirtualAccount(
 
     if (resellerError || !reseller) {
       return { error: "Reseller not found" };
+    }
+
+    const emailCheck = checkEmail(reseller.email);
+    if (!emailCheck.valid) {
+      return {
+        error: `Your account email (${reseller.email}) looks invalid${
+          emailCheck.suggestion
+            ? ` — did you mean ${emailCheck.suggestion}?`
+            : ""
+        }. Please contact support to update it before creating a virtual account.`,
+      };
     }
 
     // 3. Check if reseller already has a BVN assigned
@@ -290,7 +304,10 @@ export async function createResellerVirtualAccount(
 
       if (updateWaitlistError) {
         // Rollback: remove BVN from reseller
-        await admin.from("resellers").update({ bvn: null }).eq("id", resellerId);
+        await admin
+          .from("resellers")
+          .update({ bvn: null })
+          .eq("id", resellerId);
         return { error: "Failed to reserve BVN. Please try again." };
       }
 
@@ -328,7 +345,8 @@ export async function createResellerVirtualAccount(
     if (!secretKey || !apiKey || !businessId) {
       console.error("Missing Xixapay config");
       return {
-        error: "Payment provider configuration missing. Please contact support.",
+        error:
+          "Payment provider configuration missing. Please contact support.",
       };
     }
 
@@ -341,13 +359,13 @@ export async function createResellerVirtualAccount(
     // 9. Prepare XixaPay request payload - using waitlist person's name and phone
     const xixapayPayload = {
       email: virtualEmail,
-      name: waitlistName,  // ← Name from waitlist (BVN owner)
-      phoneNumber: waitlistPhone,  // ← Phone from waitlist (BVN owner)
+      name: waitlistName, // ← Name from waitlist (BVN owner)
+      phoneNumber: waitlistPhone, // ← Phone from waitlist (BVN owner)
       bankCode: ["20867"], // PalmPay
       businessId,
       accountType: "static",
       id_type: "bvn",
-      id_number: bvnToUse,  // ← BVN from waitlist
+      id_number: bvnToUse, // ← BVN from waitlist
     };
 
     console.log("Creating virtual account for reseller:", {
@@ -381,7 +399,9 @@ export async function createResellerVirtualAccount(
 
     if (!xixapayResponse.ok || xixapayData.status !== "success") {
       return {
-        error: xixapayData.message || "Failed to create virtual account. Please try again.",
+        error:
+          xixapayData.message ||
+          "Failed to create virtual account. Please try again.",
       };
     }
 
@@ -400,9 +420,9 @@ export async function createResellerVirtualAccount(
       tracking_reference: bank.Reserved_Account_Id,
       provider: "xixapay",
       customer_email: virtualEmail,
-      customer_name: waitlistName,  // ← Store waitlist name
-      customer_phone: waitlistPhone,  // ← Store waitlist phone
-      customer_bvn: bvnToUse,  // ← Store real BVN
+      customer_name: waitlistName, // ← Store waitlist name
+      customer_phone: waitlistPhone, // ← Store waitlist phone
+      customer_bvn: bvnToUse, // ← Store real BVN
       customer_nin: null,
       status: "active",
     }));
