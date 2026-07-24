@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import type { CreateResellerResult } from "@/types";
 import { triggerAppBuild } from "./triggerAppBuild";
 import { randomBytes } from "crypto";
+import { checkEmail } from "@/lib/email/validateEmail";
 
 function generatePassword(storeName: string, email: string): string {
   const prefix = storeName.slice(0, 4);
@@ -62,8 +63,9 @@ export async function createReseller(
     };
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { error: "Please enter a valid email address" };
+  const emailCheck = checkEmail(email);
+  if (!emailCheck.valid) {
+    return { error: emailCheck.error || "Please enter a valid email address" };
   }
 
   if (!phone) {
