@@ -3,7 +3,7 @@ import "./../reseller.css";
 import { ResellerFormClient } from "./ResellerFormClient";
 
 export const metadata = {
-  title: "Become a Reseller",
+  title: "Become a Partner",
   description:
     "Create your own branded data and airtime store. Set your prices and start earning today.",
 };
