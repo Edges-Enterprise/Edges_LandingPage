@@ -345,6 +345,31 @@ export function WalletClient({
                 >
                   One-click setup. <em> Fund your wallet instantly</em>.
                 </p>
+                {/* ADD THIS */}
+                {virtualMessage && (
+                  <div
+                    style={{
+                      padding: "0.7rem 1rem",
+                      borderRadius: 8,
+                      marginBottom: "1rem",
+                      fontSize: "0.85rem",
+                      background:
+                        virtualMessage.type === "success"
+                          ? "rgba(110,189,138,0.1)"
+                          : "rgba(239,68,68,0.08)",
+                      border:
+                        virtualMessage.type === "success"
+                          ? "1px solid rgba(110,189,138,0.3)"
+                          : "1px solid rgba(239,68,68,0.2)",
+                      color:
+                        virtualMessage.type === "success"
+                          ? "#6EBD8A"
+                          : "#F87171",
+                    }}
+                  >
+                    {virtualMessage.text}
+                  </div>
+                )}
                 <button
                   onClick={handleCreateVirtualAccount}
                   disabled={virtualLoading}
