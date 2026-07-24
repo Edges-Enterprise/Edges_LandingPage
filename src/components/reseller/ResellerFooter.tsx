@@ -40,7 +40,7 @@ export default function Footer() {
             />
         </div>
         <span style={{ fontSize: "0.85rem", color: "var(--dim)" }}>
-          © 2025 Edges Network. All rights reserved.
+          © 2025 Telcos System. All rights reserved.
         </span>
       </div>
       <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
