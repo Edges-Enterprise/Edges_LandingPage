@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { checkStoreName } from "../actions/reseller/checkStoreName";
 import { createReseller } from "../actions/reseller/createReseller";
+import { checkEmail } from "@/lib/email/validateEmail";
+
 import { generateIconPng, generateNotificationIcon } from "./generateIcon";
 
 // Curated palette of 8 swatches resellers can pick from
@@ -126,10 +128,12 @@ export function ResellerFormClient() {
     else if (/^edge/.test(storeName.trim().replace(/[^a-z0-9]/g, "")))
       errs.storeName = "That store name is not available.";
 
-    if (!email.trim()) errs.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
-      errs.email = "Enter a valid email";
-
+    if (!email.trim()) {
+      errs.email = "Email is required";
+    } else {
+      const check = checkEmail(email);
+      if (!check.valid) errs.email = check.error!;
+    }
     if (!whatsapp.trim()) errs.whatsapp = "WhatsApp number is required";
     else if (!/^\+?[0-9\s\-()]{7,15}$/.test(whatsapp.trim()))
       errs.whatsapp = "Enter a valid phone number";
@@ -258,11 +262,11 @@ export function ResellerFormClient() {
     <form
       onSubmit={handleSubmit}
       onKeyDown={(e) => {
-    // Prevent Enter from submitting ANY form field
-    if (e.key === 'Enter') {
-      e.preventDefault();
-    }
-  }}
+        // Prevent Enter from submitting ANY form field
+        if (e.key === "Enter") {
+          e.preventDefault();
+        }
+      }}
       style={{
         background: "var(--card)",
         border: "1px solid var(--border2)",
@@ -435,7 +439,24 @@ export function ResellerFormClient() {
         />
         {errors.email && (
           <p style={{ fontSize: "0.78rem", marginTop: 6, color: "#EF4444" }}>
-            {errors.email}
+            {errors.email}{" "}
+            {checkEmail(email).suggestion && (
+              <button
+                type="button"
+                onClick={() => setEmail(checkEmail(email).suggestion!)}
+                style={{
+                  color: "var(--accent-lt)",
+                  textDecoration: "underline",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  fontSize: "inherit",
+                }}
+              >
+                Use suggested email
+              </button>
+            )}
           </p>
         )}
       </div>
@@ -1052,4 +1073,3 @@ function adjustHex(hex: string, amount: number): string {
   const b = Math.min(255, Math.max(0, (num & 0xff) + amount));
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }
-
