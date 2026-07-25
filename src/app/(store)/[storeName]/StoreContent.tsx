@@ -42,6 +42,7 @@ import {
   Eye,
   EyeOff,
   Copy,
+  Smartphone, XCircle
 } from "lucide-react";
 
 const NETWORKS = ["MTN", "AIRTEL", "GLO", "9MOBILE"] as const;
@@ -116,6 +117,12 @@ export function StoreContent({
   const [loggedIn, setLoggedIn] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
+  // ── New state for install banner ──────────────────
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+  const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
   const [showPassword, setShowPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
 
@@ -172,6 +179,52 @@ export function StoreContent({
   const [supportModalOpen, setSupportModalOpen] = useState(false);
 
   // ── Effects ───────────────────────────────────────
+
+  // Device detection effect
+  useEffect(() => {
+    const checkDevice = () => {
+      const userAgent =
+        navigator.userAgent || navigator.vendor || (window as any).opera;
+
+      // Check if Android
+      const isAndroidDevice = /android/i.test(userAgent);
+      setIsAndroid(isAndroidDevice);
+
+      // Check if mobile or tablet (screen width <= 1024px or touch device)
+      const isMobileWidth = window.innerWidth <= 1024;
+      const isTouchDevice =
+        "ontouchstart" in window || navigator.maxTouchPoints > 0;
+      const isMobileOrTabletDevice = isMobileWidth || isTouchDevice;
+      setIsMobileOrTablet(isMobileOrTabletDevice);
+
+      // Check if banner was previously dismissed
+      const dismissed = localStorage.getItem(
+        `install-banner-dismissed-${storeName}`,
+      );
+      setBannerDismissed(dismissed === "true");
+    };
+
+    checkDevice();
+    window.addEventListener("resize", checkDevice);
+    return () => window.removeEventListener("resize", checkDevice);
+  }, [storeName]);
+
+  // Show banner when conditions are met
+useEffect(() => {
+  const shouldShow =
+    apkUrl && // APK is available
+    isAndroid && // Android device
+    isMobileOrTablet && // Mobile or tablet
+    !bannerDismissed; // Not dismissed
+   
+  setShowInstallBanner(shouldShow);
+}, [apkUrl, isAndroid, isMobileOrTablet, bannerDismissed]);
+  
+  const dismissBanner = () => {
+    setShowInstallBanner(false);
+    localStorage.setItem(`install-banner-dismissed-${storeName}`, "true");
+  };
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -753,6 +806,207 @@ export function StoreContent({
         fontFamily: "'Instrument Sans', system-ui, sans-serif",
       }}
     >
+{/* ─── Install App Banner ─────────────────────────── */}
+      {showInstallBanner && apkUrl && (
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 30,
+            background: `linear-gradient(135deg, ${gradFrom}, ${gradTo})`,
+            padding: "0.75rem 1rem",
+            boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
+            animation: "slideDown 0.3s ease-out",
+          }}
+        >
+          <style>{`
+            @keyframes slideDown {
+              from {
+                transform: translateY(-100%);
+                opacity: 0;
+              }
+              to {
+                transform: translateY(0);
+                opacity: 1;
+              }
+            }
+            @media (max-width: 480px) {
+              .banner-content {
+                flex-wrap: wrap !important;
+                gap: 0.5rem !important;
+              }
+              .banner-title {
+                font-size: 0.85rem !important;
+              }
+              .banner-description {
+                font-size: 0.7rem !important;
+              }
+              .banner-button {
+                padding: 0.4rem 0.8rem !important;
+                font-size: 0.75rem !important;
+              }
+            }
+          `}</style>
+          
+          <div
+            className="banner-content"
+            style={{
+              maxWidth: 1100,
+              margin: "0 auto",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "1rem",
+              color: onPrimary,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                flex: "1",
+                minWidth: 0,
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  border: "1px solid rgba(255,255,255,0.25)",
+                }}
+              >
+                {storeIcon?.url ? (
+                  <img
+                    src={storeIcon.url}
+                    alt={displayName}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      objectFit: "cover",
+                      borderRadius: 6,
+                    }}
+                  />
+                ) : (
+                  <Smartphone size={24} style={{ color: onPrimary }} />
+                )}
+              </div>
+
+              <div style={{ minWidth: 0 }}>
+                <p
+                  className="banner-title"
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "0.95rem",
+                    lineHeight: 1.2,
+                    marginBottom: 2,
+                  }}
+                >
+                  📱 Get the {displayName} App
+                </p>
+                <p
+                  className="banner-description"
+                  style={{
+                    fontSize: "0.75rem",
+                    opacity: 0.85,
+                    lineHeight: 1.3,
+                  }}
+                >
+                  Faster buying, better experience
+                </p>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                flexShrink: 0,
+              }}
+            >
+              <a
+                href={apkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="banner-button"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "0.5rem 1.2rem",
+                  background: "rgba(255,255,255,0.25)",
+                  border: "1.5px solid rgba(255,255,255,0.4)",
+                  borderRadius: 10,
+                  color: onPrimary,
+                  fontWeight: 700,
+                  fontSize: "0.82rem",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  textDecoration: "none",
+                  backdropFilter: "blur(4px)",
+                  transition: "all 0.2s ease",
+                  whiteSpace: "nowrap",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.35)";
+                  e.currentTarget.style.transform = "scale(1.02)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+                onTouchStart={(e) => {
+                  e.currentTarget.style.transform = "scale(0.95)";
+                }}
+                onTouchEnd={(e) => {
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                <Download size={15} />
+                Install
+              </a>
+
+              <button
+                onClick={dismissBanner}
+                style={{
+                  background: "rgba(255,255,255,0.15)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: 8,
+                  width: 32,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: onPrimary,
+                  opacity: 0.7,
+                  transition: "all 0.2s ease",
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = "1";
+                  e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = "0.7";
+                  e.currentTarget.style.background = "rgba(255,255,255,0.15)";
+                }}
+                aria-label="Dismiss install banner"
+              >
+                <XCircle size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── Login Modal ──────────────────────────────── */}
       {loginOpen && (
         <div
@@ -2349,7 +2603,7 @@ export function StoreContent({
 
                 {isStoreOwner ? (
                   <button
-                    style={ navBtnStyle(onPrimary)}
+                    style={navBtnStyle(onPrimary)}
                     onClick={() => router.push("/dashboard")}
                     aria-label="Go to dashboard"
                   >
