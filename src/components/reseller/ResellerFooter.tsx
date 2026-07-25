@@ -22,25 +22,8 @@ export default function Footer() {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 6,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-            <Image
-              src="/edgesnetworkicon.png" // <- replace with your logo file path
-              alt="Edges Network Logo"
-              width={40}
-              height={40}
-            />
-        </div>
         <span style={{ fontSize: "0.85rem", color: "var(--dim)" }}>
-          © 2025 Edges Network. All rights reserved.
+          © 2025 Telcos System. All rights reserved.
         </span>
       </div>
       <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>

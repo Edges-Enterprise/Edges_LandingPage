@@ -139,7 +139,7 @@ export default function Hero() {
             display: "inline-block",
           }}
         />
-        Reseller Partner Program
+        Telcos Partnership Program
       </div>
 
       {/* Headline */}
@@ -170,7 +170,7 @@ export default function Hero() {
           marginBottom: "2.5rem",
         }}
       >
-        Join the Edges Network reseller program. Earn competitively up to ₦150k
+        Join the Telcos Partnership Program. Earn competitively up to ₦150k
         – ₦240k in profits per month. Start in minutes.
       </p>
 
@@ -209,7 +209,7 @@ export default function Hero() {
             ((e.currentTarget as HTMLElement).style.transform = "translateY(0)")
           }
         >
-          Apply as Reseller <ArrowRight size={16} />
+          Apply Now <ArrowRight size={16} />
         </a>
         <a
           href="#how-it-works"
