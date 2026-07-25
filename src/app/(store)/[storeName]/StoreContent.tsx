@@ -182,33 +182,57 @@ export function StoreContent({
   // ── Effects ───────────────────────────────────────
 
   // Device detection effect
-  useEffect(() => {
-    const checkDevice = () => {
-      const userAgent =
-        navigator.userAgent || navigator.vendor || (window as any).opera;
+ useEffect(() => {
+   const checkDevice = () => {
+     const userAgent =
+       navigator.userAgent || navigator.vendor || (window as any).opera;
 
-      // Check if Android
-      const isAndroidDevice = /android/i.test(userAgent);
-      setIsAndroid(isAndroidDevice);
+     // Check if Android
+     const isAndroidDevice = /android/i.test(userAgent);
+     setIsAndroid(isAndroidDevice);
 
-      // Check if mobile or tablet (screen width <= 1024px or touch device)
-      const isMobileWidth = window.innerWidth <= 1024;
-      const isTouchDevice =
-        "ontouchstart" in window || navigator.maxTouchPoints > 0;
-      const isMobileOrTabletDevice = isMobileWidth || isTouchDevice;
-      setIsMobileOrTablet(isMobileOrTabletDevice);
+     // Check if mobile or tablet (screen width <= 1024px or touch device)
+     const isMobileWidth = window.innerWidth <= 1024;
+     const isTouchDevice =
+       "ontouchstart" in window || navigator.maxTouchPoints > 0;
+     const isMobileOrTabletDevice = isMobileWidth || isTouchDevice;
+     setIsMobileOrTablet(isMobileOrTabletDevice);
 
-      // Check if banner was previously dismissed
-      const dismissed = localStorage.getItem(
-        `install-banner-dismissed-${storeName}`,
-      );
-      setBannerDismissed(dismissed === "true");
-    };
+     // Check if banner was previously dismissed and if 3 days have passed
+     const dismissedData = localStorage.getItem(
+       `install-banner-dismissed-${storeName}`,
+     );
 
-    checkDevice();
-    window.addEventListener("resize", checkDevice);
-    return () => window.removeEventListener("resize", checkDevice);
-  }, [storeName]);
+     if (dismissedData) {
+       try {
+         const { dismissedAt } = JSON.parse(dismissedData);
+         const dismissedDate = new Date(dismissedAt);
+         const now = new Date();
+         const diffInDays =
+           (now.getTime() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
+
+         // If 3 or more days have passed, allow banner to show again
+         if (diffInDays >= 3) {
+           setBannerDismissed(false);
+           // Optionally clear the old dismissal to start fresh
+           localStorage.removeItem(`install-banner-dismissed-${storeName}`);
+         } else {
+           setBannerDismissed(true);
+         }
+       } catch {
+         // If parsing fails, treat as not dismissed
+         setBannerDismissed(false);
+         localStorage.removeItem(`install-banner-dismissed-${storeName}`);
+       }
+     } else {
+       setBannerDismissed(false);
+     }
+   };
+
+   checkDevice();
+   window.addEventListener("resize", checkDevice);
+   return () => window.removeEventListener("resize", checkDevice);
+ }, [storeName]);
 
   // Show banner when conditions are met
   useEffect(() => {
@@ -224,7 +248,14 @@ export function StoreContent({
 
   const dismissBanner = () => {
     setShowInstallBanner(false);
-    localStorage.setItem(`install-banner-dismissed-${storeName}`, "true");
+    // Store the dismissal timestamp
+    const data = {
+      dismissedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(
+      `install-banner-dismissed-${storeName}`,
+      JSON.stringify(data),
+    );
   };
 
   useEffect(() => {
@@ -495,20 +526,6 @@ export function StoreContent({
     setEmail("");
     setPassword("");
   };
-
-  // const handleLogout = async () => {
-  //   setLogoutLoading(true);
-  //   const supabase = createClient();
-  //   const {
-  //     data: { user },
-  //   } = await supabase.auth.getUser();
-  //   if (user?.user_metadata?.store_name === storeName) {
-  //     await logoutReseller();
-  //   } else {
-  //     await logoutCustomer(storeName);
-  //   }
-  //   setLogoutLoading(false);
-  // };
 
   const handleLogout = async () => {
     setLogoutLoading(true);
