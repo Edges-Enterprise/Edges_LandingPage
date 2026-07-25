@@ -14,36 +14,36 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Edges Network - Nigeria's #1 Platform for Data Bundles & Airtime",
+  title: "Telcos - Nigeria's #1 Platform for Data Bundles & Airtime",
   description:
     "Get Nigeria's cheapest data bundles (MTN, Airtel, Glo, 9mobile), discounted airtime, instant utility payments, and affordable WAEC/NECO pins. Save up to 60% with instant delivery.",
   keywords:
-    "Edges Network, cheap data Nigeria, discounted airtime, MTN data bundles, Airtel data, Glo data, 9mobile data, utility payments Nigeria, WAEC pins, NECO pins, NABTEB pins, electricity bills payment, cable TV subscription, Lagos data vendor, Abuja airtime, Nigerian fintech",
-  authors: [{ name: "Edges Network" }],
-  creator: "Edges Network",
-  publisher: "Edges Network",
+    "Telcos, cheap data Nigeria, discounted airtime, MTN data bundles, Airtel data, Glo data, 9mobile data, utility payments Nigeria, WAEC pins, NECO pins, NABTEB pins, electricity bills payment, cable TV subscription, Lagos data vendor, Abuja airtime, Nigerian fintech",
+  authors: [{ name: "Telcos" }],
+  creator: "Telcos",
+  publisher: "Telcos",
   robots:
     "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
   openGraph: {
     type: "website",
     locale: "en_NG",
     url: "https://edges-landing-page.vercel.app/",
-    title: "Edges Network - Nigeria's #1 Platform for Data Bundles & Airtime",
+    title: "Telcos - Nigeria's #1 Platform for Data Bundles & Airtime",
     description:
       "Save money on data bundles, airtime, and utility bills. Trusted by thousands of Nigerians for the best prices and instant delivery. Nigeria's Cheapest Data, Airtime & Utility Platform",
-    siteName: "Edges Network",
+    siteName: "Telcos",
     images: [
       {
         url: "https://edges-landing-page.vercel.app/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Edges Network - Nigeria's #1 Platform for Data Bundles & Airtime",
+        alt: "Telcos - Nigeria's #1 Platform for Data Bundles & Airtime",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Edges Network - Nigeria's #1 Platform for Data Bundles & Airtime",
+    title: "Telcos - Nigeria's #1 Platform for Data Bundles & Airtime",
     description:
       "Get up to 60% discount on data bundles and airtime across all networks. Instant delivery guaranteed! Nigeria's Cheapest Data, Airtime & Utility Platform",
     images: ["https://edges-landing-page.vercel.app/og-image.png"],
@@ -63,8 +63,8 @@ export const metadata: Metadata = {
     "geo.placename": "Nigeria",
     ICBM: "9.0579,8.6753",
     "DC.title":
-      "Edges Network - Nigeria's #1 Platform for Data Bundles & Airtime",
-    "DC.creator": "Edges Network",
+      "Telcos - Nigeria's #1 Platform for Data Bundles & Airtime",
+    "DC.creator": "Telcos",
     "DC.subject": "Data bundles, Airtime, Utility payments, Nigeria",
     "DC.description":
       "Nigeria's most trusted platform for data bundles and discounted airtime. Nigeria's #1 Platform for Data Bundles & Airtime. Nigeria's Cheapest Data, Airtime & Utility Platform",
@@ -101,8 +101,8 @@ export default async function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "Organization",
-              name: "Edges Network",
-              alternateName: "Edges Network Nigeria",
+              name: "Telcos",
+              alternateName: "Telcos Nigeria",
               description:
                 "Nigeria's #1 Platform for Data Bundles & Airtime, discounted airtime, utility payments, and educational pins. Nigeria's leading platform for cheap data bundles",
               url: "https://edges-landing-page.vercel.app/",
