@@ -42,7 +42,8 @@ import {
   Eye,
   EyeOff,
   Copy,
-  Smartphone, XCircle
+  Smartphone,
+  XCircle,
 } from "lucide-react";
 
 const NETWORKS = ["MTN", "AIRTEL", "GLO", "9MOBILE"] as const;
@@ -210,16 +211,17 @@ export function StoreContent({
   }, [storeName]);
 
   // Show banner when conditions are met
-useEffect(() => {
-  const shouldShow =
-    apkUrl && // APK is available
-    isAndroid && // Android device
-    isMobileOrTablet && // Mobile or tablet
-    !bannerDismissed; // Not dismissed
-   
-  setShowInstallBanner(shouldShow);
-}, [apkUrl, isAndroid, isMobileOrTablet, bannerDismissed]);
-  
+  useEffect(() => {
+    const shouldShow = Boolean(
+      apkUrl && // APK is available
+      isAndroid && // Android device
+      isMobileOrTablet && // Mobile or tablet
+      !bannerDismissed, // Not dismissed
+    );
+
+    setShowInstallBanner(shouldShow);
+  }, [apkUrl, isAndroid, isMobileOrTablet, bannerDismissed]);
+
   const dismissBanner = () => {
     setShowInstallBanner(false);
     localStorage.setItem(`install-banner-dismissed-${storeName}`, "true");
@@ -806,7 +808,7 @@ useEffect(() => {
         fontFamily: "'Instrument Sans', system-ui, sans-serif",
       }}
     >
-{/* ─── Install App Banner ─────────────────────────── */}
+      {/* ─── Install App Banner ─────────────────────────── */}
       {showInstallBanner && apkUrl && (
         <div
           style={{
@@ -847,7 +849,7 @@ useEffect(() => {
               }
             }
           `}</style>
-          
+
           <div
             className="banner-content"
             style={{
