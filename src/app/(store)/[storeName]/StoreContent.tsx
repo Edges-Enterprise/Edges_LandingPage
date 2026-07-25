@@ -28,6 +28,7 @@ import {
   X,
   Mail,
   Lock,
+  LayoutDashboard,
   Loader2,
   LogIn,
   LogOut,
@@ -1289,20 +1290,6 @@ export function StoreContent({
                 </button>
               </div>
             ))}
-
-            {/* <div
-              style={{
-                marginTop: "1rem",
-                padding: "0.75rem",
-                background: "#FEF3C7",
-                borderRadius: 10,
-                fontSize: "0.75rem",
-                color: "#92400E",
-              }}
-            >
-              <strong>💡 Tip:</strong> Use your registered name as the depositor
-              name for faster confirmation.
-            </div> */}
           </div>
         </div>
       )}
@@ -1428,23 +1415,6 @@ export function StoreContent({
             >
               {virtualLoading ? "Creating..." : "Create Virtual Account →"}
             </button>
-
-            {/* <button
-              onClick={() => setShowVirtualForm(false)}
-              style={{
-                width: "100%",
-                padding: "0.7rem",
-                background: "#F3F4F6",
-                border: "1px solid #E5E7EB",
-                borderRadius: 8,
-                color: "#6B7280",
-                fontSize: "0.85rem",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              Cancel
-            </button> */}
           </div>
         </div>
       )}
@@ -2226,6 +2196,7 @@ export function StoreContent({
         @media (max-width: 480px) {
           .header-customer-name { display: none !important; }
           .header-contact-label { display: none !important; }
+           .header-dashboard-label { display: none !important; }
           .header-logout-label { display: none !important; }
           .header-store-subtitle { display: none !important; }
           .header-inner { padding: 0.7rem 1rem !important; }
@@ -2376,14 +2347,26 @@ export function StoreContent({
                   </span>
                 </div>
 
-                <button
-                  style={navBtnStyle(onPrimary)}
-                  onClick={handleSupportClick}
-                  aria-label="Contact support"
-                >
-                  <MessageCircleCheck size={15} />
-                  <span className="header-contact-label">Contact</span>
-                </button>
+                {isStoreOwner ? (
+                  <button
+                    style={ navBtnStyle(onPrimary)}
+                    onClick={() => router.push("/dashboard")}
+                    aria-label="Go to dashboard"
+                  >
+                    <LayoutDashboard size={15} />{" "}
+                    {/* ← Using LayoutDashboard */}
+                    <span className="header-dashboard-label">Dashboard</span>
+                  </button>
+                ) : (
+                  <button
+                    style={navBtnStyle(onPrimary)}
+                    onClick={handleSupportClick}
+                    aria-label="Contact support"
+                  >
+                    <MessageCircleCheck size={15} />
+                    <span className="header-contact-label">Contact</span>
+                  </button>
+                )}
 
                 <button
                   style={{
