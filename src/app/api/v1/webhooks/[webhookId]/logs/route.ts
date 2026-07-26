@@ -5,7 +5,7 @@ import { apiMiddleware } from "../../../middleware";
 
 export async function GET(
   req: Request,
-  { params }: { params: { webhookId: string } },
+  { params }: { params: Promise<{ webhookId: string }> }
 ) {
   try {
     const auth = await apiMiddleware(req as any);
@@ -13,11 +13,14 @@ export async function GET(
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
+    // ✅ Await params
+    const { webhookId } = await params;
+
     // ✅ Guard against undefined user
     if (!auth.user) {
       return NextResponse.json(
         { error: "Authentication failed" },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
@@ -31,22 +34,21 @@ export async function GET(
     const { data: webhook } = await supabase
       .from("api_users.webhooks")
       .select("id")
-      .eq("id", params.webhookId)
+      .eq("id", webhookId)
       .eq("user_id", auth.user.id)
       .single();
 
     if (!webhook) {
-      return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Webhook not found" },
+        { status: 404 }
+      );
     }
 
-    const {
-      data: logs,
-      error,
-      count,
-    } = await supabase
+    const { data: logs, error, count } = await supabase
       .from("api_users.webhook_logs")
       .select("*", { count: "exact" })
-      .eq("webhook_id", params.webhookId)
+      .eq("webhook_id", webhookId)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -65,7 +67,7 @@ export async function GET(
     console.error("Webhook logs error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

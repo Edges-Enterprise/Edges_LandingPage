@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     if (!auth.user) {
       return NextResponse.json(
         { error: "Authentication failed" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     if (!network || !phoneNumber || !amount) {
       return NextResponse.json(
         { error: "network, phoneNumber, and amount are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
         {
           error: `Insufficient balance. Available: ₦${wallet?.balance || 0}, Required: ₦${amount}`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
           amount,
           requestId,
         }),
-      }
+      },
     );
 
     const result = await response.json();
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     if (!result.success) {
       return NextResponse.json(
         { error: result.error || "Airtime purchase failed" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
     console.error("Purchase airtime error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -157,7 +157,7 @@ async function triggerWebhooks(userId: string, event: string, data: any) {
       await supabase.from("api_users.webhook_logs").insert({
         webhook_id: webhook.id,
         event_type: event,
-        payload: payload, // ✅ Fix
+        payload: payload,
         response_status: response.status,
         response_body: await response.text(),
         delivered_at: new Date().toISOString(),
@@ -166,7 +166,7 @@ async function triggerWebhooks(userId: string, event: string, data: any) {
       await supabase.from("api_users.webhook_logs").insert({
         webhook_id: webhook.id,
         event_type: event,
-        payload: data, // ✅ Fix
+        payload: data,
         error: error.message,
         delivered_at: new Date().toISOString(),
       });

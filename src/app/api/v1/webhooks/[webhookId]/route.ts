@@ -5,7 +5,7 @@ import { apiMiddleware } from "../../middleware";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { webhookId: string } },
+  { params }: { params: Promise<{ webhookId: string }> }
 ) {
   try {
     const auth = await apiMiddleware(req as any);
@@ -13,11 +13,14 @@ export async function PUT(
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
+    // ✅ Await params
+    const { webhookId } = await params;
+
     // ✅ Guard against undefined user
     if (!auth.user) {
       return NextResponse.json(
         { error: "Authentication failed" },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
@@ -28,12 +31,15 @@ export async function PUT(
     const { data: existing } = await supabase
       .from("api_users.webhooks")
       .select("id")
-      .eq("id", params.webhookId)
+      .eq("id", webhookId)
       .eq("user_id", auth.user.id)
       .single();
 
     if (!existing) {
-      return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Webhook not found" },
+        { status: 404 }
+      );
     }
 
     const { data: webhook, error } = await supabase
@@ -44,7 +50,7 @@ export async function PUT(
         secret: secret || undefined,
         is_active: is_active !== undefined ? is_active : undefined,
       })
-      .eq("id", params.webhookId)
+      .eq("id", webhookId)
       .select()
       .single();
 
@@ -58,14 +64,14 @@ export async function PUT(
     console.error("Update webhook error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { webhookId: string } },
+  { params }: { params: Promise<{ webhookId: string }> }
 ) {
   try {
     const auth = await apiMiddleware(req as any);
@@ -73,11 +79,14 @@ export async function DELETE(
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
+    // ✅ Await params
+    const { webhookId } = await params;
+
     // ✅ Guard against undefined user
     if (!auth.user) {
       return NextResponse.json(
         { error: "Authentication failed" },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
@@ -87,18 +96,21 @@ export async function DELETE(
     const { data: existing } = await supabase
       .from("api_users.webhooks")
       .select("id")
-      .eq("id", params.webhookId)
+      .eq("id", webhookId)
       .eq("user_id", auth.user.id)
       .single();
 
     if (!existing) {
-      return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Webhook not found" },
+        { status: 404 }
+      );
     }
 
     const { error } = await supabase
       .from("api_users.webhooks")
       .delete()
-      .eq("id", params.webhookId);
+      .eq("id", webhookId);
 
     if (error) throw error;
 
@@ -110,7 +122,7 @@ export async function DELETE(
     console.error("Delete webhook error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
