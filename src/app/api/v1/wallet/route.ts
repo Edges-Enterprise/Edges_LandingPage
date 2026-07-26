@@ -10,6 +10,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
+    // ✅ Guard against undefined user
+    if (!auth.user) {
+      return NextResponse.json(
+        { error: "Authentication failed" },
+        { status: 401 }
+      );
+    }
+
     const supabase = createAdminClient();
 
     const { data: wallet, error } = await supabase
@@ -34,7 +42,7 @@ export async function GET(req: Request) {
     console.error("Wallet error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
