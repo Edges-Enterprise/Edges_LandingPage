@@ -30,6 +30,8 @@ const openApiSpec = {
         type: "apiKey",
         in: "header",
         name: "X-API-Key",
+        description:
+          "Enter your API key here. Example: sk_live_xxxxxxxxxxxxxxxx",
       },
     },
     schemas: {
@@ -493,7 +495,7 @@ const openApiSpec = {
   },
 };
 
-// Serve Swagger UI
+// Serve Swagger UI with API key support
 export async function GET() {
   const html = `<!DOCTYPE html>
 <html>
@@ -506,9 +508,7 @@ export async function GET() {
       overflow: -moz-scrollbars-vertical;
       overflow-y: scroll;
     }
-    *,
-    *:before,
-    *:after {
+    *, *:before, *:after {
       box-sizing: inherit;
     }
     body {
@@ -525,6 +525,9 @@ export async function GET() {
     window.onload = function() {
       const spec = ${JSON.stringify(openApiSpec)};
       
+      // ✅ Load saved API key from localStorage
+      const savedApiKey = localStorage.getItem('api_key');
+      
       const ui = SwaggerUIBundle({
         spec: spec,
         dom_id: '#swagger-ui',
@@ -536,10 +539,36 @@ export async function GET() {
         plugins: [
           SwaggerUIBundle.plugins.DownloadUrl
         ],
-        layout: "StandaloneLayout"
+        layout: "StandaloneLayout",
+        // ✅ Enable Authorize button with saved key
+        authorizations: savedApiKey ? {
+          ApiKeyAuth: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'X-API-Key',
+            value: savedApiKey
+          }
+        } : undefined
       });
       
       window.ui = ui;
+      
+      // ✅ Save API key when user authorizes
+      const originalAuthorize = ui.authActions.authorize;
+      ui.authActions.authorize = function(auth) {
+        const apiKey = auth?.ApiKeyAuth?.value;
+        if (apiKey) {
+          localStorage.setItem('api_key', apiKey);
+        }
+        return originalAuthorize.apply(this, arguments);
+      };
+      
+      // ✅ Clear API key when user logs out
+      const originalLogout = ui.authActions.logout;
+      ui.authActions.logout = function() {
+        localStorage.removeItem('api_key');
+        return originalLogout.apply(this, arguments);
+      };
     };
   </script>
 </body>
