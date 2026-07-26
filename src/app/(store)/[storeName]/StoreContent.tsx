@@ -123,6 +123,7 @@ export function StoreContent({
   const [isAndroid, setIsAndroid] = useState(false);
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [shouldShowBanner, setShouldShowBanner] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
@@ -182,57 +183,57 @@ export function StoreContent({
   // ── Effects ───────────────────────────────────────
 
   // Device detection effect
- useEffect(() => {
-   const checkDevice = () => {
-     const userAgent =
-       navigator.userAgent || navigator.vendor || (window as any).opera;
+  useEffect(() => {
+    const checkDevice = () => {
+      const userAgent =
+        navigator.userAgent || navigator.vendor || (window as any).opera;
 
-     // Check if Android
-     const isAndroidDevice = /android/i.test(userAgent);
-     setIsAndroid(isAndroidDevice);
+      // Check if Android
+      const isAndroidDevice = /android/i.test(userAgent);
+      setIsAndroid(isAndroidDevice);
 
-     // Check if mobile or tablet (screen width <= 1024px or touch device)
-     const isMobileWidth = window.innerWidth <= 1024;
-     const isTouchDevice =
-       "ontouchstart" in window || navigator.maxTouchPoints > 0;
-     const isMobileOrTabletDevice = isMobileWidth || isTouchDevice;
-     setIsMobileOrTablet(isMobileOrTabletDevice);
+      // Check if mobile or tablet (screen width <= 1024px or touch device)
+      const isMobileWidth = window.innerWidth <= 1024;
+      const isTouchDevice =
+        "ontouchstart" in window || navigator.maxTouchPoints > 0;
+      const isMobileOrTabletDevice = isMobileWidth || isTouchDevice;
+      setIsMobileOrTablet(isMobileOrTabletDevice);
 
-     // Check if banner was previously dismissed and if 3 days have passed
-     const dismissedData = localStorage.getItem(
-       `install-banner-dismissed-${storeName}`,
-     );
+      // Check if banner was previously dismissed and if 3 days have passed
+      const dismissedData = localStorage.getItem(
+        `install-banner-dismissed-${storeName}`,
+      );
 
-     if (dismissedData) {
-       try {
-         const { dismissedAt } = JSON.parse(dismissedData);
-         const dismissedDate = new Date(dismissedAt);
-         const now = new Date();
-         const diffInDays =
-           (now.getTime() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
+      if (dismissedData) {
+        try {
+          const { dismissedAt } = JSON.parse(dismissedData);
+          const dismissedDate = new Date(dismissedAt);
+          const now = new Date();
+          const diffInDays =
+            (now.getTime() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
 
-         // If 3 or more days have passed, allow banner to show again
-         if (diffInDays >= 3) {
-           setBannerDismissed(false);
-           // Optionally clear the old dismissal to start fresh
-           localStorage.removeItem(`install-banner-dismissed-${storeName}`);
-         } else {
-           setBannerDismissed(true);
-         }
-       } catch {
-         // If parsing fails, treat as not dismissed
-         setBannerDismissed(false);
-         localStorage.removeItem(`install-banner-dismissed-${storeName}`);
-       }
-     } else {
-       setBannerDismissed(false);
-     }
-   };
+          // If 3 or more days have passed, allow banner to show again
+          if (diffInDays >= 3) {
+            setBannerDismissed(false);
+            // Optionally clear the old dismissal to start fresh
+            localStorage.removeItem(`install-banner-dismissed-${storeName}`);
+          } else {
+            setBannerDismissed(true);
+          }
+        } catch {
+          // If parsing fails, treat as not dismissed
+          setBannerDismissed(false);
+          localStorage.removeItem(`install-banner-dismissed-${storeName}`);
+        }
+      } else {
+        setBannerDismissed(false);
+      }
+    };
 
-   checkDevice();
-   window.addEventListener("resize", checkDevice);
-   return () => window.removeEventListener("resize", checkDevice);
- }, [storeName]);
+    checkDevice();
+    window.addEventListener("resize", checkDevice);
+    return () => window.removeEventListener("resize", checkDevice);
+  }, [storeName]);
 
   // Show banner when conditions are met
   useEffect(() => {
@@ -245,6 +246,21 @@ export function StoreContent({
 
     setShowInstallBanner(shouldShow);
   }, [apkUrl, isAndroid, isMobileOrTablet, bannerDismissed]);
+
+  // Delay showing the banner by 3-4 seconds
+  // Delay showing the banner so it doesn't appear the instant the page loads
+  useEffect(() => {
+    if (!shouldShowBanner) {
+      setShowInstallBanner(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowInstallBanner(true);
+    }, 2800); // let the person settle into the page first
+
+    return () => clearTimeout(timer);
+  }, [shouldShowBanner]);
 
   const dismissBanner = () => {
     setShowInstallBanner(false);
@@ -835,20 +851,25 @@ export function StoreContent({
             background: `linear-gradient(135deg, ${gradFrom}, ${gradTo})`,
             padding: "0.75rem 1rem",
             boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
-            animation: "slideDown 0.3s ease-out",
+            // animation: "slideDown 0.3s ease-out",
+            animation: "slideDown 0.65s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
           <style>{`
             @keyframes slideDown {
-              from {
-                transform: translateY(-100%);
-                opacity: 0;
-              }
-              to {
-                transform: translateY(0);
-                opacity: 1;
-              }
-            }
+    0% {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    60% {
+      transform: translateY(4px);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
             @media (max-width: 480px) {
               .banner-content {
                 flex-wrap: wrap !important;
