@@ -84,9 +84,9 @@ export default function CTA() {
               marginBottom: "1.2rem",
             }}
           >
-            Join the Edges Network
+            Join the Telcos
             <br />
-            <span className="text-shimmer">Reseller Program Today</span>
+            <span className="text-shimmer">Partnership Program Today</span>
           </h2>
           <p
             style={{
@@ -135,7 +135,7 @@ export default function CTA() {
                 el.style.boxShadow = "none";
               }}
             >
-              Apply as a Reseller <ArrowRight size={17} />
+              Apply Now <ArrowRight size={17} />
             </a>
             <a
               href="https://wa.me/2347057517841"

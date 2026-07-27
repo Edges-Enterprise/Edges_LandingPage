@@ -38,7 +38,7 @@ const benefits = [
   },
   {
     icon: ShieldCheck,
-    title: "Backed by Edges Network",
+    title: "Backed by Telcos",
     desc: "Your store runs on the same trusted infrastructure powering thousands of Nigerians daily. Reliable delivery, every time.",
   },
 ];
@@ -110,7 +110,7 @@ export default function Benefits() {
                 border: "1px solid rgba(201,138,84,0.2)",
               }}
             >
-              Why Edges Network
+              Why Telcos
             </div>
           </div>
 

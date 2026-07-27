@@ -46,3 +46,6 @@ temp-signature.js
 structure.txt
 s*.txt
 text.txt
+
+*.ps1
+s*.txt

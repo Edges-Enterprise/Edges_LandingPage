@@ -193,51 +193,6 @@ export async function withdrawFunds(input: WithdrawInput): Promise<{
     };
   }
 
-  // const { data: wallet } = await supabase
-  //   .from("reseller_wallets")
-  //   .select("balance")
-  //   .eq("reseller_id", input.resellerId)
-  //   .single();
-
-  // if (!wallet) {
-  //   return {
-  //     error: "Wallet not found. Please contact support."
-  //   };
-  // }
-
-  // if (wallet.balance < totalDeduction) {
-  //   return {
-  //     error: `Insufficient balance. Your balance is ₦${wallet.balance.toLocaleString()} but you need ₦${totalDeduction.toLocaleString()} (amount + ₦${fee.toLocaleString()} fee).`,
-  //   };
-  // }
-
-  // ============================================================
-  // ✅ FIX: Get fresh withdrawable from RPC (source of truth)
-  // ============================================================
-  // const { data: walletData, error: recalcError } = await supabase.rpc(
-  //   "recalculate_reseller_wallet",
-  //   {
-  //     p_reseller_id: input.resellerId,
-  //     p_for_update: true, // ← Locks the row!
-  //   },
-  // );
-
-  // if (recalcError || !walletData?.success) {
-  //   console.error("Error recalculating wallet:", recalcError || walletData);
-  //   return {
-  //     error: "Failed to verify wallet balance. Please try again.",
-  //   };
-  // }
-
-  // const withdrawable = walletData.withdrawable || 0;
-
-  // ✅ Check if enough funds using withdrawable (balance + total_sales)
-  // if (withdrawable < totalDeduction) {
-  //   return {
-  //     error: `Insufficient balance. Your withdrawable balance is ₦${withdrawable.toLocaleString()} but you need ₦${totalDeduction.toLocaleString()} (amount + ₦${fee.toLocaleString()} fee).`,
-  //   };
-  // }
-
   // 2. Verify bank account before proceeding
   const verification = await verifyBankAccount(
     input.bankCode,

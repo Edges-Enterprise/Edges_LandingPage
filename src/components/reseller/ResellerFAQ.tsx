@@ -4,8 +4,8 @@ import { Plus, Minus } from "lucide-react";
 
 const faqs = [
   {
-    q: "Is there any cost to open my reseller storefront?",
-    a: "No. Creating your web storefront on Edges Network is completely free. There are no registration fees, monthly charges, or hidden costs to get started.",
+    q: "Is there any cost to open my storefront?",
+    a: "No. Creating your web storefront on is completely free. There are no registration fees, monthly charges, or hidden costs to get started.",
   },
   {
     q: "How quickly does my store go live?",
