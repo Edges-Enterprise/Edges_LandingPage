@@ -460,7 +460,10 @@ export function PlansClient({
                     {!rp.enabled && <Badge variant="error">Hidden</Badge>}
                   </div>
                   <p style={{ fontSize: "0.8rem", color: "var(--dim)" }}>
-                    Base: {formatNaira(rp.plan!.amount)}
+                    Cost Price:{" "}
+                    <b style={{ color: "var(--text)" }}>
+                      {formatNaira(rp.plan!.amount)}
+                    </b>
                     {rp.plan?.validity && ` • ${rp.plan.validity}`}
                   </p>
                 </div>
@@ -562,7 +565,7 @@ export function PlansClient({
                     </div>
                     <div style={{ textAlign: "center", minWidth: 80 }}>
                       <p style={{ fontSize: "0.7rem", color: "var(--dim)" }}>
-                        Selling Price
+                        Your Selling Price
                       </p>
                       <p
                         style={{
@@ -576,7 +579,7 @@ export function PlansClient({
                     </div>
                     <div style={{ textAlign: "center", minWidth: 60 }}>
                       <p style={{ fontSize: "0.7rem", color: "var(--dim)" }}>
-                        Profit
+                        Your Profit
                       </p>
                       <p
                         style={{
