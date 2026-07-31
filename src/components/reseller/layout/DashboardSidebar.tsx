@@ -1,0 +1,241 @@
+// src/components/reseller/layout/DashboardSidebar.tsx
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  Wallet,
+  Users,
+  ShoppingBag,
+  Package,
+  Store,
+  Smartphone,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+
+interface DashboardSidebarProps {
+  countryCode: string;
+}
+
+const navItems = [
+  { icon: LayoutDashboard, label: "Overview", href: "" },
+  { icon: Wallet, label: "Wallet", href: "/wallet" },
+  { icon: Users, label: "Customers", href: "/customers" },
+  { icon: ShoppingBag, label: "Orders", href: "/orders" },
+  { icon: Package, label: "Plans", href: "/plans" },
+  { icon: Store, label: "Store", href: "/store" },
+  { icon: Smartphone, label: "Publishing", href: "/publishing" },
+  { icon: Settings, label: "Settings", href: "/settings" },
+];
+
+export default function DashboardSidebar({
+  countryCode,
+}: DashboardSidebarProps) {
+  const pathname = usePathname();
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  const isActive = (href: string) => {
+    const currentPath = pathname.replace(`/${countryCode}/dashboard`, "") || "";
+    return currentPath === href || (href === "" && currentPath === "");
+  };
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = `/${countryCode}`;
+  };
+
+  return (
+    <>
+      {/* Mobile toggle */}
+      <button
+        onClick={() => setIsMobileOpen(!isMobileOpen)}
+        style={{
+          position: "fixed",
+          bottom: "1rem",
+          right: "1rem",
+          zIndex: 100,
+          background: "var(--brand-color)",
+          color: "#FDF8F3",
+          border: "none",
+          borderRadius: "50%",
+          width: 48,
+          height: 48,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+        }}
+        className="show-mobile"
+      >
+        {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      {/* Sidebar */}
+      <aside
+        style={{
+          width: 240,
+          background: "var(--bg2)",
+          borderRight: "1px solid var(--border)",
+          display: "flex",
+          flexDirection: "column",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          zIndex: 50,
+          transform: isMobileOpen ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 0.3s ease",
+          overflow: "hidden",
+        }}
+        className="desktop-sidebar"
+      >
+        {/* Logo */}
+        <div
+          style={{
+            padding: "1.5rem 1.25rem",
+            borderBottom: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "1.5rem",
+              fontWeight: 700,
+              color: "var(--text)",
+            }}
+          >
+            Edges
+          </span>
+          <span
+            style={{
+              fontSize: "0.6rem",
+              fontWeight: 600,
+              color: "var(--brand-color)",
+              background: `rgba(var(--brand-color-rgb), 0.1)`,
+              padding: "2px 8px",
+              borderRadius: 4,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Reseller
+          </span>
+        </div>
+
+        {/* Navigation */}
+        <nav
+          style={{
+            flex: 1,
+            padding: "1rem 0.75rem",
+            overflowY: "auto",
+          }}
+        >
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={`/${countryCode}/dashboard${item.href}`}
+              onClick={() => setIsMobileOpen(false)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                padding: "0.6rem 0.75rem",
+                borderRadius: 8,
+                color: isActive(item.href)
+                  ? "var(--brand-color)"
+                  : "var(--muted)",
+                background: isActive(item.href)
+                  ? `rgba(var(--brand-color-rgb), 0.08)`
+                  : "transparent",
+                textDecoration: "none",
+                fontSize: "0.875rem",
+                fontWeight: isActive(item.href) ? 600 : 400,
+                transition: "all 0.2s",
+                marginBottom: "0.25rem",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive(item.href)) {
+                  e.currentTarget.style.background = `rgba(var(--brand-color-rgb), 0.05)`;
+                  e.currentTarget.style.color = "var(--text)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive(item.href)) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--muted)";
+                }
+              }}
+            >
+              <item.icon size={18} />
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Footer */}
+        <div
+          style={{
+            padding: "1rem 0.75rem",
+            borderTop: "1px solid var(--border)",
+          }}
+        >
+          <button
+            onClick={handleLogout}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              padding: "0.6rem 0.75rem",
+              borderRadius: 8,
+              color: "var(--dim)",
+              background: "transparent",
+              border: "none",
+              width: "100%",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(239,68,68,0.08)";
+              e.currentTarget.style.color = "#EF4444";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "var(--dim)";
+            }}
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      <style>{`
+        @media (min-width: 768px) {
+          .desktop-sidebar {
+            transform: translateX(0) !important;
+          }
+          .show-mobile {
+            display: none !important;
+          }
+        }
+        @media (max-width: 767px) {
+          .desktop-sidebar {
+            width: 280px;
+          }
+        }
+      `}</style>
+    </>
+  );
+}
