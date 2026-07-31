@@ -81,7 +81,7 @@ export default function StatsCards({
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.borderColor = "rgba(201,138,84,0.2)";
+            e.currentTarget.style.borderColor = "var(--accent)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = "translateY(0)";
@@ -103,6 +103,7 @@ export default function StatsCards({
                 color: "var(--muted)",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
+                paddingLeft: "0.5rem",
               }}
             >
               {card.label}
@@ -129,6 +130,7 @@ export default function StatsCards({
               fontWeight: 700,
               color: "var(--text)",
               marginBottom: "0.25rem",
+              paddingLeft: "0.5rem",
             }}
           >
             {card.value}
@@ -141,6 +143,7 @@ export default function StatsCards({
               display: "flex",
               alignItems: "center",
               gap: "0.5rem",
+              paddingLeft: "0.5rem",
             }}
           >
             <span

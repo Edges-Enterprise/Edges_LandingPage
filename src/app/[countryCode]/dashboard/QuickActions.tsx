@@ -71,6 +71,7 @@ export default function QuickActions({
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
           gap: "0.75rem",
+          padding: "1.5rem",
         }}
       >
         {actions.map((action, index) => {
@@ -98,8 +99,8 @@ export default function QuickActions({
                   border: "1px solid transparent",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(201,138,84,0.2)";
-                  e.currentTarget.style.background = "rgba(201,138,84,0.05)";
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.background = "var(--bg3)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderColor = "transparent";
@@ -131,8 +132,8 @@ export default function QuickActions({
                 border: "1px solid transparent",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "rgba(201,138,84,0.2)";
-                e.currentTarget.style.background = "rgba(201,138,84,0.05)";
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.background = "var(--bg3)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = "transparent";
