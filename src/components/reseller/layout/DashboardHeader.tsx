@@ -176,7 +176,7 @@ export default function DashboardHeader({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#FDF8F3",
+              color: "var(--text)",
               fontWeight: 600,
               fontSize: "0.85rem",
             }}
