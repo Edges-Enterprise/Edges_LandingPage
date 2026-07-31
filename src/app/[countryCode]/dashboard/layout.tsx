@@ -29,6 +29,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null);
   const [countryConfig, setCountryConfig] = useState<any>(null);
   const [brandColor, setBrandColor] = useState<string>("#C98A54");
+  const [storeName, setStoreName] = useState<string>("Reseller");
 
   useEffect(() => {
     const checkAuthAndLoadData = async () => {
@@ -53,6 +54,17 @@ export default function DashboardLayout({
 
         if (dashboardData && dashboardData.brand_color) {
           setBrandColor(dashboardData.brand_color);
+        }
+
+        if (dashboardData?.store_name) {
+          setStoreName(dashboardData.store_name);
+        } else if (dashboardData?.store_slug) {
+          setStoreName(
+            dashboardData.store_slug
+              .split("-")
+              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(" "),
+          );
         }
       } catch (error) {
         console.error("Error loading brand color:", error);
@@ -104,7 +116,7 @@ export default function DashboardLayout({
             background: "var(--bg, #0D0A08)",
           }}
         >
-          <DashboardSidebar countryCode={countryCode} />
+          <DashboardSidebar countryCode={countryCode} storeName={storeName} />
           <div
             className="dashboard-content"
             style={{ flex: 1, display: "flex", flexDirection: "column" }}
