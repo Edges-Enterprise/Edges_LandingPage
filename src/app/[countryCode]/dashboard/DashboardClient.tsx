@@ -44,7 +44,7 @@ export default function DashboardClient({
           style={{
             padding: "0.5rem 1.5rem",
             background: "var(--accent)",
-            color: "#FDF8F3",
+            color: "var(--text)",
             border: "none",
             borderRadius: 8,
             cursor: "pointer",
