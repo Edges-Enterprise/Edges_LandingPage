@@ -1,0 +1,186 @@
+/* src/app/[countryCode]/dashboard/dashboard-theme.css */
+
+/* ============================================
+   DASHBOARD THEME - Override reseller.css
+   Using !important to ensure dashboard styles win
+   ============================================ */
+
+/* Force dashboard theme on body when class is present */
+body.dashboard-theme {
+  /* Backgrounds - derived from the selected brand color, not a fixed brown */
+  --bg: color-mix(in srgb, var(--brand-color) 6%, #0A0A0A 94%) !important;
+  --bg2: color-mix(in srgb, var(--brand-color) 10%, #0A0A0A 90%) !important;
+  --bg3: color-mix(in srgb, var(--brand-color) 14%, #0A0A0A 86%) !important;
+  --bg4: color-mix(in srgb, var(--brand-color) 18%, #0A0A0A 82%) !important;
+  
+  /* Cards and surfaces */
+  --card: color-mix(in srgb, var(--brand-color) 8%, #0A0A0A 92%) !important;
+  --card2: color-mix(in srgb, var(--brand-color) 12%, #0A0A0A 88%) !important;
+  --card3: color-mix(in srgb, var(--brand-color) 16%, #0A0A0A 84%) !important;
+  
+  /* Borders - use brand color with opacity */
+  --border: rgba(var(--brand-color-rgb), 0.12) !important;
+  --border2: rgba(var(--brand-color-rgb), 0.25) !important;
+  --border3: rgba(var(--brand-color-rgb), 0.45) !important;
+  
+  /* Text colors */
+  --text: #F5F0EB !important;
+  --text2: #D5CFC5 !important;
+  --muted: #A0958A !important;
+  --dim: #6B5F55 !important;
+  
+  /* Accent - uses brand color */
+  --accent: var(--brand-color) !important;
+  --accent-lt: color-mix(in srgb, var(--brand-color) 70%, white) !important;
+  --accent-dark: color-mix(in srgb, var(--brand-color) 80%, black) !important;
+  --accent-bg: rgba(var(--brand-color-rgb), 0.08) !important;
+  --accent-bg-hover: rgba(var(--brand-color-rgb), 0.15) !important;
+  
+  /* Status colors */
+  --green: #6EBD8A !important;
+  --red: #EF4444 !important;
+  --yellow: #F59E0B !important;
+  --blue: #3B82F6 !important;
+  
+  /* Shadows */
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Light theme for dashboard */
+body.dashboard-theme[data-theme="light"] {
+  --bg: color-mix(in srgb, var(--brand-color) 5%, #FDFDFC 95%) !important;
+  --bg2: color-mix(in srgb, var(--brand-color) 9%, #FDFDFC 91%) !important;
+  --bg3: color-mix(in srgb, var(--brand-color) 13%, #FDFDFC 87%) !important;
+  --bg4: color-mix(in srgb, var(--brand-color) 17%, #FDFDFC 83%) !important;
+  
+  --card: #FFFFFF !important;
+  --card2: color-mix(in srgb, var(--brand-color) 6%, #FDFDFC 94%) !important;
+  --card3: color-mix(in srgb, var(--brand-color) 10%, #FDFDFC 90%) !important;
+  
+  --border: rgba(var(--brand-color-rgb), 0.15) !important;
+  --border2: rgba(var(--brand-color-rgb), 0.3) !important;
+  --border3: rgba(var(--brand-color-rgb), 0.5) !important;
+  
+  --text: #1A1410 !important;
+  --text2: #3D322A !important;
+  --muted: #6B5F55 !important;
+  --dim: #A0958A !important;
+  
+  --accent: var(--brand-color) !important;
+  --accent-lt: color-mix(in srgb, var(--brand-color) 60%, white) !important;
+  --accent-dark: color-mix(in srgb, var(--brand-color) 80%, black) !important;
+  --accent-bg: rgba(var(--brand-color-rgb), 0.08) !important;
+  --accent-bg-hover: rgba(var(--brand-color-rgb), 0.15) !important;
+  
+  --green: #2F7D4F !important;
+  --red: #DC2626 !important;
+  --yellow: #D97706 !important;
+  --blue: #2563EB !important;
+  
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ============================================
+   FORCE DASHBOARD BACKGROUND ON ALL ELEMENTS
+   ============================================ */
+
+body.dashboard-theme,
+body.dashboard-theme div,
+body.dashboard-theme section,
+body.dashboard-theme main,
+body.dashboard-theme header,
+body.dashboard-theme footer,
+body.dashboard-theme article,
+body.dashboard-theme aside,
+body.dashboard-theme nav {
+  background-color: var(--bg) !important;
+}
+
+body.dashboard-theme .card,
+body.dashboard-theme [style*="background: var(--card)"] {
+  background-color: var(--card) !important;
+}
+
+body.dashboard-theme .card2,
+body.dashboard-theme [style*="background: var(--card2)"] {
+  background-color: var(--card2) !important;
+}
+
+/* ============================================
+   DASHBOARD SCROLLBAR
+   ============================================ */
+
+body.dashboard-theme ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+body.dashboard-theme ::-webkit-scrollbar-track {
+  background: var(--bg2) !important;
+}
+
+body.dashboard-theme ::-webkit-scrollbar-thumb {
+  background: var(--brand-color) !important;
+  border-radius: 3px;
+}
+
+body.dashboard-theme ::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-dark) !important;
+}
+
+/* ============================================
+   DASHBOARD SELECTION
+   ============================================ */
+
+body.dashboard-theme ::selection {
+  background: var(--brand-color) !important;
+  color: white !important;
+}
+
+/* ============================================
+   DASHBOARD FOCUS STATES
+   ============================================ */
+
+body.dashboard-theme :focus-visible {
+  outline: 2px solid var(--brand-color) !important;
+  outline-offset: 2px !important;
+}
+
+/* ============================================
+   DASHBOARD GLOW EFFECTS
+   ============================================ */
+
+body.dashboard-theme .anim-glow {
+  animation: dashboard-glow 3s ease-in-out infinite;
+}
+
+@keyframes dashboard-glow {
+  0%, 100% { box-shadow: 0 0 18px rgba(var(--brand-color-rgb), 0.2); }
+  50%       { box-shadow: 0 0 38px rgba(var(--brand-color-rgb), 0.5); }
+}
+
+/* ============================================
+   DASHBOARD TEXT SHIMMER
+   ============================================ */
+
+body.dashboard-theme .text-shimmer {
+  background: linear-gradient(
+    90deg, 
+    var(--accent-lt) 0%, 
+    var(--text) 40%, 
+    var(--accent) 65%, 
+    var(--accent-lt) 100%
+  ) !important;
+  background-size: 200% auto !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  animation: dashboard-shimmer 4s linear infinite;
+}
+
+@keyframes dashboard-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
