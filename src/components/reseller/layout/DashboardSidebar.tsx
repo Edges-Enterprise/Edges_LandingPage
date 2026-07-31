@@ -21,6 +21,7 @@ import { createClient } from "@/lib/supabase/client";
 
 interface DashboardSidebarProps {
   countryCode: string;
+  storeName?: string;
 }
 
 const navItems = [
@@ -36,6 +37,7 @@ const navItems = [
 
 export default function DashboardSidebar({
   countryCode,
+  storeName = "Reseller",
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -113,23 +115,12 @@ export default function DashboardSidebar({
               fontSize: "1.5rem",
               fontWeight: 700,
               color: "var(--text)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
-            Edges
-          </span>
-          <span
-            style={{
-              fontSize: "0.6rem",
-              fontWeight: 600,
-              color: "var(--brand-color)",
-              background: `rgba(var(--brand-color-rgb), 0.1)`,
-              padding: "2px 8px",
-              borderRadius: 4,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Reseller
+            {storeName}
           </span>
         </div>
 
