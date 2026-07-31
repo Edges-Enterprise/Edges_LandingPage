@@ -91,7 +91,7 @@ export default function DashboardHeader({
           <p
             style={{
               fontSize: "0.8rem",
-              color: "var(--muted)",
+              color: "var(--accent)",
               margin: 0,
               whiteSpace: "nowrap",
               overflow: "hidden",
@@ -120,7 +120,7 @@ export default function DashboardHeader({
           style={{
             background: "transparent",
             border: "none",
-            color: "var(--muted)",
+            color: "var(--accent)",
             cursor: "pointer",
             padding: "0.5rem",
             borderRadius: "50%",
