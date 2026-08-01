@@ -1,447 +1,532 @@
 // src/app/[countryCode]/dashboard/orders/OrdersClient.tsx
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   Search,
-  Filter,
-  ChevronLeft,
-  ChevronRight,
-  ShoppingBag,
-  DollarSign,
-  Calendar,
-  Eye,
-  MoreVertical,
+  Package,
   CheckCircle,
-  XCircle,
   Clock,
-  Plus,
+  XCircle,
+  TrendingUp,
+  DollarSign,
 } from "lucide-react";
-import { getOrders, Order } from "@/actions/reseller/orders/getOrders";
-import { updateOrderStatus } from "@/actions/reseller/orders/updateOrderStatus";
-import { OrderDetailsModal } from "./OrderDetailsModal";
-import { CreateOrderModal } from "@/components/reseller/modals/CreateOrderModal";
-import { cn } from "@/lib/utils/helpers";
+import OrdersTable from "./OrdersTable";
+import OrderDetailsModal from "./OrderDetailsModal";
+import UpdateStatusModal from "./UpdateStatusModal";
+import { CountryConfig } from "@/config/countries";
+import { Order, OrdersData, OrderStats } from "@/types/reseller/orders";
 
 interface OrdersClientProps {
   countryCode: string;
+  config: CountryConfig;
+  translations: any;
+  ordersData: OrdersData;
 }
 
-export function OrdersClient({ countryCode }: OrdersClientProps) {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<
-    "all" | "pending" | "completed" | "failed" | "cancelled"
-  >("all");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(20);
+export default function OrdersClient({
+  countryCode,
+  config,
+  translations,
+  ordersData,
+}: OrdersClientProps) {
+  const t = translations;
+  const supabase = createClient();
+  const [orders, setOrders] = useState<Order[]>(ordersData.orders);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>(
+    ordersData.orders,
+  );
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState<boolean>(false);
+  const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
+  const [stats, setStats] = useState<OrderStats>(ordersData.stats);
 
-  const fetchOrders = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const currencySymbol = config.currencySymbol || "₦";
 
-    try {
-      const result = await getOrders({
-        page: currentPage,
-        limit: pageSize,
-        search: search || undefined,
-        status: statusFilter,
-      });
+  // Get unique categories from orders
+  const categories = orders
+    ? [...new Set(orders.map((o) => o.plan_category).filter(Boolean))]
+    : [];
 
-      if (result.success && result.data) {
-        setOrders(result.data);
-        setTotal(result.total || 0);
-      } else {
-        setError(result.error || "Failed to load orders");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPage, pageSize, search, statusFilter]);
-
+  // Filter orders
   useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+    let filtered = orders;
 
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-  };
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (o: Order) =>
+          o.order_number?.toLowerCase().includes(query) ||
+          o.customer_name?.toLowerCase().includes(query) ||
+          o.customer_email?.toLowerCase().includes(query) ||
+          o.customer_phone?.toLowerCase().includes(query) ||
+          o.plan_name?.toLowerCase().includes(query),
+      );
+    }
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-    setCurrentPage(1);
-  };
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((o: Order) => o.status === statusFilter);
+    }
 
-  const handleStatusFilter = (
-    status: "all" | "pending" | "completed" | "failed" | "cancelled",
-  ) => {
-    setStatusFilter(status);
-    setCurrentPage(1);
-  };
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter(
+        (o: Order) => o.plan_category === categoryFilter,
+      );
+    }
 
-  const handleViewOrder = (order: Order) => {
-    setSelectedOrder(order);
-    setIsDetailsModalOpen(true);
-  };
+    setFilteredOrders(filtered);
+  }, [orders, searchQuery, statusFilter, categoryFilter]);
 
-  const handleStatusUpdate = async (
-    orderId: string,
-    status: "pending" | "completed" | "failed" | "cancelled",
-  ) => {
-    const result = await updateOrderStatus(orderId, status);
+  const refreshOrders = async (): Promise<void> => {
+    try {
+      const { data, error } = await supabase
+        .from("global_orders")
+        .select("*")
+        .eq("reseller_id", ordersData.application.id)
+        .order("created_at", { ascending: false });
 
-    if (result.success) {
-      fetchOrders();
-    } else {
-      setError(result.error || "Failed to update order status");
+      if (!error && data) {
+        setOrders(data as Order[]);
+
+        // Update stats
+        const completedOrders = data.filter((o) => o.status === "completed");
+        const pendingOrders = data.filter(
+          (o) => o.status === "pending" || o.status === "processing",
+        );
+        const failedOrders = data.filter(
+          (o) => o.status === "failed" || o.status === "refunded",
+        );
+        const totalRevenue = completedOrders.reduce(
+          (sum, o) => sum + (o.amount || 0),
+          0,
+        );
+        const totalProfit = completedOrders.reduce(
+          (sum, o) => sum + (o.profit || 0),
+          0,
+        );
+
+        setStats({
+          total_orders: data.length,
+          completed_orders: completedOrders.length,
+          pending_orders: pendingOrders.length,
+          failed_orders: failedOrders.length,
+          total_revenue: totalRevenue,
+          total_profit: totalProfit,
+          average_order_value:
+            completedOrders.length > 0
+              ? totalRevenue / completedOrders.length
+              : 0,
+        });
+      }
+    } catch (error) {
+      console.error("Refresh error:", error);
     }
   };
 
-  const handleCreateSuccess = () => {
-    setIsCreateModalOpen(false);
-    fetchOrders();
+  const handleOrderUpdated = (): void => {
+    refreshOrders();
   };
 
-  const totalPages = Math.ceil(total / pageSize);
+  const formatPrice = (amount: number): string => {
+    return `${currencySymbol} ${amount?.toLocaleString() || 0}`;
+  };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return {
-          label: "Pending",
-          color:
-            "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-          icon: Clock,
-        };
-      case "completed":
-        return {
-          label: "Completed",
-          color:
-            "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-          icon: CheckCircle,
-        };
-      case "failed":
-        return {
-          label: "Failed",
-          color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-          icon: XCircle,
-        };
-      case "cancelled":
-        return {
-          label: "Cancelled",
-          color:
-            "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-          icon: XCircle,
-        };
-      default:
-        return {
-          label: status,
-          color:
-            "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-          icon: Clock,
-        };
-    }
+  const getStatusColor = (status: string): string => {
+    const colors: Record<string, string> = {
+      completed: "#6EBD8A",
+      pending: "#F59E0B",
+      processing: "#3B82F6",
+      failed: "#EF4444",
+      refunded: "#8B5CF6",
+    };
+    return colors[status] || "var(--muted)";
+  };
+
+  const getStatusIcon = (status: string) => {
+    const icons: Record<string, any> = {
+      completed: CheckCircle,
+      pending: Clock,
+      processing: Clock,
+      failed: XCircle,
+      refunded: XCircle,
+    };
+    return icons[status] || Package;
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      {/* Page Header */}
+      <div
+        style={{
+          marginBottom: "1.5rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "1rem",
+        }}
+      >
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Orders
+          <h1
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "1.5rem",
+              fontWeight: 700,
+              margin: 0,
+            }}
+          >
+            {t?.title || "Orders"}
           </h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            Manage and track all your orders
+          <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
+            {t?.subtitle || "View and manage your orders"}
           </p>
         </div>
         <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/80 transition-colors"
+          onClick={refreshOrders}
+          style={{
+            padding: "0.6rem 1rem",
+            background: "transparent",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            color: "var(--muted)",
+            cursor: "pointer",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = "var(--brand-color)";
+            e.currentTarget.style.color = "var(--text)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = "var(--border)";
+            e.currentTarget.style.color = "var(--muted)";
+          }}
         >
-          <Plus size={18} />
-          Create Order
+          ⟳
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
+      {/* Stats Cards */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gap: "1rem",
+          marginBottom: "1.5rem",
+        }}
+      >
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: "1rem",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                margin: 0,
+              }}
+            >
+              {t?.totalOrders || "Total Orders"}
+            </p>
+            <Package size={16} style={{ color: "var(--brand-color)" }} />
+          </div>
+          <p
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "1.5rem",
+              fontWeight: 700,
+              color: "var(--text)",
+              margin: "0.25rem 0 0 0",
+            }}
+          >
+            {stats.total_orders}
+          </p>
+        </div>
+
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: "1rem",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                margin: 0,
+              }}
+            >
+              {t?.completedOrders || "Completed"}
+            </p>
+            <CheckCircle size={16} style={{ color: "#6EBD8A" }} />
+          </div>
+          <p
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "1.5rem",
+              fontWeight: 700,
+              color: "#6EBD8A",
+              margin: "0.25rem 0 0 0",
+            }}
+          >
+            {stats.completed_orders}
+          </p>
+        </div>
+
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: "1rem",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                margin: 0,
+              }}
+            >
+              {t?.pendingOrders || "Pending"}
+            </p>
+            <Clock size={16} style={{ color: "#F59E0B" }} />
+          </div>
+          <p
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "1.5rem",
+              fontWeight: 700,
+              color: "#F59E0B",
+              margin: "0.25rem 0 0 0",
+            }}
+          >
+            {stats.pending_orders}
+          </p>
+        </div>
+
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: "1rem",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                margin: 0,
+              }}
+            >
+              {t?.totalRevenue || "Revenue"}
+            </p>
+            <DollarSign size={16} style={{ color: "#3B82F6" }} />
+          </div>
+          <p
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "1.5rem",
+              fontWeight: 700,
+              color: "#3B82F6",
+              margin: "0.25rem 0 0 0",
+            }}
+          >
+            {formatPrice(stats.total_revenue)}
+          </p>
+        </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div
+        style={{
+          display: "flex",
+          gap: "1rem",
+          flexWrap: "wrap",
+          marginBottom: "1.5rem",
+        }}
+      >
+        <div
+          style={{
+            flex: 1,
+            minWidth: 200,
+            display: "flex",
+            alignItems: "center",
+            background: "var(--bg2)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            overflow: "hidden",
+          }}
+        >
           <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
             size={18}
+            style={{ color: "var(--dim)", marginLeft: "0.75rem" }}
           />
           <input
             type="text"
-            value={search}
-            onChange={handleSearch}
-            placeholder="Search orders by customer, plan, or reference..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+            value={searchQuery}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setSearchQuery(e.target.value)
+            }
+            placeholder={t?.searchOrders || "Search orders..."}
+            style={{
+              flex: 1,
+              padding: "0.6rem 0.75rem",
+              background: "transparent",
+              border: "none",
+              color: "var(--text)",
+              fontSize: "0.9rem",
+              outline: "none",
+            }}
           />
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {["all", "pending", "completed", "failed", "cancelled"].map(
-            (status) => (
-              <button
-                key={status}
-                onClick={() => handleStatusFilter(status as any)}
-                className={cn(
-                  "px-4 py-2 rounded-lg border text-sm font-medium transition-colors capitalize",
-                  statusFilter === status
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700",
-                )}
-              >
-                {status}
-              </button>
-            ),
-          )}
-        </div>
-      </div>
 
-      {/* Error State */}
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-        </div>
-      )}
+        <select
+          value={statusFilter}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+            setStatusFilter(e.target.value)
+          }
+          style={{
+            padding: "0.6rem 2rem 0.6rem 1rem",
+            background: "var(--bg2)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            color: "var(--text)",
+            fontSize: "0.9rem",
+            outline: "none",
+            appearance: "none",
+            cursor: "pointer",
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B5F55' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "right 0.75rem center",
+          }}
+        >
+          <option value="all">{t?.allStatus || "All Status"}</option>
+          <option value="completed">{t?.completed || "Completed"}</option>
+          <option value="pending">{t?.pending || "Pending"}</option>
+          <option value="processing">{t?.processing || "Processing"}</option>
+          <option value="failed">{t?.failed || "Failed"}</option>
+          <option value="refunded">{t?.refunded || "Refunded"}</option>
+        </select>
 
-      {/* Orders Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {isLoading ? (
-          <div className="p-6 space-y-3 animate-pulse">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
-                  <div className="h-3 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
-                </div>
-                <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
-              </div>
+        {categories.length > 0 && (
+          <select
+            value={categoryFilter}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              setCategoryFilter(e.target.value)
+            }
+            style={{
+              padding: "0.6rem 2rem 0.6rem 1rem",
+              background: "var(--bg2)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              color: "var(--text)",
+              fontSize: "0.9rem",
+              outline: "none",
+              appearance: "none",
+              cursor: "pointer",
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B5F55' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 0.75rem center",
+            }}
+          >
+            <option value="all">{t?.allCategories || "All Categories"}</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {t?.[cat as keyof typeof t] || cat}
+              </option>
             ))}
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="p-12 text-center">
-            <ShoppingBag className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-              No orders found
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">
-              {search
-                ? "Try adjusting your search"
-                : "Start creating orders to track your sales"}
-            </p>
-            {!search && (
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/80 transition-colors"
-              >
-                Create Your First Order
-              </button>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700/50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Order
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Customer
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Plan
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Profit
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {orders.map((order) => {
-                    const status = getStatusBadge(order.status);
-                    const StatusIcon = status.icon;
-
-                    return (
-                      <tr
-                        key={order.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
-                        onClick={() => handleViewOrder(order)}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <ShoppingBag size={16} className="text-gray-400" />
-                            <span className="font-mono text-sm text-gray-900 dark:text-white">
-                              #{order.id.slice(0, 8)}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-gray-900 dark:text-white">
-                            {order.customer_name}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            {order.plan_name}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            ${order.amount.toLocaleString()}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-medium text-green-600 dark:text-green-400">
-                            ${order.profit.toLocaleString()}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={cn(
-                              "px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit",
-                              status.color,
-                            )}
-                          >
-                            <StatusIcon size={12} />
-                            {status.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {new Date(order.created_at).toLocaleDateString()}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleViewOrder(order);
-                              }}
-                              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              title="View Details"
-                            >
-                              <Eye size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Showing {(currentPage - 1) * pageSize + 1} to{" "}
-                  {Math.min(currentPage * pageSize, total)} of {total} orders
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className={cn(
-                      "p-2 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors",
-                      currentPage === 1
-                        ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-gray-50 dark:hover:bg-gray-700",
-                    )}
-                  >
-                    <ChevronLeft size={18} />
-                  </button>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum: number;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => handlePageChange(pageNum)}
-                        className={cn(
-                          "px-3 py-2 rounded-lg border transition-colors",
-                          currentPage === pageNum
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700",
-                        )}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className={cn(
-                      "p-2 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors",
-                      currentPage === totalPages
-                        ? "opacity-50 cursor-not-allowed"
-                        : "hover:bg-gray-50 dark:hover:bg-gray-700",
-                    )}
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+          </select>
         )}
       </div>
 
+      {/* Orders Table */}
+      <OrdersTable
+        orders={filteredOrders}
+        config={config}
+        translations={t}
+        onView={(order: Order) => {
+          setSelectedOrder(order);
+          setShowDetailsModal(true);
+        }}
+        onUpdateStatus={(order: Order) => {
+          setSelectedOrder(order);
+          setShowStatusModal(true);
+        }}
+        onUpdate={handleOrderUpdated}
+        getStatusColor={getStatusColor}
+        getStatusIcon={getStatusIcon}
+      />
+
       {/* Modals */}
-      {selectedOrder && (
+      {showDetailsModal && selectedOrder && (
         <OrderDetailsModal
-          isOpen={isDetailsModalOpen}
+          order={selectedOrder}
           onClose={() => {
-            setIsDetailsModalOpen(false);
+            setShowDetailsModal(false);
             setSelectedOrder(null);
           }}
-          orderId={selectedOrder.id}
-          countryCode={countryCode}
-          onUpdate={fetchOrders}
+          config={config}
+          translations={t}
         />
       )}
 
-      {isCreateModalOpen && (
-        <CreateOrderModal
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          onSuccess={handleCreateSuccess}
-          countryCode={countryCode}
+      {showStatusModal && selectedOrder && (
+        <UpdateStatusModal
+          order={selectedOrder}
+          onClose={() => {
+            setShowStatusModal(false);
+            setSelectedOrder(null);
+          }}
+          onSuccess={handleOrderUpdated}
+          config={config}
+          translations={t}
         />
       )}
     </div>

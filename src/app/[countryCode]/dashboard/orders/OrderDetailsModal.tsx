@@ -1,359 +1,510 @@
 // src/app/[countryCode]/dashboard/orders/OrderDetailsModal.tsx
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   X,
+  User,
+  Package,
+  DollarSign,
+  Calendar,
+  Phone,
+  Mail,
+  Hash,
+  Clock,
   CheckCircle,
   XCircle,
-  Clock,
-  User,
-  ShoppingBag,
-  DollarSign,
-  TrendingUp,
-  Calendar,
-  CreditCard,
-  Hash,
   RefreshCw,
 } from "lucide-react";
-import {
-  getOrderDetails,
-  OrderDetails,
-} from "@/actions/reseller/orders/getOrderDetails";
-import { updateOrderStatus } from "@/actions/reseller/orders/updateOrderStatus";
-import { cn } from "@/lib/utils/helpers";
+import { Order } from "@/types/reseller/orders";
+import { CountryConfig } from "@/config/countries";
 
 interface OrderDetailsModalProps {
-  isOpen: boolean;
+  order: Order;
   onClose: () => void;
-  orderId: string;
-  countryCode: string;
-  onUpdate?: () => void;
+  config: CountryConfig;
+  translations: any;
 }
 
-export function OrderDetailsModal({
-  isOpen,
+export default function OrderDetailsModal({
+  order,
   onClose,
-  orderId,
-  countryCode,
-  onUpdate,
+  config,
+  translations,
 }: OrderDetailsModalProps) {
-  const [order, setOrder] = useState<OrderDetails | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const t = translations;
+  const currencySymbol = config.currencySymbol || "₦";
 
-  useEffect(() => {
-    if (isOpen && orderId) {
-      fetchOrderDetails();
-    }
-  }, [isOpen, orderId]);
-
-  const fetchOrderDetails = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result = await getOrderDetails(orderId);
-
-      if (result.success && result.data) {
-        setOrder(result.data);
-      } else {
-        setError(result.error || "Failed to load order details");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setIsLoading(false);
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
     }
   };
 
-  const handleStatusUpdate = async (
-    status: "pending" | "completed" | "failed" | "cancelled",
-  ) => {
-    setIsUpdating(true);
-    setError(null);
-
-    try {
-      const result = await updateOrderStatus(orderId, status);
-
-      if (result.success) {
-        await fetchOrderDetails();
-        if (onUpdate) onUpdate();
-      } else {
-        setError(result.error || "Failed to update order status");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setIsUpdating(false);
-    }
+  const formatDate = (date: string): string => {
+    const d = new Date(date);
+    return d.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
-  if (!isOpen) return null;
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return {
-          label: "Pending",
-          color:
-            "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-          icon: Clock,
-        };
-      case "completed":
-        return {
-          label: "Completed",
-          color:
-            "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-          icon: CheckCircle,
-        };
-      case "failed":
-        return {
-          label: "Failed",
-          color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-          icon: XCircle,
-        };
-      case "cancelled":
-        return {
-          label: "Cancelled",
-          color:
-            "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-          icon: XCircle,
-        };
-      default:
-        return {
-          label: status,
-          color:
-            "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-          icon: Clock,
-        };
-    }
+  const formatPrice = (amount: number): string => {
+    return `${currencySymbol} ${amount?.toLocaleString() || 0}`;
   };
 
-  const status = order
-    ? getStatusBadge(order.status)
-    : { label: "", color: "", icon: Clock };
-  const StatusIcon = status.icon;
+  const getStatusColor = (status: string): string => {
+    const colors: Record<string, string> = {
+      completed: "#6EBD8A",
+      pending: "#F59E0B",
+      processing: "#3B82F6",
+      failed: "#EF4444",
+      refunded: "#8B5CF6",
+    };
+    return colors[status] || "var(--muted)";
+  };
+
+  const getStatusIcon = (status: string) => {
+    const icons: Record<string, any> = {
+      completed: CheckCircle,
+      pending: Clock,
+      processing: Clock,
+      failed: XCircle,
+      refunded: XCircle,
+    };
+    return icons[status] || Clock;
+  };
+
+  const StatusIcon = getStatusIcon(order.status);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: "1rem",
+      }}
+      onClick={handleOverlayClick}
+    >
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 16,
+          maxWidth: 520,
+          width: "100%",
+          maxHeight: "90vh",
+          overflow: "auto",
+          padding: "1.5rem",
+          position: "relative",
+        }}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: "1rem",
+            right: "1rem",
+            background: "transparent",
+            border: "none",
+            color: "var(--muted)",
+            cursor: "pointer",
+            padding: "0.25rem",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "var(--text)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "var(--muted)";
+          }}
+        >
+          <X size={20} />
+        </button>
 
-      {/* Modal */}
-      <div className="relative bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-              Order Details
-            </h3>
-            {order && (
-              <span
-                className={cn(
-                  "px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1",
-                  status.color,
-                )}
-              >
-                <StatusIcon size={12} />
-                {status.label}
-              </span>
-            )}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "1rem",
+          }}
+        >
+          <div>
+            <h2
+              style={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: "1.2rem",
+                fontWeight: 700,
+                margin: 0,
+              }}
+            >
+              {t?.orderDetails || "Order Details"}
+            </h2>
+            <p
+              style={{
+                fontSize: "0.8rem",
+                color: "var(--dim)",
+                fontFamily: "monospace",
+                margin: "0.25rem 0 0 0",
+              }}
+            >
+              {t?.orderNumber || "Order #"}
+              {order.order_number || order.id.slice(0, 8)}
+            </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.35rem",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              color: getStatusColor(order.status),
+              background: `${getStatusColor(order.status)}15`,
+              padding: "4px 12px",
+              borderRadius: 100,
+            }}
           >
-            <X size={20} />
-          </button>
+            <StatusIcon size={14} />
+            {order.status}
+          </span>
         </div>
 
-        {isLoading ? (
-          <div className="space-y-4 animate-pulse">
-            <div className="grid grid-cols-2 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-20 bg-gray-200 dark:bg-gray-700 rounded"
-                />
-              ))}
-            </div>
-          </div>
-        ) : error ? (
-          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-            <button
-              onClick={fetchOrderDetails}
-              className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+        {/* Order Summary */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: "0.75rem",
+            padding: "1rem",
+            background: "var(--bg2)",
+            borderRadius: 10,
+            marginBottom: "1rem",
+          }}
+        >
+          <div style={{ textAlign: "center" }}>
+            <p
+              style={{
+                fontSize: "0.6rem",
+                color: "var(--dim)",
+                textTransform: "uppercase",
+                margin: 0,
+              }}
             >
-              Try again
-            </button>
+              {t?.total || "Total"}
+            </p>
+            <p
+              style={{
+                fontSize: "1.1rem",
+                fontWeight: 700,
+                color: "var(--text)",
+                margin: "0.25rem 0 0 0",
+              }}
+            >
+              {formatPrice(order.amount)}
+            </p>
           </div>
-        ) : order ? (
-          <div className="space-y-6">
-            {/* Order Info */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <Hash size={18} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Order ID
-                  </p>
-                  <p className="text-sm font-mono text-gray-900 dark:text-white">
-                    #{order.id.slice(0, 12)}...
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <Calendar size={18} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Date
-                  </p>
-                  <p className="text-sm text-gray-900 dark:text-white">
-                    {new Date(order.created_at).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
+          <div style={{ textAlign: "center" }}>
+            <p
+              style={{
+                fontSize: "0.6rem",
+                color: "var(--dim)",
+                textTransform: "uppercase",
+                margin: 0,
+              }}
+            >
+              {t?.profit || "Profit"}
+            </p>
+            <p
+              style={{
+                fontSize: "1.1rem",
+                fontWeight: 700,
+                color: order.profit > 0 ? "#6EBD8A" : "var(--dim)",
+                margin: "0.25rem 0 0 0",
+              }}
+            >
+              {order.profit > 0 ? "+" : ""}
+              {formatPrice(order.profit)}
+            </p>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <p
+              style={{
+                fontSize: "0.6rem",
+                color: "var(--dim)",
+                textTransform: "uppercase",
+                margin: 0,
+              }}
+            >
+              {t?.placedOn || "Placed On"}
+            </p>
+            <p
+              style={{
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                color: "var(--text)",
+                margin: "0.25rem 0 0 0",
+              }}
+            >
+              {formatDate(order.created_at)}
+            </p>
+          </div>
+        </div>
 
-            {/* Customer Info */}
-            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <User size={18} className="text-gray-400" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Customer
-                </p>
-              </div>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {order.customer_name}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {order.customer_email}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {order.customer_phone}
-              </p>
-            </div>
-
-            {/* Plan Info */}
-            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <ShoppingBag size={18} className="text-gray-400" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">Plan</p>
-              </div>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {order.plan_name}
-              </p>
-              {order.plan_description && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {order.plan_description}
-                </p>
-              )}
-            </div>
-
-            {/* Financial Info */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Amount
-                </p>
-                <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  ${order.amount.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Profit
-                </p>
-                <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                  ${order.profit.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Margin
-                </p>
-                <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                  {order.amount > 0
-                    ? Math.round((order.profit / order.amount) * 100)
-                    : 0}
-                  %
-                </p>
-              </div>
-            </div>
-
-            {/* Payment Info */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <CreditCard size={18} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Payment Method
-                  </p>
-                  <p className="text-sm text-gray-900 dark:text-white capitalize">
-                    {order.payment_method}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <Hash size={18} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Transaction Reference
-                  </p>
-                  <p className="text-sm font-mono text-gray-900 dark:text-white">
-                    {order.transaction_reference}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Status Update Actions */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Update Status
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {["pending", "completed", "failed", "cancelled"].map(
-                  (statusOption) => {
-                    const isActive = order.status === statusOption;
-                    const statusInfo = getStatusBadge(statusOption);
-                    const Icon = statusInfo.icon;
-
-                    return (
-                      <button
-                        key={statusOption}
-                        onClick={() => handleStatusUpdate(statusOption as any)}
-                        disabled={isUpdating || isActive}
-                        className={cn(
-                          "px-4 py-2 rounded-lg border text-sm font-medium transition-colors flex items-center gap-2",
-                          isActive
-                            ? "border-primary bg-primary/10 text-primary cursor-default"
-                            : "border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed",
-                        )}
-                      >
-                        <Icon size={14} />
-                        {statusOption.charAt(0).toUpperCase() +
-                          statusOption.slice(1)}
-                      </button>
-                    );
-                  },
+        {/* Order Info */}
+        <div style={{ marginBottom: "1rem" }}>
+          <h3
+            style={{
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "var(--muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              marginBottom: "0.5rem",
+            }}
+          >
+            {t?.orderInfo || "Order Information"}
+          </h3>
+          <div
+            style={{
+              display: "grid",
+              gap: "0.5rem",
+              padding: "0.75rem",
+              background: "var(--bg2)",
+              borderRadius: 8,
+            }}
+          >
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            >
+              <Package size={14} style={{ color: "var(--dim)" }} />
+              <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+                {order.plan_name || "Unknown Plan"}
+                {order.plan_category && (
+                  <span style={{ color: "var(--dim)", marginLeft: "0.5rem" }}>
+                    · {order.plan_category}
+                    {order.network && ` · ${order.network}`}
+                  </span>
                 )}
+              </span>
+            </div>
+            {order.delivery_details && (
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              >
+                <Hash size={14} style={{ color: "var(--dim)" }} />
+                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+                  {t?.deliveryDetails || "Delivery"}: {order.delivery_details}
+                </span>
               </div>
-              {isUpdating && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-2">
-                  <RefreshCw size={14} className="animate-spin" />
-                  Updating status...
-                </p>
+            )}
+          </div>
+        </div>
+
+        {/* Customer Info */}
+        <div style={{ marginBottom: "1rem" }}>
+          <h3
+            style={{
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "var(--muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              marginBottom: "0.5rem",
+            }}
+          >
+            {t?.customerInfo || "Customer Information"}
+          </h3>
+          <div
+            style={{
+              display: "grid",
+              gap: "0.5rem",
+              padding: "0.75rem",
+              background: "var(--bg2)",
+              borderRadius: 8,
+            }}
+          >
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            >
+              <User size={14} style={{ color: "var(--dim)" }} />
+              <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+                {order.customer_name || "Unknown Customer"}
+              </span>
+            </div>
+            {order.customer_email && (
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              >
+                <Mail size={14} style={{ color: "var(--dim)" }} />
+                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+                  {order.customer_email}
+                </span>
+              </div>
+            )}
+            {order.customer_phone && (
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              >
+                <Phone size={14} style={{ color: "var(--dim)" }} />
+                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+                  {order.customer_phone}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Reference Info */}
+        {(order.provider_reference || order.request_id) && (
+          <div style={{ marginBottom: "1rem" }}>
+            <h3
+              style={{
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                color: "var(--muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: "0.5rem",
+              }}
+            >
+              {t?.paymentInfo || "Payment Information"}
+            </h3>
+            <div
+              style={{
+                display: "grid",
+                gap: "0.5rem",
+                padding: "0.75rem",
+                background: "var(--bg2)",
+                borderRadius: 8,
+              }}
+            >
+              {order.provider_reference && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <Hash size={14} style={{ color: "var(--dim)" }} />
+                  <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+                    {t?.providerReference || "Provider Ref"}:{" "}
+                    {order.provider_reference}
+                  </span>
+                </div>
               )}
+              {order.request_id && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <Hash size={14} style={{ color: "var(--dim)" }} />
+                  <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+                    {t?.requestId || "Request ID"}: {order.request_id}
+                  </span>
+                </div>
+              )}
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+              >
+                <DollarSign size={14} style={{ color: "var(--dim)" }} />
+                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+                  {t?.paymentStatus || "Payment Status"}:{" "}
+                  <span
+                    style={{
+                      color:
+                        order.payment_status === "paid"
+                          ? "#6EBD8A"
+                          : order.payment_status === "pending"
+                            ? "#F59E0B"
+                            : "#EF4444",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {order.payment_status || "pending"}
+                  </span>
+                </span>
+              </div>
             </div>
           </div>
-        ) : null}
+        )}
+
+        {/* Timeline */}
+        <div>
+          <h3
+            style={{
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "var(--muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              marginBottom: "0.5rem",
+            }}
+          >
+            {t?.orderTimeline || "Order Timeline"}
+          </h3>
+          <div
+            style={{
+              padding: "0.75rem",
+              background: "var(--bg2)",
+              borderRadius: 8,
+            }}
+          >
+            <div
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            >
+              <Clock size={14} style={{ color: "var(--dim)" }} />
+              <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+                {t?.created || "Created"}: {formatDate(order.created_at)}
+              </span>
+            </div>
+            {order.completed_at && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  marginTop: "0.25rem",
+                }}
+              >
+                <CheckCircle size={14} style={{ color: "#6EBD8A" }} />
+                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+                  {t?.completed || "Completed"}:{" "}
+                  {formatDate(order.completed_at)}
+                </span>
+              </div>
+            )}
+            {order.updated_at && order.updated_at !== order.created_at && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  marginTop: "0.25rem",
+                }}
+              >
+                <RefreshCw size={14} style={{ color: "var(--dim)" }} />
+                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+                  {t?.updated || "Updated"}: {formatDate(order.updated_at)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
