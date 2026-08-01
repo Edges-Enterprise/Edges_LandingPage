@@ -1,398 +1,475 @@
 // src/app/[countryCode]/dashboard/customers/CustomerDetailsModal.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   X,
   Mail,
   Phone,
-  MapPin,
-  ShoppingBag,
-  DollarSign,
   Calendar,
-  Edit,
+  User,
+  Building2,
+  ShoppingBag,
 } from "lucide-react";
-import {
-  getCustomerDetails,
-  CustomerDetails,
-} from "@/actions/reseller/customers/getCustomerDetails";
-import { updateCustomer } from "@/actions/reseller/customers/updateCustomer";
-import { cn } from "@/lib/utils/helpers";
+import { Customer } from "@/types/reseller/customers";
+import { CountryConfig } from "@/config/countries";
 
 interface CustomerDetailsModalProps {
-  isOpen: boolean;
+  customer: Customer;
   onClose: () => void;
-  customerId: string;
-  countryCode: string;
-  onUpdate?: () => void;
+  onUpdate: () => void;
+  config: CountryConfig;
+  translations: any;
 }
 
-export function CustomerDetailsModal({
-  isOpen,
+export default function CustomerDetailsModal({
+  customer,
   onClose,
-  customerId,
-  countryCode,
   onUpdate,
+  config,
+  translations,
 }: CustomerDetailsModalProps) {
-  const [customer, setCustomer] = useState<CustomerDetails | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const t = translations;
+  const supabase = createClient();
   const [isEditing, setIsEditing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [editData, setEditData] = useState<Partial<CustomerDetails>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    first_name: customer.first_name || "",
+    last_name: customer.last_name || "",
+    email: customer.email || "",
+    phone: customer.phone || "",
+    status: customer.status || "active",
+  });
 
-  useEffect(() => {
-    if (isOpen && customerId) {
-      fetchCustomerDetails();
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
     }
-  }, [isOpen, customerId]);
+  };
 
-  const fetchCustomerDetails = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const result = await getCustomerDetails(customerId);
-
-      if (result.success && result.data) {
-        setCustomer(result.data);
-        setEditData(result.data);
-      } else {
-        setError(result.error || "Failed to load customer details");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSave = async () => {
     setIsLoading(true);
-    setError(null);
-
     try {
-      const result = await updateCustomer({
-        customerId: customerId,
-        first_name: editData.first_name,
-        last_name: editData.last_name,
-        email: editData.email,
-        phone: editData.phone,
-        address: editData.address,
-        city: editData.city,
-        state: editData.state,
-        country: editData.country,
-      });
+      const { error } = await supabase
+        .from("global_customers")
+        .update({
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          email: formData.email || null,
+          phone: formData.phone || null,
+          status: formData.status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", customer.id);
 
-      if (result.success) {
+      if (!error) {
+        onUpdate();
         setIsEditing(false);
-        await fetchCustomerDetails();
-        if (onUpdate) onUpdate();
-      } else {
-        setError(result.error || "Failed to update customer");
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+    } catch (error) {
+      console.error("Update error:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!isOpen) return null;
+  const formatDate = (date: string): string => {
+    const d = new Date(date);
+    return d.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const getStatusColor = (status: string): string => {
+    const colors: Record<string, string> = {
+      active: "#6EBD8A",
+      inactive: "#F59E0B",
+      suspended: "#EF4444",
+    };
+    return colors[status] || "var(--muted)";
+  };
+
+  const getFullName = (): string => {
+    if (formData.first_name && formData.last_name) {
+      return `${formData.first_name} ${formData.last_name}`;
+    }
+    return formData.first_name || formData.last_name || "Unknown";
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: "1rem",
+      }}
+      onClick={handleOverlayClick}
+    >
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 16,
+          maxWidth: 480,
+          width: "100%",
+          maxHeight: "90vh",
+          overflow: "auto",
+          padding: "1.5rem",
+          position: "relative",
+        }}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: "1rem",
+            right: "1rem",
+            background: "transparent",
+            border: "none",
+            color: "var(--muted)",
+            cursor: "pointer",
+            padding: "0.25rem",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "var(--text)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "var(--muted)";
+          }}
+        >
+          <X size={20} />
+        </button>
 
-      {/* Modal */}
-      <div className="relative bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-            Customer Details
-          </h3>
-          <div className="flex items-center gap-2">
-            {!isEditing && customer && (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-              >
-                <Edit size={18} />
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: "50%",
+              background: "rgba(var(--brand-color-rgb), 0.1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <User size={24} style={{ color: "var(--brand-color)" }} />
+          </div>
+          <div>
+            <h2
+              style={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: "1.1rem",
+                fontWeight: 700,
+                margin: 0,
+              }}
             >
-              <X size={20} />
-            </button>
+              {getFullName()}
+            </h2>
+            <span
+              style={{
+                fontSize: "0.7rem",
+                fontWeight: 600,
+                color: getStatusColor(formData.status),
+                background: `${getStatusColor(formData.status)}15`,
+                padding: "2px 10px",
+                borderRadius: 100,
+                textTransform: "capitalize",
+              }}
+            >
+              {formData.status || "active"}
+            </span>
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="space-y-4 animate-pulse">
-            <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded-full bg-gray-200 dark:bg-gray-700" />
-              <div className="space-y-2 flex-1">
-                <div className="h-5 w-40 bg-gray-200 dark:bg-gray-700 rounded" />
-                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-20 bg-gray-200 dark:bg-gray-700 rounded"
-                />
-              ))}
-            </div>
+        {/* Customer Info */}
+        <div
+          style={{
+            background: "var(--bg2)",
+            borderRadius: 10,
+            padding: "1rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <Mail size={16} style={{ color: "var(--dim)" }} />
+            <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+              {customer.email || "No email provided"}
+            </span>
           </div>
-        ) : error ? (
-          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-            <button
-              onClick={fetchCustomerDetails}
-              className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <Phone size={16} style={{ color: "var(--dim)" }} />
+            <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+              {customer.phone || "No phone provided"}
+            </span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+            }}
+          >
+            <Calendar size={16} style={{ color: "var(--dim)" }} />
+            <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+              Joined {formatDate(customer.created_at)}
+            </span>
+          </div>
+        </div>
+
+        {/* Order History Placeholder */}
+        <div
+          style={{
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: "1rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <ShoppingBag size={16} style={{ color: "var(--brand-color)" }} />
+            <h3
+              style={{
+                fontSize: "0.9rem",
+                fontWeight: 600,
+                margin: 0,
+                color: "var(--text)",
+              }}
             >
-              Try again
-            </button>
+              {t?.orderHistory || "Order History"}
+            </h3>
           </div>
-        ) : customer ? (
-          <div className="space-y-6">
-            {/* Customer Info */}
-            <div className="flex items-start gap-4">
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary">
-                {getInitials(`${customer.first_name} ${customer.last_name}`)}
-              </div>
-              <div className="flex-1">
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={editData.first_name || ""}
-                        onChange={(e) =>
-                          setEditData({
-                            ...editData,
-                            first_name: e.target.value,
-                          })
-                        }
-                        className="flex-1 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                        placeholder="First name"
-                      />
-                      <input
-                        type="text"
-                        value={editData.last_name || ""}
-                        onChange={(e) =>
-                          setEditData({
-                            ...editData,
-                            last_name: e.target.value,
-                          })
-                        }
-                        className="flex-1 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                        placeholder="Last name"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="email"
-                        value={editData.email || ""}
-                        onChange={(e) =>
-                          setEditData({ ...editData, email: e.target.value })
-                        }
-                        className="flex-1 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                        placeholder="Email"
-                      />
-                      <input
-                        type="text"
-                        value={editData.phone || ""}
-                        onChange={(e) =>
-                          setEditData({ ...editData, phone: e.target.value })
-                        }
-                        className="flex-1 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                        placeholder="Phone"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <h4 className="text-xl font-semibold text-gray-900 dark:text-white">
-                      {customer.first_name} {customer.last_name}
-                    </h4>
-                    <span
-                      className={cn(
-                        "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
-                        customer.status === "active"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-                      )}
-                    >
-                      {customer.status}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
+          <p
+            style={{
+              color: "var(--dim)",
+              fontSize: "0.85rem",
+              margin: 0,
+              textAlign: "center",
+              padding: "1rem 0",
+            }}
+          >
+            {t?.noOrders || "No orders yet"}
+          </p>
+        </div>
 
-            {/* Contact Info */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <Mail size={18} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Email
-                  </p>
-                  <p className="text-sm text-gray-900 dark:text-white">
-                    {customer.email}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <Phone size={18} className="text-gray-400" />
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Phone
-                  </p>
-                  <p className="text-sm text-gray-900 dark:text-white">
-                    {customer.phone}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Address (editable) */}
-            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <MapPin size={18} className="text-gray-400" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Address
-                </p>
-              </div>
-              {isEditing ? (
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={editData.address || ""}
-                    onChange={(e) =>
-                      setEditData({ ...editData, address: e.target.value })
-                    }
-                    className="w-full px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                    placeholder="Street address"
-                  />
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={editData.city || ""}
-                      onChange={(e) =>
-                        setEditData({ ...editData, city: e.target.value })
-                      }
-                      className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                      placeholder="City"
-                    />
-                    <input
-                      type="text"
-                      value={editData.state || ""}
-                      onChange={(e) =>
-                        setEditData({ ...editData, state: e.target.value })
-                      }
-                      className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                      placeholder="State"
-                    />
-                    <input
-                      type="text"
-                      value={editData.country || ""}
-                      onChange={(e) =>
-                        setEditData({ ...editData, country: e.target.value })
-                      }
-                      className="flex-1 px-3 py-1.5 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-                      placeholder="Country"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  {customer.address || "No address provided"}
-                  {customer.city && `, ${customer.city}`}
-                  {customer.state && `, ${customer.state}`}
-                  {customer.country && `, ${customer.country}`}
-                </p>
-              )}
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Orders
-                </p>
-                <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  {customer.total_orders}
-                </p>
-              </div>
-              <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Total Spent
-                </p>
-                <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  ${customer.total_spent.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Avg Order
-                </p>
-                <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  ${customer.average_order_value.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Joined
-                </p>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {new Date(customer.created_at).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Edit/Save Buttons */}
-            {isEditing && (
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setIsEditing(false);
-                    setEditData(customer);
+        {/* Edit/Save Buttons */}
+        {isEditing ? (
+          <div>
+            <div
+              style={{ display: "grid", gap: "0.75rem", marginBottom: "1rem" }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "0.75rem",
+                }}
+              >
+                <input
+                  type="text"
+                  name="first_name"
+                  value={formData.first_name}
+                  onChange={handleChange}
+                  placeholder="First Name"
+                  style={{
+                    padding: "0.6rem 0.75rem",
+                    background: "var(--bg2)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    color: "var(--text)",
+                    fontSize: "0.9rem",
+                    outline: "none",
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={isLoading}
-                  className={cn(
-                    "flex-1 px-4 py-2 bg-primary text-white rounded-lg font-medium transition-colors",
-                    "hover:bg-primary/80",
-                    "disabled:opacity-50 disabled:cursor-not-allowed",
-                  )}
-                >
-                  {isLoading ? "Saving..." : "Save Changes"}
-                </button>
+                />
+                <input
+                  type="text"
+                  name="last_name"
+                  value={formData.last_name}
+                  onChange={handleChange}
+                  placeholder="Last Name"
+                  style={{
+                    padding: "0.6rem 0.75rem",
+                    background: "var(--bg2)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    color: "var(--text)",
+                    fontSize: "0.9rem",
+                    outline: "none",
+                  }}
+                />
               </div>
-            )}
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Email"
+                style={{
+                  padding: "0.6rem 0.75rem",
+                  background: "var(--bg2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  color: "var(--text)",
+                  fontSize: "0.9rem",
+                  outline: "none",
+                }}
+              />
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="Phone"
+                style={{
+                  padding: "0.6rem 0.75rem",
+                  background: "var(--bg2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  color: "var(--text)",
+                  fontSize: "0.9rem",
+                  outline: "none",
+                }}
+              />
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                style={{
+                  padding: "0.6rem 0.75rem",
+                  background: "var(--bg2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  color: "var(--text)",
+                  fontSize: "0.9rem",
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </div>
+
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button
+                onClick={() => setIsEditing(false)}
+                style={{
+                  flex: 1,
+                  padding: "0.6rem",
+                  background: "transparent",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  color: "var(--text)",
+                  fontSize: "0.9rem",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "var(--brand-color)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--border)";
+                }}
+              >
+                {t?.cancel || "Cancel"}
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isLoading}
+                style={{
+                  flex: 1,
+                  padding: "0.6rem",
+                  background: "var(--brand-color)",
+                  color: "#FDF8F3",
+                  border: "none",
+                  borderRadius: 8,
+                  fontSize: "0.9rem",
+                  cursor: isLoading ? "not-allowed" : "pointer",
+                  opacity: isLoading ? 0.6 : 1,
+                  transition: "all 0.2s",
+                }}
+              >
+                {isLoading
+                  ? t?.saving || "Saving..."
+                  : t?.save || "Save Changes"}
+              </button>
+            </div>
           </div>
-        ) : null}
+        ) : (
+          <button
+            onClick={() => setIsEditing(true)}
+            style={{
+              width: "100%",
+              padding: "0.6rem",
+              background: "transparent",
+              border: "1px solid var(--border2)",
+              borderRadius: 8,
+              color: "var(--text)",
+              fontSize: "0.9rem",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--brand-color)";
+              e.currentTarget.style.background =
+                "rgba(var(--brand-color-rgb), 0.05)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--border2)";
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            {t?.edit || "Edit Customer"}
+          </button>
+        )}
       </div>
     </div>
   );
-}
-
-function getInitials(name: string): string {
-  if (!name) return "";
-  const parts = name.trim().split(" ");
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
