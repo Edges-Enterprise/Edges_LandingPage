@@ -1,382 +1,491 @@
 // src/app/[countryCode]/dashboard/plans/EditPlanModal.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  X,
-  Loader2,
-  Package,
-  DollarSign,
-  TrendingUp,
-  Tag,
-  Clock,
-  Globe,
-} from "lucide-react";
-import { updatePlan } from "@/actions/reseller/plans/updatePlan";
-import { Plan } from "@/actions/reseller/plans/getPlans";
-import { cn } from "@/lib/utils/helpers";
+import { useState } from "react";
+import { X, Percent, DollarSign } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface EditPlanModalProps {
-  isOpen: boolean;
+  plan: any;
   onClose: () => void;
   onSuccess: () => void;
-  plan: Plan;
-  countryCode: string;
+  config: any;
+  translations: any;
 }
 
-export function EditPlanModal({
-  isOpen,
+export default function EditPlanModal({
+  plan,
   onClose,
   onSuccess,
-  plan,
-  countryCode,
+  config,
+  translations,
 }: EditPlanModalProps) {
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    price: "",
-    cost: "",
-    category: "",
-    provider: "",
-    data_amount: "",
-    validity: "",
-  });
+  const t = translations;
+  const supabase = createClient();
+  const [markupType, setMarkupType] = useState<"percentage" | "fixed">(
+    plan.markup_type || "percentage",
+  );
+  const [markupValue, setMarkupValue] = useState<string>(
+    plan.markup_value?.toString() || "0",
+  );
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (plan) {
-      setFormData({
-        name: plan.name || "",
-        description: plan.description || "",
-        price: plan.price?.toString() || "",
-        cost: plan.cost?.toString() || "",
-        category: plan.category || "",
-        provider: plan.provider || "",
-        data_amount: plan.data_amount || "",
-        validity: plan.validity || "",
-      });
+  const currencySymbol = config.currencySymbol || "₦";
+
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
     }
-  }, [plan]);
+  };
 
-  if (!isOpen) return null;
+  const calculateSellingPrice = () => {
+    const base = plan.base_price || 0;
+    const value = parseFloat(markupValue) || 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (markupType === "percentage") {
+      return Math.round(base * (1 + value / 100));
+    } else {
+      return Math.round(base + value);
+    }
+  };
+
+  const sellingPrice = calculateSellingPrice();
+  const profit = sellingPrice - (plan.base_price || 0);
+  const profitPercent =
+    plan.base_price > 0 ? Math.round((profit / plan.base_price) * 100) : 0;
+
+  const handleSubmit = async () => {
+    const value = parseFloat(markupValue);
+    if (isNaN(value) || value < 0) return;
+
     setIsLoading(true);
-    setError(null);
-
-    if (
-      !formData.name ||
-      !formData.price ||
-      !formData.cost ||
-      !formData.category ||
-      !formData.provider
-    ) {
-      setError("Please fill in all required fields");
-      setIsLoading(false);
-      return;
-    }
-
     try {
-      const result = await updatePlan({
-        planId: plan.id,
-        name: formData.name,
-        description: formData.description || undefined,
-        price: parseFloat(formData.price),
-        cost: parseFloat(formData.cost),
-        category: formData.category,
-        provider: formData.provider,
-        data_amount: formData.data_amount || undefined,
-        validity: formData.validity || undefined,
-      });
+      const newSellingPrice = calculateSellingPrice();
 
-      if (result.success) {
+      const { error } = await supabase
+        .from("global_plans")
+        .update({
+          markup_type: markupType,
+          markup_value: value,
+          selling_price: newSellingPrice,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", plan.id);
+
+      if (!error) {
         onSuccess();
-      } else {
-        setError(result.error || "Failed to update plan");
+        onClose();
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+    } catch (error) {
+      console.error("Update error:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: "1rem",
+      }}
+      onClick={handleOverlayClick}
+    >
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 16,
+          maxWidth: 480,
+          width: "100%",
+          maxHeight: "90vh",
+          overflow: "auto",
+          padding: "1.5rem",
+          position: "relative",
+        }}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: "1rem",
+            right: "1rem",
+            background: "transparent",
+            border: "none",
+            color: "var(--muted)",
+            cursor: "pointer",
+            padding: "0.25rem",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "var(--text)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "var(--muted)";
+          }}
+        >
+          <X size={20} />
+        </button>
 
-      {/* Modal */}
-      <div className="relative bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-            Edit Plan
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-          >
-            <X size={20} />
-          </button>
+        <h2
+          style={{
+            fontFamily: "'Playfair Display', serif",
+            fontSize: "1.25rem",
+            fontWeight: 700,
+            marginBottom: "0.25rem",
+          }}
+        >
+          {t?.editPlan || "Edit Plan"}
+        </h2>
+        <p
+          style={{
+            color: "var(--muted)",
+            fontSize: "0.9rem",
+            marginBottom: "1.5rem",
+          }}
+        >
+          {t?.markupDescription ||
+            "Set your markup to determine your profit on each sale."}
+        </p>
+
+        {/* Plan Info */}
+        <div
+          style={{
+            background: "var(--bg2)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: "1rem",
+            marginBottom: "1.5rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div>
+            <p
+              style={{
+                fontSize: "0.65rem",
+                color: "var(--dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              {t?.planName || "Plan Name"}
+            </p>
+            <p
+              style={{
+                fontSize: "1rem",
+                fontWeight: 600,
+                color: "var(--text)",
+              }}
+            >
+              {plan.name}
+            </p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p
+              style={{
+                fontSize: "0.65rem",
+                color: "var(--dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              {t?.wholesalePrice || "Wholesale Price"}
+            </p>
+            <p
+              style={{
+                fontSize: "1rem",
+                fontWeight: 600,
+                color: "var(--muted)",
+              }}
+            >
+              {currencySymbol} {plan.base_price?.toLocaleString() || 0}
+            </p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Plan Name *
-            </label>
-            <div className="relative">
-              <Package
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={16}
-              />
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                placeholder="e.g., MTN 1GB Daily Plan"
-                required
-              />
-            </div>
+        {/* Markup Type */}
+        <div style={{ marginBottom: "1rem" }}>
+          <p
+            style={{
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "var(--muted)",
+              marginBottom: "0.5rem",
+            }}
+          >
+            {t?.markupType || "Markup Type"}
+          </p>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              onClick={() => setMarkupType("percentage")}
+              style={{
+                flex: 1,
+                padding: "0.6rem 1rem",
+                background:
+                  markupType === "percentage"
+                    ? "var(--brand-color)"
+                    : "var(--bg2)",
+                color: markupType === "percentage" ? "#FDF8F3" : "var(--text)",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                fontSize: "0.85rem",
+                fontWeight: markupType === "percentage" ? 600 : 400,
+                transition: "all 0.2s",
+              }}
+            >
+              <Percent size={16} />
+              {t?.percentage || "Percentage"}
+            </button>
+            <button
+              onClick={() => setMarkupType("fixed")}
+              style={{
+                flex: 1,
+                padding: "0.6rem 1rem",
+                background:
+                  markupType === "fixed" ? "var(--brand-color)" : "var(--bg2)",
+                color: markupType === "fixed" ? "#FDF8F3" : "var(--text)",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                fontSize: "0.85rem",
+                fontWeight: markupType === "fixed" ? 600 : 400,
+                transition: "all 0.2s",
+              }}
+            >
+              <DollarSign size={16} />
+              {t?.fixed || "Fixed Amount"}
+            </button>
           </div>
+        </div>
 
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description (Optional)
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows={2}
-              className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-              placeholder="Describe the plan..."
-            />
-          </div>
-
-          {/* Price & Cost */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Price (Selling) *
-              </label>
-              <div className="relative">
-                <DollarSign
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={16}
-                />
+        {/* Markup Value */}
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label
+            style={{
+              display: "block",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "var(--muted)",
+              marginBottom: "0.5rem",
+            }}
+          >
+            {markupType === "percentage"
+              ? t?.markupPercentage || "Markup Percentage"
+              : t?.markupAmount || "Markup Amount"}
+          </label>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              background: "var(--bg2)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              overflow: "hidden",
+            }}
+          >
+            {markupType === "percentage" ? (
+              <>
                 <input
                   type="number"
-                  name="price"
-                  value={formData.price}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                  placeholder="10.00"
+                  value={markupValue}
+                  onChange={(e) => setMarkupValue(e.target.value)}
+                  placeholder="0"
                   min="0"
-                  step="0.01"
-                  required
+                  step="1"
+                  style={{
+                    flex: 1,
+                    padding: "0.75rem 1rem",
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text)",
+                    fontSize: "1rem",
+                    outline: "none",
+                  }}
                 />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Cost (Cost Price) *
-              </label>
-              <div className="relative">
-                <TrendingUp
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={16}
-                />
-                <input
-                  type="number"
-                  name="cost"
-                  value={formData.cost}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                  placeholder="8.00"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Category & Provider */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Category *
-              </label>
-              <div className="relative">
-                <Tag
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={16}
-                />
-                <input
-                  type="text"
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                  placeholder="e.g., Data"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Provider *
-              </label>
-              <div className="relative">
-                <Globe
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={16}
-                />
-                <input
-                  type="text"
-                  name="provider"
-                  value={formData.provider}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                  placeholder="e.g., MTN"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Data Amount & Validity */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Data Amount (Optional)
-              </label>
-              <div className="relative">
-                <Package
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={16}
-                />
-                <input
-                  type="text"
-                  name="data_amount"
-                  value={formData.data_amount}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                  placeholder="e.g., 1GB"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Validity (Optional)
-              </label>
-              <div className="relative">
-                <Clock
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={16}
-                />
-                <input
-                  type="text"
-                  name="validity"
-                  value={formData.validity}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                  placeholder="e.g., 24h"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Profit Preview */}
-          {formData.price && formData.cost && (
-            <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Profit Preview
-              </p>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  Profit per sale
-                </span>
-                <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                  $
-                  {(
-                    parseFloat(formData.price) - parseFloat(formData.cost)
-                  ).toFixed(2)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  Margin
-                </span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  {parseFloat(formData.price) > 0
-                    ? (
-                        ((parseFloat(formData.price) -
-                          parseFloat(formData.cost)) /
-                          parseFloat(formData.price)) *
-                        100
-                      ).toFixed(1)
-                    : 0}
+                <span
+                  style={{
+                    padding: "0.75rem 1rem",
+                    color: "var(--dim)",
+                    fontWeight: 600,
+                    background: "var(--bg3)",
+                  }}
+                >
                   %
                 </span>
-              </div>
-            </div>
-          )}
-
-          {/* Error */}
-          {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={cn(
-                "flex-1 px-4 py-2.5 bg-primary text-white rounded-lg font-medium transition-all",
-                "hover:bg-primary/80",
-                "disabled:opacity-50 disabled:cursor-not-allowed",
-                "flex items-center justify-center gap-2",
-              )}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                "Update Plan"
-              )}
-            </button>
+              </>
+            ) : (
+              <>
+                <span
+                  style={{
+                    padding: "0.75rem 1rem",
+                    color: "var(--muted)",
+                    fontWeight: 600,
+                    background: "var(--bg3)",
+                  }}
+                >
+                  {currencySymbol}
+                </span>
+                <input
+                  type="number"
+                  value={markupValue}
+                  onChange={(e) => setMarkupValue(e.target.value)}
+                  placeholder="0.00"
+                  min="0"
+                  step="1"
+                  style={{
+                    flex: 1,
+                    padding: "0.75rem 1rem",
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text)",
+                    fontSize: "1rem",
+                    outline: "none",
+                  }}
+                />
+              </>
+            )}
           </div>
-        </form>
+        </div>
+
+        {/* Preview */}
+        <div
+          style={{
+            background: "var(--bg2)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: "1rem",
+            marginBottom: "1.5rem",
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: "0.5rem",
+            }}
+          >
+            <div style={{ textAlign: "center" }}>
+              <p
+                style={{
+                  fontSize: "0.6rem",
+                  color: "var(--dim)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {t?.wholesalePrice || "Wholesale"}
+              </p>
+              <p
+                style={{
+                  fontSize: "0.9rem",
+                  fontWeight: 600,
+                  color: "var(--muted)",
+                }}
+              >
+                {currencySymbol} {plan.base_price?.toLocaleString() || 0}
+              </p>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <p
+                style={{
+                  fontSize: "0.6rem",
+                  color: "var(--dim)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {t?.yourPrice || "Your Price"}
+              </p>
+              <p
+                style={{
+                  fontSize: "0.9rem",
+                  fontWeight: 700,
+                  color: "var(--text)",
+                }}
+              >
+                {currencySymbol} {sellingPrice.toLocaleString()}
+              </p>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <p
+                style={{
+                  fontSize: "0.6rem",
+                  color: "var(--dim)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {t?.profit || "Profit"}
+              </p>
+              <p
+                style={{
+                  fontSize: "0.9rem",
+                  fontWeight: 700,
+                  color: profit > 0 ? "#6EBD8A" : "var(--dim)",
+                }}
+              >
+                {profit > 0 ? "+" : ""}
+                {currencySymbol} {profit.toLocaleString()}
+                <span
+                  style={{
+                    fontSize: "0.65rem",
+                    fontWeight: 400,
+                    color: "var(--dim)",
+                  }}
+                >
+                  ({profitPercent}%)
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <button
+          onClick={handleSubmit}
+          disabled={isLoading}
+          style={{
+            width: "100%",
+            padding: "0.75rem",
+            background: "var(--brand-color)",
+            color: "#FDF8F3",
+            border: "none",
+            borderRadius: 10,
+            fontWeight: 600,
+            fontSize: "1rem",
+            cursor: isLoading ? "not-allowed" : "pointer",
+            opacity: isLoading ? 0.6 : 1,
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={(e) => {
+            if (!isLoading) {
+              e.currentTarget.style.opacity = "0.85";
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "1";
+          }}
+        >
+          {isLoading ? t?.saving || "Saving..." : t?.save || "Save Changes"}
+        </button>
       </div>
     </div>
   );
