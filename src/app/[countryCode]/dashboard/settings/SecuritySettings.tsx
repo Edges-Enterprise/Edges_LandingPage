@@ -2,412 +2,452 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Key,
-  Shield,
-  Lock,
-  Eye,
-  EyeOff,
-  Loader2,
-  CheckCircle,
-  Smartphone,
-} from "lucide-react";
-import { changePassword } from "@/actions/reseller/settings/changePassword";
-import { changeTransactionPin } from "@/actions/reseller/settings/changeTransactionPin";
-import { cn } from "@/lib/utils/helpers";
+import { createClient } from "@/lib/supabase/client";
+import { Shield, Lock, Smartphone, Globe, Clock, LogOut } from "lucide-react";
+import { CountryConfig } from "@/config/countries";
+import { SecuritySettings as SecuritySettingsType } from "@/types/reseller/settings";
 
 interface SecuritySettingsProps {
-  countryCode: string;
+  security: SecuritySettingsType;
+  config: CountryConfig;
+  translations: any;
+  onSave: () => void;
 }
 
-export function SecuritySettings({ countryCode }: SecuritySettingsProps) {
-  // Password state
+export default function SecuritySettings({
+  security,
+  config,
+  translations,
+  onSave,
+}: SecuritySettingsProps) {
+  const t = translations;
+  const supabase = createClient();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
   });
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
-
-  // PIN state
-  const [pinData, setPinData] = useState({
-    currentPin: "",
-    newPin: "",
-    confirmPin: "",
-  });
-  const [isChangingPin, setIsChangingPin] = useState(false);
-  const [pinError, setPinError] = useState<string | null>(null);
-  const [pinSuccess, setPinSuccess] = useState(false);
-
-  // Show/hide
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showCurrentPin, setShowCurrentPin] = useState(false);
-  const [showNewPin, setShowNewPin] = useState(false);
-  const [showConfirmPin, setShowConfirmPin] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
-    setPasswordError(null);
+    const { name, value } = e.target;
+    setPasswordData({ ...passwordData, [name]: value });
+    setError(null);
+    setSuccess(null);
   };
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsChangingPassword(true);
-    setPasswordError(null);
-    setPasswordSuccess(false);
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordError("New passwords do not match");
-      setIsChangingPassword(false);
+  const handlePasswordSubmit = async () => {
+    // Validate
+    if (!passwordData.current_password) {
+      setError(t?.currentPasswordRequired || "Current password is required");
+      return;
+    }
+    if (!passwordData.new_password || passwordData.new_password.length < 8) {
+      setError(
+        t?.passwordMinLength || "Password must be at least 8 characters",
+      );
+      return;
+    }
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      setError(t?.passwordMismatch || "Passwords do not match");
       return;
     }
 
-    if (passwordData.newPassword.length < 8) {
-      setPasswordError("Password must be at least 8 characters");
-      setIsChangingPassword(false);
-      return;
-    }
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
 
     try {
-      const result = await changePassword(
-        passwordData.currentPassword,
-        passwordData.newPassword,
-      );
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.new_password,
+      });
 
-      if (result.success) {
-        setPasswordSuccess(true);
-        setPasswordData({
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-        });
-        setTimeout(() => setPasswordSuccess(false), 3000);
-      } else {
-        setPasswordError(result.error || "Failed to change password");
-      }
-    } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : "Unknown error");
+      if (error) throw error;
+
+      setSuccess(t?.passwordUpdated || "Password updated successfully");
+      setPasswordData({
+        current_password: "",
+        new_password: "",
+        confirm_password: "",
+      });
+      setShowPasswordForm(false);
+      onSave();
+    } catch (err: any) {
+      setError(err.message || t?.passwordError || "Failed to update password");
     } finally {
-      setIsChangingPassword(false);
+      setIsLoading(false);
     }
   };
 
-  const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, "");
-    setPinData({ ...pinData, [e.target.name]: value });
-    setPinError(null);
-  };
-
-  const handlePinSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsChangingPin(true);
-    setPinError(null);
-    setPinSuccess(false);
-
-    if (pinData.newPin !== pinData.confirmPin) {
-      setPinError("New PINs do not match");
-      setIsChangingPin(false);
-      return;
-    }
-
-    if (pinData.newPin.length !== 4) {
-      setPinError("PIN must be exactly 4 digits");
-      setIsChangingPin(false);
-      return;
-    }
-
-    try {
-      const result = await changeTransactionPin(
-        pinData.currentPin,
-        pinData.newPin,
-      );
-
-      if (result.success) {
-        setPinSuccess(true);
-        setPinData({
-          currentPin: "",
-          newPin: "",
-          confirmPin: "",
-        });
-        setTimeout(() => setPinSuccess(false), 3000);
-      } else {
-        setPinError(result.error || "Failed to change PIN");
-      }
-    } catch (err) {
-      setPinError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setIsChangingPin(false);
-    }
+  const formatDate = (date: string) => {
+    const d = new Date(date);
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   return (
-    <div className="space-y-8">
+    <div>
+      <h2
+        style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: "1.1rem",
+          fontWeight: 700,
+          marginBottom: "0.25rem",
+        }}
+      >
+        {t?.security || "Security"}
+      </h2>
+      <p
+        style={{
+          color: "var(--muted)",
+          fontSize: "0.9rem",
+          marginBottom: "1.5rem",
+        }}
+      >
+        {t?.securityInfo || "Manage your account security"}
+      </p>
+
       {/* Change Password */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Change Password
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          Update your password to keep your account secure
-        </p>
-
-        <form onSubmit={handlePasswordSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Current Password
-            </label>
-            <div className="relative">
-              <Lock
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={16}
-              />
-              <input
-                type={showCurrentPassword ? "text" : "password"}
-                name="currentPassword"
-                value={passwordData.currentPassword}
-                onChange={handlePasswordChange}
-                className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              New Password
-            </label>
-            <div className="relative">
-              <Key
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={16}
-              />
-              <input
-                type={showNewPassword ? "text" : "password"}
-                name="newPassword"
-                value={passwordData.newPassword}
-                onChange={handlePasswordChange}
-                className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                required
-                minLength={8}
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Confirm New Password
-            </label>
-            <div className="relative">
-              <Shield
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={16}
-              />
-              <input
-                type={showConfirmPassword ? "text" : "password"}
-                name="confirmPassword"
-                value={passwordData.confirmPassword}
-                onChange={handlePasswordChange}
-                className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          {passwordError && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400">
-                {passwordError}
-              </p>
-            </div>
-          )}
-
-          {passwordSuccess && (
-            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <p className="text-sm text-green-600 dark:text-green-400">
-                Password changed successfully!
-              </p>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isChangingPassword}
-            className={cn(
-              "px-6 py-2.5 bg-primary text-white rounded-lg font-medium transition-all",
-              "hover:bg-primary/80",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-              "flex items-center gap-2",
-            )}
+      <div
+        style={{
+          background: "var(--bg2)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: "1.25rem",
+          marginBottom: "1.5rem",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div
+            style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
           >
-            {isChangingPassword ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Changing Password...
-              </>
-            ) : (
-              "Change Password"
-            )}
+            <Lock size={20} style={{ color: "var(--brand-color)" }} />
+            <div>
+              <h3
+                style={{
+                  fontSize: "0.95rem",
+                  fontWeight: 600,
+                  margin: 0,
+                  color: "var(--text)",
+                }}
+              >
+                {t?.changePassword || "Change Password"}
+              </h3>
+              <p
+                style={{ fontSize: "0.8rem", color: "var(--muted)", margin: 0 }}
+              >
+                {t?.lastChanged || "Last changed"}:{" "}
+                {security.last_password_change
+                  ? formatDate(security.last_password_change)
+                  : "Never"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowPasswordForm(!showPasswordForm)}
+            style={{
+              padding: "0.4rem 1rem",
+              background: "transparent",
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              color: "var(--text)",
+              fontSize: "0.8rem",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--brand-color)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--border)";
+            }}
+          >
+            {showPasswordForm ? t?.cancel || "Cancel" : t?.change || "Change"}
           </button>
-        </form>
+        </div>
+
+        {showPasswordForm && (
+          <div style={{ marginTop: "1rem", display: "grid", gap: "0.75rem" }}>
+            {error && (
+              <div
+                style={{
+                  padding: "0.5rem 0.75rem",
+                  background: "rgba(239,68,68,0.1)",
+                  border: "1px solid rgba(239,68,68,0.2)",
+                  borderRadius: 6,
+                  color: "#EF4444",
+                  fontSize: "0.85rem",
+                }}
+              >
+                {error}
+              </div>
+            )}
+            {success && (
+              <div
+                style={{
+                  padding: "0.5rem 0.75rem",
+                  background: "rgba(110,189,138,0.1)",
+                  border: "1px solid rgba(110,189,138,0.2)",
+                  borderRadius: 6,
+                  color: "#6EBD8A",
+                  fontSize: "0.85rem",
+                }}
+              >
+                {success}
+              </div>
+            )}
+            <input
+              type="password"
+              name="current_password"
+              value={passwordData.current_password}
+              onChange={handlePasswordChange}
+              placeholder={t?.currentPassword || "Current Password"}
+              style={{
+                padding: "0.6rem 0.75rem",
+                background: "var(--bg3)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                color: "var(--text)",
+                fontSize: "0.9rem",
+                outline: "none",
+              }}
+            />
+            <input
+              type="password"
+              name="new_password"
+              value={passwordData.new_password}
+              onChange={handlePasswordChange}
+              placeholder={t?.newPassword || "New Password (min 8 characters)"}
+              style={{
+                padding: "0.6rem 0.75rem",
+                background: "var(--bg3)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                color: "var(--text)",
+                fontSize: "0.9rem",
+                outline: "none",
+              }}
+            />
+            <input
+              type="password"
+              name="confirm_password"
+              value={passwordData.confirm_password}
+              onChange={handlePasswordChange}
+              placeholder={t?.confirmPassword || "Confirm New Password"}
+              style={{
+                padding: "0.6rem 0.75rem",
+                background: "var(--bg3)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                color: "var(--text)",
+                fontSize: "0.9rem",
+                outline: "none",
+              }}
+            />
+            <button
+              onClick={handlePasswordSubmit}
+              disabled={isLoading}
+              style={{
+                padding: "0.6rem",
+                background: "var(--brand-color)",
+                color: "#FDF8F3",
+                border: "none",
+                borderRadius: 8,
+                fontWeight: 600,
+                fontSize: "0.9rem",
+                cursor: isLoading ? "not-allowed" : "pointer",
+                opacity: isLoading ? 0.6 : 1,
+                transition: "all 0.2s",
+              }}
+            >
+              {isLoading
+                ? t?.updating || "Updating..."
+                : t?.updatePassword || "Update Password"}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Change Transaction PIN */}
-      <div className="pt-8 border-t border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Transaction PIN
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          Update your transaction PIN for secure transactions
-        </p>
-
-        <form onSubmit={handlePinSubmit} className="space-y-4 max-w-sm">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Current PIN
-            </label>
-            <div className="relative">
-              <Smartphone
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={16}
-              />
-              <input
-                type={showCurrentPin ? "text" : "password"}
-                name="currentPin"
-                value={pinData.currentPin}
-                onChange={handlePinChange}
-                maxLength={4}
-                className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white font-mono"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowCurrentPin(!showCurrentPin)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                {showCurrentPin ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              New PIN (4 digits)
-            </label>
-            <div className="relative">
-              <Lock
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={16}
-              />
-              <input
-                type={showNewPin ? "text" : "password"}
-                name="newPin"
-                value={pinData.newPin}
-                onChange={handlePinChange}
-                maxLength={4}
-                className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white font-mono"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPin(!showNewPin)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                {showNewPin ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Confirm New PIN
-            </label>
-            <div className="relative">
-              <Shield
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={16}
-              />
-              <input
-                type={showConfirmPin ? "text" : "password"}
-                name="confirmPin"
-                value={pinData.confirmPin}
-                onChange={handlePinChange}
-                maxLength={4}
-                className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white font-mono"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPin(!showConfirmPin)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              >
-                {showConfirmPin ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          {pinError && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400">
-                {pinError}
-              </p>
-            </div>
-          )}
-
-          {pinSuccess && (
-            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <p className="text-sm text-green-600 dark:text-green-400">
-                PIN changed successfully!
-              </p>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isChangingPin}
-            className={cn(
-              "px-6 py-2.5 bg-primary text-white rounded-lg font-medium transition-all",
-              "hover:bg-primary/80",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-              "flex items-center gap-2",
-            )}
+      {/* Two-Factor Auth */}
+      <div
+        style={{
+          background: "var(--bg2)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: "1.25rem",
+          marginBottom: "1.5rem",
+          opacity: 0.6,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div
+            style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
           >
-            {isChangingPin ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Changing PIN...
-              </>
-            ) : (
-              "Change PIN"
+            <Shield size={20} style={{ color: "var(--dim)" }} />
+            <div>
+              <h3
+                style={{
+                  fontSize: "0.95rem",
+                  fontWeight: 600,
+                  margin: 0,
+                  color: "var(--muted)",
+                }}
+              >
+                {t?.twoFactorAuth || "Two-Factor Authentication"}
+              </h3>
+              <p style={{ fontSize: "0.8rem", color: "var(--dim)", margin: 0 }}>
+                {t?.comingSoon || "Coming soon"}
+              </p>
+            </div>
+          </div>
+          <span
+            style={{
+              fontSize: "0.7rem",
+              fontWeight: 600,
+              color: "var(--dim)",
+              background: "var(--bg3)",
+              padding: "2px 10px",
+              borderRadius: 100,
+            }}
+          >
+            {t?.disabled || "Disabled"}
+          </span>
+        </div>
+      </div>
+
+      {/* Active Sessions */}
+      <div
+        style={{
+          background: "var(--bg2)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: "1.25rem",
+        }}
+      >
+        <h3
+          style={{
+            fontSize: "0.95rem",
+            fontWeight: 600,
+            marginBottom: "0.75rem",
+            color: "var(--text)",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
+          <Smartphone size={18} style={{ color: "var(--brand-color)" }} />
+          {t?.sessions || "Active Sessions"}
+        </h3>
+
+        {security.sessions.map((session) => (
+          <div
+            key={session.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "0.6rem 0.75rem",
+              background: session.is_current
+                ? "rgba(var(--brand-color-rgb), 0.05)"
+                : "transparent",
+              border: session.is_current
+                ? "1px solid rgba(var(--brand-color-rgb), 0.15)"
+                : "none",
+              borderRadius: 8,
+              marginBottom: "0.5rem",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                <span
+                  style={{
+                    fontWeight: 500,
+                    color: "var(--text)",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  {session.device_name}
+                </span>
+                {session.is_current && (
+                  <span
+                    style={{
+                      fontSize: "0.6rem",
+                      fontWeight: 600,
+                      color: "#6EBD8A",
+                      background: "rgba(110,189,138,0.12)",
+                      padding: "1px 8px",
+                      borderRadius: 100,
+                    }}
+                  >
+                    {t?.currentDevice || "Current"}
+                  </span>
+                )}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "0.75rem",
+                  fontSize: "0.7rem",
+                  color: "var(--dim)",
+                  marginTop: "0.25rem",
+                }}
+              >
+                <span>{session.ip_address}</span>
+                {session.location && <span>· {session.location}</span>}
+                <span>· {formatDate(session.last_active)}</span>
+              </div>
+            </div>
+            {!session.is_current && (
+              <button
+                style={{
+                  padding: "0.25rem 0.75rem",
+                  background: "transparent",
+                  border: "1px solid rgba(239,68,68,0.2)",
+                  borderRadius: 4,
+                  color: "#EF4444",
+                  fontSize: "0.75rem",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(239,68,68,0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <LogOut size={14} style={{ marginRight: "0.25rem" }} />
+                {t?.revokeSession || "Revoke"}
+              </button>
             )}
-          </button>
-        </form>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -1,295 +1,392 @@
 // src/app/[countryCode]/dashboard/settings/ProfileSettings.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  User,
-  Mail,
-  Phone,
-  Building2,
-  MapPin,
-  Loader2,
-  CheckCircle,
-} from "lucide-react";
-import { updateProfile } from "@/actions/reseller/settings/updateProfile";
-import { cn } from "@/lib/utils/helpers";
-
-import { createAdminClient } from "@/lib/supabase/admin";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { User, Mail, Phone, Store, Edit2 } from "lucide-react";
+import { CountryConfig } from "@/config/countries";
+import { Profile } from "@/types/reseller/settings";
 
 interface ProfileSettingsProps {
-  countryCode: string;
+  profile: Profile;
+  config: CountryConfig;
+  translations: any;
+  onSave: () => void;
 }
 
-export function ProfileSettings({ countryCode }: ProfileSettingsProps) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export default function ProfileSettings({
+  profile,
+  config,
+  translations,
+  onSave,
+}: ProfileSettingsProps) {
+  const t = translations;
+  const supabase = createClient();
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    phone: "",
-    business_name: "",
-    business_address: "",
+    first_name: profile.first_name || "",
+    last_name: profile.last_name || "",
+    phone: profile.phone || "",
+    brand_color: profile.brand_color || "#C98A54",
   });
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
 
-  const fetchProfile = async () => {
+  const handleSubmit = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const supabase = createAdminClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setError("User not found");
-        setIsLoading(false);
-        return;
-      }
-
-      const { data: application, error: appError } = await supabase
+      const { error } = await supabase
         .from("global_reseller_applications")
-        .select("*")
-        .eq("auth_user_id", user.id)
-        .single();
+        .update({
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          phone: formData.phone,
+          brand_color: formData.brand_color,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", profile.id);
 
-      if (appError) {
-        setError(appError.message);
-        setIsLoading(false);
-        return;
-      }
+      if (error) throw error;
 
-      if (application) {
-        setFormData({
-          first_name: application.first_name || "",
-          last_name: application.last_name || "",
-          email: application.email || "",
-          phone: application.phone || "",
-          business_name: application.business_name || "",
-          business_address: application.business_address || "",
-        });
-      }
+      // Update brand color in localStorage
+      localStorage.setItem("brandColor", formData.brand_color);
+
+      onSave();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(t?.error || "Failed to save changes");
+      console.error("Profile update error:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    setError(null);
-    setSuccess(false);
-
-    try {
-      const result = await updateProfile(formData);
-
-      if (result.success) {
-        setSuccess(true);
-        setTimeout(() => setSuccess(false), 3000);
-      } else {
-        setError(result.error || "Failed to update profile");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
-        <div className="space-y-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-12 bg-gray-200 dark:bg-gray-700 rounded"
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const colorSwatches = [
+    "#C98A54",
+    "#DC2626",
+    "#16A34A",
+    "#3B82F6",
+    "#8B5CF6",
+    "#F59E0B",
+    "#DB2777",
+    "#0EA5E9",
+  ];
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        Profile Information
-      </h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-        Update your personal information and business details
+      <h2
+        style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: "1.1rem",
+          fontWeight: 700,
+          marginBottom: "0.25rem",
+        }}
+      >
+        {t?.profileInfo || "Profile Information"}
+      </h2>
+      <p
+        style={{
+          color: "var(--muted)",
+          fontSize: "0.9rem",
+          marginBottom: "1.5rem",
+        }}
+      >
+        {t?.personalInfo || "Update your personal information"}
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Name */}
-        <div className="grid grid-cols-2 gap-4">
+      {error && (
+        <div
+          style={{
+            padding: "0.75rem 1rem",
+            background: "rgba(239,68,68,0.1)",
+            border: "1px solid rgba(239,68,68,0.2)",
+            borderRadius: 8,
+            color: "#EF4444",
+            fontSize: "0.85rem",
+            marginBottom: "1rem",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: "1rem", maxWidth: 500 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "1rem",
+          }}
+        >
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              First Name
+            <label
+              style={{
+                display: "block",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                color: "var(--muted)",
+                marginBottom: "0.35rem",
+              }}
+            >
+              {t?.firstName || "First Name"}
             </label>
-            <div className="relative">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                background: "var(--bg2)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                overflow: "hidden",
+              }}
+            >
               <User
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                 size={16}
+                style={{ color: "var(--dim)", marginLeft: "0.75rem" }}
               />
               <input
                 type="text"
                 name="first_name"
                 value={formData.first_name}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                required
+                style={{
+                  flex: 1,
+                  padding: "0.6rem 0.75rem",
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text)",
+                  fontSize: "0.9rem",
+                  outline: "none",
+                }}
               />
             </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Last Name
+            <label
+              style={{
+                display: "block",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                color: "var(--muted)",
+                marginBottom: "0.35rem",
+              }}
+            >
+              {t?.lastName || "Last Name"}
             </label>
             <input
               type="text"
               name="last_name"
               value={formData.last_name}
               onChange={handleChange}
-              className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-              required
-            />
-          </div>
-        </div>
-
-        {/* Email & Phone */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Email
-            </label>
-            <div className="relative">
-              <Mail
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={16}
-              />
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-                required
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Phone
-            </label>
-            <div className="relative">
-              <Phone
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={16}
-              />
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Business Name & Address */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Business Name
-          </label>
-          <div className="relative">
-            <Building2
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={16}
-            />
-            <input
-              type="text"
-              name="business_name"
-              value={formData.business_name}
-              onChange={handleChange}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              style={{
+                width: "100%",
+                padding: "0.6rem 0.75rem",
+                background: "var(--bg2)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                color: "var(--text)",
+                fontSize: "0.9rem",
+                outline: "none",
+              }}
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Business Address
-          </label>
-          <div className="relative">
-            <MapPin
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={16}
-            />
-            <input
-              type="text"
-              name="business_address"
-              value={formData.business_address}
-              onChange={handleChange}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-            />
-          </div>
-        </div>
-
-        {/* Status Messages */}
-        {error && (
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          </div>
-        )}
-
-        {success && (
-          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <p className="text-sm text-green-600 dark:text-green-400">
-              Profile updated successfully!
-            </p>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={isSaving}
-            className={cn(
-              "px-6 py-2.5 bg-primary text-white rounded-lg font-medium transition-all",
-              "hover:bg-primary/80",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-              "flex items-center gap-2",
-            )}
+          <label
+            style={{
+              display: "block",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "var(--muted)",
+              marginBottom: "0.35rem",
+            }}
           >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save Changes"
-            )}
-          </button>
+            {t?.email || "Email"}
+          </label>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              background: "var(--bg2)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              overflow: "hidden",
+              opacity: 0.7,
+            }}
+          >
+            <Mail
+              size={16}
+              style={{ color: "var(--dim)", marginLeft: "0.75rem" }}
+            />
+            <input
+              type="email"
+              value={profile.email || ""}
+              disabled
+              style={{
+                flex: 1,
+                padding: "0.6rem 0.75rem",
+                background: "transparent",
+                border: "none",
+                color: "var(--muted)",
+                fontSize: "0.9rem",
+                outline: "none",
+                cursor: "not-allowed",
+              }}
+            />
+          </div>
+          <p
+            style={{
+              fontSize: "0.7rem",
+              color: "var(--dim)",
+              marginTop: "0.25rem",
+            }}
+          >
+            {t?.emailDisabled || "Email cannot be changed"}
+          </p>
         </div>
-      </form>
+
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "var(--muted)",
+              marginBottom: "0.35rem",
+            }}
+          >
+            {t?.phone || "Phone"}
+          </label>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              background: "var(--bg2)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              overflow: "hidden",
+            }}
+          >
+            <Phone
+              size={16}
+              style={{ color: "var(--dim)", marginLeft: "0.75rem" }}
+            />
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="+234 800 000 0000"
+              style={{
+                flex: 1,
+                padding: "0.6rem 0.75rem",
+                background: "transparent",
+                border: "none",
+                color: "var(--text)",
+                fontSize: "0.9rem",
+                outline: "none",
+              }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "var(--muted)",
+              marginBottom: "0.35rem",
+            }}
+          >
+            {t?.brandColor || "Brand Color"}
+          </label>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            {colorSwatches.map((color) => (
+              <button
+                key={color}
+                onClick={() => setFormData({ ...formData, brand_color: color })}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: color,
+                  border:
+                    formData.brand_color === color
+                      ? "2.5px solid #FFFFFF"
+                      : "2px solid transparent",
+                  outline:
+                    formData.brand_color === color
+                      ? `2px solid ${color}`
+                      : "none",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  transform:
+                    formData.brand_color === color ? "scale(1.15)" : "scale(1)",
+                }}
+              />
+            ))}
+            <input
+              type="color"
+              value={formData.brand_color}
+              onChange={(e) =>
+                setFormData({ ...formData, brand_color: e.target.value })
+              }
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                border: "2px solid var(--border)",
+                cursor: "pointer",
+                padding: 0,
+                background: "transparent",
+              }}
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          disabled={isLoading}
+          style={{
+            padding: "0.75rem",
+            background: "var(--brand-color)",
+            color: "#FDF8F3",
+            border: "none",
+            borderRadius: 10,
+            fontWeight: 600,
+            fontSize: "1rem",
+            cursor: isLoading ? "not-allowed" : "pointer",
+            opacity: isLoading ? 0.6 : 1,
+            transition: "all 0.2s",
+            marginTop: "0.5rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.5rem",
+          }}
+          onMouseEnter={(e) => {
+            if (!isLoading) {
+              e.currentTarget.style.opacity = "0.85";
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "1";
+          }}
+        >
+          {isLoading
+            ? t?.saving || "Saving..."
+            : t?.saveChanges || "Save Changes"}
+        </button>
+      </div>
     </div>
   );
 }

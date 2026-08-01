@@ -1,257 +1,364 @@
 // src/app/[countryCode]/dashboard/settings/NotificationSettings.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   Bell,
   Mail,
   Smartphone,
-  MessageSquare,
-  ShoppingBag,
-  Smartphone as PhoneIcon,
   Megaphone,
-  Loader2,
-  CheckCircle,
+  ShoppingBag,
+  Users,
+  Settings as SettingsIcon,
 } from "lucide-react";
-import { updateNotificationSettings } from "@/actions/reseller/settings/updateNotificationSettings";
-
-import { cn } from "@/lib/utils/helpers";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { CountryConfig } from "@/config/countries";
+import { NotificationSettings as NotificationSettingsType } from "@/types/reseller/settings";
 
 interface NotificationSettingsProps {
-  countryCode: string;
+  notifications: NotificationSettingsType;
+  config: CountryConfig;
+  translations: any;
+  onSave: () => void;
 }
 
-interface NotificationSettings {
-  email_notifications: boolean;
-  push_notifications: boolean;
-  sms_notifications: boolean;
-  order_updates: boolean;
-  build_updates: boolean;
-  marketing_emails: boolean;
-}
-
-export function NotificationSettings({
-  countryCode,
+export default function NotificationSettings({
+  notifications,
+  config,
+  translations,
+  onSave,
 }: NotificationSettingsProps) {
-  const [settings, setSettings] = useState<NotificationSettings>({
-    email_notifications: true,
-    push_notifications: true,
-    sms_notifications: false,
-    order_updates: true,
-    build_updates: true,
-    marketing_emails: false,
-  });
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const t = translations;
+  const supabase = createClient();
+  const [isLoading, setIsLoading] = useState(false);
+  const [settings, setSettings] = useState(notifications);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
+  const handleToggle = (type: keyof NotificationSettingsType, key: string) => {
+    setSettings({
+      ...settings,
+      [type]: {
+        ...settings[type],
+        [key]: !settings[type][key as keyof (typeof settings)[typeof type]],
+      },
+    });
+  };
 
-  const fetchSettings = async () => {
+  const handleSubmit = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const supabase = createAdminClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      const { data: settingsData, error: settingsError } = await supabase
-        .from("global_reseller_settings")
-        .select("notification_settings")
-        .eq("auth_user_id", user.id)
+      // Get application ID
+      const { data: appData } = await supabase
+        .from("global_reseller_applications")
+        .select("id")
         .single();
 
-      if (settingsError && settingsError.code !== "PGRST116") {
-        console.error("Fetch settings error:", settingsError);
-      }
+      if (!appData) throw new Error("Reseller not found");
 
-      if (settingsData?.notification_settings) {
-        setSettings(settingsData.notification_settings);
-      }
+      const { error } = await supabase.from("global_reseller_settings").upsert({
+        reseller_id: appData.id,
+        notifications: settings,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) throw error;
+
+      onSave();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(t?.error || "Failed to save notification settings");
+      console.error("Notification settings error:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleToggle = (key: keyof NotificationSettings) => {
-    setSettings({ ...settings, [key]: !settings[key] });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    setError(null);
-    setSuccess(false);
-
-    try {
-      const result = await updateNotificationSettings(settings);
-
-      if (result.success) {
-        setSuccess(true);
-        setTimeout(() => setSuccess(false), 3000);
-      } else {
-        setError(result.error || "Failed to update notification settings");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
-        <div className="space-y-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-12 bg-gray-200 dark:bg-gray-700 rounded"
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  const notificationOptions = [
+  const notificationTypes = [
     {
-      key: "email_notifications" as keyof NotificationSettings,
-      label: "Email Notifications",
-      description: "Receive notifications via email",
-      icon: <Mail size={18} className="text-blue-500" />,
+      key: "sales",
+      label: t?.salesAlerts || "Sales Alerts",
+      icon: ShoppingBag,
+      description: t?.salesAlertsDesc || "Get notified when a sale is made",
     },
     {
-      key: "push_notifications" as keyof NotificationSettings,
-      label: "Push Notifications",
-      description: "Receive notifications in your browser",
-      icon: <Bell size={18} className="text-purple-500" />,
+      key: "orders",
+      label: t?.orderUpdates || "Order Updates",
+      icon: ShoppingBag,
+      description:
+        t?.orderUpdatesDesc || "Get notified about order status changes",
     },
     {
-      key: "sms_notifications" as keyof NotificationSettings,
-      label: "SMS Notifications",
-      description: "Receive notifications via SMS",
-      icon: <MessageSquare size={18} className="text-green-500" />,
+      key: "customers",
+      label: t?.customerActivity || "Customer Activity",
+      icon: Users,
+      description:
+        t?.customerActivityDesc || "Get notified about new customers",
     },
     {
-      key: "order_updates" as keyof NotificationSettings,
-      label: "Order Updates",
-      description: "Get notified about new orders and status changes",
-      icon: <ShoppingBag size={18} className="text-orange-500" />,
+      key: "marketing",
+      label: t?.marketingUpdates || "Marketing Updates",
+      icon: Megaphone,
+      description:
+        t?.marketingUpdatesDesc || "Receive marketing tips and promotions",
     },
     {
-      key: "build_updates" as keyof NotificationSettings,
-      label: "Build Updates",
-      description: "Get notified about app build status changes",
-      icon: <PhoneIcon size={18} className="text-indigo-500" />,
+      key: "system",
+      label: t?.systemAnnouncements || "System Announcements",
+      icon: SettingsIcon,
+      description: t?.systemAnnouncementsDesc || "Get important system updates",
+    },
+  ];
+
+  const channels = [
+    {
+      key: "email_notifications",
+      label: t?.emailNotifications || "Email",
+      icon: Mail,
     },
     {
-      key: "marketing_emails" as keyof NotificationSettings,
-      label: "Marketing Emails",
-      description: "Receive promotional offers and updates",
-      icon: <Megaphone size={18} className="text-pink-500" />,
+      key: "push_notifications",
+      label: t?.pushNotifications || "Push",
+      icon: Bell,
+    },
+    {
+      key: "sms_notifications",
+      label: t?.smsNotifications || "SMS",
+      icon: Smartphone,
     },
   ];
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        Notification Preferences
-      </h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-        Choose how you want to receive notifications
+      <h2
+        style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: "1.1rem",
+          fontWeight: 700,
+          marginBottom: "0.25rem",
+        }}
+      >
+        {t?.notifications || "Notification Preferences"}
+      </h2>
+      <p
+        style={{
+          color: "var(--muted)",
+          fontSize: "0.9rem",
+          marginBottom: "1.5rem",
+        }}
+      >
+        {t?.notificationInfo || "Choose how you want to be notified"}
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-3">
-          {notificationOptions.map((option) => (
-            <div
-              key={option.key}
-              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-white dark:bg-gray-600 flex items-center justify-center shadow-sm">
-                  {option.icon}
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {option.label}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {option.description}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleToggle(option.key)}
-                className={cn(
-                  "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                  settings[option.key]
-                    ? "bg-primary"
-                    : "bg-gray-300 dark:bg-gray-600",
-                )}
-              >
-                <span
-                  className={cn(
-                    "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                    settings[option.key] ? "translate-x-6" : "translate-x-1",
-                  )}
-                />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {error && (
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          </div>
-        )}
-
-        {success && (
-          <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <p className="text-sm text-green-600 dark:text-green-400">
-              Notification settings updated successfully!
-            </p>
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={isSaving}
-          className={cn(
-            "px-6 py-2.5 bg-primary text-white rounded-lg font-medium transition-all",
-            "hover:bg-primary/80",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
-            "flex items-center gap-2",
-          )}
+      {error && (
+        <div
+          style={{
+            padding: "0.75rem 1rem",
+            background: "rgba(239,68,68,0.1)",
+            border: "1px solid rgba(239,68,68,0.2)",
+            borderRadius: 8,
+            color: "#EF4444",
+            fontSize: "0.85rem",
+            marginBottom: "1rem",
+          }}
         >
-          {isSaving ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            "Save Preferences"
-          )}
-        </button>
-      </form>
+          {error}
+        </div>
+      )}
+
+      <div style={{ overflowX: "auto" }}>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: "0.85rem",
+          }}
+        >
+          <thead>
+            <tr
+              style={{
+                borderBottom: "1px solid var(--border)",
+                background: "var(--bg2)",
+              }}
+            >
+              <th
+                style={{
+                  padding: "0.75rem 1rem",
+                  textAlign: "left",
+                  color: "var(--muted)",
+                  fontWeight: 600,
+                  fontSize: "0.75rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {t?.notificationType || "Notification Type"}
+              </th>
+              {channels.map((channel) => (
+                <th
+                  key={channel.key}
+                  style={{
+                    padding: "0.75rem 1rem",
+                    textAlign: "center",
+                    color: "var(--muted)",
+                    fontWeight: 600,
+                    fontSize: "0.75rem",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "0.25rem",
+                    }}
+                  >
+                    <channel.icon size={16} style={{ color: "var(--dim)" }} />
+                    <span>{channel.label}</span>
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {notificationTypes.map((type, index) => {
+              const Icon = type.icon;
+
+              return (
+                <tr
+                  key={type.key}
+                  style={{
+                    borderBottom:
+                      index < notificationTypes.length - 1
+                        ? "1px solid var(--border)"
+                        : "none",
+                    transition: "background 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--bg2)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  <td
+                    style={{
+                      padding: "0.75rem 1rem",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <Icon size={16} style={{ color: "var(--brand-color)" }} />
+                      <div>
+                        <div style={{ fontWeight: 500, color: "var(--text)" }}>
+                          {type.label}
+                        </div>
+                        <div
+                          style={{ fontSize: "0.7rem", color: "var(--dim)" }}
+                        >
+                          {type.description}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  {channels.map((channel) => {
+                    const isEnabled =
+                      settings[channel.key as keyof NotificationSettingsType]?.[
+                        type.key as keyof typeof settings.email_notifications
+                      ];
+
+                    return (
+                      <td
+                        key={`${channel.key}-${type.key}`}
+                        style={{
+                          padding: "0.75rem 1rem",
+                          textAlign: "center",
+                        }}
+                      >
+                        <button
+                          onClick={() =>
+                            handleToggle(
+                              channel.key as keyof NotificationSettingsType,
+                              type.key,
+                            )
+                          }
+                          style={{
+                            width: 40,
+                            height: 24,
+                            borderRadius: 12,
+                            background: isEnabled
+                              ? "var(--brand-color)"
+                              : "var(--bg3)",
+                            border: "none",
+                            cursor: "pointer",
+                            position: "relative",
+                            transition: "all 0.2s",
+                            display: "inline-block",
+                          }}
+                        >
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 2,
+                              left: isEnabled ? 18 : 2,
+                              width: 20,
+                              height: 20,
+                              borderRadius: "50%",
+                              background: "white",
+                              transition: "all 0.2s",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                            }}
+                          />
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <button
+        onClick={handleSubmit}
+        disabled={isLoading}
+        style={{
+          marginTop: "1.5rem",
+          padding: "0.75rem 2rem",
+          background: "var(--brand-color)",
+          color: "#FDF8F3",
+          border: "none",
+          borderRadius: 10,
+          fontWeight: 600,
+          fontSize: "1rem",
+          cursor: isLoading ? "not-allowed" : "pointer",
+          opacity: isLoading ? 0.6 : 1,
+          transition: "all 0.2s",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+        }}
+        onMouseEnter={(e) => {
+          if (!isLoading) {
+            e.currentTarget.style.opacity = "0.85";
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.opacity = "1";
+        }}
+      >
+        {isLoading
+          ? t?.saving || "Saving..."
+          : t?.saveChanges || "Save Changes"}
+      </button>
     </div>
   );
 }
