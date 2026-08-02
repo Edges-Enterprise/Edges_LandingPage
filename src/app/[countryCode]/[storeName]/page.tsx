@@ -108,7 +108,6 @@ async function getTranslations(language: string) {
         orderPlaced: "Order Placed Successfully!",
         orderNumber: "Order #",
         thankYou: "Thank you for your order!",
-        continueShopping: "Continue Shopping",
         productNotFound: "Product not found",
         storeNotFound: "Store not found",
         storeOffline: "Store is currently offline",
