@@ -54,7 +54,7 @@
   "publishSuccess": "App published successfully",
   "publishError": "Failed to publish app",
   "comingSoon": "Coming Soon",
-  "selectPlan": "Select a plan to publish your app",
+  "selectPlan": "Select a plan to publish your app to the Play Store. You can upgrade your plan later.",
   "freeFeatures": "Branded APK, WhatsApp sharing, QR code",
   "localFeatures": "Play Store listing, Local visibility",
   "regionalFeatures": "Play Store listing, Regional visibility",

@@ -99,7 +99,14 @@ export default function BuildStatus({
           gap: "1rem",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "1rem",
+            padding: "0.5rem",
+          }}
+        >
           <div
             style={{
               width: 48,
@@ -171,7 +178,7 @@ export default function BuildStatus({
                   {t?.downloadAPK || "Download APK"}
                 </a>
               )}
-              {build.aab_url && (
+              {/* {build.aab_url && (
                 <a
                   href={build.aab_url}
                   download
@@ -198,7 +205,7 @@ export default function BuildStatus({
                   <Download size={16} />
                   {t?.downloadAAB || "Download AAB"}
                 </a>
-              )}
+              )} */}
             </div>
           )}
       </div>
@@ -210,7 +217,7 @@ export default function BuildStatus({
           gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
           gap: "1rem",
           marginTop: "1rem",
-          paddingTop: "1rem",
+          padding: "0.5rem",
           borderTop: "1px solid var(--border)",
         }}
       >
