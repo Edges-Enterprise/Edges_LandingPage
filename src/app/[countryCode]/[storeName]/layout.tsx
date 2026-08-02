@@ -1,7 +1,7 @@
 // src/app/[countryCode]/[storeName]/layout.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState,use } from "react";
 import { getCountryConfig } from "@/config/countries";
 import { CountryProvider } from "@/providers/CountryProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
@@ -11,11 +11,11 @@ import "./store-theme.css";
 
 interface StoreLayoutProps {
   children: React.ReactNode;
-  params: { countryCode: string; storeName: string };
+  params: Promise<{ countryCode: string; storeName: string }>;
 }
 
 export default function StoreLayout({ children, params }: StoreLayoutProps) {
-  const { countryCode, storeName } = params;
+  const { countryCode, storeName } = use(params);
   const [config, setConfig] = useState<any>(null);
   const [brandColor, setBrandColor] = useState<string>("#C98A54");
   const [theme, setTheme] = useState<"light" | "dark">("light");

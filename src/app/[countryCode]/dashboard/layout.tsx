@@ -32,6 +32,7 @@ export default function DashboardLayout({
   const [brandColor, setBrandColor] = useState<string>("#C98A54");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [storeName, setStoreName] = useState<string>("Reseller");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Apply favicon
   useFavicon(logoUrl);
@@ -134,7 +135,12 @@ export default function DashboardLayout({
             background: "var(--bg, #0D0A08)",
           }}
         >
-          <DashboardSidebar countryCode={countryCode} storeName={storeName} />
+          <DashboardSidebar
+            countryCode={countryCode}
+            storeName={storeName}
+            isMobileOpen={isMobileMenuOpen}
+            onClose={() => setIsMobileMenuOpen(false)}
+          />
           <div
             className="dashboard-content"
             style={{ flex: 1, display: "flex", flexDirection: "column" }}
@@ -149,7 +155,11 @@ export default function DashboardLayout({
                 background: "var(--bg, #0D0A08)",
               }}
             >
-              <DashboardHeader user={user} countryCode={countryCode} />
+              <DashboardHeader
+                user={user}
+                countryCode={countryCode}
+                onMenuClick={() => setIsMobileMenuOpen(true)}
+              />
               <div
                 className="desktop-only"
                 style={{ display: "flex", flexShrink: 0 }}
