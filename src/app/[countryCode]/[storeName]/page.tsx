@@ -4,7 +4,6 @@ import { getCountryConfig } from "@/config/countries";
 import { CountryProvider } from "@/providers/CountryProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import StoreContent from "./StoreContent";
-import "@/app/reseller.css";
 import "./store-theme.css"; // We'll create this
 
 interface StorePageProps {
