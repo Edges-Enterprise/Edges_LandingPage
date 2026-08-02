@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { getCountryConfig } from "@/config/countries";
 import { CountryProvider } from "@/providers/CountryProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
+import { useFavicon } from "@/hooks/common/useFavicon";
+import { createClient } from "@/lib/supabase/client";
 import "./store-theme.css";
-import "@/app/reseller.css";
 
 interface StoreLayoutProps {
   children: React.ReactNode;
@@ -14,10 +15,14 @@ interface StoreLayoutProps {
 }
 
 export default function StoreLayout({ children, params }: StoreLayoutProps) {
-  const { countryCode } = params;
+  const { countryCode, storeName } = params;
   const [config, setConfig] = useState<any>(null);
   const [brandColor, setBrandColor] = useState<string>("#C98A54");
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [storeData, setStoreData] = useState<any>(null);
+
+  // Apply favicon
+  useFavicon(storeData?.application?.logo_url);
 
   useEffect(() => {
     const config = getCountryConfig(countryCode);
@@ -31,7 +36,10 @@ export default function StoreLayout({ children, params }: StoreLayoutProps) {
 
     // Load theme preference
     const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
-    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+      .matches
+      ? "dark"
+      : "light";
     setTheme(savedTheme || systemTheme);
 
     // Apply storefront theme class to body
@@ -40,13 +48,40 @@ export default function StoreLayout({ children, params }: StoreLayoutProps) {
 
     // Set brand color on root
     document.documentElement.style.setProperty("--brand-color", brandColor);
-    document.documentElement.style.setProperty("--brand-color-rgb", hexToRgb(brandColor));
+    document.documentElement.style.setProperty(
+      "--brand-color-rgb",
+      hexToRgb(brandColor),
+    );
+
+    // Fetch store data for favicon
+    const fetchStoreData = async () => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("global_reseller_applications")
+          .select("id, store_name, logo_url, brand_color")
+          .eq("store_slug", storeName)
+          .eq("application_status", "active")
+          .single();
+
+        if (!error && data) {
+          setStoreData({ application: data });
+          if (data.brand_color) {
+            setBrandColor(data.brand_color);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching store data:", error);
+      }
+    };
+
+    fetchStoreData();
 
     return () => {
       document.body.classList.remove("storefront-theme");
       document.body.removeAttribute("data-theme");
     };
-  }, [countryCode, brandColor, theme]);
+  }, [countryCode, brandColor, theme, storeName]);
 
   const hexToRgb = (hex: string) => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);

@@ -1,4 +1,3 @@
-
 // src/app/[countryCode]/dashboard/layout.tsx
 "use client";
 
@@ -11,6 +10,7 @@ import ThemeToggle from "@/components/reseller/layout/ThemeToggle";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { CountryProvider } from "@/providers/CountryProvider";
 import { getCountryConfig } from "@/config/countries";
+import { useFavicon } from "@/hooks/common/useFavicon";
 import "./dashboard-theme.css";
 
 interface DashboardLayoutProps {
@@ -30,9 +30,11 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null);
   const [countryConfig, setCountryConfig] = useState<any>(null);
   const [brandColor, setBrandColor] = useState<string>("#C98A54");
-  const [storeName, setStoreName] = useState<string>("Reseller");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [storeName, setStoreName] = useState<string>("Reseller");
+
+  // Apply favicon
+  useFavicon(logoUrl);
 
   useEffect(() => {
     const checkAuthAndLoadData = async () => {
@@ -55,26 +57,28 @@ export default function DashboardLayout({
           { p_user_id: user.id },
         );
 
-        if (dashboardData && dashboardData.brand_color) {
-          setBrandColor(dashboardData.brand_color);
-        }
+        if (dashboardData) {
+          if (dashboardData.brand_color) {
+            setBrandColor(dashboardData.brand_color);
+          }
 
-        if (dashboardData?.store_name) {
-          setStoreName(dashboardData.store_name);
-        } else if (dashboardData?.store_slug) {
-          setStoreName(
-            dashboardData.store_slug
-              .split("-")
-              .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-              .join(" "),
-          );
-        }
+          if (dashboardData.logo_url) {
+            setLogoUrl(dashboardData.logo_url);
+          }
 
-        if (dashboardData?.logo_url) {
-          setLogoUrl(dashboardData.logo_url);
+          if (dashboardData.store_name) {
+            setStoreName(dashboardData.store_name);
+          } else if (dashboardData.store_slug) {
+            setStoreName(
+              dashboardData.store_slug
+                .split("-")
+                .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(" "),
+            );
+          }
         }
       } catch (error) {
-        console.error("Error loading brand color:", error);
+        console.error("Error loading data:", error);
       }
 
       setLoading(false);
@@ -83,48 +87,12 @@ export default function DashboardLayout({
     checkAuthAndLoadData();
   }, [countryCode, router, supabase]);
 
-  // Swap the tab title/description/favicon to the reseller's own store
-  // branding while inside the dashboard, and restore the site defaults on
-  // unmount so other pages (marketing site, storefront) aren't affected.
+  // Update document title with store name
   useEffect(() => {
-    if (loading) return;
-
-    const iconLink = document.querySelector(
-      'link[rel="icon"]',
-    ) as HTMLLinkElement | null;
-    const previousHref = iconLink?.getAttribute("href") ?? null;
-    const previousTitle = document.title;
-
-    const descriptionTag = document.querySelector('meta[name="description"]');
-    const previousDescription = descriptionTag?.getAttribute("content") ?? null;
-
-    document.title = `${storeName} Dashboard`;
-
-    if (descriptionTag) {
-      descriptionTag.setAttribute("content", `${storeName} reseller dashboard`);
+    if (!loading && storeName) {
+      document.title = `${storeName} Dashboard`;
     }
-
-    if (logoUrl) {
-      let tag = iconLink;
-      if (!tag) {
-        tag = document.createElement("link");
-        tag.setAttribute("rel", "icon");
-        document.head.appendChild(tag);
-      }
-      // Cache-bust so browsers that only refetch on href change pick this up
-      tag.setAttribute("href", `${logoUrl}${logoUrl.includes("?") ? "&" : "?"}v=dashboard`);
-    }
-
-    return () => {
-      document.title = previousTitle;
-      if (iconLink && previousHref) {
-        iconLink.setAttribute("href", previousHref);
-      }
-      if (descriptionTag && previousDescription) {
-        descriptionTag.setAttribute("content", previousDescription);
-      }
-    };
-  }, [loading, storeName, logoUrl]);
+  }, [loading, storeName]);
 
   if (loading) {
     return (
@@ -141,8 +109,8 @@ export default function DashboardLayout({
           style={{
             width: 40,
             height: 40,
-            border: "4px solid var(--border)",
-            borderTop: "4px solid var(--brand-color)",
+            border: "4px solid rgba(201,138,84,0.2)",
+            borderTop: "4px solid var(--brand-color, #C98A54)",
             borderRadius: "50%",
             animation: "spin 1s linear infinite",
           }}
@@ -163,15 +131,10 @@ export default function DashboardLayout({
           style={{
             display: "flex",
             minHeight: "100vh",
-            background: "var(--bg)",
+            background: "var(--bg, #0D0A08)",
           }}
         >
-          <DashboardSidebar
-            countryCode={countryCode}
-            storeName={storeName}
-            isMobileOpen={isMobileMenuOpen}
-            onClose={() => setIsMobileMenuOpen(false)}
-          />
+          <DashboardSidebar countryCode={countryCode} storeName={storeName} />
           <div
             className="dashboard-content"
             style={{ flex: 1, display: "flex", flexDirection: "column" }}
@@ -182,16 +145,15 @@ export default function DashboardLayout({
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: "0.5rem 1.5rem",
-                borderBottom: "1px solid var(--border)",
+                borderBottom: "1px solid var(--border, rgba(201,138,84,0.12))",
                 background: "var(--bg, #0D0A08)",
               }}
             >
-              <DashboardHeader
-                user={user}
-                countryCode={countryCode}
-                onMenuClick={() => setIsMobileMenuOpen((open) => !open)}
-              />
-              <div className="desktop-only" style={{ display: "flex", flexShrink: 0 }}>
+              <DashboardHeader user={user} countryCode={countryCode} />
+              <div
+                className="desktop-only"
+                style={{ display: "flex", flexShrink: 0 }}
+              >
                 <ThemeToggle />
               </div>
             </div>
@@ -223,4 +185,3 @@ export default function DashboardLayout({
     </ThemeProvider>
   );
 }
-

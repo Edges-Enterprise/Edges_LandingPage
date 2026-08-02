@@ -7,17 +7,17 @@
 /* Force storefront theme on body when on store pages */
 body.storefront-theme {
   /* Backgrounds */
-  --bg: #0D0A08 !important;
-  --bg2: #16110D !important;
-  --bg3: #1F1813 !important;
-  --bg4: #2A211A !important;
+   --bg: color-mix(in srgb, var(--brand-color) 6%, #0A0A0A 94%) !important;
+  --bg2: color-mix(in srgb, var(--brand-color) 10%, #0A0A0A 90%) !important;
+  --bg3: color-mix(in srgb, var(--brand-color) 14%, #0A0A0A 86%) !important;
+  --bg4: color-mix(in srgb, var(--brand-color) 18%, #0A0A0A 82%) !important;
   
   /* Cards and surfaces */
-  --card: #16110D !important;
-  --card2: #1F1813 !important;
-  --card3: #2A211A !important;
+  --card: color-mix(in srgb, var(--brand-color) 8%, #0A0A0A 92%) !important;
+  --card2: color-mix(in srgb, var(--brand-color) 12%, #0A0A0A 88%) !important;
+  --card3: color-mix(in srgb, var(--brand-color) 16%, #0A0A0A 84%) !important;
   
-  /* Borders */
+  /* Borders - use brand color with opacity */
   --border: rgba(var(--brand-color-rgb), 0.12) !important;
   --border2: rgba(var(--brand-color-rgb), 0.25) !important;
   --border3: rgba(var(--brand-color-rgb), 0.45) !important;
@@ -48,14 +48,14 @@ body.storefront-theme {
 
 /* Light theme for storefront */
 body.storefront-theme[data-theme="light"] {
-  --bg: #FDF8F3 !important;
-  --bg2: #F5EDE3 !important;
-  --bg3: #EDE3D7 !important;
-  --bg4: #E5D9CB !important;
+--bg: color-mix(in srgb, var(--brand-color) 5%, #FDFDFC 95%) !important;
+  --bg2: color-mix(in srgb, var(--brand-color) 9%, #FDFDFC 91%) !important;
+  --bg3: color-mix(in srgb, var(--brand-color) 13%, #FDFDFC 87%) !important;
+  --bg4: color-mix(in srgb, var(--brand-color) 17%, #FDFDFC 83%) !important;
   
   --card: #FFFFFF !important;
-  --card2: #FAF5ED !important;
-  --card3: #F5EDE3 !important;
+  --card2: color-mix(in srgb, var(--brand-color) 6%, #FDFDFC 94%) !important;
+  --card3: color-mix(in srgb, var(--brand-color) 10%, #FDFDFC 90%) !important;
   
   --border: rgba(var(--brand-color-rgb), 0.15) !important;
   --border2: rgba(var(--brand-color-rgb), 0.3) !important;
