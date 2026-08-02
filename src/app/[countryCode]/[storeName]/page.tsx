@@ -5,6 +5,7 @@ import { CountryProvider } from "@/providers/CountryProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import StoreContent from "./StoreContent";
 import "@/app/reseller.css";
+import "./store-theme.css"; // We'll create this
 
 interface StorePageProps {
   params: Promise<{ countryCode: string; storeName: string }>;
@@ -107,6 +108,7 @@ async function getTranslations(language: string) {
         orderPlaced: "Order Placed Successfully!",
         orderNumber: "Order #",
         thankYou: "Thank you for your order!",
+        continueShopping: "Continue Shopping",
         productNotFound: "Product not found",
         storeNotFound: "Store not found",
         storeOffline: "Store is currently offline",
@@ -183,8 +185,11 @@ export default async function StorePage({ params }: StorePageProps) {
   const language = config.language.code || "en";
   const translations = await getTranslations(language);
 
+  // Get brand color from application or use default
+  const brandColor = storeData.application.brand_color || "#C98A54";
+
   return (
-    <ThemeProvider brandColor={storeData.application.brand_color || "#C98A54"}>
+    <ThemeProvider brandColor={brandColor}>
       <CountryProvider config={config}>
         <StoreContent
           storeData={storeData}

@@ -9,8 +9,9 @@ import StoreProducts from "./StoreProducts";
 import StoreCart from "./StoreCart";
 import StoreCheckout from "./StoreCheckout";
 import StoreFooter from "./StoreFooter";
-import { CartItem, StoreProduct } from "@/type/reseller/storefront";
+import { CartItem, StoreProduct } from "@/types/reseller/storefront";
 import { CountryConfig } from "@/config/countries";
+import { ThemeProvider } from "@/providers/ThemeProvider";
 
 interface StoreContentProps {
   storeData: any;
@@ -30,6 +31,17 @@ export default function StoreContent({
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedNetwork, setSelectedNetwork] = useState<string>("all");
+  const [brandColor, setBrandColor] = useState<string>(
+    storeData.application.brand_color || "#C98A54",
+  );
+
+  // Load brand color from localStorage if available
+  useEffect(() => {
+    const savedBrandColor = localStorage.getItem("brandColor");
+    if (savedBrandColor) {
+      setBrandColor(savedBrandColor);
+    }
+  }, []);
 
   // Load cart from localStorage
   useEffect(() => {
@@ -45,7 +57,10 @@ export default function StoreContent({
 
   // Save cart to localStorage
   useEffect(() => {
-    localStorage.setItem(`cart_${storeData.application.id}`, JSON.stringify(cart));
+    localStorage.setItem(
+      `cart_${storeData.application.id}`,
+      JSON.stringify(cart),
+    );
   }, [cart, storeData.application.id]);
 
   const addToCart = (product: StoreProduct) => {
@@ -55,7 +70,7 @@ export default function StoreContent({
         return prev.map((item) =>
           item.product_id === product.id
             ? { ...item, quantity: item.quantity + 1 }
-            : item
+            : item,
         );
       }
       return [
@@ -83,8 +98,8 @@ export default function StoreContent({
     }
     setCart((prev) =>
       prev.map((item) =>
-        item.product_id === productId ? { ...item, quantity } : item
-      )
+        item.product_id === productId ? { ...item, quantity } : item,
+      ),
     );
   };
 
@@ -92,7 +107,10 @@ export default function StoreContent({
     setCart([]);
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const cartTotal = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
 
   const handleCheckout = () => {
     setShowCart(false);
@@ -104,80 +122,76 @@ export default function StoreContent({
     setShowCheckout(false);
   };
 
-  const filteredProducts = storeData.products.filter((product: StoreProduct) => {
-    if (selectedCategory !== "all" && product.category !== selectedCategory) {
-      return false;
-    }
-    if (selectedNetwork !== "all" && product.network !== selectedNetwork) {
-      return false;
-    }
-    return true;
-  });
+  const filteredProducts = storeData.products.filter(
+    (product: StoreProduct) => {
+      if (selectedCategory !== "all" && product.category !== selectedCategory) {
+        return false;
+      }
+      if (selectedNetwork !== "all" && product.network !== selectedNetwork) {
+        return false;
+      }
+      return true;
+    },
+  );
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
-      <StoreHeader
-        storeData={storeData}
-        cartCount={cart.length}
-        cartTotal={cartTotal}
-        onCartClick={() => setShowCart(true)}
-        translations={t}
-        config={config}
-      />
-
-      <main style={{ padding: "2rem 5%", maxWidth: 1200, margin: "0 auto" }}>
-        <StoreHero
+    <ThemeProvider brandColor={brandColor}>
+      <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+        <StoreHeader
           storeData={storeData}
-          translations={t}
-          config={config}
-        />
-
-        <StoreProducts
-          products={filteredProducts}
-          categories={storeData.categories}
-          networks={storeData.networks}
-          selectedCategory={selectedCategory}
-          selectedNetwork={selectedNetwork}
-          onCategoryChange={setSelectedCategory}
-          onNetworkChange={setSelectedNetwork}
-          onAddToCart={addToCart}
-          translations={t}
-          config={config}
-        />
-      </main>
-
-      <StoreFooter
-        storeData={storeData}
-        translations={t}
-        config={config}
-      />
-
-      {/* Cart Drawer */}
-      {showCart && (
-        <StoreCart
-          cart={cart}
+          cartCount={cart.length}
           cartTotal={cartTotal}
-          onClose={() => setShowCart(false)}
-          onRemove={removeFromCart}
-          onUpdateQuantity={updateQuantity}
-          onCheckout={handleCheckout}
+          onCartClick={() => setShowCart(true)}
           translations={t}
           config={config}
         />
-      )}
 
-      {/* Checkout Modal */}
-      {showCheckout && (
-        <StoreCheckout
-          cart={cart}
-          cartTotal={cartTotal}
-          resellerId={storeData.application.id}
-          onClose={() => setShowCheckout(false)}
-          onOrderPlaced={handleOrderPlaced}
-          translations={t}
-          config={config}
-        />
-      )}
-    </div>
+        <main style={{ padding: "2rem 5%", maxWidth: 1200, margin: "0 auto" }}>
+          <StoreHero storeData={storeData} translations={t} config={config} />
+
+          <StoreProducts
+            products={filteredProducts}
+            categories={storeData.categories}
+            networks={storeData.networks}
+            selectedCategory={selectedCategory}
+            selectedNetwork={selectedNetwork}
+            onCategoryChange={setSelectedCategory}
+            onNetworkChange={setSelectedNetwork}
+            onAddToCart={addToCart}
+            translations={t}
+            config={config}
+          />
+        </main>
+
+        <StoreFooter storeData={storeData} translations={t} config={config} />
+
+        {/* Cart Drawer */}
+        {showCart && (
+          <StoreCart
+            cart={cart}
+            cartTotal={cartTotal}
+            onClose={() => setShowCart(false)}
+            onRemove={removeFromCart}
+            onUpdateQuantity={updateQuantity}
+            onCheckout={handleCheckout}
+            translations={t}
+            config={config}
+          />
+        )}
+
+        {/* Checkout Modal */}
+        {showCheckout && (
+          <StoreCheckout
+            cart={cart}
+            cartTotal={cartTotal}
+            resellerId={storeData.application.id}
+            onClose={() => setShowCheckout(false)}
+            onOrderPlaced={handleOrderPlaced}
+            translations={t}
+            config={config}
+          />
+        )}
+      </div>
+    </ThemeProvider>
   );
 }

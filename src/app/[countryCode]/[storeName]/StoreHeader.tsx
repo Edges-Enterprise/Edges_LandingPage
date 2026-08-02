@@ -2,8 +2,9 @@
 "use client";
 
 import { useState } from "react";
-import { Store, ShoppingCart, Menu, X, Phone, Mail } from "lucide-react";
+import { Store, ShoppingCart, Menu, X, Phone, Mail, Moon, Sun } from "lucide-react";
 import Link from "next/link";
+import { useTheme } from "@/providers/ThemeProvider";
 
 interface StoreHeaderProps {
   storeData: any;
@@ -23,6 +24,7 @@ export default function StoreHeader({
   config,
 }: StoreHeaderProps) {
   const t = translations;
+  const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const currencySymbol = config.currencySymbol || "₦";
 
@@ -35,7 +37,7 @@ export default function StoreHeader({
         background: "var(--bg)",
         borderBottom: "1px solid var(--border)",
         backdropFilter: "blur(12px)",
-        background: "rgba(var(--bg), 0.92)",
+        // background: "rgba(var(--bg), 0.92)",
       }}
     >
       <div
@@ -135,6 +137,35 @@ export default function StoreHeader({
               {storeData.settings.contact_phone}
             </a>
           )}
+
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+            style={{
+              background: "transparent",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              width: 36,
+              height: 36,
+              color: "var(--muted)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--brand-color)";
+              e.currentTarget.style.color = "var(--text)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--border)";
+              e.currentTarget.style.color = "var(--muted)";
+            }}
+          >
+            {theme === "light" ? <Moon size={17} /> : <Sun size={17} />}
+          </button>
 
           <button
             onClick={onCartClick}
@@ -244,6 +275,25 @@ export default function StoreHeader({
               {storeData.settings.contact_phone}
             </a>
           )}
+          <button
+            onClick={() => {
+              toggleTheme();
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.5rem 0",
+              background: "transparent",
+              border: "none",
+              color: "var(--text)",
+              cursor: "pointer",
+              width: "100%",
+            }}
+          >
+            {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+            {theme === "light" ? "Dark Mode" : "Light Mode"}
+          </button>
           <button
             onClick={() => {
               setIsMobileMenuOpen(false);

@@ -1,0 +1,179 @@
+/* src/app/[countryCode]/[storeName]/store-theme.css */
+
+/* ============================================
+   STOREFRONT THEME - Uses dashboard theme styles
+   ============================================ */
+
+/* Force storefront theme on body when on store pages */
+body.storefront-theme {
+  /* Backgrounds */
+  --bg: #0D0A08 !important;
+  --bg2: #16110D !important;
+  --bg3: #1F1813 !important;
+  --bg4: #2A211A !important;
+  
+  /* Cards and surfaces */
+  --card: #16110D !important;
+  --card2: #1F1813 !important;
+  --card3: #2A211A !important;
+  
+  /* Borders */
+  --border: rgba(var(--brand-color-rgb), 0.12) !important;
+  --border2: rgba(var(--brand-color-rgb), 0.25) !important;
+  --border3: rgba(var(--brand-color-rgb), 0.45) !important;
+  
+  /* Text colors */
+  --text: #F5F0EB !important;
+  --text2: #D5CFC5 !important;
+  --muted: #A0958A !important;
+  --dim: #6B5F55 !important;
+  
+  /* Accent - uses brand color */
+  --accent: var(--brand-color) !important;
+  --accent-lt: color-mix(in srgb, var(--brand-color) 70%, white) !important;
+  --accent-dark: color-mix(in srgb, var(--brand-color) 80%, black) !important;
+  --accent-bg: rgba(var(--brand-color-rgb), 0.08) !important;
+  --accent-bg-hover: rgba(var(--brand-color-rgb), 0.15) !important;
+  
+  /* Status colors */
+  --green: #6EBD8A !important;
+  --red: #EF4444 !important;
+  --yellow: #F59E0B !important;
+  --blue: #3B82F6 !important;
+  
+  /* Shadows */
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Light theme for storefront */
+body.storefront-theme[data-theme="light"] {
+  --bg: #FDF8F3 !important;
+  --bg2: #F5EDE3 !important;
+  --bg3: #EDE3D7 !important;
+  --bg4: #E5D9CB !important;
+  
+  --card: #FFFFFF !important;
+  --card2: #FAF5ED !important;
+  --card3: #F5EDE3 !important;
+  
+  --border: rgba(var(--brand-color-rgb), 0.15) !important;
+  --border2: rgba(var(--brand-color-rgb), 0.3) !important;
+  --border3: rgba(var(--brand-color-rgb), 0.5) !important;
+  
+  --text: #1A1410 !important;
+  --text2: #3D322A !important;
+  --muted: #6B5F55 !important;
+  --dim: #A0958A !important;
+  
+  --accent: var(--brand-color) !important;
+  --accent-lt: color-mix(in srgb, var(--brand-color) 60%, white) !important;
+  --accent-dark: color-mix(in srgb, var(--brand-color) 80%, black) !important;
+  --accent-bg: rgba(var(--brand-color-rgb), 0.08) !important;
+  --accent-bg-hover: rgba(var(--brand-color-rgb), 0.15) !important;
+  
+  --green: #2F7D4F !important;
+  --red: #DC2626 !important;
+  --yellow: #D97706 !important;
+  --blue: #2563EB !important;
+  
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ============================================
+   FORCE STOREFRONT BACKGROUND ON ALL ELEMENTS
+   ============================================ */
+
+body.storefront-theme,
+body.storefront-theme div,
+body.storefront-theme section,
+body.storefront-theme main,
+body.storefront-theme header,
+body.storefront-theme footer,
+body.storefront-theme article,
+body.storefront-theme aside {
+  background-color: var(--bg) !important;
+}
+
+body.storefront-theme .card,
+body.storefront-theme [style*="background: var(--card)"] {
+  background-color: var(--card) !important;
+}
+
+/* ============================================
+   STOREFRONT SCROLLBAR
+   ============================================ */
+
+body.storefront-theme ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+body.storefront-theme ::-webkit-scrollbar-track {
+  background: var(--bg2) !important;
+}
+
+body.storefront-theme ::-webkit-scrollbar-thumb {
+  background: var(--brand-color) !important;
+  border-radius: 3px;
+}
+
+body.storefront-theme ::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-dark) !important;
+}
+
+/* ============================================
+   STOREFRONT SELECTION
+   ============================================ */
+
+body.storefront-theme ::selection {
+  background: var(--brand-color) !important;
+  color: white !important;
+}
+
+/* ============================================
+   STOREFRONT FOCUS STATES
+   ============================================ */
+
+body.storefront-theme :focus-visible {
+  outline: 2px solid var(--brand-color) !important;
+  outline-offset: 2px !important;
+}
+
+/* ============================================
+   STOREFRONT GLOW EFFECTS
+   ============================================ */
+
+body.storefront-theme .anim-glow {
+  animation: store-glow 3s ease-in-out infinite;
+}
+
+@keyframes store-glow {
+  0%, 100% { box-shadow: 0 0 18px rgba(var(--brand-color-rgb), 0.2); }
+  50%       { box-shadow: 0 0 38px rgba(var(--brand-color-rgb), 0.5); }
+}
+
+/* ============================================
+   STOREFRONT TEXT SHIMMER
+   ============================================ */
+
+body.storefront-theme .text-shimmer {
+  background: linear-gradient(
+    90deg, 
+    var(--accent-lt) 0%, 
+    var(--text) 40%, 
+    var(--accent) 65%, 
+    var(--accent-lt) 100%
+  ) !important;
+  background-size: 200% auto !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  animation: store-shimmer 4s linear infinite;
+}
+
+@keyframes store-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
