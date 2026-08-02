@@ -1,258 +1,312 @@
 // src/app/[countryCode]/dashboard/store/StorePreview.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { Eye, ShoppingBag, User, Search, Menu, X } from "lucide-react";
-// import { createServerClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils/helpers";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { Store, ShoppingBag, Users, Phone, Mail, MapPin } from "lucide-react";
+import { CountryConfig } from "@/config/countries";
+import { StoreSettings } from "@/types/reseller/store";
 
 interface StorePreviewProps {
-  countryCode: string;
+  application: {
+    id: string;
+    store_name: string;
+    store_slug: string;
+    brand_color: string;
+    logo_url?: string;
+    country_code: string;
+  };
+  settings: StoreSettings;
+  config: CountryConfig;
+  translations: any;
 }
 
-export function StorePreview({ countryCode }: StorePreviewProps) {
-  const [storeData, setStoreData] = useState<{
-    store_name: string;
-    logo_url: string | null;
-    theme_settings: any;
-    welcome_message: string;
-  } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
+export default function StorePreview({
+  application,
+  settings,
+  config,
+  translations,
+}: StorePreviewProps) {
+  const t = translations;
+  const currencySymbol = config.currencySymbol || "₦";
 
-  useEffect(() => {
-    fetchStoreData();
-  }, []);
-
-  const fetchStoreData = async () => {
-    setIsLoading(true);
-
-    try {
-      const supabase = createAdminClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      const { data: application, error: appError } = await supabase
-        .from("global_reseller_applications")
-        .select("store_name, logo_url, theme_settings, welcome_message")
-        .eq("auth_user_id", user.id)
-        .single();
-
-      if (appError) {
-        setIsLoading(false);
-        return;
-      }
-
-      setStoreData(application);
-    } catch (err) {
-      console.error("Error fetching store data:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
-        <div className="bg-gray-200 dark:bg-gray-700 rounded-xl h-96" />
-      </div>
-    );
-  }
-
-  if (!storeData) {
-    return (
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          Store Preview
-        </h3>
-        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-12 text-center">
-          <ShoppingBag className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-400">
-            Configure your store to see a preview
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const theme = storeData.theme_settings || {
-    primary_color: "#C98A54",
-    secondary_color: "#ab6c36",
-    background_color: "#FFFFFF",
-    text_color: "#111827",
-    font_family: "Inter",
-    button_style: "rounded",
-  };
-
-  const sampleProducts = [
-    { id: 1, name: "MTN 1GB Data Plan", price: "₦500", category: "Data" },
-    { id: 2, name: "Airtel 2GB Data Plan", price: "₦800", category: "Data" },
-    { id: 3, name: "Glo 500MB Data Plan", price: "₦300", category: "Data" },
+  // Mock products for preview
+  const mockProducts = [
+    { id: 1, name: "MTN 1GB", price: 500, network: "MTN", category: "Data" },
+    { id: 2, name: "Airtel 2GB", price: 850, network: "Airtel", category: "Data" },
+    { id: 3, name: "Glo 500MB", price: 300, network: "Glo", category: "Data" },
+    { id: 4, name: "Airtime Top-up", price: 100, network: "All Networks", category: "Airtime" },
   ];
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        Store Preview
-      </h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-        See how your store will look to customers
-      </p>
-
-      <div
-        className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm"
+      <h2
         style={{
-          backgroundColor: theme.background_color,
-          color: theme.text_color,
-          fontFamily: theme.font_family,
+          fontFamily: "'Playfair Display', serif",
+          fontSize: "1.1rem",
+          fontWeight: 700,
+          marginBottom: "0.25rem",
         }}
       >
-        {/* Header */}
-        <header
-          className="p-4 border-b"
-          style={{ borderColor: theme.secondary_color + "40" }}
+        {t?.preview || "Store Preview"}
+      </h2>
+      <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginBottom: "1.5rem" }}>
+        {t?.previewDescription || "This is how your store will look to customers"}
+      </p>
+
+      {/* Store Preview Card */}
+      <div
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 16,
+          overflow: "hidden",
+          maxWidth: 600,
+          margin: "0 auto",
+        }}
+      >
+        {/* Store Header */}
+        <div
+          style={{
+            padding: "1.5rem 1.5rem 1rem",
+            background: `linear-gradient(135deg, ${application.brand_color}15, ${application.brand_color}05)`,
+            borderBottom: "1px solid var(--border)",
+            textAlign: "center",
+          }}
         >
-          <div className="flex items-center justify-between max-w-4xl mx-auto">
-            <div className="flex items-center gap-3">
-              {storeData.logo_url ? (
-                <img
-                  src={storeData.logo_url}
-                  alt="Store Logo"
-                  className="h-10 w-10 object-contain rounded"
-                />
-              ) : (
-                <div
-                  className="h-10 w-10 rounded flex items-center justify-center font-bold text-white text-sm"
-                  style={{ backgroundColor: theme.primary_color }}
-                >
-                  {storeData.store_name?.charAt(0) || "S"}
-                </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "1rem",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: application.logo_url 
+                  ? `url(${application.logo_url}) center/cover` 
+                  : application.brand_color,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                flexShrink: 0,
+              }}
+            >
+              {!application.logo_url && (
+                <Store size={24} style={{ color: "#FDF8F3" }} />
               )}
-              <span
-                className="font-bold text-lg"
-                style={{ color: theme.primary_color }}
-              >
-                {storeData.store_name || "My Store"}
-              </span>
             </div>
-            <div className="hidden md:flex items-center gap-6 text-sm">
-              <span>Home</span>
-              <span>Products</span>
-              <span>About</span>
-              <span>Contact</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <Search size={20} className="text-gray-400" />
-              <User size={20} className="text-gray-400" />
-              <button
-                className="md:hidden"
-                onClick={() => setShowMobileMenu(!showMobileMenu)}
+            <div>
+              <h3
+                style={{
+                  fontFamily: "'Playfair Display', serif",
+                  fontSize: "1.2rem",
+                  fontWeight: 700,
+                  color: "var(--text)",
+                  margin: 0,
+                }}
               >
-                {showMobileMenu ? <X size={24} /> : <Menu size={24} />}
-              </button>
+                {application.store_name || "My Store"}
+              </h3>
+              <p style={{ fontSize: "0.75rem", color: "var(--muted)", margin: 0 }}>
+                {settings.welcome_message || "Welcome to our store!"}
+              </p>
             </div>
           </div>
 
-          {/* Mobile Menu */}
-          {showMobileMenu && (
-            <div className="md:hidden mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-col gap-3 text-sm">
-              <span>Home</span>
-              <span>Products</span>
-              <span>About</span>
-              <span>Contact</span>
+          {/* Store Stats */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: "0.5rem",
+              marginTop: "0.75rem",
+            }}
+          >
+            <div style={{ textAlign: "center" }}>
+              <p style={{ fontSize: "0.7rem", color: "var(--dim)", margin: 0, textTransform: "uppercase" }}>
+                {t?.products || "Products"}
+              </p>
+              <p style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text)", margin: 0 }}>
+                24
+              </p>
             </div>
-          )}
-        </header>
-
-        {/* Hero */}
-        <div
-          className="p-8 text-center"
-          style={{ backgroundColor: theme.primary_color + "10" }}
-        >
-          <h1
-            className="text-2xl font-bold mb-2"
-            style={{ color: theme.primary_color }}
-          >
-            {storeData.welcome_message || `Welcome to ${storeData.store_name}`}
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            Your trusted source for data bundles and airtime
-          </p>
-          <button
-            className={cn(
-              "mt-4 px-6 py-2 text-white text-sm font-medium",
-              theme.button_style === "rounded" && "rounded-lg",
-              theme.button_style === "square" && "rounded-none",
-              theme.button_style === "pill" && "rounded-full",
-            )}
-            style={{ backgroundColor: theme.primary_color }}
-          >
-            Browse Products
-          </button>
+            <div style={{ textAlign: "center" }}>
+              <p style={{ fontSize: "0.7rem", color: "var(--dim)", margin: 0, textTransform: "uppercase" }}>
+                {t?.customers || "Customers"}
+              </p>
+              <p style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text)", margin: 0 }}>
+                128
+              </p>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <p style={{ fontSize: "0.7rem", color: "var(--dim)", margin: 0, textTransform: "uppercase" }}>
+                {t?.rating || "Rating"}
+              </p>
+              <p style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text)", margin: 0 }}>
+                ★ 4.8
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Products */}
-        <div className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Popular Plans</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {sampleProducts.map((product) => (
+        {/* Products Grid */}
+        <div style={{ padding: "1rem" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+              gap: "0.75rem",
+            }}
+          >
+            {mockProducts.map((product) => (
               <div
                 key={product.id}
-                className="p-4 rounded-lg border"
-                style={{ borderColor: theme.secondary_color + "40" }}
+                style={{
+                  background: "var(--bg2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "1rem",
+                  textAlign: "center",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(var(--brand-color-rgb), 0.3)";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--border)";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
               >
-                <h4 className="font-medium">{product.name}</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {product.category}
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: `${application.brand_color}15`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    margin: "0 auto 0.5rem",
+                  }}
+                >
+                  <ShoppingBag size={16} style={{ color: application.brand_color }} />
+                </div>
+                <p
+                  style={{
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    color: "var(--text)",
+                    margin: 0,
+                  }}
+                >
+                  {product.name}
+                </p>
+                <p style={{ fontSize: "0.65rem", color: "var(--dim)", margin: "0.25rem 0" }}>
+                  {product.network}
                 </p>
                 <p
-                  className="text-lg font-bold mt-2"
-                  style={{ color: theme.primary_color }}
+                  style={{
+                    fontSize: "0.9rem",
+                    fontWeight: 700,
+                    color: "var(--brand-color)",
+                    margin: 0,
+                  }}
                 >
-                  {product.price}
+                  {currencySymbol}{product.price.toLocaleString()}
                 </p>
-                <button
-                  className={cn(
-                    "mt-2 px-4 py-1.5 text-white text-sm w-full",
-                    theme.button_style === "rounded" && "rounded-lg",
-                    theme.button_style === "square" && "rounded-none",
-                    theme.button_style === "pill" && "rounded-full",
-                  )}
-                  style={{ backgroundColor: theme.primary_color }}
-                >
-                  Buy Now
-                </button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Footer */}
-        <footer
-          className="p-4 text-center text-sm border-t"
+        {/* Store Footer */}
+        <div
           style={{
-            borderColor: theme.secondary_color + "40",
-            backgroundColor: theme.background_color,
+            padding: "0.75rem 1.5rem",
+            background: "var(--bg2)",
+            borderTop: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "0.5rem",
           }}
         >
-          <p className="text-gray-500 dark:text-gray-400">
-            &copy; {new Date().getFullYear()} {storeData.store_name}. All rights
-            reserved.
-          </p>
-        </footer>
+          <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.7rem", color: "var(--muted)" }}>
+            {settings.contact_email && (
+              <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                <Mail size={12} />
+                {settings.contact_email}
+              </span>
+            )}
+            {settings.contact_phone && (
+              <span style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                <Phone size={12} />
+                {settings.contact_phone}
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <span
+              style={{
+                fontSize: "0.6rem",
+                fontWeight: 600,
+                color: settings.store_status === "active" ? "#6EBD8A" : "#F59E0B",
+                background: settings.store_status === "active" 
+                  ? "rgba(110,189,138,0.12)" 
+                  : "rgba(245,158,11,0.12)",
+                padding: "2px 10px",
+                borderRadius: 100,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              {settings.store_status === "active" 
+                ? t?.active || "Active" 
+                : settings.store_status === "maintenance" 
+                  ? t?.maintenance || "Maintenance" 
+                  : t?.inactive || "Inactive"}
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-        <p>💡 This is a preview. Your actual store may look different.</p>
-        <p>📱 The store is fully responsive and works on all devices.</p>
+      {/* View Store Button */}
+      <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
+        <a
+          href={`/${application.country_code}/${application.store_slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.6rem 1.5rem",
+            background: "var(--brand-color)",
+            color: "#FDF8F3",
+            borderRadius: 8,
+            textDecoration: "none",
+            fontWeight: 600,
+            fontSize: "0.9rem",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = "0.85";
+            e.currentTarget.style.transform = "translateY(-2px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+        >
+          {t?.viewStore || "View Live Store"} →
+        </a>
       </div>
     </div>
   );

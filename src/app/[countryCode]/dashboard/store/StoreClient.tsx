@@ -2,131 +2,242 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Store,
-  Palette,
-  Image,
-  Globe,
-  Settings,
-  Eye,
-  Share2,
-} from "lucide-react";
-import { StoreSettings } from "./StoreSettings";
-import { BrandingUploader } from "./BrandingUploader";
-import { ThemeSelector } from "./ThemeSelector";
-import { StorePreview } from "./StorePreview";
-import { StoreUrlGenerator } from "./StoreUrlGenerator";
-import { cn } from "@/lib/utils/helpers";
+import { Store, Palette, Eye, Save } from "lucide-react";
+import StoreSettings from "./StoreSettings";
+import BrandingSettings from "./BrandingSettings";
+import ThemeSettings from "./ThemeSettings";
+import StorePreview from "./StorePreview";
+import { CountryConfig } from "@/config/countries";
+import { StoreData } from "@/types/reseller/store";
 
 interface StoreClientProps {
   countryCode: string;
+  config: CountryConfig;
+  translations: any;
+  storeData: StoreData;
 }
 
-type StoreTab = "settings" | "branding" | "theme" | "preview" | "url";
+type TabType = "settings" | "branding" | "theme" | "preview";
 
-export function StoreClient({ countryCode }: StoreClientProps) {
-  const [activeTab, setActiveTab] = useState<StoreTab>("settings");
+export default function StoreClient({
+  countryCode,
+  config,
+  translations,
+  storeData,
+}: StoreClientProps) {
+  const t = translations;
+  const [activeTab, setActiveTab] = useState<TabType>("settings");
+  const [showSaved, setShowSaved] = useState(false);
+  const [data, setData] = useState(storeData);
 
-  const tabs: Array<{
-    id: StoreTab;
-    label: string;
-    icon: React.ReactNode;
-  }> = [
-    {
-      id: "settings",
-      label: "Settings",
-      icon: <Store size={18} />,
-    },
-    {
-      id: "branding",
-      label: "Branding",
-      icon: <Image size={18} />,
-    },
-    {
-      id: "theme",
-      label: "Theme",
-      icon: <Palette size={18} />,
-    },
-    {
-      id: "preview",
-      label: "Preview",
-      icon: <Eye size={18} />,
-    },
-    {
-      id: "url",
-      label: "Store URL",
-      icon: <Globe size={18} />,
-    },
+  const tabs = [
+    { id: "settings" as TabType, label: t?.storeSettings || "Settings", icon: Store },
+    { id: "branding" as TabType, label: t?.branding || "Branding", icon: Palette },
+    { id: "theme" as TabType, label: t?.theme || "Theme", icon: Eye },
+    { id: "preview" as TabType, label: t?.preview || "Preview", icon: Eye },
   ];
 
+  const handleSaveSuccess = () => {
+    setShowSaved(true);
+    setTimeout(() => setShowSaved(false), 3000);
+  };
+
+  const handleDataUpdate = (updatedData: any) => {
+    setData(updatedData);
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "settings":
+        return (
+          <StoreSettings
+            application={data.application}
+            settings={data.settings}
+            config={config}
+            translations={t}
+            onSave={handleSaveSuccess}
+            onUpdate={handleDataUpdate}
+          />
+        );
+      case "branding":
+        return (
+          <BrandingSettings
+            application={data.application}
+            config={config}
+            translations={t}
+            onSave={handleSaveSuccess}
+            onUpdate={handleDataUpdate}
+          />
+        );
+      case "theme":
+        return (
+          <ThemeSettings
+            application={data.application}
+            settings={data.settings}
+            config={config}
+            translations={t}
+            onSave={handleSaveSuccess}
+            onUpdate={handleDataUpdate}
+          />
+        );
+      case "preview":
+        return (
+          <StorePreview
+            application={data.application}
+            settings={data.settings}
+            config={config}
+            translations={t}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  const storeUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://telcos.opik.net"}/${countryCode}/${data.application.store_slug}`;
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      {/* Page Header */}
+      <div
+        style={{
+          marginBottom: "1.5rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "1rem",
+        }}
+      >
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Store Configuration
+          <h1
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "1.5rem",
+              fontWeight: 700,
+              margin: 0,
+            }}
+          >
+            {t?.title || "Store"}
           </h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            Customize your branded storefront
+          <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
+            {t?.subtitle || "Configure your store settings and branding"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() =>
-              window.open(`/${countryCode}/${storeSlug}`, "_blank")
-            }
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/80 transition-colors"
-          >
-            <Eye size={18} />
-            View Store
-          </button>
-          <button
-            onClick={() => {
-              /* Copy store link */
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <a
+            href={storeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding: "0.6rem 1.2rem",
+              background: "transparent",
+              border: "1px solid var(--border2)",
+              borderRadius: 8,
+              color: "var(--text)",
+              textDecoration: "none",
+              fontSize: "0.9rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              transition: "all 0.2s",
             }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--brand-color)";
+              e.currentTarget.style.background = "rgba(var(--brand-color-rgb), 0.05)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--border2)";
+              e.currentTarget.style.background = "transparent";
+            }}
           >
-            <Share2 size={18} />
-            Share
-          </button>
+            {t?.viewStore || "View Store"} →
+          </a>
         </div>
       </div>
 
+      {showSaved && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.5rem 1rem",
+            background: "rgba(110,189,138,0.12)",
+            border: "1px solid rgba(110,189,138,0.3)",
+            borderRadius: 8,
+            color: "#6EBD8A",
+            fontSize: "0.9rem",
+            marginBottom: "1rem",
+            animation: "fadeIn 0.3s ease",
+          }}
+        >
+          <Save size={18} />
+          {t?.saved || "Changes saved successfully"}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-4">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              activeTab === tab.id
-                ? "bg-primary/10 text-primary border border-primary/20"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700",
-            )}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+      <div
+        style={{
+          display: "flex",
+          gap: "0.5rem",
+          borderBottom: "1px solid var(--border)",
+          marginBottom: "1.5rem",
+          overflowX: "auto",
+          paddingBottom: "1px",
+        }}
+      >
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.75rem 1.25rem",
+                background: "transparent",
+                border: "none",
+                borderBottom: isActive ? `2px solid var(--brand-color)` : "2px solid transparent",
+                color: isActive ? "var(--text)" : "var(--muted)",
+                fontWeight: isActive ? 600 : 400,
+                fontSize: "0.9rem",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                whiteSpace: "nowrap",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.color = "var(--text)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.color = "var(--muted)";
+                }
+              }}
+            >
+              <Icon size={18} />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Content */}
-      <div className="max-w-4xl">
-        {activeTab === "settings" && (
-          <StoreSettings countryCode={countryCode} />
-        )}
-        {activeTab === "branding" && (
-          <BrandingUploader countryCode={countryCode} />
-        )}
-        {activeTab === "theme" && <ThemeSelector countryCode={countryCode} />}
-        {activeTab === "preview" && <StorePreview countryCode={countryCode} />}
-        {activeTab === "url" && <StoreUrlGenerator countryCode={countryCode} />}
-      </div>
+      {/* Tab Content */}
+      <div>{renderTabContent()}</div>
     </div>
   );
 }
-
-// Helper - get store slug from context or props
-const storeSlug = "your-store"; // This would come from the reseller's data
