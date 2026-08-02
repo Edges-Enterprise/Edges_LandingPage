@@ -558,8 +558,8 @@ export default function StoreHeader({
             aria-label="Open menu"
             style={{
               display: "none",
-              background: "rgba(255,255,255,0.15)",
-              border: "1px solid rgba(255,255,255,0.2)",
+              background: "transparent",
+              border: "1px solid var(--accent)",
               borderRadius: 8,
               width: 36,
               height: 36,
@@ -572,10 +572,10 @@ export default function StoreHeader({
             }}
             className="mobile-toggle"
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+              e.currentTarget.style.background = "var(--bg2)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.15)";
+              e.currentTarget.style.background = "transparent";
             }}
           >
             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
