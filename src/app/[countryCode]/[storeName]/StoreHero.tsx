@@ -25,14 +25,14 @@ export default function StoreHero({
 
   return (
     <>
-      {/* Welcome banner — bleeds edge-to-edge out of <main>'s padding, legacy-style */}
+      
       <section
         style={{
           margin: "-2rem -5% 2rem",
           padding: "1.5rem 5%",
           background:
-            "linear-gradient(135deg, var(--brand-color), color-mix(in srgb, var(--brand-color) 70%, black))",
-          color: "#FDF8F3",
+            "var(--bg)",
+          color: "var(--text)",
         }}
       >
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
@@ -48,7 +48,7 @@ export default function StoreHero({
           </h1>
           <p style={{ fontSize: "0.85rem", opacity: 0.9, margin: 0 }}>
             {t?.subtitle ||
-              "Browse our products and get the best deals on data, airtime, and more."}
+              "Get the best deals on data, airtime, and more."}
           </p>
         </div>
       </section>
