@@ -18,7 +18,7 @@ export const COUNTRY_TG: CountryConfig = {
   },
   locale: "fr-TG",
   timezone: "Africa/Lome",
-  defaultMarkup: 20,
+  defaultMarkup: 0,
   features: {
     data: true,
     airtime: true,

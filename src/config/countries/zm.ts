@@ -18,7 +18,7 @@ export const COUNTRY_ZM: CountryConfig = {
   },
   locale: "en-ZM",
   timezone: "Africa/Lusaka",
-  defaultMarkup: 20,
+  defaultMarkup: 0,
   features: {
     data: true,
     airtime: true,

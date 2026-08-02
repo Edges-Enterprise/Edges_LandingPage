@@ -18,7 +18,7 @@ export const COUNTRY_CM: CountryConfig = {
   },
   locale: "fr-CM",
   timezone: "Africa/Douala",
-  defaultMarkup: 20,
+  defaultMarkup: 0,
   features: {
     data: true,
     airtime: true,

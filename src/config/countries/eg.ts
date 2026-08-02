@@ -18,7 +18,7 @@ export const COUNTRY_EG: CountryConfig = {
   },
   locale: "ar-EG",
   timezone: "Africa/Cairo",
-  defaultMarkup: 20,
+  defaultMarkup: 0,
   features: {
     data: true,
     airtime: true,

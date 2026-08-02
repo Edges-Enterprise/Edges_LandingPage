@@ -18,7 +18,7 @@ export const COUNTRY_GH: CountryConfig = {
   },
   locale: "en-GH",
   timezone: "Africa/Accra",
-  defaultMarkup: 20,
+  defaultMarkup: 0,
   features: {
     data: true,
     airtime: true,

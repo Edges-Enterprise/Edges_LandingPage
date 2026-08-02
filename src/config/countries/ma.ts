@@ -18,7 +18,7 @@ export const COUNTRY_MA: CountryConfig = {
   },
   locale: "fr-MA",
   timezone: "Africa/Casablanca",
-  defaultMarkup: 20,
+  defaultMarkup: 0,
   features: {
     data: true,
     airtime: true,

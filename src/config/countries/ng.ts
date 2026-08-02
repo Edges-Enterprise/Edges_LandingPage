@@ -18,7 +18,7 @@ export const COUNTRY_NG: CountryConfig = {
   },
   locale: "en-NG",
   timezone: "Africa/Lagos",
-  defaultMarkup: 20,
+  defaultMarkup: 0,
   features: {
     data: true,
     airtime: true,

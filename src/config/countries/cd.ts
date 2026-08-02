@@ -18,7 +18,7 @@ export const COUNTRY_CD: CountryConfig = {
   },
   locale: "fr-CD",
   timezone: "Africa/Kinshasa",
-  defaultMarkup: 20,
+  defaultMarkup: 0,
   features: {
     data: true,
     airtime: true,
