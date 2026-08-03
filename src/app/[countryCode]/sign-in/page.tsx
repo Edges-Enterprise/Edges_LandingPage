@@ -78,7 +78,7 @@ function SignInContent() {
           Welcome Back
         </h1>
         <p style={{ color: "var(--muted)" }}>
-          Sign in to your reseller dashboard
+          Sign in to your dashboard
         </p>
       </div>
 
