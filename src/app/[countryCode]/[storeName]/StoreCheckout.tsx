@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { X, Check, Loader2, User, Mail, Phone, Hash } from "lucide-react";
-import { CartItem } from "@/types/storefront";
+import { CartItem } from "@/types/reseller/storefront";
 
 interface StoreCheckoutProps {
   cart: CartItem[];

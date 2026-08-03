@@ -2,7 +2,7 @@
 "use client";
 
 import { X, Plus, Minus, Trash2, ShoppingBag } from "lucide-react";
-import { CartItem } from "@/types/storefront";
+import { CartItem } from "@/types/reseller/storefront";
 
 interface StoreCartProps {
   cart: CartItem[];

@@ -116,41 +116,6 @@ export default function SuccessClient({
     }
   };
 
-  // const handleAutoLogin = async () => {
-  //   if (!application || !application.temp_password) {
-  //     router.push(
-  //       `/${countryCode}/sign-in?email=${encodeURIComponent(application?.email || "")}`,
-  //     );
-  //     return;
-  //   }
-
-  //   setIsLoggingIn(true);
-  //   try {
-  //     const supabase = createClient();
-
-  //     const { error: signInError } = await supabase.auth.signInWithPassword({
-  //       email: application.auth_email,
-  //       password: application.temp_password,
-  //     });
-
-  //     if (signInError) {
-  //       console.error("Login error:", signInError);
-  //       router.push(
-  //         `/${countryCode}/sign-in?email=${encodeURIComponent(application.email)}`,
-  //       );
-  //     } else {
-  //       router.push(`/${countryCode}/dashboard`);
-  //     }
-  //   } catch (err) {
-  //     console.error("Auto-login failed:", err);
-  //     router.push(
-  //       `/${countryCode}/sign-in?email=${encodeURIComponent(application.email)}`,
-  //     );
-  //   } finally {
-  //     setIsLoggingIn(false);
-  //   }
-  // };
-
   if (loading) {
     return (
       <div
