@@ -18,6 +18,7 @@ import {
   Download,
   Smartphone,
   XCircle,
+  MessageCircle,
 } from "lucide-react";
 import { useTheme } from "@/providers/ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
@@ -44,39 +45,84 @@ export default function StoreHeader({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [isStoreOwner, setIsStoreOwner] = useState(false);
+  const [resellerPhone, setResellerPhone] = useState<string | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const brandColor = storeData.application.brand_color || "#C98A54";
- 
-  // Check auth state
+
+  // Check auth state and determine if user is store owner
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const checkAuth = async () => {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       setLoggedIn(!!session);
+
       if (session?.user) {
-        setIsStoreOwner(
-          session.user.user_metadata?.store_name ===
-            storeData.application.store_slug,
-        );
+        console.log("User metadata:", session.user.user_metadata);
+        console.log("Store slug:", storeData.application.store_slug);
+
+        // Check if user is store owner by comparing store_name in metadata
+        // The metadata store_name should be set during signup
+        //
+
+        const userStoreName = session.user.user_metadata?.store_name;
+        const currentStoreName = storeData.application.store_name;
+
+        // Compare the display names
+        setIsStoreOwner(userStoreName === currentStoreName);
+        console.log("Is store owner:", userStoreName === currentStoreName);
+      } else {
+        setIsStoreOwner(false);
       }
-    });
+      setIsLoading(false);
+    };
+
+    checkAuth();
+
+    // Subscribe to auth changes
+    const supabase = createClient();
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setLoggedIn(!!session);
       if (session?.user) {
-        setIsStoreOwner(
-          session.user.user_metadata?.store_name ===
-            storeData.application.store_slug,
+        const userStoreName = session.user.user_metadata?.store_name;
+        const currentStoreName = storeData.application.store_name;
+        setIsStoreOwner(userStoreName === currentStoreName);
+        console.log(
+          "Auth state changed - Is store owner:",
+          userStoreName === currentStoreName,
         );
       } else {
         setIsStoreOwner(false);
       }
     });
+
     return () => subscription.unsubscribe();
+  }, [storeData.application.store_name]);
+
+  // Get reseller phone for WhatsApp
+  useEffect(() => {
+    const fetchResellerPhone = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("global_reseller_applications")
+        .select("phone")
+        .eq("store_slug", storeData.application.store_slug)
+        .eq("application_status", "active")
+        .single();
+      if (data?.phone) {
+        setResellerPhone(data.phone);
+      }
+    };
+    fetchResellerPhone();
   }, [storeData.application.store_slug]);
 
   // Device detection for app banner
@@ -130,7 +176,6 @@ export default function StoreHeader({
     const shouldShow = Boolean(
       apkUrl && isAndroid && isMobileOrTablet && !bannerDismissed,
     );
-    // Delay showing the banner
     if (shouldShow) {
       const timer = setTimeout(() => {
         setShowInstallBanner(true);
@@ -164,6 +209,19 @@ export default function StoreHeader({
     );
   };
 
+  const handleWhatsApp = () => {
+    if (resellerPhone) {
+      let phone = resellerPhone.replace(/[\s\-()]/g, "");
+      phone = phone.replace(/^\+/, "");
+      if (phone.startsWith("0")) {
+        phone = "234" + phone.slice(1);
+      } else if (!phone.startsWith("234") && phone.length === 10) {
+        phone = "234" + phone;
+      }
+      window.open(`https://wa.me/${phone}`, "_blank");
+    }
+  };
+
   const navBtnStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
@@ -172,7 +230,7 @@ export default function StoreHeader({
     background: "rgba(255,255,255,0.12)",
     border: "1px solid rgba(255,255,255,0.15)",
     borderRadius: 8,
-    color: 'var(--text)',
+    color: "var(--text)",
     fontSize: "0.8rem",
     fontWeight: 500,
     cursor: "pointer",
@@ -181,6 +239,74 @@ export default function StoreHeader({
     textDecoration: "none",
     flexShrink: 0,
   };
+
+  if (isLoading) {
+    return (
+      <header
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+          background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`,
+          color: "var(--text)",
+          padding: "0.75rem 5%",
+          boxShadow: "0 2px 20px rgba(0,0,0,0.15)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            maxWidth: 1100,
+            margin: "0 auto",
+          }}
+        >
+          <div
+            style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
+          >
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: storeData.application.logo_url
+                  ? `url(${storeData.application.logo_url}) center/cover`
+                  : "rgba(255,255,255,0.2)",
+                border: "1px solid rgba(255,255,255,0.25)",
+              }}
+            />
+            <span
+              style={{
+                fontSize: "1rem",
+                fontWeight: 700,
+                color: "var(--text)",
+              }}
+            >
+              {storeData.application.store_name}
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.2)",
+                animation: "pulse 1.5s ease-in-out infinite",
+              }}
+            />
+          </div>
+        </div>
+        <style>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+          }
+        `}</style>
+      </header>
+    );
+  }
 
   return (
     <>
@@ -219,7 +345,7 @@ export default function StoreHeader({
               alignItems: "center",
               justifyContent: "space-between",
               gap: "1rem",
-              color: 'var(--text)',
+              color: "var(--text)",
             }}
           >
             <div
@@ -256,7 +382,7 @@ export default function StoreHeader({
                     }}
                   />
                 ) : (
-                  <Smartphone size={24} style={{ color: 'var(--text)' }} />
+                  <Smartphone size={24} style={{ color: "var(--text)" }} />
                 )}
               </div>
               <div style={{ minWidth: 0 }}>
@@ -305,7 +431,7 @@ export default function StoreHeader({
                   background: "rgba(255,255,255,0.25)",
                   border: "1.5px solid rgba(255,255,255,0.4)",
                   borderRadius: 10,
-                  color: 'var(--text)',
+                  color: "var(--text)",
                   fontWeight: 700,
                   fontSize: "0.82rem",
                   cursor: "pointer",
@@ -339,7 +465,7 @@ export default function StoreHeader({
                   alignItems: "center",
                   justifyContent: "center",
                   cursor: "pointer",
-                  color: 'var(--text)',
+                  color: "var(--text)",
                   opacity: 0.7,
                   transition: "all 0.2s ease",
                   flexShrink: 0,
@@ -367,7 +493,7 @@ export default function StoreHeader({
           top: showInstallBanner ? 0 : 0,
           zIndex: 20,
           background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`,
-          color: 'var(--text)',
+          color: "var(--text)",
           boxShadow: "0 2px 20px rgba(0,0,0,0.15)",
         }}
       >
@@ -407,7 +533,7 @@ export default function StoreHeader({
                 }}
               >
                 {!storeData.application.logo_url && (
-                  <Store size={18} style={{ color: 'var(--text)' }} />
+                  <Store size={18} style={{ color: "var(--text)" }} />
                 )}
               </div>
               <div style={{ minWidth: 0 }}>
@@ -416,7 +542,7 @@ export default function StoreHeader({
                     fontSize: "1rem",
                     fontWeight: 700,
                     lineHeight: 1.2,
-                    color: 'var(--text)',
+                    color: "var(--text)",
                     display: "block",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -471,9 +597,10 @@ export default function StoreHeader({
             {/* Account / Auth */}
             {loggedIn ? (
               <>
+                {/* Dashboard Icon - Only for Store Owner */}
                 {isStoreOwner && (
                   <Link
-                    href="/dashboard"
+                    href={`/${storeData.application.country_code}/dashboard`}
                     style={navBtnStyle}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background =
@@ -483,10 +610,31 @@ export default function StoreHeader({
                       e.currentTarget.style.background =
                         "rgba(255,255,255,0.12)";
                     }}
+                    title="Go to Dashboard"
                   >
                     <LayoutDashboard size={16} />
                   </Link>
                 )}
+
+                {/* Contact/WhatsApp - Only for Customers (not store owner) */}
+                {!isStoreOwner && resellerPhone && (
+                  <button
+                    onClick={handleWhatsApp}
+                    style={navBtnStyle}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.25)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.12)";
+                    }}
+                    title="Contact Store Owner on WhatsApp"
+                  >
+                    <MessageCircle size={16} />
+                  </button>
+                )}
+
                 <div
                   style={{
                     display: "flex",
@@ -505,7 +653,7 @@ export default function StoreHeader({
                       justifyContent: "center",
                       fontSize: "0.7rem",
                       fontWeight: 600,
-                      color: 'var(--text)',
+                      color: "var(--text)",
                     }}
                   >
                     {storeData.application.store_name
@@ -565,7 +713,7 @@ export default function StoreHeader({
               height: 36,
               alignItems: "center",
               justifyContent: "center",
-              color: 'var(--text)',
+              color: "var(--text)",
               cursor: "pointer",
               flexShrink: 0,
               transition: "all 0.15s",
@@ -701,9 +849,10 @@ export default function StoreHeader({
         {/* Auth / Account */}
         {loggedIn ? (
           <>
+            {/* Dashboard - Only for Store Owner */}
             {isStoreOwner && (
               <Link
-                href="/dashboard"
+                href={`/${storeData.application.country_code}/dashboard`}
                 onClick={() => setIsMobileMenuOpen(false)}
                 style={{
                   display: "flex",
@@ -720,6 +869,34 @@ export default function StoreHeader({
                 Dashboard
               </Link>
             )}
+
+            {/* Contact/WhatsApp - Only for Customers */}
+            {!isStoreOwner && resellerPhone && (
+              <button
+                onClick={() => {
+                  handleWhatsApp();
+                  setIsMobileMenuOpen(false);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  padding: "0.75rem 0",
+                  borderBottom: "1px solid var(--border)",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                  width: "100%",
+                  textAlign: "left",
+                  fontSize: "0.9rem",
+                  background: "transparent",
+                  border: "none",
+                }}
+              >
+                <MessageCircle size={16} />
+                Contact Store
+              </button>
+            )}
+
             <button
               onClick={() => {
                 handleLogout();
@@ -791,3 +968,1673 @@ export default function StoreHeader({
     </>
   );
 }
+
+// // src/app/[countryCode]/[storeName]/StoreHeader.tsx
+// "use client";
+
+// import { useState, useEffect } from "react";
+// import Link from "next/link";
+// import { useRouter } from "next/navigation";
+// import {
+//   Store,
+//   Menu,
+//   X,
+//   Moon,
+//   Sun,
+//   Bell,
+//   User,
+//   LayoutDashboard,
+//   LogOut,
+//   LogIn,
+//   Download,
+//   Smartphone,
+//   XCircle,
+//   MessageCircle,
+// } from "lucide-react";
+// import { useTheme } from "@/providers/ThemeProvider";
+// import { createClient } from "@/lib/supabase/client";
+
+// interface StoreHeaderProps {
+//   storeData: any;
+//   cartCount: number;
+//   cartTotal: number;
+//   onCartClick: () => void;
+//   translations: any;
+//   config: any;
+//   apkUrl?: string | null;
+// }
+
+// export default function StoreHeader({
+//   storeData,
+//   translations,
+//   config,
+//   apkUrl,
+// }: StoreHeaderProps) {
+//   const t = translations;
+//   const router = useRouter();
+//   const { theme, toggleTheme } = useTheme();
+//   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+//   const [loggedIn, setLoggedIn] = useState(false);
+//   const [isStoreOwner, setIsStoreOwner] = useState(false);
+//   const [resellerPhone, setResellerPhone] = useState<string | null>(null);
+//   const [showInstallBanner, setShowInstallBanner] = useState(false);
+//   const [isAndroid, setIsAndroid] = useState(false);
+//   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
+//   const [bannerDismissed, setBannerDismissed] = useState(false);
+
+//   const brandColor = storeData.application.brand_color || "#C98A54";
+
+//   // Check auth state
+//   useEffect(() => {
+//     const supabase = createClient();
+//     supabase.auth.getSession().then(({ data: { session } }) => {
+//       setLoggedIn(!!session);
+//       if (session?.user) {
+//         setIsStoreOwner(
+//           session.user.user_metadata?.store_name ===
+//             storeData.application.store_slug,
+//         );
+//       }
+//     });
+//     const {
+//       data: { subscription },
+//     } = supabase.auth.onAuthStateChange((_event, session) => {
+//       setLoggedIn(!!session);
+//       if (session?.user) {
+//         setIsStoreOwner(
+//           session.user.user_metadata?.store_name ===
+//             storeData.application.store_slug,
+//         );
+//       } else {
+//         setIsStoreOwner(false);
+//       }
+//     });
+//     return () => subscription.unsubscribe();
+//   }, [storeData.application.store_slug]);
+
+//   // Get reseller phone for WhatsApp
+//   useEffect(() => {
+//     const fetchResellerPhone = async () => {
+//       const supabase = createClient();
+//       const { data } = await supabase
+//         .from("global_reseller_applications")
+//         .select("phone")
+//         .eq("store_slug", storeData.application.store_slug)
+//         .eq("application_status", "active")
+//         .single();
+//       if (data?.phone) {
+//         setResellerPhone(data.phone);
+//       }
+//     };
+//     fetchResellerPhone();
+//   }, [storeData.application.store_slug]);
+
+//   // Device detection for app banner
+//   useEffect(() => {
+//     const checkDevice = () => {
+//       const userAgent =
+//         navigator.userAgent || navigator.vendor || (window as any).opera;
+//       const isAndroidDevice = /android/i.test(userAgent);
+//       setIsAndroid(isAndroidDevice);
+//       const isMobileWidth = window.innerWidth <= 1024;
+//       const isTouchDevice =
+//         "ontouchstart" in window || navigator.maxTouchPoints > 0;
+//       setIsMobileOrTablet(isMobileWidth || isTouchDevice);
+
+//       const dismissedData = localStorage.getItem(
+//         `install-banner-dismissed-${storeData.application.store_slug}`,
+//       );
+//       if (dismissedData) {
+//         try {
+//           const { dismissedAt } = JSON.parse(dismissedData);
+//           const dismissedDate = new Date(dismissedAt);
+//           const now = new Date();
+//           const diffInDays =
+//             (now.getTime() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
+//           if (diffInDays >= 3) {
+//             setBannerDismissed(false);
+//             localStorage.removeItem(
+//               `install-banner-dismissed-${storeData.application.store_slug}`,
+//             );
+//           } else {
+//             setBannerDismissed(true);
+//           }
+//         } catch {
+//           setBannerDismissed(false);
+//           localStorage.removeItem(
+//             `install-banner-dismissed-${storeData.application.store_slug}`,
+//           );
+//         }
+//       } else {
+//         setBannerDismissed(false);
+//       }
+//     };
+
+//     checkDevice();
+//     window.addEventListener("resize", checkDevice);
+//     return () => window.removeEventListener("resize", checkDevice);
+//   }, [storeData.application.store_slug]);
+
+//   // Show banner when conditions are met
+//   useEffect(() => {
+//     const shouldShow = Boolean(
+//       apkUrl && isAndroid && isMobileOrTablet && !bannerDismissed,
+//     );
+//     if (shouldShow) {
+//       const timer = setTimeout(() => {
+//         setShowInstallBanner(true);
+//       }, 2800);
+//       return () => clearTimeout(timer);
+//     } else {
+//       setShowInstallBanner(false);
+//     }
+//   }, [apkUrl, isAndroid, isMobileOrTablet, bannerDismissed]);
+
+//   const dismissBanner = () => {
+//     setShowInstallBanner(false);
+//     const data = { dismissedAt: new Date().toISOString() };
+//     localStorage.setItem(
+//       `install-banner-dismissed-${storeData.application.store_slug}`,
+//       JSON.stringify(data),
+//     );
+//   };
+
+//   const handleLogout = async () => {
+//     const supabase = createClient();
+//     await supabase.auth.signOut();
+//     router.push(
+//       `/${storeData.application.country_code}/${storeData.application.store_slug}`,
+//     );
+//   };
+
+//   const handleLogin = () => {
+//     router.push(
+//       `/${storeData.application.country_code}/${storeData.application.store_slug}?login=true`,
+//     );
+//   };
+
+//   const handleWhatsApp = () => {
+//     if (resellerPhone) {
+//       let phone = resellerPhone.replace(/[\s\-()]/g, "");
+//       phone = phone.replace(/^\+/, "");
+//       if (phone.startsWith("0")) {
+//         phone = "234" + phone.slice(1);
+//       } else if (!phone.startsWith("234") && phone.length === 10) {
+//         phone = "234" + phone;
+//       }
+//       window.open(`https://wa.me/${phone}`, "_blank");
+//     }
+//   };
+
+//   const navBtnStyle: React.CSSProperties = {
+//     display: "inline-flex",
+//     alignItems: "center",
+//     gap: 6,
+//     padding: "0.4rem 0.6rem",
+//     background: "rgba(255,255,255,0.12)",
+//     border: "1px solid rgba(255,255,255,0.15)",
+//     borderRadius: 8,
+//     color: "var(--text)",
+//     fontSize: "0.8rem",
+//     fontWeight: 500,
+//     cursor: "pointer",
+//     transition: "all 0.15s",
+//     fontFamily: "inherit",
+//     textDecoration: "none",
+//     flexShrink: 0,
+//   };
+
+//   return (
+//     <>
+//       {/* ─── Install App Banner ─────────────────────────── */}
+//       {showInstallBanner && apkUrl && (
+//         <div
+//           style={{
+//             position: "sticky",
+//             top: 0,
+//             zIndex: 30,
+//             background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`,
+//             padding: "0.6rem 1rem",
+//             boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
+//             animation: "slideDown 0.65s cubic-bezier(0.16, 1, 0.3, 1)",
+//           }}
+//         >
+//           <style>{`
+//             @keyframes slideDown {
+//               0% { transform: translateY(-100%); opacity: 0; }
+//               60% { transform: translateY(4px); opacity: 1; }
+//               100% { transform: translateY(0); opacity: 1; }
+//             }
+//             @media (max-width: 480px) {
+//               .banner-content { flex-wrap: wrap !important; gap: 0.5rem !important; }
+//               .banner-title { font-size: 0.85rem !important; }
+//               .banner-description { font-size: 0.7rem !important; }
+//               .banner-button { padding: 0.4rem 0.8rem !important; font-size: 0.75rem !important; }
+//             }
+//           `}</style>
+//           <div
+//             className="banner-content"
+//             style={{
+//               maxWidth: 1100,
+//               margin: "0 auto",
+//               display: "flex",
+//               alignItems: "center",
+//               justifyContent: "space-between",
+//               gap: "1rem",
+//               color: "var(--text)",
+//             }}
+//           >
+//             <div
+//               style={{
+//                 display: "flex",
+//                 alignItems: "center",
+//                 gap: "0.75rem",
+//                 flex: "1",
+//                 minWidth: 0,
+//               }}
+//             >
+//               <div
+//                 style={{
+//                   width: 40,
+//                   height: 40,
+//                   borderRadius: 10,
+//                   background: "rgba(255,255,255,0.2)",
+//                   display: "flex",
+//                   alignItems: "center",
+//                   justifyContent: "center",
+//                   flexShrink: 0,
+//                   border: "1px solid rgba(255,255,255,0.25)",
+//                 }}
+//               >
+//                 {storeData.application.logo_url ? (
+//                   <img
+//                     src={storeData.application.logo_url}
+//                     alt={storeData.application.store_name}
+//                     style={{
+//                       width: 32,
+//                       height: 32,
+//                       objectFit: "cover",
+//                       borderRadius: 6,
+//                     }}
+//                   />
+//                 ) : (
+//                   <Smartphone size={24} style={{ color: "var(--text)" }} />
+//                 )}
+//               </div>
+//               <div style={{ minWidth: 0 }}>
+//                 <p
+//                   className="banner-title"
+//                   style={{
+//                     fontWeight: 700,
+//                     fontSize: "0.95rem",
+//                     lineHeight: 1.2,
+//                     marginBottom: 2,
+//                   }}
+//                 >
+//                   📱 {t?.installApp || "Get the App"}
+//                 </p>
+//                 <p
+//                   className="banner-description"
+//                   style={{
+//                     fontSize: "0.75rem",
+//                     opacity: 0.85,
+//                     lineHeight: 1.3,
+//                   }}
+//                 >
+//                   {t?.appDescription ||
+//                     "Buy data and airtime faster from your phone"}
+//                 </p>
+//               </div>
+//             </div>
+//             <div
+//               style={{
+//                 display: "flex",
+//                 alignItems: "center",
+//                 gap: "0.5rem",
+//                 flexShrink: 0,
+//               }}
+//             >
+//               <a
+//                 href={apkUrl}
+//                 target="_blank"
+//                 rel="noopener noreferrer"
+//                 className="banner-button"
+//                 style={{
+//                   display: "inline-flex",
+//                   alignItems: "center",
+//                   gap: 6,
+//                   padding: "0.5rem 1.2rem",
+//                   background: "rgba(255,255,255,0.25)",
+//                   border: "1.5px solid rgba(255,255,255,0.4)",
+//                   borderRadius: 10,
+//                   color: "var(--text)",
+//                   fontWeight: 700,
+//                   fontSize: "0.82rem",
+//                   cursor: "pointer",
+//                   fontFamily: "inherit",
+//                   textDecoration: "none",
+//                   backdropFilter: "blur(4px)",
+//                   transition: "all 0.2s ease",
+//                   whiteSpace: "nowrap",
+//                 }}
+//                 onMouseEnter={(e) => {
+//                   e.currentTarget.style.background = "rgba(255,255,255,0.35)";
+//                   e.currentTarget.style.transform = "scale(1.02)";
+//                 }}
+//                 onMouseLeave={(e) => {
+//                   e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+//                   e.currentTarget.style.transform = "scale(1)";
+//                 }}
+//               >
+//                 <Download size={15} />
+//                 {t?.downloadApp || "Download"}
+//               </a>
+//               <button
+//                 onClick={dismissBanner}
+//                 style={{
+//                   background: "rgba(255,255,255,0.15)",
+//                   border: "1px solid rgba(255,255,255,0.2)",
+//                   borderRadius: 8,
+//                   width: 32,
+//                   height: 32,
+//                   display: "flex",
+//                   alignItems: "center",
+//                   justifyContent: "center",
+//                   cursor: "pointer",
+//                   color: "var(--text)",
+//                   opacity: 0.7,
+//                   transition: "all 0.2s ease",
+//                   flexShrink: 0,
+//                 }}
+//                 onMouseEnter={(e) => {
+//                   e.currentTarget.style.opacity = "1";
+//                   e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+//                 }}
+//                 onMouseLeave={(e) => {
+//                   e.currentTarget.style.opacity = "0.7";
+//                   e.currentTarget.style.background = "rgba(255,255,255,0.15)";
+//                 }}
+//               >
+//                 <XCircle size={18} />
+//               </button>
+//             </div>
+//           </div>
+//         </div>
+//       )}
+
+//       {/* ─── Header ───────────────────────────────────── */}
+//       <header
+//         style={{
+//           position: "sticky",
+//           top: showInstallBanner ? 0 : 0,
+//           zIndex: 20,
+//           background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`,
+//           color: "var(--text)",
+//           boxShadow: "0 2px 20px rgba(0,0,0,0.15)",
+//         }}
+//       >
+//         <div
+//           style={{
+//             display: "flex",
+//             alignItems: "center",
+//             justifyContent: "space-between",
+//             padding: "0.75rem 5%",
+//             maxWidth: 1100,
+//             margin: "0 auto",
+//             gap: "0.5rem",
+//           }}
+//         >
+//           {/* Logo */}
+//           <Link
+//             href={`/${storeData.application.country_code}/${storeData.application.store_slug}`}
+//             style={{ textDecoration: "none", flexShrink: 0 }}
+//           >
+//             <div
+//               style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
+//             >
+//               <div
+//                 style={{
+//                   width: 36,
+//                   height: 36,
+//                   borderRadius: 10,
+//                   background: storeData.application.logo_url
+//                     ? `url(${storeData.application.logo_url}) center/cover`
+//                     : "rgba(255,255,255,0.2)",
+//                   border: "1px solid rgba(255,255,255,0.25)",
+//                   display: "flex",
+//                   alignItems: "center",
+//                   justifyContent: "center",
+//                   overflow: "hidden",
+//                   flexShrink: 0,
+//                 }}
+//               >
+//                 {!storeData.application.logo_url && (
+//                   <Store size={18} style={{ color: "var(--text)" }} />
+//                 )}
+//               </div>
+//               <div style={{ minWidth: 0 }}>
+//                 <span
+//                   style={{
+//                     fontSize: "1rem",
+//                     fontWeight: 700,
+//                     lineHeight: 1.2,
+//                     color: "var(--text)",
+//                     display: "block",
+//                     whiteSpace: "nowrap",
+//                     overflow: "hidden",
+//                     textOverflow: "ellipsis",
+//                     maxWidth: "clamp(80px, 20vw, 180px)",
+//                   }}
+//                 >
+//                   {storeData.application.store_name}
+//                 </span>
+//               </div>
+//             </div>
+//           </Link>
+
+//           {/* Desktop Navigation */}
+//           <div
+//             style={{
+//               display: "flex",
+//               alignItems: "center",
+//               gap: "0.5rem",
+//             }}
+//             className="desktop-nav"
+//           >
+//             {/* Theme Toggle */}
+//             <button
+//               onClick={toggleTheme}
+//               aria-label="Toggle theme"
+//               style={navBtnStyle}
+//               onMouseEnter={(e) => {
+//                 e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+//               }}
+//               onMouseLeave={(e) => {
+//                 e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+//               }}
+//             >
+//               {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+//             </button>
+
+//             {/* Notifications (placeholder) */}
+//             <button
+//               aria-label="Notifications"
+//               style={navBtnStyle}
+//               onMouseEnter={(e) => {
+//                 e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+//               }}
+//               onMouseLeave={(e) => {
+//                 e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+//               }}
+//             >
+//               <Bell size={16} />
+//             </button>
+
+//             {/* Account / Auth */}
+//             {loggedIn ? (
+//               <>
+//                 {/* Dashboard Icon - Only for Store Owner */}
+//                 {isStoreOwner && (
+//                   <Link
+//                     href={`/${storeData.application.country_code}/dashboard`}
+//                     style={navBtnStyle}
+//                     onMouseEnter={(e) => {
+//                       e.currentTarget.style.background =
+//                         "rgba(255,255,255,0.25)";
+//                     }}
+//                     onMouseLeave={(e) => {
+//                       e.currentTarget.style.background =
+//                         "rgba(255,255,255,0.12)";
+//                     }}
+//                     title="Go to Dashboard"
+//                   >
+//                     <LayoutDashboard size={16} />
+//                   </Link>
+//                 )}
+
+//                 {/* Contact/WhatsApp - Only for Customers (not store owner) */}
+//                 {!isStoreOwner && resellerPhone && (
+//                   <button
+//                     onClick={handleWhatsApp}
+//                     style={navBtnStyle}
+//                     onMouseEnter={(e) => {
+//                       e.currentTarget.style.background =
+//                         "rgba(255,255,255,0.25)";
+//                     }}
+//                     onMouseLeave={(e) => {
+//                       e.currentTarget.style.background =
+//                         "rgba(255,255,255,0.12)";
+//                     }}
+//                     title="Contact Store Owner on WhatsApp"
+//                   >
+//                     <MessageCircle size={16} />
+//                   </button>
+//                 )}
+
+//                 <div
+//                   style={{
+//                     display: "flex",
+//                     alignItems: "center",
+//                     gap: "0.5rem",
+//                   }}
+//                 >
+//                   <div
+//                     style={{
+//                       width: 28,
+//                       height: 28,
+//                       borderRadius: "50%",
+//                       background: "rgba(255,255,255,0.25)",
+//                       display: "flex",
+//                       alignItems: "center",
+//                       justifyContent: "center",
+//                       fontSize: "0.7rem",
+//                       fontWeight: 600,
+//                       color: "var(--text)",
+//                     }}
+//                   >
+//                     {storeData.application.store_name
+//                       ?.charAt(0)
+//                       .toUpperCase() || "U"}
+//                   </div>
+//                   <button
+//                     onClick={handleLogout}
+//                     style={navBtnStyle}
+//                     onMouseEnter={(e) => {
+//                       e.currentTarget.style.background =
+//                         "rgba(255,255,255,0.25)";
+//                     }}
+//                     onMouseLeave={(e) => {
+//                       e.currentTarget.style.background =
+//                         "rgba(255,255,255,0.12)";
+//                     }}
+//                   >
+//                     <LogOut size={16} />
+//                   </button>
+//                 </div>
+//               </>
+//             ) : (
+//               <button
+//                 onClick={handleLogin}
+//                 style={{
+//                   ...navBtnStyle,
+//                   background: "rgba(255,255,255,0.25)",
+//                   border: "1px solid rgba(255,255,255,0.35)",
+//                   fontWeight: 600,
+//                 }}
+//                 onMouseEnter={(e) => {
+//                   e.currentTarget.style.background = "rgba(255,255,255,0.35)";
+//                 }}
+//                 onMouseLeave={(e) => {
+//                   e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+//                 }}
+//               >
+//                 <LogIn size={16} />
+//                 <span style={{ fontSize: "0.8rem" }}>
+//                   {t?.signIn || "Sign in"}
+//                 </span>
+//               </button>
+//             )}
+//           </div>
+
+//           {/* Mobile Menu Toggle */}
+//           <button
+//             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+//             aria-label="Open menu"
+//             style={{
+//               display: "none",
+//               background: "transparent",
+//               border: "1px solid var(--accent)",
+//               borderRadius: 8,
+//               width: 36,
+//               height: 36,
+//               alignItems: "center",
+//               justifyContent: "center",
+//               color: "var(--text)",
+//               cursor: "pointer",
+//               flexShrink: 0,
+//               transition: "all 0.15s",
+//             }}
+//             className="mobile-toggle"
+//             onMouseEnter={(e) => {
+//               e.currentTarget.style.background = "var(--bg2)";
+//             }}
+//             onMouseLeave={(e) => {
+//               e.currentTarget.style.background = "transparent";
+//             }}
+//           >
+//             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+//           </button>
+//         </div>
+//       </header>
+
+//       {/* Mobile Drawer Backdrop */}
+//       {isMobileMenuOpen && (
+//         <div
+//           onClick={() => setIsMobileMenuOpen(false)}
+//           style={{
+//             position: "fixed",
+//             inset: 0,
+//             background: "rgba(0,0,0,0.5)",
+//             zIndex: 45,
+//           }}
+//         />
+//       )}
+
+//       {/* Mobile Drawer */}
+//       <div
+//         style={{
+//           width: 280,
+//           background: "var(--bg2)",
+//           borderRight: "1px solid var(--border)",
+//           display: "flex",
+//           flexDirection: "column",
+//           position: "fixed",
+//           top: 0,
+//           left: 0,
+//           bottom: 0,
+//           zIndex: 50,
+//           transform: isMobileMenuOpen ? "translateX(0)" : "translateX(-100%)",
+//           transition: "transform 0.3s ease",
+//           overflow: "hidden",
+//           padding: "1rem",
+//         }}
+//       >
+//         <div
+//           style={{
+//             display: "flex",
+//             alignItems: "center",
+//             justifyContent: "space-between",
+//             marginBottom: "1.5rem",
+//           }}
+//         >
+//           <span
+//             style={{
+//               fontWeight: 700,
+//               fontSize: "1rem",
+//               color: "var(--text)",
+//             }}
+//           >
+//             {storeData.application.store_name}
+//           </span>
+//           <button
+//             onClick={() => setIsMobileMenuOpen(false)}
+//             aria-label="Close menu"
+//             style={{
+//               background: "transparent",
+//               border: "1px solid var(--border)",
+//               borderRadius: 8,
+//               width: 36,
+//               height: 36,
+//               display: "flex",
+//               alignItems: "center",
+//               justifyContent: "center",
+//               color: "var(--text)",
+//               cursor: "pointer",
+//             }}
+//           >
+//             <X size={18} />
+//           </button>
+//         </div>
+
+//         {/* Theme Toggle */}
+//         <button
+//           onClick={() => {
+//             toggleTheme();
+//             setIsMobileMenuOpen(false);
+//           }}
+//           style={{
+//             display: "flex",
+//             alignItems: "center",
+//             gap: "0.75rem",
+//             padding: "0.75rem 0",
+//             background: "transparent",
+//             border: "none",
+//             borderBottom: "1px solid var(--border)",
+//             color: "var(--text)",
+//             cursor: "pointer",
+//             width: "100%",
+//             textAlign: "left",
+//             fontSize: "0.9rem",
+//           }}
+//         >
+//           {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+//           {theme === "light" ? "Dark Mode" : "Light Mode"}
+//         </button>
+
+//         {/* Notifications */}
+//         <button
+//           style={{
+//             display: "flex",
+//             alignItems: "center",
+//             gap: "0.75rem",
+//             padding: "0.75rem 0",
+//             background: "transparent",
+//             border: "none",
+//             borderBottom: "1px solid var(--border)",
+//             color: "var(--text)",
+//             cursor: "pointer",
+//             width: "100%",
+//             textAlign: "left",
+//             fontSize: "0.9rem",
+//           }}
+//         >
+//           <Bell size={16} />
+//           Notifications
+//         </button>
+
+//         {/* Auth / Account */}
+//         {loggedIn ? (
+//           <>
+//             {/* Dashboard - Only for Store Owner */}
+//             {isStoreOwner && (
+//               <Link
+//                 href={`/${storeData.application.country_code}/dashboard`}
+//                 onClick={() => setIsMobileMenuOpen(false)}
+//                 style={{
+//                   display: "flex",
+//                   alignItems: "center",
+//                   gap: "0.75rem",
+//                   padding: "0.75rem 0",
+//                   borderBottom: "1px solid var(--border)",
+//                   color: "var(--text)",
+//                   textDecoration: "none",
+//                   fontSize: "0.9rem",
+//                 }}
+//               >
+//                 <LayoutDashboard size={16} />
+//                 Dashboard
+//               </Link>
+//             )}
+
+//             {/* Contact/WhatsApp - Only for Customers */}
+//             {!isStoreOwner && resellerPhone && (
+//               <button
+//                 onClick={() => {
+//                   handleWhatsApp();
+//                   setIsMobileMenuOpen(false);
+//                 }}
+//                 style={{
+//                   display: "flex",
+//                   alignItems: "center",
+//                   gap: "0.75rem",
+//                   padding: "0.75rem 0",
+//                   borderBottom: "1px solid var(--border)",
+//                   color: "var(--text)",
+//                   cursor: "pointer",
+//                   width: "100%",
+//                   textAlign: "left",
+//                   fontSize: "0.9rem",
+//                   background: "transparent",
+//                   border: "none",
+//                 }}
+//               >
+//                 <MessageCircle size={16} />
+//                 Contact Store
+//               </button>
+//             )}
+
+//             <button
+//               onClick={() => {
+//                 handleLogout();
+//                 setIsMobileMenuOpen(false);
+//               }}
+//               style={{
+//                 display: "flex",
+//                 alignItems: "center",
+//                 gap: "0.75rem",
+//                 padding: "0.75rem 0",
+//                 background: "transparent",
+//                 border: "none",
+//                 color: "var(--text)",
+//                 cursor: "pointer",
+//                 width: "100%",
+//                 textAlign: "left",
+//                 fontSize: "0.9rem",
+//                 marginTop: "auto",
+//                 borderTop: "1px solid var(--border)",
+//                 paddingTop: "1rem",
+//               }}
+//             >
+//               <LogOut size={16} />
+//               {t?.signOut || "Sign Out"}
+//             </button>
+//           </>
+//         ) : (
+//           <button
+//             onClick={() => {
+//               handleLogin();
+//               setIsMobileMenuOpen(false);
+//             }}
+//             style={{
+//               display: "flex",
+//               alignItems: "center",
+//               gap: "0.75rem",
+//               padding: "0.75rem 0",
+//               background: "transparent",
+//               border: "none",
+//               color: "var(--text)",
+//               cursor: "pointer",
+//               width: "100%",
+//               textAlign: "left",
+//               fontSize: "0.9rem",
+//             }}
+//           >
+//             <LogIn size={16} />
+//             {t?.signIn || "Sign In"}
+//           </button>
+//         )}
+//       </div>
+
+//       <style>{`
+//         @media (max-width: 768px) {
+//           .desktop-nav {
+//             display: none !important;
+//           }
+//           .mobile-toggle {
+//             display: flex !important;
+//           }
+//         }
+//         @media (min-width: 769px) {
+//           .mobile-drawer,
+//           .mobile-drawer-backdrop {
+//             display: none !important;
+//           }
+//         }
+//       `}</style>
+//     </>
+//   );
+// }
+
+// // // src/app/[countryCode]/[storeName]/StoreHeader.tsx
+// // "use client";
+
+// // import { useState, useEffect } from "react";
+// // import Link from "next/link";
+// // import { useRouter } from "next/navigation";
+// // import {
+// //   Store,
+// //   Menu,
+// //   X,
+// //   Moon,
+// //   Sun,
+// //   Bell,
+// //   User,
+// //   LayoutDashboard,
+// //   LogOut,
+// //   LogIn,
+// //   Download,
+// //   Smartphone,
+// //   XCircle,
+// // } from "lucide-react";
+// // import { useTheme } from "@/providers/ThemeProvider";
+// // import { createClient } from "@/lib/supabase/client";
+
+// // interface StoreHeaderProps {
+// //   storeData: any;
+// //   cartCount: number;
+// //   cartTotal: number;
+// //   onCartClick: () => void;
+// //   translations: any;
+// //   config: any;
+// //   apkUrl?: string | null;
+// // }
+
+// // export default function StoreHeader({
+// //   storeData,
+// //   translations,
+// //   config,
+// //   apkUrl,
+// // }: StoreHeaderProps) {
+// //   const t = translations;
+// //   const router = useRouter();
+// //   const { theme, toggleTheme } = useTheme();
+// //   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+// //   const [loggedIn, setLoggedIn] = useState(false);
+// //   const [isStoreOwner, setIsStoreOwner] = useState(false);
+// //   const [showInstallBanner, setShowInstallBanner] = useState(false);
+// //   const [isAndroid, setIsAndroid] = useState(false);
+// //   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
+// //   const [bannerDismissed, setBannerDismissed] = useState(false);
+
+// //   const brandColor = storeData.application.brand_color || "#C98A54";
+
+// //   // Check auth state
+// //   useEffect(() => {
+// //     const supabase = createClient();
+// //     supabase.auth.getSession().then(({ data: { session } }) => {
+// //       setLoggedIn(!!session);
+// //       if (session?.user) {
+// //         setIsStoreOwner(
+// //           session.user.user_metadata?.store_name ===
+// //             storeData.application.store_slug,
+// //         );
+// //       }
+// //     });
+// //     const {
+// //       data: { subscription },
+// //     } = supabase.auth.onAuthStateChange((_event, session) => {
+// //       setLoggedIn(!!session);
+// //       if (session?.user) {
+// //         setIsStoreOwner(
+// //           session.user.user_metadata?.store_name ===
+// //             storeData.application.store_slug,
+// //         );
+// //       } else {
+// //         setIsStoreOwner(false);
+// //       }
+// //     });
+// //     return () => subscription.unsubscribe();
+// //   }, [storeData.application.store_slug]);
+
+// //   // Device detection for app banner
+// //   useEffect(() => {
+// //     const checkDevice = () => {
+// //       const userAgent =
+// //         navigator.userAgent || navigator.vendor || (window as any).opera;
+// //       const isAndroidDevice = /android/i.test(userAgent);
+// //       setIsAndroid(isAndroidDevice);
+// //       const isMobileWidth = window.innerWidth <= 1024;
+// //       const isTouchDevice =
+// //         "ontouchstart" in window || navigator.maxTouchPoints > 0;
+// //       setIsMobileOrTablet(isMobileWidth || isTouchDevice);
+
+// //       const dismissedData = localStorage.getItem(
+// //         `install-banner-dismissed-${storeData.application.store_slug}`,
+// //       );
+// //       if (dismissedData) {
+// //         try {
+// //           const { dismissedAt } = JSON.parse(dismissedData);
+// //           const dismissedDate = new Date(dismissedAt);
+// //           const now = new Date();
+// //           const diffInDays =
+// //             (now.getTime() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
+// //           if (diffInDays >= 3) {
+// //             setBannerDismissed(false);
+// //             localStorage.removeItem(
+// //               `install-banner-dismissed-${storeData.application.store_slug}`,
+// //             );
+// //           } else {
+// //             setBannerDismissed(true);
+// //           }
+// //         } catch {
+// //           setBannerDismissed(false);
+// //           localStorage.removeItem(
+// //             `install-banner-dismissed-${storeData.application.store_slug}`,
+// //           );
+// //         }
+// //       } else {
+// //         setBannerDismissed(false);
+// //       }
+// //     };
+
+// //     checkDevice();
+// //     window.addEventListener("resize", checkDevice);
+// //     return () => window.removeEventListener("resize", checkDevice);
+// //   }, [storeData.application.store_slug]);
+
+// //   // Show banner when conditions are met
+// //   useEffect(() => {
+// //     const shouldShow = Boolean(
+// //       apkUrl && isAndroid && isMobileOrTablet && !bannerDismissed,
+// //     );
+// //     // Delay showing the banner
+// //     if (shouldShow) {
+// //       const timer = setTimeout(() => {
+// //         setShowInstallBanner(true);
+// //       }, 2800);
+// //       return () => clearTimeout(timer);
+// //     } else {
+// //       setShowInstallBanner(false);
+// //     }
+// //   }, [apkUrl, isAndroid, isMobileOrTablet, bannerDismissed]);
+
+// //   const dismissBanner = () => {
+// //     setShowInstallBanner(false);
+// //     const data = { dismissedAt: new Date().toISOString() };
+// //     localStorage.setItem(
+// //       `install-banner-dismissed-${storeData.application.store_slug}`,
+// //       JSON.stringify(data),
+// //     );
+// //   };
+
+// //   const handleLogout = async () => {
+// //     const supabase = createClient();
+// //     await supabase.auth.signOut();
+// //     router.push(
+// //       `/${storeData.application.country_code}/${storeData.application.store_slug}`,
+// //     );
+// //   };
+
+// //   const handleLogin = () => {
+// //     router.push(
+// //       `/${storeData.application.country_code}/${storeData.application.store_slug}?login=true`,
+// //     );
+// //   };
+
+// //   const navBtnStyle: React.CSSProperties = {
+// //     display: "inline-flex",
+// //     alignItems: "center",
+// //     gap: 6,
+// //     padding: "0.4rem 0.6rem",
+// //     background: "rgba(255,255,255,0.12)",
+// //     border: "1px solid rgba(255,255,255,0.15)",
+// //     borderRadius: 8,
+// //     color: 'var(--text)',
+// //     fontSize: "0.8rem",
+// //     fontWeight: 500,
+// //     cursor: "pointer",
+// //     transition: "all 0.15s",
+// //     fontFamily: "inherit",
+// //     textDecoration: "none",
+// //     flexShrink: 0,
+// //   };
+
+// //   return (
+// //     <>
+// //       {/* ─── Install App Banner ─────────────────────────── */}
+// //       {showInstallBanner && apkUrl && (
+// //         <div
+// //           style={{
+// //             position: "sticky",
+// //             top: 0,
+// //             zIndex: 30,
+// //             background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`,
+// //             padding: "0.6rem 1rem",
+// //             boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
+// //             animation: "slideDown 0.65s cubic-bezier(0.16, 1, 0.3, 1)",
+// //           }}
+// //         >
+// //           <style>{`
+// //             @keyframes slideDown {
+// //               0% { transform: translateY(-100%); opacity: 0; }
+// //               60% { transform: translateY(4px); opacity: 1; }
+// //               100% { transform: translateY(0); opacity: 1; }
+// //             }
+// //             @media (max-width: 480px) {
+// //               .banner-content { flex-wrap: wrap !important; gap: 0.5rem !important; }
+// //               .banner-title { font-size: 0.85rem !important; }
+// //               .banner-description { font-size: 0.7rem !important; }
+// //               .banner-button { padding: 0.4rem 0.8rem !important; font-size: 0.75rem !important; }
+// //             }
+// //           `}</style>
+// //           <div
+// //             className="banner-content"
+// //             style={{
+// //               maxWidth: 1100,
+// //               margin: "0 auto",
+// //               display: "flex",
+// //               alignItems: "center",
+// //               justifyContent: "space-between",
+// //               gap: "1rem",
+// //               color: 'var(--text)',
+// //             }}
+// //           >
+// //             <div
+// //               style={{
+// //                 display: "flex",
+// //                 alignItems: "center",
+// //                 gap: "0.75rem",
+// //                 flex: "1",
+// //                 minWidth: 0,
+// //               }}
+// //             >
+// //               <div
+// //                 style={{
+// //                   width: 40,
+// //                   height: 40,
+// //                   borderRadius: 10,
+// //                   background: "rgba(255,255,255,0.2)",
+// //                   display: "flex",
+// //                   alignItems: "center",
+// //                   justifyContent: "center",
+// //                   flexShrink: 0,
+// //                   border: "1px solid rgba(255,255,255,0.25)",
+// //                 }}
+// //               >
+// //                 {storeData.application.logo_url ? (
+// //                   <img
+// //                     src={storeData.application.logo_url}
+// //                     alt={storeData.application.store_name}
+// //                     style={{
+// //                       width: 32,
+// //                       height: 32,
+// //                       objectFit: "cover",
+// //                       borderRadius: 6,
+// //                     }}
+// //                   />
+// //                 ) : (
+// //                   <Smartphone size={24} style={{ color: 'var(--text)' }} />
+// //                 )}
+// //               </div>
+// //               <div style={{ minWidth: 0 }}>
+// //                 <p
+// //                   className="banner-title"
+// //                   style={{
+// //                     fontWeight: 700,
+// //                     fontSize: "0.95rem",
+// //                     lineHeight: 1.2,
+// //                     marginBottom: 2,
+// //                   }}
+// //                 >
+// //                   📱 {t?.installApp || "Get the App"}
+// //                 </p>
+// //                 <p
+// //                   className="banner-description"
+// //                   style={{
+// //                     fontSize: "0.75rem",
+// //                     opacity: 0.85,
+// //                     lineHeight: 1.3,
+// //                   }}
+// //                 >
+// //                   {t?.appDescription ||
+// //                     "Buy data and airtime faster from your phone"}
+// //                 </p>
+// //               </div>
+// //             </div>
+// //             <div
+// //               style={{
+// //                 display: "flex",
+// //                 alignItems: "center",
+// //                 gap: "0.5rem",
+// //                 flexShrink: 0,
+// //               }}
+// //             >
+// //               <a
+// //                 href={apkUrl}
+// //                 target="_blank"
+// //                 rel="noopener noreferrer"
+// //                 className="banner-button"
+// //                 style={{
+// //                   display: "inline-flex",
+// //                   alignItems: "center",
+// //                   gap: 6,
+// //                   padding: "0.5rem 1.2rem",
+// //                   background: "rgba(255,255,255,0.25)",
+// //                   border: "1.5px solid rgba(255,255,255,0.4)",
+// //                   borderRadius: 10,
+// //                   color: 'var(--text)',
+// //                   fontWeight: 700,
+// //                   fontSize: "0.82rem",
+// //                   cursor: "pointer",
+// //                   fontFamily: "inherit",
+// //                   textDecoration: "none",
+// //                   backdropFilter: "blur(4px)",
+// //                   transition: "all 0.2s ease",
+// //                   whiteSpace: "nowrap",
+// //                 }}
+// //                 onMouseEnter={(e) => {
+// //                   e.currentTarget.style.background = "rgba(255,255,255,0.35)";
+// //                   e.currentTarget.style.transform = "scale(1.02)";
+// //                 }}
+// //                 onMouseLeave={(e) => {
+// //                   e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+// //                   e.currentTarget.style.transform = "scale(1)";
+// //                 }}
+// //               >
+// //                 <Download size={15} />
+// //                 {t?.downloadApp || "Download"}
+// //               </a>
+// //               <button
+// //                 onClick={dismissBanner}
+// //                 style={{
+// //                   background: "rgba(255,255,255,0.15)",
+// //                   border: "1px solid rgba(255,255,255,0.2)",
+// //                   borderRadius: 8,
+// //                   width: 32,
+// //                   height: 32,
+// //                   display: "flex",
+// //                   alignItems: "center",
+// //                   justifyContent: "center",
+// //                   cursor: "pointer",
+// //                   color: 'var(--text)',
+// //                   opacity: 0.7,
+// //                   transition: "all 0.2s ease",
+// //                   flexShrink: 0,
+// //                 }}
+// //                 onMouseEnter={(e) => {
+// //                   e.currentTarget.style.opacity = "1";
+// //                   e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+// //                 }}
+// //                 onMouseLeave={(e) => {
+// //                   e.currentTarget.style.opacity = "0.7";
+// //                   e.currentTarget.style.background = "rgba(255,255,255,0.15)";
+// //                 }}
+// //               >
+// //                 <XCircle size={18} />
+// //               </button>
+// //             </div>
+// //           </div>
+// //         </div>
+// //       )}
+
+// //       {/* ─── Header ───────────────────────────────────── */}
+// //       <header
+// //         style={{
+// //           position: "sticky",
+// //           top: showInstallBanner ? 0 : 0,
+// //           zIndex: 20,
+// //           background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`,
+// //           color: 'var(--text)',
+// //           boxShadow: "0 2px 20px rgba(0,0,0,0.15)",
+// //         }}
+// //       >
+// //         <div
+// //           style={{
+// //             display: "flex",
+// //             alignItems: "center",
+// //             justifyContent: "space-between",
+// //             padding: "0.75rem 5%",
+// //             maxWidth: 1100,
+// //             margin: "0 auto",
+// //             gap: "0.5rem",
+// //           }}
+// //         >
+// //           {/* Logo */}
+// //           <Link
+// //             href={`/${storeData.application.country_code}/${storeData.application.store_slug}`}
+// //             style={{ textDecoration: "none", flexShrink: 0 }}
+// //           >
+// //             <div
+// //               style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
+// //             >
+// //               <div
+// //                 style={{
+// //                   width: 36,
+// //                   height: 36,
+// //                   borderRadius: 10,
+// //                   background: storeData.application.logo_url
+// //                     ? `url(${storeData.application.logo_url}) center/cover`
+// //                     : "rgba(255,255,255,0.2)",
+// //                   border: "1px solid rgba(255,255,255,0.25)",
+// //                   display: "flex",
+// //                   alignItems: "center",
+// //                   justifyContent: "center",
+// //                   overflow: "hidden",
+// //                   flexShrink: 0,
+// //                 }}
+// //               >
+// //                 {!storeData.application.logo_url && (
+// //                   <Store size={18} style={{ color: 'var(--text)' }} />
+// //                 )}
+// //               </div>
+// //               <div style={{ minWidth: 0 }}>
+// //                 <span
+// //                   style={{
+// //                     fontSize: "1rem",
+// //                     fontWeight: 700,
+// //                     lineHeight: 1.2,
+// //                     color: 'var(--text)',
+// //                     display: "block",
+// //                     whiteSpace: "nowrap",
+// //                     overflow: "hidden",
+// //                     textOverflow: "ellipsis",
+// //                     maxWidth: "clamp(80px, 20vw, 180px)",
+// //                   }}
+// //                 >
+// //                   {storeData.application.store_name}
+// //                 </span>
+// //               </div>
+// //             </div>
+// //           </Link>
+
+// //           {/* Desktop Navigation */}
+// //           <div
+// //             style={{
+// //               display: "flex",
+// //               alignItems: "center",
+// //               gap: "0.5rem",
+// //             }}
+// //             className="desktop-nav"
+// //           >
+// //             {/* Theme Toggle */}
+// //             <button
+// //               onClick={toggleTheme}
+// //               aria-label="Toggle theme"
+// //               style={navBtnStyle}
+// //               onMouseEnter={(e) => {
+// //                 e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+// //               }}
+// //               onMouseLeave={(e) => {
+// //                 e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+// //               }}
+// //             >
+// //               {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+// //             </button>
+
+// //             {/* Notifications (placeholder) */}
+// //             <button
+// //               aria-label="Notifications"
+// //               style={navBtnStyle}
+// //               onMouseEnter={(e) => {
+// //                 e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+// //               }}
+// //               onMouseLeave={(e) => {
+// //                 e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+// //               }}
+// //             >
+// //               <Bell size={16} />
+// //             </button>
+
+// //             {/* Account / Auth */}
+// //             {loggedIn ? (
+// //               <>
+// //                 {isStoreOwner && (
+// //                   <Link
+// //                     href="/dashboard"
+// //                     style={navBtnStyle}
+// //                     onMouseEnter={(e) => {
+// //                       e.currentTarget.style.background =
+// //                         "rgba(255,255,255,0.25)";
+// //                     }}
+// //                     onMouseLeave={(e) => {
+// //                       e.currentTarget.style.background =
+// //                         "rgba(255,255,255,0.12)";
+// //                     }}
+// //                   >
+// //                     <LayoutDashboard size={16} />
+// //                   </Link>
+// //                 )}
+// //                 <div
+// //                   style={{
+// //                     display: "flex",
+// //                     alignItems: "center",
+// //                     gap: "0.5rem",
+// //                   }}
+// //                 >
+// //                   <div
+// //                     style={{
+// //                       width: 28,
+// //                       height: 28,
+// //                       borderRadius: "50%",
+// //                       background: "rgba(255,255,255,0.25)",
+// //                       display: "flex",
+// //                       alignItems: "center",
+// //                       justifyContent: "center",
+// //                       fontSize: "0.7rem",
+// //                       fontWeight: 600,
+// //                       color: 'var(--text)',
+// //                     }}
+// //                   >
+// //                     {storeData.application.store_name
+// //                       ?.charAt(0)
+// //                       .toUpperCase() || "U"}
+// //                   </div>
+// //                   <button
+// //                     onClick={handleLogout}
+// //                     style={navBtnStyle}
+// //                     onMouseEnter={(e) => {
+// //                       e.currentTarget.style.background =
+// //                         "rgba(255,255,255,0.25)";
+// //                     }}
+// //                     onMouseLeave={(e) => {
+// //                       e.currentTarget.style.background =
+// //                         "rgba(255,255,255,0.12)";
+// //                     }}
+// //                   >
+// //                     <LogOut size={16} />
+// //                   </button>
+// //                 </div>
+// //               </>
+// //             ) : (
+// //               <button
+// //                 onClick={handleLogin}
+// //                 style={{
+// //                   ...navBtnStyle,
+// //                   background: "rgba(255,255,255,0.25)",
+// //                   border: "1px solid rgba(255,255,255,0.35)",
+// //                   fontWeight: 600,
+// //                 }}
+// //                 onMouseEnter={(e) => {
+// //                   e.currentTarget.style.background = "rgba(255,255,255,0.35)";
+// //                 }}
+// //                 onMouseLeave={(e) => {
+// //                   e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+// //                 }}
+// //               >
+// //                 <LogIn size={16} />
+// //                 <span style={{ fontSize: "0.8rem" }}>
+// //                   {t?.signIn || "Sign in"}
+// //                 </span>
+// //               </button>
+// //             )}
+// //           </div>
+
+// //           {/* Mobile Menu Toggle */}
+// //           <button
+// //             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+// //             aria-label="Open menu"
+// //             style={{
+// //               display: "none",
+// //               background: "transparent",
+// //               border: "1px solid var(--accent)",
+// //               borderRadius: 8,
+// //               width: 36,
+// //               height: 36,
+// //               alignItems: "center",
+// //               justifyContent: "center",
+// //               color: 'var(--text)',
+// //               cursor: "pointer",
+// //               flexShrink: 0,
+// //               transition: "all 0.15s",
+// //             }}
+// //             className="mobile-toggle"
+// //             onMouseEnter={(e) => {
+// //               e.currentTarget.style.background = "var(--bg2)";
+// //             }}
+// //             onMouseLeave={(e) => {
+// //               e.currentTarget.style.background = "transparent";
+// //             }}
+// //           >
+// //             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+// //           </button>
+// //         </div>
+// //       </header>
+
+// //       {/* Mobile Drawer Backdrop */}
+// //       {isMobileMenuOpen && (
+// //         <div
+// //           onClick={() => setIsMobileMenuOpen(false)}
+// //           style={{
+// //             position: "fixed",
+// //             inset: 0,
+// //             background: "rgba(0,0,0,0.5)",
+// //             zIndex: 45,
+// //           }}
+// //         />
+// //       )}
+
+// //       {/* Mobile Drawer */}
+// //       <div
+// //         style={{
+// //           width: 280,
+// //           background: "var(--bg2)",
+// //           borderRight: "1px solid var(--border)",
+// //           display: "flex",
+// //           flexDirection: "column",
+// //           position: "fixed",
+// //           top: 0,
+// //           left: 0,
+// //           bottom: 0,
+// //           zIndex: 50,
+// //           transform: isMobileMenuOpen ? "translateX(0)" : "translateX(-100%)",
+// //           transition: "transform 0.3s ease",
+// //           overflow: "hidden",
+// //           padding: "1rem",
+// //         }}
+// //       >
+// //         <div
+// //           style={{
+// //             display: "flex",
+// //             alignItems: "center",
+// //             justifyContent: "space-between",
+// //             marginBottom: "1.5rem",
+// //           }}
+// //         >
+// //           <span
+// //             style={{
+// //               fontWeight: 700,
+// //               fontSize: "1rem",
+// //               color: "var(--text)",
+// //             }}
+// //           >
+// //             {storeData.application.store_name}
+// //           </span>
+// //           <button
+// //             onClick={() => setIsMobileMenuOpen(false)}
+// //             aria-label="Close menu"
+// //             style={{
+// //               background: "transparent",
+// //               border: "1px solid var(--border)",
+// //               borderRadius: 8,
+// //               width: 36,
+// //               height: 36,
+// //               display: "flex",
+// //               alignItems: "center",
+// //               justifyContent: "center",
+// //               color: "var(--text)",
+// //               cursor: "pointer",
+// //             }}
+// //           >
+// //             <X size={18} />
+// //           </button>
+// //         </div>
+
+// //         {/* Theme Toggle */}
+// //         <button
+// //           onClick={() => {
+// //             toggleTheme();
+// //             setIsMobileMenuOpen(false);
+// //           }}
+// //           style={{
+// //             display: "flex",
+// //             alignItems: "center",
+// //             gap: "0.75rem",
+// //             padding: "0.75rem 0",
+// //             background: "transparent",
+// //             border: "none",
+// //             borderBottom: "1px solid var(--border)",
+// //             color: "var(--text)",
+// //             cursor: "pointer",
+// //             width: "100%",
+// //             textAlign: "left",
+// //             fontSize: "0.9rem",
+// //           }}
+// //         >
+// //           {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+// //           {theme === "light" ? "Dark Mode" : "Light Mode"}
+// //         </button>
+
+// //         {/* Notifications */}
+// //         <button
+// //           style={{
+// //             display: "flex",
+// //             alignItems: "center",
+// //             gap: "0.75rem",
+// //             padding: "0.75rem 0",
+// //             background: "transparent",
+// //             border: "none",
+// //             borderBottom: "1px solid var(--border)",
+// //             color: "var(--text)",
+// //             cursor: "pointer",
+// //             width: "100%",
+// //             textAlign: "left",
+// //             fontSize: "0.9rem",
+// //           }}
+// //         >
+// //           <Bell size={16} />
+// //           Notifications
+// //         </button>
+
+// //         {/* Auth / Account */}
+// //         {loggedIn ? (
+// //           <>
+// //             {isStoreOwner && (
+// //               <Link
+// //                 href="/dashboard"
+// //                 onClick={() => setIsMobileMenuOpen(false)}
+// //                 style={{
+// //                   display: "flex",
+// //                   alignItems: "center",
+// //                   gap: "0.75rem",
+// //                   padding: "0.75rem 0",
+// //                   borderBottom: "1px solid var(--border)",
+// //                   color: "var(--text)",
+// //                   textDecoration: "none",
+// //                   fontSize: "0.9rem",
+// //                 }}
+// //               >
+// //                 <LayoutDashboard size={16} />
+// //                 Dashboard
+// //               </Link>
+// //             )}
+// //             <button
+// //               onClick={() => {
+// //                 handleLogout();
+// //                 setIsMobileMenuOpen(false);
+// //               }}
+// //               style={{
+// //                 display: "flex",
+// //                 alignItems: "center",
+// //                 gap: "0.75rem",
+// //                 padding: "0.75rem 0",
+// //                 background: "transparent",
+// //                 border: "none",
+// //                 color: "var(--text)",
+// //                 cursor: "pointer",
+// //                 width: "100%",
+// //                 textAlign: "left",
+// //                 fontSize: "0.9rem",
+// //                 marginTop: "auto",
+// //                 borderTop: "1px solid var(--border)",
+// //                 paddingTop: "1rem",
+// //               }}
+// //             >
+// //               <LogOut size={16} />
+// //               {t?.signOut || "Sign Out"}
+// //             </button>
+// //           </>
+// //         ) : (
+// //           <button
+// //             onClick={() => {
+// //               handleLogin();
+// //               setIsMobileMenuOpen(false);
+// //             }}
+// //             style={{
+// //               display: "flex",
+// //               alignItems: "center",
+// //               gap: "0.75rem",
+// //               padding: "0.75rem 0",
+// //               background: "transparent",
+// //               border: "none",
+// //               color: "var(--text)",
+// //               cursor: "pointer",
+// //               width: "100%",
+// //               textAlign: "left",
+// //               fontSize: "0.9rem",
+// //             }}
+// //           >
+// //             <LogIn size={16} />
+// //             {t?.signIn || "Sign In"}
+// //           </button>
+// //         )}
+// //       </div>
+
+// //       <style>{`
+// //         @media (max-width: 768px) {
+// //           .desktop-nav {
+// //             display: none !important;
+// //           }
+// //           .mobile-toggle {
+// //             display: flex !important;
+// //           }
+// //         }
+// //         @media (min-width: 769px) {
+// //           .mobile-drawer,
+// //           .mobile-drawer-backdrop {
+// //             display: none !important;
+// //           }
+// //         }
+// //       `}</style>
+// //     </>
+// //   );
+// // }
