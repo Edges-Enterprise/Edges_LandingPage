@@ -411,7 +411,7 @@ export const korapay: PaymentGateway = {
           name: customerName,
           email: customerEmail,
         },
-        merchant_bears_cost: true,
+        merchant_bears_cost: false,
         narration: `Wallet funding for ${application.store_slug || "reseller"}`,
         metadata: {
           reseller_id: resellerId,

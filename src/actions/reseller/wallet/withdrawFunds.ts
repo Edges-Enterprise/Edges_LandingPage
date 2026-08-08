@@ -81,15 +81,13 @@ export async function withdrawFunds({
       .insert({
         reseller_id: application.id,
         wallet_id: wallet.id,
-        type: "withdrawal",
+        type: "debit",
         amount,
-        currency: config.currency,
+        description: `Withdrawal to ${bankDetails.bankName}`,
         status: "pending",
         reference: `WTH-${Date.now()}`,
-        payment_method: config.paymentGateway.provider,
         metadata: {
           bank_details: bankDetails,
-          gateway: config.paymentGateway.provider,
         },
       })
       .select()
