@@ -48,7 +48,12 @@ export const COUNTRY_TG: CountryConfig = {
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
     monthlyProfit: "CFA 50,000 – CFA 80,000",
-  },
+  },  telecoms: [
+    { id: "mtn", name: "MTN", code: "MTN" },
+    { id: "orange", name: "Orange", code: "ORANGE" },
+    { id: "moov", name: "Moov", code: "MOOV" },
+    { id: "wave", name: "Wave", code: "WAVE" },
+  ],
 };
 
 // // src/config/countries/tg.ts

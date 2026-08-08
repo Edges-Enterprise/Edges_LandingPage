@@ -48,5 +48,10 @@ export const COUNTRY_SN: CountryConfig = {
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
     monthlyProfit: "CFA 70,000 – CFA 100,000",
-  },
+  },telecoms: [
+    { id: "mtn", name: "MTN", code: "MTN" },
+    { id: "orange", name: "Orange", code: "ORANGE" },
+    { id: "moov", name: "Moov", code: "MOOV" },
+    { id: "wave", name: "Wave", code: "WAVE" },
+  ],
 };

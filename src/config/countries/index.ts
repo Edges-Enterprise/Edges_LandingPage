@@ -76,6 +76,11 @@ export interface CountryConfig {
     storeGoesLive: string;
     monthlyProfit: string;
   };
+  telecoms?: Array<{
+    id: string;
+    name: string;
+    code: string;
+  }>;
 }
 
 export const SUPPORTED_COUNTRIES = [

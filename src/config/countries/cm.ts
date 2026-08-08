@@ -48,7 +48,10 @@ export const COUNTRY_CM: CountryConfig = {
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
     monthlyProfit: "FCFA 70,000 – FCFA 100,000",
-  },
+  }, telecoms: [
+    { id: "mtn", name: "MTN", code: "MTN" },
+    { id: "orange", name: "Orange", code: "ORANGE" },
+  ],
 };
 
 // // src/config/countries/cm.ts

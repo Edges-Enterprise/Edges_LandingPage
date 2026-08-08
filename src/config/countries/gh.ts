@@ -49,6 +49,11 @@ export const COUNTRY_GH: CountryConfig = {
     storeGoesLive: "Instant",
     monthlyProfit: "₵1,500 – ₵2,500",
   },
+   telecoms: [
+    { id: "mtn", name: "MTN", code: "MTN" },
+    { id: "airtel_tigo", name: "AirtelTigo", code: "AIRTEL_TIGO" },
+    { id: "vodafone", name: "Vodafone", code: "VODAFONE" },
+  ],
 };
 
 // // src/config/countries/gh.ts
