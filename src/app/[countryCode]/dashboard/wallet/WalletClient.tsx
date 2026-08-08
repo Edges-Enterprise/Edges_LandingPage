@@ -169,7 +169,10 @@ export default function WalletClient({
               padding: "0.6rem 1.5rem",
               background: wallet.balance <= 0 ? "var(--bg2)" : "transparent",
               color: wallet.balance <= 0 ? "var(--dim)" : "var(--text)",
-              border: wallet.balance <= 0 ? "1px solid var(--border)" : "1px solid var(--border2)",
+              border:
+                wallet.balance <= 0
+                  ? "1px solid var(--border)"
+                  : "1px solid var(--border2)",
               borderRadius: 8,
               fontWeight: 600,
               fontSize: "0.9rem",
@@ -179,7 +182,8 @@ export default function WalletClient({
             onMouseEnter={(e) => {
               if (wallet.balance > 0) {
                 e.currentTarget.style.borderColor = "var(--brand-color)";
-                e.currentTarget.style.background = "rgba(var(--brand-color-rgb), 0.05)";
+                e.currentTarget.style.background =
+                  "rgba(var(--brand-color-rgb), 0.05)";
               }
             }}
             onMouseLeave={(e) => {
@@ -249,6 +253,7 @@ export default function WalletClient({
           virtualAccount={virtualAccount}
           config={config}
           translations={t}
+          countryCode={countryCode} // ✅ Add this
         />
       )}
 
