@@ -84,11 +84,13 @@ export interface CountryConfig {
 }
 
 export const SUPPORTED_COUNTRIES = [
-  "ng", // Nigeria
   "gh", // Ghana
+  "ng", // Nigeria
   "ke", // Kenya
-  "za", // South Africa
   "cm", // Cameroon
+  "rw", // Rwanda
+  "ug", // Uganda
+  "za", // South Africa
   "cf", // Central African Republic
   "td", // Chad
   "cg", // Congo
@@ -102,8 +104,6 @@ export const SUPPORTED_COUNTRIES = [
   "ne", // Niger
   "ml", // Mali
   "gn", // Guinea
-  "rw", // Rwanda
-  "ug", // Uganda
 ] as const;
 
 export const COUNTRIES: Record<string, CountryConfig> = {

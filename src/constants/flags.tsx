@@ -26,6 +26,293 @@ export const flags = {
       <path fill="#ffffff" d="M213.3 0h213.4v480H213.3z" />
     </svg>
   ),
+  // ✅ ADDED: Kenya
+  Kenya: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      xmlnsXlink="http://www.w3.org/1999/xlink"
+      viewBox="0 0 640 480"
+      width="24"
+      height="16"
+      style={{ display: "block" }}
+    >
+      <defs>
+        <path
+          id="ke-a"
+          strokeMiterlimit="10"
+          d="m-28.6 47.5 1.8 1 46.7-81c2.7-.6 4.2-3.2 5.7-5.8 1-1.8 5-8.7 6.7-17.7a58 58 0 0 0-11.9 14.7c-1.5 2.6-3 5.2-2.3 7.9z"
+        />
+      </defs>
+      <path fill="#fff" d="M0 0h640v480H0z" />
+      <path fill="#000001" d="M0 0h640v144H0z" />
+      <path fill="#060" d="M0 336h640v144H0z" />
+      <g id="ke-b" transform="matrix(3 0 0 3 320 240)">
+        <use xlinkHref="#ke-a" width="100%" height="100%" stroke="#000" />
+        <use xlinkHref="#ke-a" width="100%" height="100%" fill="#fff" />
+      </g>
+      <use
+        xlinkHref="#ke-b"
+        width="100%"
+        height="100%"
+        transform="matrix(-1 0 0 1 640 0)"
+      />
+      <path
+        fill="#b00"
+        d="M640.5 168H377c-9-24-39-72-57-72s-48 48-57 72H-.2v144H263c9 24 39 72 57 72s48-48 57-72h263.5z"
+      />
+      <path
+        id="ke-c"
+        d="M377 312c9-24 15-48 15-72s-6-48-15-72c-9 24-15 48-15 72s6 48 15 72"
+      />
+      <use
+        xlinkHref="#ke-c"
+        width="100%"
+        height="100%"
+        transform="matrix(-1 0 0 1 640 0)"
+      />
+      <g fill="#fff" transform="matrix(3 0 0 3 320 240)">
+        <ellipse rx="4" ry="6" />
+        <path id="ke-d" d="M1 5.8s4 8 4 21-4 21-4 21z" />
+        <use
+          xlinkHref="#ke-d"
+          width="100%"
+          height="100%"
+          transform="scale(-1)"
+        />
+        <use
+          xlinkHref="#ke-d"
+          width="100%"
+          height="100%"
+          transform="scale(-1 1)"
+        />
+        <use
+          xlinkHref="#ke-d"
+          width="100%"
+          height="100%"
+          transform="scale(1 -1)"
+        />
+      </g>
+    </svg>
+  ),
+  Cameroon: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      xmlnsXlink="http://www.w3.org/1999/xlink"
+      viewBox="0 0 640 480"
+      width="24"
+      height="16"
+      style={{ display: "block" }}
+    >
+      <path fill="#007a5e" d="M0 0h213.3v480H0z" />
+      <path fill="#ce1126" d="M213.3 0h213.4v480H213.3z" />
+      <path fill="#fcd116" d="M426.7 0H640v480H426.7z" />
+      <g fill="#fcd116" transform="translate(320 240)scale(7.1111)">
+        <g id="cm-b">
+          <path id="cm-a" d="M0-8-2.5-.4 1.3.9z" />
+          <use
+            xlinkHref="#cm-a"
+            width="100%"
+            height="100%"
+            transform="scale(-1 1)"
+          />
+        </g>
+        <use
+          xlinkHref="#cm-b"
+          width="100%"
+          height="100%"
+          transform="rotate(72)"
+        />
+        <use
+          xlinkHref="#cm-b"
+          width="100%"
+          height="100%"
+          transform="rotate(144)"
+        />
+        <use
+          xlinkHref="#cm-b"
+          width="100%"
+          height="100%"
+          transform="rotate(-144)"
+        />
+        <use
+          xlinkHref="#cm-b"
+          width="100%"
+          height="100%"
+          transform="rotate(-72)"
+        />
+      </g>
+    </svg>
+  ),
+  Rwanda: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      xmlnsXlink="http://www.w3.org/1999/xlink"
+      viewBox="0 0 640 480"
+      width="24"
+      height="16"
+      style={{ display: "block" }}
+    >
+      <path fill="#20603d" d="M0 0h640v480H0z" />
+      <path fill="#fad201" d="M0 0h640v360H0z" />
+      <path fill="#00a1de" d="M0 0h640v240H0z" />
+      <g transform="translate(511 125.4)scale(.66667)">
+        <g id="rw-b">
+          <path
+            id="rw-a"
+            fill="#e5be01"
+            d="M116.1 0 35.7 4.7l76.4 25.4-78.8-16.3L100.6 58l-72-36.2L82 82.1 21.9 28.6l36.2 72-44.3-67.3L30 112 4.7 35.7 0 116.1-1-1z"
+          />
+          <use
+            xlinkHref="#rw-a"
+            width="100%"
+            height="100%"
+            transform="scale(1 -1)"
+          />
+        </g>
+        <use
+          xlinkHref="#rw-b"
+          width="100%"
+          height="100%"
+          transform="scale(-1 1)"
+        />
+        <circle r="34.3" fill="#e5be01" stroke="#00a1de" strokeWidth="3.4" />
+      </g>
+    </svg>
+  ),
+  // ✅ ADDED: Uganda
+  Uganda: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 640 480"
+      width="24"
+      height="16"
+      style={{ display: "block" }}
+    >
+      <defs>
+        <clipPath id="ug-a">
+          <path fillOpacity=".7" d="M-85.3 0h682.6v512H-85.3z" />
+        </clipPath>
+      </defs>
+      <g clipPath="url(#ug-a)" transform="translate(80)scale(.9375)">
+        <path
+          fill="#ffe700"
+          fillRule="evenodd"
+          d="M-128 341.4h768v85.3h-768z"
+        />
+        <path fill="#000001" fillRule="evenodd" d="M-128 256h768v85.3h-768z" />
+        <path fill="#de3908" fillRule="evenodd" d="M-128 170.7h768V256h-768z" />
+        <path fill="#ffe700" fillRule="evenodd" d="M-128 85.4h768v85.3h-768z" />
+        <path fill="#000001" fillRule="evenodd" d="M-128 0h768v85.3h-768z" />
+        <path
+          fill="#fffdff"
+          fillRule="evenodd"
+          stroke="#000"
+          d="M335.7 256a79.7 79.7 0 1 1-159.4 0 79.7 79.7 0 0 1 159.4 0z"
+        />
+        <path
+          fill="#de3108"
+          fillRule="evenodd"
+          stroke="#000"
+          d="m242 194.9-5.2-9.5c2-2 5.3-3.6 10.7-3.6l-.6 10.5z"
+        />
+        <path
+          fill="#ffe700"
+          fillRule="evenodd"
+          stroke="#000"
+          d="m247 192.3.7-10.5s10.7-.6 16.5 6.4l-5.7 8.2z"
+        />
+        <path
+          fill="#de3108"
+          fillRule="evenodd"
+          stroke="#000"
+          d="m258.6 196.3 5.3-8.2c3.5 3.7 5 6.3 5.5 10.3.1.1-8.3 2.1-8.3 2z"
+        />
+        <path
+          fillRule="evenodd"
+          stroke="#000"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth=".9"
+          d="M244.6 331.1s9.9-11.3 29.1-8.9c-2.9-4.7-12.3-4.1-12.3-4.1s-2.8-22-.6-23.2 12 .1 12 .1c1.2 0 3.4-3.4 1.6-5.6s-6.8-10.5-4.7-12.2 13.4 1 13.4 1l-32-41s-3.3-15.5 3.3-23c7.9-6.5 7-13.6 6.8-13.5-1.1-7.2-12-12.3-19.4-5.7-4.3 5.2-1.4 9.2-1.4 9.2s-11.5 3.1-11.9 5.1 12.9-.3 12.9-.3l-1.3 9.1s-26 23.6-6 44l.6-.8s7 8.6 14.3 10.5c7 7 6.3 6 6.3 6s1.3 11.1 0 13.3c-1.7-.5-19.3-1.2-21.9-.2-2.4.8-11.4.3-9.2 15.1l3.3-7.5s-.3 5.3 1.9 7.2c-.4-5.6 2.1-9.4 2.1-9.4s.4 6.2 1.8 7c1.4 1 1.4-10 9-9 7.4.9 12.9.6 12.9.6s2.5 21.4 1.7 23.4c-5.4-1.3-18.4.5-19.2 3.8 7.6-.5 11.1.4 11.1.4s-6.1 5.5-4.2 8.6"
+        />
+        <path
+          fill="#9ca69c"
+          fillRule="evenodd"
+          stroke="#9ca69c"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth=".9"
+          d="M247.6 214.8s-18.9 20.8-10.7 36.7c.4-2.2.2-3.6.5-3.5-.5-.3 2.3 1.9 2.1 1.5 0-1.2-.8-3.7-.8-3.7l2.5.7-1.5-2.8 3.7.4s-1.3-3.4-.9-3.4l3 .2c-5.4-9.6-.3-17.6 2.1-26.2z"
+        />
+        <path
+          fill="#9ca69c"
+          fillRule="evenodd"
+          stroke="#9ca69c"
+          d="M254.2 196.9s1 7.2-3 9.2c-.5.5-3 1.3-2.6 2.8.4 2 1.5 1.6 3 1.2 4.1-.7 8.9-9.4 2.6-13.2z"
+        />
+        <path
+          fill="#fff"
+          fillRule="evenodd"
+          d="M247.2 203a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"
+        />
+        <path
+          fill="#de3108"
+          fillRule="evenodd"
+          stroke="#000"
+          d="M241.1 209c-1 .9-6.2 6.3-1 8.3 5.3-1.4 3.8-2.4 5-3.6 0-2.5-2.6-3.1-4-4.6z"
+        />
+        <path
+          fill="#9ca69c"
+          fillRule="evenodd"
+          stroke="#9ca69c"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth=".9"
+          d="M252.6 260.5c-.3 1.2-1.5 5.6.1 9 4.6-2 6.7-1.4 8.2-.4-3.7-3-5.2-4.3-8.3-8.6"
+        />
+        <path
+          fill="#fff"
+          fillRule="evenodd"
+          stroke="#fff"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth=".9"
+          d="m260.4 281.1.2 10.2s3.6.6 5.2 0 0-7-5.4-10.2"
+        />
+        <path
+          fill="#9ca69c"
+          fillRule="evenodd"
+          stroke="#000"
+          d="M286 282.4s-6.5-15.8-23.2-19.8-14.5-21.8-13.2-22.9c.8-1.5 1.3-3.9 6.1-1.6s27 13.4 30.2 14 .4 30.7.2 30.3z"
+        />
+        <path
+          fill="#de3108"
+          fillRule="evenodd"
+          stroke="#000"
+          strokeLinejoin="round"
+          strokeWidth=".9"
+          d="M270.2 262.5c-.3.2 22.3 13.4 15.5 24.7 6.4-4.3 4.4-11.7 4.4-11.7s5.2 13.7-7.6 20.4c1.4 1.2 2.3 1 2.3 1l-2.2 2.1s-1 1.7 7.6-2.5c-2.3 1.9-2.5 3.3-2.5 3.3s.6 1.8 6.2-3.1c-4.5 4.9-5.5 7.4-5.5 7.3 12.3-1 39-41-8.4-52.7l2.1 2.2z"
+        />
+        <path
+          fill="#fff"
+          fillRule="evenodd"
+          stroke="#000"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth=".9"
+          d="M271.2 258.6c3 2.2 4.1 3 4.5 4-2.8-.6-5.3-.4-5.3-.4s-6.1-5.8-7.2-6.3c-.8 0-5.6-3-5.6-3-2.3-1.2-4.5-9.3 4.2-7a93 93 0 0 0 10.3 4.6l10.7 3.4 6.2 6.9s-11-5.4-12.4-5.5c3 2.4 4.7 5.8 4.7 5.8-3.5-1-6.5-2-10.1-2.5"
+        />
+        <path
+          fill="none"
+          stroke="#fff"
+          strokeLinecap="round"
+          strokeWidth=".9"
+          d="M228.4 209.9s10.5-2.6 11.8-2.2"
+        />
+        <path fill="#de3908" fillRule="evenodd" d="M-128 426.7h768V512h-768z" />
+      </g>
+    </svg>
+  ),
   Egypt: (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -146,42 +433,6 @@ export const flags = {
       <path fill="#ce1021" d="M640 0 0 384v96L640 96z" />
     </svg>
   ),
-  Rwanda: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      xmlnsXlink="http://www.w3.org/1999/xlink"
-      viewBox="0 0 640 480"
-      width="24"
-      height="16"
-      style={{ display: "block" }}
-    >
-      <path fill="#20603d" d="M0 0h640v480H0z" />
-      <path fill="#fad201" d="M0 0h640v360H0z" />
-      <path fill="#00a1de" d="M0 0h640v240H0z" />
-      <g transform="translate(511 125.4)scale(.66667)">
-        <g id="rw-b">
-          <path
-            id="rw-a"
-            fill="#e5be01"
-            d="M116.1 0 35.7 4.7l76.4 25.4-78.8-16.3L100.6 58l-72-36.2L82 82.1 21.9 28.6l36.2 72-44.3-67.3L30 112 4.7 35.7 0 116.1-1-1z"
-          />
-          <use
-            xlinkHref="#rw-a"
-            width="100%"
-            height="100%"
-            transform="scale(1 -1)"
-          />
-        </g>
-        <use
-          xlinkHref="#rw-b"
-          width="100%"
-          height="100%"
-          transform="scale(-1 1)"
-        />
-        <circle r="34.3" fill="#e5be01" stroke="#00a1de" strokeWidth="3.4" />
-      </g>
-    </svg>
-  ),
   Zambia: (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -269,55 +520,6 @@ export const flags = {
       </g>
     </svg>
   ),
-  Cameroon: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      xmlnsXlink="http://www.w3.org/1999/xlink"
-      viewBox="0 0 640 480"
-      width="24"
-      height="16"
-      style={{ display: "block" }}
-    >
-      <path fill="#007a5e" d="M0 0h213.3v480H0z" />
-      <path fill="#ce1126" d="M213.3 0h213.4v480H213.3z" />
-      <path fill="#fcd116" d="M426.7 0H640v480H426.7z" />
-      <g fill="#fcd116" transform="translate(320 240)scale(7.1111)">
-        <g id="cm-b">
-          <path id="cm-a" d="M0-8-2.5-.4 1.3.9z" />
-          <use
-            xlinkHref="#cm-a"
-            width="100%"
-            height="100%"
-            transform="scale(-1 1)"
-          />
-        </g>
-        <use
-          xlinkHref="#cm-b"
-          width="100%"
-          height="100%"
-          transform="rotate(72)"
-        />
-        <use
-          xlinkHref="#cm-b"
-          width="100%"
-          height="100%"
-          transform="rotate(144)"
-        />
-        <use
-          xlinkHref="#cm-b"
-          width="100%"
-          height="100%"
-          transform="rotate(-144)"
-        />
-        <use
-          xlinkHref="#cm-b"
-          width="100%"
-          height="100%"
-          transform="rotate(-72)"
-        />
-      </g>
-    </svg>
-  ),
   Morocco: (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -357,139 +559,6 @@ export const flags = {
           d="M134.4 128.4c0-.8 18.9-53 18.9-53l17 52.2s57.4 1.7 57.4.8-45.3 34.3-45.3 34.3 21.4 60 20.5 58.2-49.6-36-49.6-36-49.7 34.3-48.8 34.3c.8 0 18.8-56.5 18.8-56.5l-44.5-33.4z"
         />
         <path fill="#118600" d="M0 409.2h767.6V512H0z" />
-      </g>
-    </svg>
-  ),
-  // ✅ ADDED: Kenya
-  Kenya: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 640 480"
-      width="24"
-      height="16"
-      style={{ display: "block" }}
-    >
-      <defs>
-        <clipPath id="ke-a">
-          <path fillOpacity=".7" d="M-116.6 0H512v512h-628.6z" />
-        </clipPath>
-      </defs>
-      <g
-        fillRule="evenodd"
-        clipPath="url(#ke-a)"
-        transform="translate(109.3)scale(.9375)"
-      >
-        <path fill="#fff" d="M-116.6 0H512v512h-628.6z" />
-        <path fill="#000001" d="M-116.6 172.1H512v169.6h-628.6z" />
-        <path fill="#ce1126" d="M-116.6 114.7H512v57.4h-628.6zM-116.6 340.7H512v57.4h-628.6z" />
-        <path
-          fill="#060"
-          d="m237.7 0 120.5 512h-92.3L145.5 0zM62.1 0l120.5 512H90.3L27.8 0z"
-        />
-        <path
-          fill="#fff"
-          d="M91.4 0h27L-4.5 512h-27zM-24.5 0h27l-95.1 512h-27z"
-        />
-        <path
-          fill="#ce1126"
-          d="M44.8 0h25.7L-28.9 512H-54zM133.3 0h27l-94.7 512h-27z"
-        />
-        <g fill="#fff">
-          <path d="M235.6 0h14.4l-129 512h-14.4zM93.9 0h14.4L-20.6 512h-14.4z" />
-        </g>
-        <g fill="#ce1126">
-          <path d="M196 0h14.4L81.4 512H67zM54.8 0h14.4L-59.8 512h-14.4z" />
-          <path d="M272.5 0h14.4L157.9 512h-14.4z" />
-        </g>
-        <g
-          fill="#fff"
-          transform="translate(239.7 13.9)"
-          stroke="#000"
-          strokeWidth="3.2"
-        >
-          <path d="m74.5 303.3 8.2 6.8 4.6-13.6-8.4-7.3z" />
-          <path d="m74.5 303.3-6.4-9.5-11.9 5.9 7.6 9.5z" />
-          <path
-            strokeLinejoin="round"
-            d="m87.3 296.5 11.6-7.8-6.7-1.9-4.9 9.7z"
-          />
-          <path
-            strokeLinejoin="round"
-            d="m74.2 278 7.9-7.2-2.7-13.7-6 6.6z"
-          />
-          <path d="m42.9 332.2-3.8-4.5-7.7 8.2 4.2 5z" />
-          <path d="m35.5 308.5-5.6-2.2-6 9.8 5.8 2.5z" />
-          <path d="m44.2 326.8 9-3.2-5-10.3-7.8 4.2z" />
-          <path
-            strokeLinejoin="round"
-            d="M56.3 354.9c1.6 1 10.2 0 13.5-2 2.5 2.4 7.6 2.6 10 0 2.7 1.5 8.4 2.9 11.6 0 2.7-2.8 3.5-6.6 3.5-11.6-5.6-4.4-13.2-11.5-17.2-11.5-1.7 5.1-7 15-7 15s-5.4-9.9-7-15c-4 0-11.6 7-17.2 11.5 0 5 .8 8.8 3.5 11.6 3.2 2.9 8.9 1.5 11.6 0 2.4 2.6 7.5 2.4 10 0 3.3 2 11.9 3 13.5 2z"
-          />
-          <path d="M49.2 337.6 44 334l-4.7 8 4.8 4z" />
-          <path d="m58.5 345.8 5.5-3.6-5.5-8.4-5.2 4.2z" />
-          <path d="M73.8 350.2 72 344l-8 1.8 1.7 6.2z" />
-          <path d="m86.8 342.6 5.4-3-7.1-9.3-5.5 3.3z" />
-          <path d="M47.9 319.3 40.7 321l5.3 8.5 7.2-3.2z" />
-          <path d="M65.8 330c-1.7-2.5-5.7-3.2-9.8-2.4l-.3 4.9 6.7 1.5z" />
-          <path d="M80.3 328c-2.6-2.3-6.6-2.8-10.9-1.9l.2 6.5 7.5-.5z" />
-          <path
-            strokeLinejoin="round"
-            d="M56.3 354.9c-1.1-2-2.2-4.6-3.5-7.1"
-          />
-          <path
-            strokeLinejoin="round"
-            d="M75.3 347.8c1.2 2.5 1.7 4.5 2.4 7.6"
-          />
-          <path d="M46 340l-6.7-.5 2.2 8.3 5.4-1.5z" />
-          <path d="M47.3 353.6c-1.8-.9-8.3-5-10.7-6.2l-2.2 6.4 7.7 2.4z" />
-          <path d="M69.5 355.3c0-2.2 0-6 .2-8.6l-8.5-1.8-2 10.4h10.3z" />
-          <path d="M88.6 346.8c-2.8-2.5-7-4.3-10.5-4.6l-3.8 7.8 7.7 2.8z" />
-          <path d="M97 353c-2.2-2.6-6.3-5.6-9.1-6.7l-4 9.1 7.8 2.4z" />
-          <path d="M81.6 356.3a15 15 0 0 1-12.5.5" />
-          <path d="M90.3 340.7c-1.5 2-3 4.4-4 6.6" />
-          <path d="m43 334.9 5.1-7.2-8.8-4.3-5 8z" />
-          <path d="M62.8 316.8c2.5-2.7 2.6-7.1 1.6-10.8l-6.4.5-3.2 8.2z" />
-          <path d="M61.3 314.7c2.4-2.7 3.2-6.3 3.8-9.6l-7.6.4-4.5 9.2z" />
-          <path d="M63.9 315.5c2.2-2.6 2-6.4 1-9.9l-7.5 1.4-3.8 8.5z" />
-          <path d="M79.3 299.6c1.1-1.7 1.2-4.6-.5-7.5l-4.7 3.8-3 6.8z" />
-          <path d="M85.2 314.2c-.8-3.5-3.2-7.7-6-10.3l-2.8 6.4 1.2 8z" />
-          <path d="M79.2 319.4c-2.5-3.9-6.8-8-10.1-9.8l-3.9 7 2 9.4z" />
-          <path d="M89.3 330.7c-4.2-3.7-9.4-8-13.6-9.4l-3.4 8.2 3 10.4z" />
-          <path d="M96.5 337.3c-4-3-8.5-6.1-12.7-8.3l-4.6 8.1 2 9.9z" />
-          <path d="M99 338.4c-2.9-2.2-6.3-4.3-9-5.8l-4.4 8.6 2.6 8.8z" />
-          <path d="M51.2 302.5c2.2-1.4 3.5-4.5 2.5-8l-5 2.6-3.4 7.4z" />
-          <path d="M58.8 295.5c3.7-1.8 5.7-5.2 4.9-9.2l-6 2-4.8 7.2z" />
-          <path d="M51.2 311.8c1.3-2.8.6-7.3-1.2-10.4l-5 2.8-3 9z" />
-          <path d="m43.9 290.3 6.6-3.4-4.3-8-6.8 3.8z" />
-          <path d="M29.5 316.5c2.7-.7 5.2-2.8 6.7-5.8l-5.6-2.6-6 3.5z" />
-          <path d="m34.3 336.3 2.2-3.5-5.4-6.4-2.8 4.2z" />
-          <path d="m33.6 328.7 4.3-3.3-2.6-7-4.1 3.7z" />
-          <path
-            strokeLinejoin="round"
-            d="M74.6 294.3c-.4 1.4-.2 3 .8 4.7"
-          />
-          <path
-            strokeLinejoin="round"
-            d="M33.9 330.2c-1-3.3-2.8-4.8-4.3-4.9"
-          />
-          <path d="M29.4 335c1.3 1 2.6 2.6 3.3 4.8" />
-          <path
-            strokeLinejoin="round"
-            d="M34.8 315.4c-1.7-.4-3.7-1.2-4.6-2.9"
-          />
-          <path d="M32 314.2c-2-2.3-4.2-2.8-6.2-1.6 0 2.4.4 4 2.3 6" />
-          <path
-            strokeLinejoin="round"
-            d="M82.6 341.7c-2.3 0-3.1 1.2-3.4 2.3"
-          />
-          <path
-            strokeLinejoin="round"
-            d="M41.9 322.8c-2.8-2.6-6.6-3.1-9.7-2.3"
-          />
-          <path
-            strokeLinejoin="round"
-            d="M46.8 296.6c.7-1.6 1-3 1-4.7"
-          />
-        </g>
       </g>
     </svg>
   ),
@@ -542,10 +611,7 @@ export const flags = {
         <path fill="#fff" d="M0 170.7h767.6v170.7H0z" />
         <path fill="#289728" d="M0 341.3h767.6v170.7H0z" />
         <path fill="#fcd116" d="M0 0h256v512H0z" />
-        <path
-          fill="#ce1126"
-          d="M128 0h128v512H128zM0 0h128v512H0z"
-        />
+        <path fill="#ce1126" d="M128 0h128v512H128zM0 0h128v512H0z" />
         <path
           fill="#fff"
           d="M383.8 21.3 345.7 153l101-74.9-97.8-3.5 63.3 68.4-37.8-12.5 20.8 88.5-52-61.1-20 85.3-51.9-69.8-37.3 80.8 16-88.5-52.2 60.9 24-86.4-37.6 12.5 63.3-68.4-97.8 3.5 101 74.9L256 21.3z"
@@ -798,55 +864,6 @@ export const flags = {
         <path fill="#ce1126" d="M0 0h256v512H0z" />
         <path fill="#fcd116" d="M256 0h256v512H256z" />
         <path fill="#009e60" d="M512 0h256v512H512z" />
-      </g>
-    </svg>
-  ),
-  // ✅ ADDED: Uganda
-  Uganda: (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 640 480"
-      width="24"
-      height="16"
-      style={{ display: "block" }}
-    >
-      <defs>
-        <clipPath id="ug-a">
-          <path fillOpacity=".7" d="M-56.6 0H512v512h-568.6z" />
-        </clipPath>
-      </defs>
-      <g
-        fillRule="evenodd"
-        clipPath="url(#ug-a)"
-        transform="translate(53)scale(.9375)"
-      >
-        <path fill="#de2818" d="M-56.6 0H512v512h-568.6z" />
-        <path fill="#fed602" d="M-56.6 0H512v341.3h-568.6z" />
-        <circle cx="227.7" cy="256" r="85.3" fill="#de2818" stroke="#fed602" strokeWidth="17.8" />
-        <circle cx="227.7" cy="256" r="74.7" fill="#000001" />
-        <circle cx="227.7" cy="256" r="60.9" fill="#fefefe" />
-        <circle cx="227.7" cy="256" r="56.9" fill="#de2818" />
-        <path
-          fill="#fed602"
-          d="m227.7 160.9 18.9 37.2 41.6-8.5-22.4 33 22.4 33-41.6-8.5-18.9 37.2-18.9-37.2-41.6 8.5 22.4-33-22.4-33 41.6 8.5z"
-        />
-        <path
-          fill="#fefefe"
-          d="M187.8 240.1c-2.8 11.2 7.5 22.2 18.2 14.6 8.6-5.7 8.6-15.9 4.5-26 4.5-1.8 10.7 13.3 19.9 7.2 3.3-2.7 5.7-6.2 6.1-10.3 2.6-2.2 10.8 5.1 12.9 2.3 2.7-3.5 7.4-13.2 4.9-15.4-2.2-2.2-14.4-7.4-17.6-5.7-5.1-6.2-10.7-13.5-16.9-19.2-9.7 5.8-20.4 19-22.5 37.5h1.3z"
-        />
-        <circle cx="227.7" cy="256" r="11.3" fill="#fefefe" />
-        <path
-          fill="#fed602"
-          d="M188.6 270.6c2.3 1.1 4.5 0 6.7-.7 4 3 8.5 5.6 13.2 7.6 4.8 1.8 10.2 2.7 15.5 2.8 5.3 0 10.5-.7 15.5-2.5 4.8-1.9 9.1-4.4 13.2-7.5 2.1.8 4.3 2 6.7.9 3.5-1.6 6.1-12.5 4.2-16.6-3.6-9.5-11.3-16.5-20.6-16.5s-16.8 6.8-20.2 16.2c-2 4.5-.4 15.6 3.2 17.3z"
-        />
-        <g fill="#fed602">
-          <path d="M206.4 241.4s2.2-5.9 5.3-8.2c3.2-2.3 1.2-4.8 1.2-4.8s3.5.3 5.6 2.6c2.2 2.4 1.8 4.9 1.8 4.9s2.7-2.8 5.3-2.9c2.6 0 2.6 3.8 2.6 3.8s3.5-1.7 5.8.6c2.3 2.1-1 5.9-1 5.9s3.5 0 4.7 2.8c1.2 2.9-2.6 4.6-2.6 4.6s2.9 1.6 2.6 4c-.3 2.5-4.1 3.8-4.1 3.8s2.9 2.4 1.6 4.9c-1.5 2.5-5.3 2-5.3 2s2.7 3.5.6 5.4c-2.2 2.2-5.6 0-5.6 0s1.7 3.3-.7 5.2c-2.5 1.7-5.5-.5-5.5-.5s1.3 2.8-1.3 3.8c-2.6 1-4.6-.9-4.6-.9s.8 2.8-1.9 2.4c-2.7-.4-3.4-3.3-3.4-3.3s-1.5 2.8-4.2 1.2c-2.7-1.5-2.1-4.4-2.1-4.4s-3 1.6-4.8-.6c-1.6-2.3-.7-4.6-.7-4.6s-3.2.8-3.7-1.9c-.7-2.7.9-4.8.9-4.8s-3.3-.5-2.6-3.5c.7-2.9 4-3.6 4-3.6s-3.3-2.1-1.7-4.9c1.5-2.8 5-2.6 5-2.6s-2.6-3.4-.6-5.5c2-2.1 5.4-.8 5.4-.8s-2.2-4.7 1.6-6.6c3.8-2 6.2 1.4 6.2 1.4" />
-          <path d="M219.9 263.6c1.6.5 2.6 2.1 2.8 3.6-.3 1.5-2.2 1.5-2.8.4m-2.8-3.4c-1.5.5-2.2 2.2-2.3 3.7.2 1.7 2.3 1.8 2.9.6M225.5 254.3c1.8.4 3 2.1 3.3 3.8-.3 1.8-2.4 2-3.3.8M230 249.8c2.4.5 4 2.7 4 5.2-.6 2.5-3.4 2.5-4.8.8M211.8 248.8c-1.7.3-2.6 1.9-2.6 3.3-.1 1.6 1.9 2.1 2.6.9M207.5 255.5c-2.2.3-3.2 2.3-3.3 4.3.2 1.7 2.4 1.8 3.3.5" />
-        </g>
-        <path
-          fill="#fed602"
-          d="M208.4 274.7c0-.9 1.2-1.4 2.3-2.2-1.1.9-2.3 1.7-2.3 2.2zm4.4-3.7c.9-.5 2-.7 2.6-1.5-.6.9-1.7 1.3-2.6 1.5zm5.1-2.2c.8-.5 1.7-1 2-1.9-.4.9-1.2 1.4-2 1.9zm5-3.1c.8-.6 1.5-1.2 1.8-2.2-.3 1-1 1.6-1.8 2.2z"
-        />
       </g>
     </svg>
   ),
