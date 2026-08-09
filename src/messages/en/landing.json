@@ -1,14 +1,14 @@
 {
   "hero": {
-    "badge": "Reseller Partner Program",
+    "badge": "Telcos Partner Program",
     "title": "Turn Your Network Into a <span class=\"text-shimmer\">Revenue Stream.</span>",
-    "subtitle": "Join the Edges Network reseller program. Earn competitively up to {monthlyProfit} in profits per month. Start in minutes.",
-    "cta": "Apply as Reseller",
+    "subtitle": "Join the Telcos partner program. Earn competitively up to {monthlyProfit} in profits per month. Start in minutes.",
+    "cta": "Apply Now",
     "ctaSecondary": "See How It Works"
   },
   "stats": {
     "apkDelivery": "APK Delivery",
-    "activeResellers": "Active Resellers",
+    "activeResellers": "Active Partners",
     "storeGoesLive": "Store Goes Live",
     "toJoin": "To Join"
   },
@@ -36,7 +36,7 @@
     ]
   },
   "benefits": {
-    "badge": "Why Edges Network",
+    "badge": "Why Telcos",
     "title": "Everything you need<br />to <em>make money</em>",
     "items": [
       {
@@ -53,14 +53,14 @@
       },
       {
         "title": "Live Sales Dashboard",
-        "desc": "Track every order, customer, and earning in real time from your personal reseller portal."
+        "desc": "Track every order, customer, and earning in real time from your personal portal."
       },
       {
         "title": "All Networks Covered",
         "desc": "Sell all major networks data bundles and airtime — all from a single storefront."
       },
       {
-        "title": "Backed by Edges Network",
+        "title": "Backed by Telcos",
         "desc": "Your store runs on the same trusted infrastructure powering thousands daily. Reliable delivery, every time."
       }
     ]
@@ -117,8 +117,8 @@
     "title": "Common questions",
     "items": [
       {
-        "q": "Is there any cost to open my reseller storefront?",
-        "a": "No. Creating your web storefront on Edges Network is completely free. There are no registration fees, monthly charges, or hidden costs to get started."
+        "q": "Is there any cost to open my storefront?",
+        "a": "No. Creating your web storefront on Telcos is completely free. There are no registration fees, monthly charges, or hidden costs to get started."
       },
       {
         "q": "How quickly does my store go live?",
@@ -144,9 +144,9 @@
   },
   "cta": {
     "badge": "Ready to Start?",
-    "title": "Join the Edges Network<br /><span class=\"text-shimmer\">Reseller Program Today</span>",
+    "title": "Join the Telcos<br /><span class=\"text-shimmer\">Partnership Program Today</span>",
     "subtitle": "Sign up in minutes, set your branded storefront and start earning. Want an Android app too? Select the APK option and we'll deliver it to your inbox in {apkDeliveryDays} business days.",
-    "button": "Apply as a Reseller",
+    "button": "Apply as a Partner",
     "buttonWhatsApp": "Chat on WhatsApp",
     "footer": "✓ Free to join · ✓ No contracts · ✓ Payouts everyday"
   }

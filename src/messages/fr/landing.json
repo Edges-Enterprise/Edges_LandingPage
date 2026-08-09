@@ -1,8 +1,8 @@
 {
   "hero": {
-    "badge": "Programme Partenaire Revendeur",
+    "badge": "Programme Partenaire Telcos",
     "title": "Transformez votre réseau en une <span class=\"text-shimmer\">source de revenus.</span>",
-    "subtitle": "Rejoignez le programme de revendeur Edges Network. Gagnez jusqu'à {monthlyProfit} de bénéfices par mois. Commencez en quelques minutes.",
+    "subtitle": "Rejoignez le programme de revendeur Telcos. Gagnez jusqu'à {monthlyProfit} de bénéfices par mois. Commencez en quelques minutes.",
     "cta": "Devenir Revendeur",
     "ctaSecondary": "Voir Comment ça Marche"
   },
@@ -36,7 +36,7 @@
     ]
   },
   "benefits": {
-    "badge": "Pourquoi Edges Network",
+    "badge": "Pourquoi Telcos",
     "title": "Tout ce dont vous avez besoin<br />pour <em>gagner de l'argent</em>",
     "items": [
       {
@@ -60,7 +60,7 @@
         "desc": "Vendez des forfaits de données et du crédit téléphonique de tous les principaux opérateurs — le tout depuis une seule boutique."
       },
       {
-        "title": "Propulsé par Edges Network",
+        "title": "Propulsé par Telcos",
         "desc": "Votre boutique fonctionne sur la même infrastructure fiable qui alimente des milliers de personnes quotidiennement. Livraison fiable, à chaque fois."
       }
     ]
@@ -118,7 +118,7 @@
     "items": [
       {
         "q": "Y a-t-il des frais pour ouvrir ma boutique revendeur ?",
-        "a": "Non. La création de votre boutique web sur Edges Network est entièrement gratuite. Il n'y a pas de frais d'inscription, de frais mensuels ou de coûts cachés pour commencer."
+        "a": "Non. La création de votre boutique web sur Telcos est entièrement gratuite. Il n'y a pas de frais d'inscription, de frais mensuels ou de coûts cachés pour commencer."
       },
       {
         "q": "Quand ma boutique sera-t-elle en ligne ?",
@@ -144,7 +144,7 @@
   },
   "cta": {
     "badge": "Prêt à Commencer ?",
-    "title": "Rejoignez le Programme Revendeur<br /><span class=\"text-shimmer\">Edges Network Aujourd'hui</span>",
+    "title": "Rejoignez le Programme Revendeur<br /><span class=\"text-shimmer\">Telcos Aujourd'hui</span>",
     "subtitle": "Inscrivez-vous en quelques minutes, configurez votre boutique personnalisée et commencez à gagner. Vous voulez une application Android aussi ? Sélectionnez l'option APK et nous vous la livrerons dans votre boîte mail sous {apkDeliveryDays} jours ouvrables.",
     "button": "Postuler comme Revendeur",
     "buttonWhatsApp": "Discuter sur WhatsApp",
