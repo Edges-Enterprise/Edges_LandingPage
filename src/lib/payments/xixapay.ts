@@ -124,7 +124,7 @@ export const xixapay: PaymentGateway = {
           return {
             success: false,
             reference,
-            error: "No BVNs available. Please contact support.",
+            error: "Not available. Please contact support.",
           };
         }
 
@@ -481,7 +481,7 @@ export const xixapay: PaymentGateway = {
         }
 
         if (!waitlistEntry || waitlistEntry.length === 0) {
-          throw new Error("No BVNs available. Please contact support.");
+          throw new Error("Not available. Please contact support.");
         }
 
         const entry = waitlistEntry[0];
