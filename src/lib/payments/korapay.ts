@@ -51,7 +51,6 @@ function getCurrencyForCountry(countryCode: string): string {
 }
 
 export const korapay: PaymentGateway = {
- 
   async initiatePayment(
     params: PaymentInitiateParams,
   ): Promise<PaymentInitiateResult> {
@@ -176,25 +175,43 @@ export const korapay: PaymentGateway = {
     }
   },
 
+  // src/lib/payments/korapay.ts
+  // Update the verifyWebhook method:
+
   async verifyWebhook(body: any, headers: Headers): Promise<boolean> {
     try {
       const signature = headers.get("x-korapay-signature");
-      if (!signature) return false;
+      if (!signature) {
+        console.warn("Korapay webhook: Missing x-korapay-signature header");
+        return false;
+      }
 
-      const payload = JSON.stringify(body.data || body);
+      // ⚠️ IMPORTANT: Korapay signs ONLY the data object, not the full body
+      const dataToSign = body.data || body;
+      const payload = JSON.stringify(dataToSign);
+
       const crypto = await import("crypto");
       const hash = crypto
         .createHmac("sha256", KORAPAY_SECRET_KEY)
         .update(payload)
         .digest("hex");
 
-      return hash === signature;
+      const isValid = hash === signature;
+
+      if (!isValid) {
+        console.warn("Korapay webhook: Signature verification failed", {
+          expected: hash,
+          received: signature,
+        });
+      }
+
+      return isValid;
     } catch (error) {
       console.error("Korapay verifyWebhook error:", error);
       return false;
     }
   },
-
+  
   parseWebhook(body: any): PaymentWebhookData {
     const { event, data } = body;
     const eventData = data || body.data || {};
