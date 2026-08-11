@@ -31,6 +31,13 @@ export const COUNTRY_MA: CountryConfig = {
     airtime: ["zendit"],
     payment: ["flutterwave", "korapay"],
   },
+  paymentGateway: {
+    provider: "korapay",
+    currency: "XOF",
+    methods: ["mobile_money"],
+  },
+  serviceProvider: "zendit",
+  region: "xof",
   kyc: {
     requiredDocuments: ["government_id", "selfie"],
     optionalDocuments: ["business_reg"],
@@ -42,4 +49,8 @@ export const COUNTRY_MA: CountryConfig = {
     storeGoesLive: "Instant",
     monthlyProfit: "DH 1,500 – DH 2,500",
   },
+  telecoms: [
+    { id: "mtn", name: "MTN", code: "MTN" },
+    { id: "orange", name: "Orange", code: "ORANGE" },
+  ],
 };
