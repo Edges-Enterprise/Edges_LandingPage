@@ -26,10 +26,17 @@ export const COUNTRY_EG: CountryConfig = {
     cableTV: false,
     betting: false,
   },
+  paymentGateway: {
+    provider: "korapay",
+    currency: "EGP",
+    methods: ["mobile_money"],
+  },
+  serviceProvider: "zendit",
+  region: "north_africa",
   providers: {
     data: ["zendit"],
     airtime: ["zendit"],
-    payment: ["flutterwave", "juicyway"],
+    payment: ["korapay"],
   },
   kyc: {
     requiredDocuments: ["government_id", "selfie"],
@@ -42,4 +49,10 @@ export const COUNTRY_EG: CountryConfig = {
     storeGoesLive: "فوري",
     monthlyProfit: "E£ 1,500 – E£ 2,500",
   },
+  telecoms: [
+    { id: "mtn", name: "MTN", code: "MTN" },
+    { id: "orange", name: "Orange", code: "ORANGE" },
+    { id: "moov", name: "Moov", code: "MOOV" },
+    { id: "wave", name: "Wave", code: "WAVE" },
+  ],
 };
