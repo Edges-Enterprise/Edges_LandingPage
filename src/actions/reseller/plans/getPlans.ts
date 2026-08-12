@@ -2,39 +2,17 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabase/server";
-
-export interface Plan {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  cost: number;
-  profit: number;
-  category: string;
-  provider: string;
-  data_amount?: string;
-  validity?: string;
-  is_active: boolean;
-  metadata?: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-}
+import { createAdminClient } from "@/lib/supabase/admin";
+import { PlanWithConfig } from "@/types/reseller/plans";
 
 export interface GetPlansParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-  category?: string;
-  provider?: string;
-  is_active?: boolean;
-  sortBy?: "name" | "price" | "profit" | "created_at";
-  sortOrder?: "asc" | "desc";
+  network?: string;
+  enabled?: boolean;
 }
 
 export async function getPlans(params: GetPlansParams = {}): Promise<{
   success: boolean;
-  data?: Plan[];
-  total?: number;
+  data?: PlanWithConfig[];
   error?: string;
 }> {
   try {
@@ -49,10 +27,12 @@ export async function getPlans(params: GetPlansParams = {}): Promise<{
       return { success: false, error: "Unauthorized" };
     }
 
+    const adminClient = createAdminClient();
+
     // Get the reseller's application
-    const { data: application, error: appError } = await supabase
+    const { data: application, error: appError } = await adminClient
       .from("global_reseller_applications")
-      .select("id")
+      .select("id, brand_color, store_name, store_slug, country_code")
       .eq("auth_user_id", user.id)
       .single();
 
@@ -60,57 +40,91 @@ export async function getPlans(params: GetPlansParams = {}): Promise<{
       return { success: false, error: "Reseller not found" };
     }
 
-    // Build query
-    let query = supabase
-      .from("global_plans")
-      .select("*", { count: "exact" })
-      .eq("reseller_id", application.id);
+    const countryCodeUpper = application.country_code.toUpperCase();
 
-    // Apply filters
-    if (params.search) {
-      query = query.or(
-        `name.ilike.%${params.search}%,` +
-          `description.ilike.%${params.search}%,` +
-          `provider.ilike.%${params.search}%`,
-      );
+    // Get default markup from country config (or use 0)
+    const defaultMarkup = 0;
+
+    // Build the query - Get ALL plans for the country with their configs (if any)
+    let query = adminClient
+      .from("global_base_plans")
+      .select(
+        `
+        *,
+        config:global_reseller_plan_configs!plan_id (
+          id,
+          reseller_id,
+          plan_id,
+          enabled,
+          markup_type,
+          markup_value,
+          selling_price
+        )
+      `,
+      )
+      .eq("country_code", countryCodeUpper)
+      .eq("is_active", true);
+
+    // Apply network filter if specified
+    if (params.network) {
+      query = query.eq("network", params.network);
     }
 
-    if (params.category) {
-      query = query.eq("category", params.category);
-    }
+    // Order by base_price ascending (lowest to highest)
+    query = query.order("base_price", { ascending: true });
 
-    if (params.provider) {
-      query = query.eq("provider", params.provider);
-    }
-
-    if (params.is_active !== undefined) {
-      query = query.eq("is_active", params.is_active);
-    }
-
-    // Apply sorting
-    const sortBy = params.sortBy || "created_at";
-    const sortOrder = params.sortOrder || "desc";
-    query = query.order(sortBy, { ascending: sortOrder === "asc" });
-
-    // Apply pagination
-    const page = params.page || 1;
-    const limit = params.limit || 20;
-    const start = (page - 1) * limit;
-    const end = start + limit - 1;
-
-    query = query.range(start, end);
-
-    const { data: plans, error: plansError, count } = await query;
+    const { data: plans, error: plansError } = await query;
 
     if (plansError) {
       console.error("Get plans error:", plansError);
       return { success: false, error: plansError.message };
     }
 
+    // Process plans - create virtual configs where none exist
+    const processedPlans = (plans || []).map((plan: any) => {
+      // Find config for this reseller
+      const configs = plan.config || [];
+      const existingConfig = configs.find(
+        (c: any) => c.reseller_id === application.id,
+      );
+
+      // If config exists, use it
+      if (existingConfig) {
+        const sellingPrice = existingConfig.selling_price || plan.base_price;
+        const profit = sellingPrice - plan.base_price;
+        const profitPercent =
+          plan.base_price > 0 ? (profit / plan.base_price) * 100 : 0;
+
+        return {
+          ...plan,
+          config: existingConfig,
+          profit,
+          profit_percent: profitPercent,
+        };
+      }
+
+      // No config exists - create virtual config with defaults
+      const virtualConfig = {
+        id: null,
+        reseller_id: application.id,
+        plan_id: plan.id,
+        enabled: true,
+        markup_type: "percentage" as const,
+        markup_value: defaultMarkup,
+        selling_price: plan.base_price,
+      };
+
+      return {
+        ...plan,
+        config: virtualConfig,
+        profit: 0,
+        profit_percent: 0,
+      };
+    });
+
     return {
       success: true,
-      data: plans || [],
-      total: count || 0,
+      data: processedPlans as PlanWithConfig[],
     };
   } catch (error) {
     console.error("GetPlans Error:", error);

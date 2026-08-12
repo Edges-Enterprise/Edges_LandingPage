@@ -2,8 +2,8 @@
 "use client";
 
 import { useState } from "react";
-import { X, Percent, DollarSign, Filter } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { X, Percent, DollarSign } from "lucide-react";
+import { bulkUpdatePlans } from "@/actions/reseller/plans/bulkUpdatePlans";
 
 interface BulkPricingModalProps {
   plans: any[];
@@ -21,7 +21,6 @@ export default function BulkPricingModal({
   translations,
 }: BulkPricingModalProps) {
   const t = translations;
-  const supabase = createClient();
   const [markupType, setMarkupType] = useState<"percentage" | "fixed">(
     "percentage",
   );
@@ -30,6 +29,7 @@ export default function BulkPricingModal({
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedNetwork, setSelectedNetwork] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const currencySymbol = config.currencySymbol || "₦";
 
@@ -75,36 +75,23 @@ export default function BulkPricingModal({
     if (filteredPlans.length === 0) return;
 
     setIsLoading(true);
+    setError(null);
     try {
-      const updates = filteredPlans.map((plan) => {
-        const newSellingPrice = calculateSellingPrice(plan.base_price);
-        return {
-          id: plan.id,
-          markup_type: markupType,
-          markup_value: value,
-          selling_price: newSellingPrice,
-        };
+      const result = await bulkUpdatePlans({
+        // planIds: filteredPlans.map((plan) => plan.id),
+        markupType,
+        markupValue: value,
       });
 
-      // Update each plan
-      for (const update of updates) {
-        const { error } = await supabase
-          .from("global_plans")
-          .update({
-            markup_type: update.markup_type,
-            markup_value: update.markup_value,
-            selling_price: update.selling_price,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", update.id);
-
-        if (error) throw error;
+      if (result.success) {
+        onSuccess();
+        onClose();
+      } else {
+        setError(result.error || "Failed to update plans");
       }
-
-      onSuccess();
-      onClose();
-    } catch (error) {
-      console.error("Bulk update error:", error);
+    } catch (err) {
+      console.error("Bulk update error:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setIsLoading(false);
     }
@@ -524,6 +511,23 @@ export default function BulkPricingModal({
                 </span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.2)",
+              borderRadius: 8,
+              padding: "0.75rem 1rem",
+              marginBottom: "1rem",
+            }}
+          >
+            <p style={{ color: "#EF4444", fontSize: "0.85rem", margin: 0 }}>
+              {error}
+            </p>
           </div>
         )}
 

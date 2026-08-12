@@ -29,6 +29,60 @@ export type PaymentMethod =
   | "card"
   | "bank_transfer";
 
+// export interface CountryConfig {
+//   code: string;
+//   name: string;
+//   nativeName: string;
+//   flag: ReactNode;
+//   flagEmoji: string;
+//   currency: string;
+//   currencySymbol: string;
+//   phoneCode: string;
+//   language: {
+//     code: string;
+//     name: string;
+//     direction: "ltr" | "rtl";
+//   };
+//   locale: string;
+//   timezone: string;
+//   defaultMarkup: number;
+//   features: {
+//     data: boolean;
+//     airtime: boolean;
+//     electricity: boolean;
+//     cableTV: boolean;
+//     betting: boolean;
+//   };
+//   providers: {
+//     data: string[];
+//     airtime: string[];
+//     payment: string[];
+//   };
+//   paymentGateway: {
+//     provider: PaymentProvider;
+//     currency: string;
+//     methods: PaymentMethod[];
+//   };
+//   serviceProvider: ServiceProvider;
+//   region?: "xaf" | "xof" | "east_africa" | "southern_africa" | "west_africa";
+//   kyc: {
+//     requiredDocuments: string[];
+//     optionalDocuments: string[];
+//   };
+//   applyUrl: string;
+//   stats: {
+//     activeResellers: number;
+//     apkDeliveryDays: string;
+//     storeGoesLive: string;
+//     monthlyProfit: string;
+//   };
+//   telecoms?: Array<{
+//     id: string;
+//     name: string;
+//     code: string;
+//   }>;
+// }
+
 export interface CountryConfig {
   code: string;
   name: string;
@@ -52,6 +106,8 @@ export interface CountryConfig {
     electricity: boolean;
     cableTV: boolean;
     betting: boolean;
+    esim?: boolean;
+    bundles?: boolean;
   };
   providers: {
     data: string[];

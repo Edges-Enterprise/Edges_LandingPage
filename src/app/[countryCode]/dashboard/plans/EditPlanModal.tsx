@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { X, Percent, DollarSign } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { updatePlanConfig } from "@/actions/reseller/plans/updatePlanConfig";
 
 interface EditPlanModalProps {
   plan: any;
@@ -21,14 +21,14 @@ export default function EditPlanModal({
   translations,
 }: EditPlanModalProps) {
   const t = translations;
-  const supabase = createClient();
   const [markupType, setMarkupType] = useState<"percentage" | "fixed">(
-    plan.markup_type || "percentage",
+    plan.config?.markup_type || "percentage",
   );
   const [markupValue, setMarkupValue] = useState<string>(
-    plan.markup_value?.toString() || "0",
+    plan.config?.markup_value?.toString() || "0",
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const currencySymbol = config.currencySymbol || "₦";
 
@@ -59,25 +59,23 @@ export default function EditPlanModal({
     if (isNaN(value) || value < 0) return;
 
     setIsLoading(true);
+    setError(null);
     try {
-      const newSellingPrice = calculateSellingPrice();
+      const result = await updatePlanConfig({
+        planId: plan.id,
+        markupType,
+        markupValue: value,
+      });
 
-      const { error } = await supabase
-        .from("global_plans")
-        .update({
-          markup_type: markupType,
-          markup_value: value,
-          selling_price: newSellingPrice,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", plan.id);
-
-      if (!error) {
+      if (result.success) {
         onSuccess();
         onClose();
+      } else {
+        setError(result.error || "Failed to update plan");
       }
-    } catch (error) {
-      console.error("Update error:", error);
+    } catch (err) {
+      console.error("Update error:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setIsLoading(false);
     }
@@ -457,6 +455,23 @@ export default function EditPlanModal({
             </div>
           </div>
         </div>
+
+        {/* Error */}
+        {error && (
+          <div
+            style={{
+              background: "rgba(239,68,68,0.08)",
+              border: "1px solid rgba(239,68,68,0.2)",
+              borderRadius: 10,
+              padding: "0.75rem 1rem",
+              marginBottom: "1rem",
+            }}
+          >
+            <p style={{ color: "#EF4444", fontSize: "0.85rem", margin: 0 }}>
+              {error}
+            </p>
+          </div>
+        )}
 
         {/* Submit Button */}
         <button

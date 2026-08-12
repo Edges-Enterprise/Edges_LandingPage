@@ -1,52 +1,41 @@
 // src/types/reseller/plans.ts
 
-export interface Plan {
+export interface BasePlan {
   id: string;
-  reseller_id: string;
+  provider: string;
+  provider_plan_id: string;
+  country_code: string;
+  network?: string;
   name: string;
   description?: string;
   category: string;
-  network?: string;
-  base_price: number;
-  selling_price: number;
-  markup_type: "percentage" | "fixed";
-  markup_value: number;
-  validity?: string;
   data_amount?: string;
-  plan_code?: string;
-  provider_plan_id?: string;
-  is_active: boolean;
-  is_featured: boolean;
+  validity?: string;
+  duration_days?: number;
+  base_price: number;
+  currency: string;
+  send_value?: number;
+  send_currency?: string;
   metadata?: Record<string, any>;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
-export interface Category {
+export interface ResellerPlanConfig {
   id: string;
-  name: string;
-  label: string;
-  icon: string;
-  color: string;
+  reseller_id: string;
+  plan_id: string;
+  enabled: boolean;
+  markup_type: "percentage" | "fixed";
+  markup_value: number;
+  selling_price: number;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface Network {
-  id: string;
-  name: string;
-  code: string;
-  country: string;
-}
-
-export interface PlansData {
-  application: {
-    id: string;
-    brand_color: string;
-    store_name: string;
-    store_slug: string;
-    country_code: string;
-    default_markup?: number;
-  };
-  plans: Plan[];
-  categories: string[];
-  networks: string[];
+export interface PlanWithConfig extends BasePlan {
+  config: ResellerPlanConfig | null;
+  profit?: number;
+  profit_percent?: number;
 }
