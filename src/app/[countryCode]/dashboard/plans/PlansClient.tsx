@@ -49,7 +49,7 @@ export default function PlansClient({
   const [bulkType, setBulkType] = useState<"percentage" | "fixed">(
     "percentage",
   );
-  const [bulkValue, setBulkValue] = useState(20);
+  const [bulkValue, setBulkValue] = useState(0);
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkScope, setBulkScope] = useState<"network" | "all">("network");
   const [message, setMessage] = useState<{
