@@ -677,7 +677,7 @@ export default function PlansClient({
                       <strong style={{ color: "var(--text)" }}>
                         {formatPrice(plan.base_price)}
                       </strong>
-                      {plan.provider && ` • ${plan.provider}`}
+                      {/* {plan.provider && ` • ${plan.provider}`} */}
                     </p>
                   </div>
 
