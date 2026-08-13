@@ -49,8 +49,5 @@ export const COUNTRY_CG: CountryConfig = {
     storeGoesLive: "Instant",
     monthlyProfit: "FCFA 50,000 – FCFA 70,000",
   },
-   telecoms: [
-    { id: "mtn", name: "MTN", code: "MTN" },
-    { id: "orange", name: "Orange", code: "ORANGE" },
-  ],
+  telecoms: [{ id: "mtn", name: "MTN", code: "MTN" }],
 };

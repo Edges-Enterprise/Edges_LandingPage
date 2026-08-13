@@ -50,9 +50,8 @@ export const COUNTRY_ZM: CountryConfig = {
     monthlyProfit: "ZK 1,200 – ZK 2,000",
   },
   telecoms: [
-    { id: "mtn", name: "MTN", code: "MTN" },
-    { id: "orange", name: "Orange", code: "ORANGE" },
-    { id: "moov", name: "Moov", code: "MOOV" },
-    { id: "wave", name: "Wave", code: "WAVE" },
-  ],
+  { id: "airtel", name: "Airtel", code: "AIRTEL" },
+  { id: "mtn", name: "MTN", code: "MTN" },
+  { id: "zamtel", name: "Zamtel", code: "ZAMTEL" },
+],
 };

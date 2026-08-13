@@ -50,6 +50,7 @@ export const COUNTRY_CM: CountryConfig = {
     monthlyProfit: "FCFA 70,000 – FCFA 100,000",
   },
   telecoms: [
+    { id: "camtel", name: "Camtel", code: "CAMTEL" },
     { id: "mtn", name: "MTN", code: "MTN" },
     { id: "orange", name: "Orange", code: "ORANGE" },
   ],

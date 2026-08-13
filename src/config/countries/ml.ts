@@ -49,10 +49,9 @@ export const COUNTRY_ML: CountryConfig = {
     storeGoesLive: "Instant",
     monthlyProfit: "CFA 40,000 – CFA 60,000",
   },
-   telecoms: [
-    { id: "mtn", name: "MTN", code: "MTN" },
+  telecoms: [
+    { id: "malitel", name: "Malitel", code: "MALITEL" },
     { id: "orange", name: "Orange", code: "ORANGE" },
-    { id: "moov", name: "Moov", code: "MOOV" },
-    { id: "wave", name: "Wave", code: "WAVE" },
+    { id: "telecel", name: "Telecel", code: "TELECEL" },
   ],
 };

@@ -49,10 +49,9 @@ export const COUNTRY_BF: CountryConfig = {
     storeGoesLive: "Instant",
     monthlyProfit: "CFA 50,000 – CFA 80,000",
   },
-   telecoms: [
-    { id: "mtn", name: "MTN", code: "MTN" },
+  telecoms: [
+    { id: "onatel", name: "Onatel", code: "ONATEL" },
     { id: "orange", name: "Orange", code: "ORANGE" },
-    { id: "moov", name: "Moov", code: "MOOV" },
-    { id: "wave", name: "Wave", code: "WAVE" },
+    { id: "telecel", name: "Telecel", code: "TELECEL" },
   ],
 };

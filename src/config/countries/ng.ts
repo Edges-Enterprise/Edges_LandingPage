@@ -49,5 +49,12 @@ export const COUNTRY_NG: CountryConfig = {
     storeGoesLive: "Instant",
     monthlyProfit: "₦150,000 – ₦240,000",
   },
+  telecoms: [
+    { id: "9mobile", name: "9MOBILE", code: "9MOBILE" },
+    { id: "airtel", name: "Airtel", code: "AIRTEL" },
+    { id: "glo", name: "GLO", code: "GLO" },
+    { id: "mtn", name: "MTN", code: "MTN" },
+    { id: "ninemobile", name: "NineMobile", code: "NINEMOBILE" },
+  ],
 };
 

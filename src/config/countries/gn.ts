@@ -50,9 +50,8 @@ export const COUNTRY_GN: CountryConfig = {
     monthlyProfit: "CFA 50,000 – CFA 70,000",
   },
   telecoms: [
+    { id: "cellcom", name: "Cellcom", code: "CELLCOM" },
     { id: "mtn", name: "MTN", code: "MTN" },
     { id: "orange", name: "Orange", code: "ORANGE" },
-    { id: "moov", name: "Moov", code: "MOOV" },
-    { id: "wave", name: "Wave", code: "WAVE" },
   ],
 };

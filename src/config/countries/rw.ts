@@ -48,6 +48,9 @@ export const COUNTRY_RW: CountryConfig = {
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
     monthlyProfit: "FRw 10,000 – FRw 20,000",
-  },
+  },telecoms: [
+  { id: "airtel", name: "Airtel", code: "AIRTEL" },
+  { id: "mtn", name: "MTN", code: "MTN" },
+],
 };
 

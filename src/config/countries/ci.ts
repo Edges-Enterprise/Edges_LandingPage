@@ -48,10 +48,10 @@ export const COUNTRY_CI: CountryConfig = {
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
     monthlyProfit: "CFA 80,000 – CFA 120,000",
-  }, telecoms: [
+  },
+  telecoms: [
+    { id: "moov", name: "Moov", code: "MOOV" },
     { id: "mtn", name: "MTN", code: "MTN" },
     { id: "orange", name: "Orange", code: "ORANGE" },
-    { id: "moov", name: "Moov", code: "MOOV" },
-    { id: "wave", name: "Wave", code: "WAVE" },
   ],
 };

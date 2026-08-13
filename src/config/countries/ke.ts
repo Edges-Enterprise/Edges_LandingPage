@@ -48,9 +48,10 @@ export const COUNTRY_KE: CountryConfig = {
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
     monthlyProfit: "KSh 15,000 – KSh 25,000",
-  },  telecoms: [
-    { id: "mpesa", name: "M-Pesa", code: "MPESA" },
+  },
+  telecoms: [
     { id: "airtel", name: "Airtel", code: "AIRTEL" },
-    { id: "equitel", name: "Equitel", code: "EQUITEL" },
+    { id: "kenyatelkom", name: "KenyaTelkom", code: "KENYATELKOM" },
+    { id: "safaricom", name: "Safaricom", code: "SAFARICOM" },
   ],
 };

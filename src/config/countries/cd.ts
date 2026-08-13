@@ -50,9 +50,8 @@ export const COUNTRY_CD: CountryConfig = {
     monthlyProfit: "FC 100,000 – FC 150,000",
   },
   telecoms: [
-    { id: "mtn", name: "MTN", code: "MTN" },
+    { id: "africell", name: "Africell", code: "AFRICELL" },
+    { id: "airtel", name: "Airtel", code: "AIRTEL" },
     { id: "orange", name: "Orange", code: "ORANGE" },
-    { id: "moov", name: "Moov", code: "MOOV" },
-    { id: "wave", name: "Wave", code: "WAVE" },
   ],
 };

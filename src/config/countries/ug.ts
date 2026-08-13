@@ -49,4 +49,9 @@ export const COUNTRY_UG: CountryConfig = {
     storeGoesLive: "Instant",
     monthlyProfit: "USh 20,000 – USh 35,000",
   },
+  telecoms: [
+  { id: "airtel", name: "Airtel", code: "AIRTEL" },
+  { id: "mtn", name: "MTN", code: "MTN" },
+  { id: "telecom", name: "Telecom", code: "TELECOM" },
+],
 };

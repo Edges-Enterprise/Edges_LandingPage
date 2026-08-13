@@ -49,4 +49,10 @@ export const COUNTRY_ZA: CountryConfig = {
     storeGoesLive: "Instant",
     monthlyProfit: "R 1,500 – R 2,500",
   },
+  telecoms: [
+  { id: "cellc", name: "CellC", code: "CELLC" },
+  { id: "mtn", name: "MTN", code: "MTN" },
+  { id: "telkommobile", name: "TelkomMobile", code: "TELKOMMOBILE" },
+  { id: "vodacom", name: "Vodacom", code: "VODACOM" },
+],
 };
