@@ -3,7 +3,7 @@
   "subtitle": "Toggle plans on/off and set your markup for each network",
   "noPlans": "No plans available",
   "noNetworks": "No networks available",
-  "wholesalePrice": "Wholesale",
+  "wholesalePrice": "Cost Price",
   "yourPrice": "Your Price",
   "profit": "Profit",
   "markup": "Markup",
@@ -27,5 +27,6 @@
   "cost": "Cost",
   "hidden": "Hidden",
   "sell": "Sell",
-  "editMarkup": "Edit markup"
+  "editMarkup": "Edit markup",
+  "customerReceives": "Customer Receives"
 }
