@@ -16,6 +16,7 @@ import { updatePlanConfig } from "@/actions/reseller/plans/updatePlanConfig";
 import { bulkUpdatePlans } from "@/actions/reseller/plans/bulkUpdatePlans";
 import { CountryConfig } from "@/config/countries";
 import { PlanWithConfig } from "@/types/reseller/plans";
+import { formatPrice } from "@/lib/currency/currency";
 
 interface PlansClientProps {
   countryCode: string;
@@ -58,9 +59,10 @@ export default function PlansClient({
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const localCurrency = config.currency;
   const currencySymbol = config.currencySymbol || "₦";
 
-  const formatPrice = (amount: number) => {
+  const formatLocalPrice = (amount: number) => {
     return `${currencySymbol} ${amount?.toLocaleString() || 0}`;
   };
 
@@ -77,7 +79,6 @@ export default function PlansClient({
     try {
       const result = await getPlans({ network: activeNetwork });
       if (result.success && result.data) {
-        // Merge with existing plans to preserve all networks
         const otherPlans = plansData.filter((p) => p.network !== activeNetwork);
         setPlansData([...otherPlans, ...(result.data || [])]);
       }
@@ -89,7 +90,6 @@ export default function PlansClient({
   };
 
   const handleToggle = async (planId: string, enabled: boolean) => {
-    // Optimistic update
     setPlansData((prev) =>
       prev.map((p) =>
         p.id === planId
@@ -100,7 +100,6 @@ export default function PlansClient({
 
     const result = await togglePlan(planId);
     if (!result.success) {
-      // Revert on error
       setPlansData((prev) =>
         prev.map((p) =>
           p.id === planId
@@ -146,7 +145,11 @@ export default function PlansClient({
               editType === "percentage"
                 ? Math.round(basePrice * (1 + editValue / 100))
                 : Math.round(basePrice + editValue);
-            return {
+            const profit = sellingPrice - basePrice;
+            const profitPercent =
+              basePrice > 0 ? (profit / basePrice) * 100 : 0;
+
+            const updates: any = {
               ...p,
               config: p.config
                 ? {
@@ -156,12 +159,28 @@ export default function PlansClient({
                     selling_price: sellingPrice,
                   }
                 : null,
-              profit: sellingPrice - basePrice,
-              profit_percent:
-                basePrice > 0
-                  ? ((sellingPrice - basePrice) / basePrice) * 100
-                  : 0,
+              profit,
+              profit_percent: profitPercent,
             };
+
+            // If Zendit plan, update local values
+            if (p.provider === "zendit" && p.exchange_rate) {
+              const costLocal = Math.round(basePrice * p.exchange_rate);
+              const sellingPriceLocal = Math.round(
+                sellingPrice * p.exchange_rate,
+              );
+              const profitLocal = sellingPriceLocal - costLocal;
+              const profitPercentLocal =
+                costLocal > 0 ? (profitLocal / costLocal) * 100 : 0;
+
+              updates.cost_local = costLocal;
+              updates.selling_price_local = sellingPriceLocal;
+              updates.profit_local = profitLocal;
+              updates.profit_percent = profitPercentLocal;
+              updates.display_amount = costLocal;
+            }
+
+            return updates;
           }
           return p;
         }),
@@ -196,7 +215,9 @@ export default function PlansClient({
       setMessage({
         type: "success",
         text: `${result.count || 0} plans updated to ${
-          bulkType === "percentage" ? `${bulkValue}%` : formatPrice(bulkValue)
+          bulkType === "percentage"
+            ? `${bulkValue}%`
+            : formatLocalPrice(bulkValue)
         } markup`,
       });
       setTimeout(() => setMessage(null), 3000);
@@ -213,18 +234,148 @@ export default function PlansClient({
     return plansData.filter((p) => p.network === network).length;
   };
 
-  // Set initial network if none selected and networks exist
   useEffect(() => {
     if (!activeNetwork && networks.length > 0) {
       setActiveNetwork(networks[0]);
     }
   }, [networks, activeNetwork]);
 
-  // Count total plans
   const totalPlans = plansData.length;
   const enabledPlans = plansData.filter(
     (p) => p.config?.enabled !== false,
   ).length;
+
+  // ============================================
+  // KEY FIX: getCostPriceSafe - Shows Wholesale Price
+  // ============================================
+  const getCostPriceSafe = (plan: PlanWithConfig) => {
+    // For Zendit plans, show cost in local currency
+    if (
+      plan.provider === "zendit" &&
+      plan.cost_local !== undefined &&
+      plan.cost_local !== null
+    ) {
+      const currency = plan.display_currency || plan.currency || localCurrency;
+      return {
+        amount: plan.cost_local,
+        currency: currency,
+        formatted: formatPrice(plan.cost_local, currency),
+      };
+    }
+    // For all plans, show base price
+    const currency = plan.currency || localCurrency;
+    return {
+      amount: plan.base_price,
+      currency: currency,
+      formatted: formatPrice(plan.base_price, currency),
+    };
+  };
+
+  // ============================================
+  // KEY FIX: getCustomerReceivesSafe - Shows what customer gets
+  // ============================================
+  const getCustomerReceivesSafe = (plan: PlanWithConfig) => {
+    // For Zendit plans, show what customer receives
+    if (
+      plan.provider === "zendit" &&
+      plan.display_send_currency &&
+      plan.display_send_amount
+    ) {
+      return {
+        amount: plan.display_send_amount,
+        currency: plan.display_send_currency,
+        formatted: formatPrice(
+          plan.display_send_amount,
+          plan.display_send_currency,
+        ),
+      };
+    }
+    // For non-Zendit plans, customer receives the same as the plan value
+    const currency = plan.currency || localCurrency;
+    return {
+      amount: plan.base_price,
+      currency: currency,
+      formatted: formatPrice(plan.base_price, currency),
+    };
+  };
+
+  // ============================================
+  // KEY FIX: getYourPriceSafe - Shows wholesale OR marked-up price
+  // ============================================
+  const getYourPriceSafe = (plan: PlanWithConfig) => {
+    // Get the wholesale price (cost to reseller)
+    let wholesaleAmount: number;
+    let wholesaleCurrency: string;
+
+    if (plan.provider === "zendit" && plan.cost_local !== undefined) {
+      wholesaleAmount = plan.cost_local;
+      wholesaleCurrency =
+        plan.display_currency || plan.currency || localCurrency;
+    } else {
+      wholesaleAmount = plan.base_price;
+      wholesaleCurrency = plan.currency || localCurrency;
+    }
+
+    // Check if markup is applied
+    const hasMarkup = plan.config && plan.config.markup_value > 0;
+
+    // If markup is added, show marked-up price; otherwise show wholesale
+    const sellingPrice = hasMarkup
+      ? plan.provider === "zendit" && plan.selling_price_local !== undefined
+        ? plan.selling_price_local
+        : (plan.config?.selling_price ?? wholesaleAmount)
+      : wholesaleAmount;
+
+    return {
+      amount: sellingPrice,
+      currency: wholesaleCurrency,
+      formatted: formatPrice(sellingPrice, wholesaleCurrency),
+      hasMarkup: hasMarkup,
+    };
+  };
+
+  // ============================================
+  // KEY FIX: getProfitSafe - Shows 0 if no markup
+  // ============================================
+  const getProfitSafe = (plan: PlanWithConfig) => {
+    // For Zendit plans, show profit in local currency
+    if (plan.provider === "zendit" && plan.cost_local !== undefined) {
+      const costLocal = plan.cost_local;
+      const hasMarkup = plan.config && plan.config.markup_value > 0;
+      const sellingPriceLocal = hasMarkup
+        ? (plan.selling_price_local ?? costLocal)
+        : costLocal; // No markup = no profit
+      const profit = sellingPriceLocal - costLocal;
+      const profitPercent = costLocal > 0 ? (profit / costLocal) * 100 : 0;
+      const currency = plan.display_currency || plan.currency || localCurrency;
+
+      return {
+        amount: profit,
+        currency: currency,
+        formatted: formatPrice(profit, currency),
+        percent: profitPercent,
+        hasMarkup: hasMarkup,
+      };
+    }
+
+    // For all plans
+    const cost = plan.base_price;
+    const hasMarkup = plan.config && plan.config.markup_value > 0;
+    const sellingPrice = hasMarkup
+      ? (plan.config?.selling_price ?? cost)
+      : cost; // No markup = no profit
+    const profit = sellingPrice - cost;
+    const profitPercent = cost > 0 ? (profit / cost) * 100 : 0;
+    const currency = plan.currency || localCurrency;
+
+    return {
+      amount: profit,
+      currency: currency,
+      formatted: formatPrice(profit, currency),
+      percent: profitPercent,
+      hasMarkup: hasMarkup,
+    };
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -546,22 +697,44 @@ export default function PlansClient({
           plans.map((plan) => {
             const isEditing = editingPlan === plan.id;
             const isEnabled = plan.config?.enabled !== false;
-            const sellingPrice = plan.config?.selling_price || plan.base_price;
-            const profit = sellingPrice - plan.base_price;
-            const profitPercent =
-              plan.base_price > 0
-                ? Math.round((profit / plan.base_price) * 100)
-                : 0;
 
+            // Get display values using type-safe helpers
+            const costPrice = getCostPriceSafe(plan);
+            const customerReceives = getCustomerReceivesSafe(plan);
+            const yourPrice = getYourPriceSafe(plan);
+            const profit = getProfitSafe(plan);
+
+            // Calculate edit values
             const editSellingPrice = isEditing
               ? editType === "percentage"
                 ? Math.round(plan.base_price * (1 + editValue / 100))
                 : Math.round(plan.base_price + editValue)
-              : sellingPrice;
+              : yourPrice.amount;
 
             const editProfit = isEditing
-              ? editSellingPrice - plan.base_price
-              : profit;
+              ? editSellingPrice - (plan.cost_local ?? plan.base_price)
+              : profit.amount;
+
+            // For Zendit plans, show local edit values
+            const editSellingPriceLocal =
+              isEditing && plan.provider === "zendit" && plan.exchange_rate
+                ? Math.round(editSellingPrice * plan.exchange_rate)
+                : editSellingPrice;
+
+            const editProfitLocal =
+              isEditing && plan.provider === "zendit" && plan.exchange_rate
+                ? Math.round(editProfit * plan.exchange_rate)
+                : editProfit;
+
+            const editCurrency =
+              plan.provider === "zendit" && plan.display_currency
+                ? plan.display_currency
+                : plan.currency || localCurrency;
+
+            // Label for "Your Price" - shows "Wholesale" if no markup
+            const priceLabel = yourPrice.hasMarkup
+              ? t?.yourPrice || "Your Price"
+              : t?.wholesalePrice || "Wholesale";
 
             return (
               <div
@@ -603,7 +776,7 @@ export default function PlansClient({
                       >
                         {plan.name}
                       </h3>
-                      {plan.data_amount && (
+                      {/* {plan.data_amount && (
                         <span
                           style={{
                             fontSize: "0.7rem",
@@ -615,7 +788,7 @@ export default function PlansClient({
                         >
                           {plan.data_amount}
                         </span>
-                      )}
+                      )} */}
                       {plan.validity && (
                         <span
                           style={{
@@ -673,11 +846,29 @@ export default function PlansClient({
                       )}
                     </div>
                     <p style={{ fontSize: "0.78rem", color: "var(--dim)" }}>
-                      {t?.wholesalePrice || "Cost"}:{" "}
+                      {t?.wholesalePrice || "Wholesale"}:{" "}
                       <strong style={{ color: "var(--text)" }}>
-                        {formatPrice(plan.base_price)}
+                        {costPrice.formatted}
                       </strong>
                       {/* {plan.provider && ` • ${plan.provider}`} */}
+                      {/* {plan.provider === "zendit" &&
+                        plan.display_send_currency &&
+                        plan.display_send_amount && (
+                          <span
+                            style={{
+                              marginLeft: "0.5rem",
+                              color: "var(--muted)",
+                            }}
+                          >
+                            • {t?.customerReceives || "Customer Receives"}:{" "}
+                            <strong style={{ color: "var(--text)" }}>
+                              {formatPrice(
+                                plan.display_send_amount,
+                                plan.display_send_currency,
+                              )}
+                            </strong>
+                          </span>
+                        )} */}
                     </p>
                   </div>
 
@@ -721,15 +912,19 @@ export default function PlansClient({
                         }}
                       >
                         <div>
-                          {t?.yourPrice || "Sell"}:{" "}
+                          {t?.yourPrice || "Your Price"}:{" "}
                           <strong style={{ color: "var(--brand-color)" }}>
-                            {formatPrice(editSellingPrice)}
+                            {plan.provider === "zendit" && plan.exchange_rate
+                              ? formatPrice(editSellingPriceLocal, editCurrency)
+                              : formatPrice(editSellingPrice, editCurrency)}
                           </strong>
                         </div>
                         <div>
                           {t?.profit || "Profit"}:{" "}
                           <strong style={{ color: "#6EBD8A" }}>
-                            {formatPrice(editProfit)}
+                            {plan.provider === "zendit" && plan.exchange_rate
+                              ? formatPrice(editProfitLocal, editCurrency)
+                              : formatPrice(editProfit, editCurrency)}
                           </strong>
                         </div>
                       </div>
@@ -774,21 +969,28 @@ export default function PlansClient({
                         >
                           {plan.config?.markup_type === "percentage"
                             ? `${plan.config?.markup_value || 0}%`
-                            : formatPrice(plan.config?.markup_value || 0)}
+                            : formatPrice(
+                                plan.config?.markup_value || 0,
+                                plan.display_currency ||
+                                  plan.currency ||
+                                  localCurrency,
+                              )}
                         </p>
                       </div>
                       <div style={{ textAlign: "center", minWidth: 80 }}>
                         <p style={{ fontSize: "0.65rem", color: "var(--dim)" }}>
-                          {t?.yourPrice || "Your Price"}
+                          {priceLabel}
                         </p>
                         <p
                           style={{
                             fontSize: "1rem",
                             fontWeight: 700,
-                            color: "var(--brand-color)",
+                            color: yourPrice.hasMarkup
+                              ? "var(--brand-color)"
+                              : "var(--text)",
                           }}
                         >
-                          {formatPrice(sellingPrice)}
+                          {yourPrice.formatted}
                         </p>
                       </div>
                       <div style={{ textAlign: "center", minWidth: 60 }}>
@@ -799,10 +1001,10 @@ export default function PlansClient({
                           style={{
                             fontSize: "0.85rem",
                             fontWeight: 600,
-                            color: profit > 0 ? "#6EBD8A" : "var(--dim)",
+                            color: profit.amount > 0 ? "#6EBD8A" : "var(--dim)",
                           }}
                         >
-                          {formatPrice(profit)}
+                          {profit.formatted}
                           <span
                             style={{
                               fontSize: "0.6rem",
@@ -811,7 +1013,7 @@ export default function PlansClient({
                               marginLeft: 2,
                             }}
                           >
-                            ({profitPercent}%)
+                            ({Math.round(profit.percent)}%)
                           </span>
                         </p>
                       </div>
@@ -955,3 +1157,4 @@ const btnIconStyle: React.CSSProperties = {
   color: "var(--muted)",
   cursor: "pointer",
 };
+
