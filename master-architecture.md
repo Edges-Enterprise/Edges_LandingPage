@@ -64,7 +64,7 @@ This adopts the uploaded document's product breakdown exactly, with each item ti
 
 ## 3. Wallet, Ledger & Treasury — integrated design (supersedes `product-spec.md` §10 and `full-blueprint.md` §6e)
 
-**Balance types** (unchanged from `product-spec.md`, resolved): Wallet Balance (withdrawable: direct deposits, profit from sales), Bonus Balance (non-withdrawable: activation-fee credit, one-time first-app-deposit bonus in local-currency equivalent — per the product-owner's resolution), Available Balance = Wallet + Bonus (funds cost-of-goods, deducted bonus-first).
+**Balance types** (unchanged from `product-spec.md`, resolved): Wallet Balance (withdrawable: direct deposits, profit from sales), Bonus Balance (non-withdrawable: activation-fee credit, one-time first-app-deposit bonus in local-currency equivalent — per the product-owner's resolution), Available Balance = Wallet + Bonus (funds cost-of-goods, deducted bonus-first). **This entire bonus/wallet split, and the `withdrawals` table below, apply to Reseller wallets only.** A Customer wallet is a single spendable balance with no withdrawal path at all (resolved 2026-09-06, `product-spec.md` §10) — enforce this as a hard authorization check (`owner_type = reseller` required for any withdraw action/endpoint), not a UI-only restriction.
 
 **Ledger accounts per owner** (adopted from the uploaded document, more rigorous than the original two-column model): `WALLET`, `BONUS`, `HOLD`, `SUSPENSE`, plus this integration's own additions `FEE` (platform-fee account, per `full-blueprint.md`'s pass-through-vs-platform-revenue split) and `FX_CONVERSION`.
 
@@ -114,7 +114,7 @@ Wallet & ledger (per §3 above):
 wallets          — id, owner_type, owner_id, currency_code, wallet_type[WALLET|BONUS|HOLD|SUSPENSE], balance_minor, status, created_at
 ledger_entries   — id, wallet_id, amount_minor, direction, entry_type, reference_type, reference_id, balance_after_minor, idempotency_key, metadata, created_at
 deposits         — id, user_id, wallet_id, amount_minor, currency_code, payment_method, status, bonus_eligible, bonus_amount_minor, created_at
-withdrawals      — id, user_id, wallet_id, amount_minor, currency_code, method, status, approved_by, created_at, processed_at
+withdrawals      — id, user_id, wallet_id, amount_minor, currency_code, method, status, approved_by, created_at, processed_at   [RESELLER-ONLY — a Customer's owner_type must be rejected at the authorization layer, not just absent from the UI]
 ```
 
 Commerce:
@@ -260,6 +260,7 @@ This consolidates every numeric/policy rule across all prior documents into one 
 | Maintenance funding source | Wallet balance only, never bonus | RESOLVED |
 | Device binding | One account per device, hard block (vs. soft-flag — OPEN per `product-spec.md` §13) | PARTIALLY OPEN |
 | Reseller self-purchase | Base price, strikethrough UI | RESOLVED |
+| Withdrawal eligibility | Resellers only — Customers can deposit/spend but never withdraw, enforced at the authorization layer | RESOLVED (2026-09-06) |
 | Customer currency display | Always local/customer currency | RESOLVED |
 | Reseller currency display | Always native/provider-country currency | RESOLVED |
 | Password reset | Standard email-link flow (Layer 1 pattern), NO PIN step | RESOLVED (`product-spec.md` clarification — supersedes both the original draft's PIN idea and the uploaded document's OTP suggestion) |

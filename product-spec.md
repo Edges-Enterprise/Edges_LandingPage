@@ -170,6 +170,8 @@ APPLICATION  →  ACTIVATION FEE PAYMENT  →  VERIFICATION (KYC)  →  ADMIN AP
 
 **RESOLVED (product-owner decision, 2026-08-29):** The bonus/wallet split described in this section is confirmed Reseller-only. The $10 first-app-deposit bonus (Section 9) does not extend to Customers — Customer wallets are a separate, simpler concern (funding a purchase, no bonus mechanic) unless a future clarification says otherwise.
 
+**RESOLVED (product-owner decision, 2026-09-06) — Customer wallets have no withdrawal capability at all:** Only Resellers can withdraw. A Customer's wallet is deposit-and-spend only — they can fund it (Section 15/16's deposit flow) and spend it on purchases, but there is no withdraw action, no withdraw UI, and no withdrawal-eligible balance concept for a Customer at all, not even for a Customer's own unused deposited funds. This simplifies the Customer wallet data model relative to the Reseller wallet: a Customer needs exactly one balance (funds available to spend), not a bonus/wallet split, and not a `withdrawals` table relationship — the `withdrawals` table (per `master-architecture.md` §4) is Reseller-only. This also means the three-tier money flow is now fully asymmetric and directional: Customer money moves in one direction only (deposit → spend, funding a Reseller's sale), while Reseller money can flow back out to the Reseller's bank account. Any UI/API surface for "withdraw" must check `owner_type = reseller` and reject outright for `owner_type = customer`, not merely hide the button — this is an authorization rule, not a display preference.
+
 
 ---
 
