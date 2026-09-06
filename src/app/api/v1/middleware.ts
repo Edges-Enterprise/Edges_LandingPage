@@ -1,7 +1,7 @@
 // app/api/v1/middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function apiMiddleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
@@ -24,7 +24,7 @@ export async function apiMiddleware(req: NextRequest) {
     };
   }
 
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
 
   const { data: user, error } = await supabase
     .from("api_users.users")

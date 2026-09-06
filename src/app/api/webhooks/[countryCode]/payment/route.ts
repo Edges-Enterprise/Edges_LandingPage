@@ -1,6 +1,6 @@
 // src/app/api/reseller/[countryCode]/webhooks/payment/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
 import { getPaymentGateway } from "@/lib/payments";
 import { checkAndAwardFirstDepositBonus } from "@/lib/bonus/first-deposit";
@@ -29,7 +29,7 @@ export async function POST(
     const webhookData = gateway.parseWebhook(body);
 
     // Get Supabase client
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // Find the transaction
     const { data: transaction, error: txError } = await supabase

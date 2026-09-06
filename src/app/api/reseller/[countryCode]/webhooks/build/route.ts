@@ -1,6 +1,6 @@
 // src/app/api/reseller/[countryCode]/webhooks/build/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(
   req: NextRequest,
@@ -17,7 +17,7 @@ export async function POST(
       );
     }
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // ✅ Update build status
     const updateData: any = {

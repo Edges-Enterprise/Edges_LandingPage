@@ -1,6 +1,6 @@
 // src/app/api/xixa-account/webhook/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { sendWebPushAction } from "@/app/actions/notifications";
@@ -641,7 +641,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Ignored" });
     }
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // ── STEP 4.5: Record toward the central Xixapay wallet ledger ────────────
     // Runs once per successful payment, independent of which downstream app

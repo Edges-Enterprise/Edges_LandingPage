@@ -6,11 +6,18 @@ import { cookies } from "next/headers";
 
 
 // Server Client (for Server Components/Actions/Route Handlers)
+// Runs as the logged-in user (via their session cookie) on the anon key so
+// Postgres RLS (auth.uid()-based policies) actually scopes what this client
+// can see and change. Previously ran on SUPABASE_SERVICE_ROLE_KEY, which
+// bypassed RLS entirely regardless of whose cookie was attached — see
+// handover.md "Known Irregularity #9". For genuine system/service-role work
+// with no user session (webhooks, cron, admin-only aggregation), use
+// createAdminClient() from "@/lib/supabase/admin" instead.
 export async function createServerClient() {
   const cookieStore = await cookies();
   return _createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {

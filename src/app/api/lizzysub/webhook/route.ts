@@ -1,6 +1,6 @@
 // app/api/lizzysub/webhook/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing request-id" }, { status: 400 });
     }
 
-    const supabase = await createServerClient();
+    const supabase = createAdminClient();
 
     // Update transaction status
     const { error: updateError } = await supabase

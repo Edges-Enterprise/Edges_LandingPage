@@ -1,7 +1,6 @@
 // src/app/api/webhooks/korapay/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { korapay } from "@/lib/payments/korapay";
-import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeBreakdown } from "@/lib/payments/fees";
 
@@ -29,8 +28,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Ignored" }, { status: 200 });
     }
 
-    const supabase = await createServerClient();
-    const adminClient = createAdminClient();
+    const supabase = createAdminClient();
 
     // Get transaction by reference
     const { data: transaction, error: txError } = await supabase
