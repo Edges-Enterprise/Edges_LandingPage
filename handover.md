@@ -1,121 +1,123 @@
 # HANDOVER.md — READ THIS FILE FIRST, AND ONLY THIS FILE, AT THE START OF EVERY SESSION
 
-**This is the source of truth for anyone (human or AI session) picking up work on this repository. Do not re-audit the codebase from scratch. Do not re-run a full `find`/`grep` sweep of `src/` to "understand the project" before reading this document — that work has already been done, is recorded here and in `architecture.md`/`blueprint.md`, and re-doing it wastes time and risks producing a second, drifted, contradictory picture of the codebase.**
-
-This document exists specifically so the codebase audit performed on 2026-08-29 (branch `codebase-analysis`, cut from `reseller-gh` at commit `7603a82217898d4c2a30e4d5dbe055de3059193f`) never has to be repeated. Everything a new session needs — what was found, how it was found, where the output lives, and what rules to follow going forward — is here or one link away.
+**This is the single source of truth for what to do right now.** For the complete architecture (what the system is, what's done, what's left, why), read `master-architecture.md`. This file exists so no session has to re-derive that picture — it converts `master-architecture.md`'s ⚠️/❌ items into a concrete, ordered task board, and tells you exactly where to pick up.
 
 ---
 
-## 1. What exists and where
+## TOP ORIENTATION — READ THIS BLOCK FIRST, EVERY TIME
 
-Three documents were produced by this audit, all committed to the repository root on the `codebase-analysis` branch:
-
-- **`architecture.md`** — the exhaustive, file-level ground truth for ALL THREE architectural layers of the product (Layer 1: legacy single-tenant consumer app; Layer 2: multi-tenant single-country reseller platform, reference-only; Layer 3: multi-country multi-tenant platform, the active build target). Contains full route/action/component/lib/API inventories, exported-function names, empty-vs-implemented status for every relevant file, environment-variable inventory, shared-infrastructure map, and a "Known Irregularities" section documenting bugs/risks/naming traps discovered during the audit.
-- **`blueprint.md`** — scoped exclusively to Layer 3 (the multi-country platform). Turns `architecture.md`'s raw file inventory into a prioritized (P0–P3) feature checklist: what's done, what's missing, what to build next and in what order, with explicit dependency reasoning between items.
-- **`handover.md`** — this file.
-
-A `.patch` file containing the commit that adds all three documents was generated via `git format-patch` and delivered outside the repository (see §5) so it can be applied with `git am` to any clone of the repo.
-
-## 2. The rule for future sessions
-
-1. Read this file.
-2. If you need the detailed file-by-file picture (e.g. "is `src/actions/reseller/wallet/getVirtualAccount.ts` implemented?"), read `architecture.md` — do not re-derive it.
-3. If you need to know what to build next in the multi-country platform, read `blueprint.md` — do not re-derive it.
-4. **Before trusting either document, run the one-command staleness check in §4.** If it reports drift, follow the "if stale" procedure in §4 rather than starting a fresh audit from nothing — most drift can be reconciled with a targeted diff, not a full re-audit.
-5. Layer 1 and Layer 2 are not build targets. Layer 2 in particular is explicitly reference-only, per the product owner's direct instruction recorded in this audit — open it to see how a working feature was implemented, never to route new users through it or to import its code into Layer 3.
-6. All new work happens under `src/app/[countryCode]/**`, `src/actions/reseller/**` (the one aliased `@/actions/reseller`, NOT `@/app/actions/reseller`), `src/components/reseller/**`, and the Layer-3-owned `src/lib/` subdirectories listed in `architecture.md`.
-7. When a file described as "empty" in `architecture.md`/`blueprint.md` turns out to now have content because someone implemented it since this audit, that is expected and good — it means progress happened. Do not treat a docs/reality mismatch as an error to fix in the code; treat it as a signal to update the docs (see §4).
-
-## 3. The most important individual facts to carry forward (do not lose these in a future re-read)
-
-- **Security finding:** `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` is read (in `src/lib/supabase/admin.ts:8` and `src/lib/supabase/server.ts:13`) under a `NEXT_PUBLIC_`-prefixed name, which is the naming convention Next.js uses to decide whether to inline a variable into the client bundle. Both current call sites are server-only, so there is no confirmed active leak, but the variable must be renamed and both files audited before this becomes a real incident. This is `blueprint.md` item #11 / P1.
-- **Schema gap:** all 13 `supabase/migrations/*.sql` files and all 53 `supabase/rpc/*.sql` files are 0 bytes. The live schema exists only in the Supabase project dashboard, not in this repository. This is `blueprint.md` item #5 / P0, and should be the very first thing any new session does, before any feature work.
-- **Two identically-named-but-different `actions/reseller` trees exist:** `src/app/actions/reseller/**` (Layer 2, import alias `@/app/actions/reseller/...`) and `src/actions/reseller/**` (Layer 3, import alias `@/actions/reseller/...`). Confirmed via import-graph analysis, not filename pattern-matching. Never assume which layer a file belongs to from its path alone.
-- **Dead code confirmed, safe to remove once product owner confirms:** `src/app/actions/wallet-withxixicopy.ts` and `src/components/WalletClient-withxixicopy.tsx` — zero import references found anywhere under `src/app`.
-- **Likely duplicate/needs-reconciliation, do NOT build both out fully:** `src/actions/reseller/build/*` (75% implemented) and `src/actions/reseller/publishing/*` (0% implemented) appear to be two competing namespaces for the same "Android app build" feature. Resolve which one is canonical before continuing publishing-pipeline work — see `blueprint.md` item #7.
-- **`src/app/[countryCode]/generateIcon.ts` and `src/lib/business-generator/logo/generator.ts` contain the same two exported functions (`generateIconPng`, `generateNotificationIcon`)** — likely copy-pasted rather than shared; reconcile into one module.
-- **The empty `src/middleware/*.ts` files are NOT missing functionality** — country detection/routing is implemented and working in `src/proxy.ts` at the project root. Do not "fix" this by building the empty middleware files without first confirming with the product owner whether splitting `proxy.ts` apart is still wanted.
-
-## 4. Staleness check — run this before trusting `architecture.md` / `blueprint.md`
-
-The audit was performed against commit `7603a82217898d4c2a30e4d5dbe055de3059193f` on `reseller-gh` (2026-08-16), from the `codebase-analysis` branch. Run this before relying on the counts in either document:
-
-```bash
-cd /path/to/Edges_LandingPage
-git log --oneline reseller-gh | wc -l              # was 902 at audit time
-find src supabase -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.sql" \) -empty | wc -l   # was 705 empty .ts/.tsx in Layer 3 + 66 empty .sql (13 migrations + 53 rpc) = 771 total empty at audit time
 ```
-
-**If the commit count on `reseller-gh` matches 902 and the empty-file count is still ~771:** the documents are current, proceed to use them directly.
-
-**If the numbers differ:** work has happened since the audit. Do NOT re-run a full audit. Instead:
-1. `git log --oneline reseller-gh | head -n <N>` where N = new_count minus 902, to see exactly what commits landed since the audit.
-2. For each new/changed commit, `git show --stat <hash>` to see which files it touched.
-3. Cross-reference those specific file paths against `architecture.md`'s Appendix A/B (implemented/empty lists) and update ONLY the affected lines/rows using targeted edits — flip files from Appendix B to Appendix A as they get implemented, update the relevant subsystem-completion-table row's empty/non-empty counts, and update the corresponding `blueprint.md` item's status.
-4. This targeted-diff approach is dramatically cheaper than a full re-audit and keeps the documents' extensive detail intact rather than regenerating (and potentially thinning out) them from scratch.
-
-## 5. Process documentation — exactly how this audit was produced (for reproducibility and audit-trail purposes; NOT an instruction to re-run it)
-
-This section exists so that (a) the methodology can be trusted/verified by inspection, and (b) if a full re-audit is ever genuinely warranted (e.g. after a major refactor invalidates the targeted-diff approach in §4), it does not need to be reinvented.
-
-**Step 1 — Establish the repository state.** Confirmed the working directory (`/home/claude/Edges_LandingPage`) was already cloned and on the correct branch (`reseller-gh`), then created a new working branch `codebase-analysis` off it with `git checkout -b codebase-analysis` (no branch name was specified by the user for this step, so a descriptive one was chosen).
-
-**Step 2 — Establish layer boundaries by import-graph, not filename guessing.** For each ambiguous directory pair (e.g. the two `actions/reseller` trees), ran `grep -rhoE "from [\"'][^\"']*[\"']" <route-group>` against each of Layer 1's `(protected)`/`(auth)`/`(admin)` route groups, Layer 2's `(reseller-dashboard)` route group, and Layer 3's `[countryCode]` route tree, then filtered for `actions|lib|components` import paths. This produced a definitive map of which `actions`/`components`/`lib` subtree each route group actually depends on, which is what layer boundaries were drawn from — filenames alone (e.g. both trees being named "reseller") would have been misleading.
-
-**Step 3 — Build a complete, categorized file manifest.** For each layer, ran targeted `find` commands scoped to the route/action/component/lib/api directories identified in Step 2, redirecting output to per-layer manifest text files (`layer1.txt`, `layer2.txt`, `layer3.txt`). Cross-checked completeness with:
-```bash
-find src supabase -type f | sort > all_files.txt
-cat layer1_paths layer2_paths layer3_paths | sort -u > categorized.txt
-comm -23 all_files.txt categorized.txt   # anything left uncategorized
+CURRENT POSITION: STEP 0 — not yet started.
+NEXT ACTION: Do Step 0 (below) in full, then proceed to Task 1a.i.x.
 ```
-This surfaced 5 initially-uncategorized files (`src/app/edges/page.tsx`, and the 4 files under `src/lib/utils/`), which were individually inspected (`head`, and `grep -rl` to find their importers) and assigned to the correct layer, then the process was re-verified to show zero uncategorized files remaining.
+**A session updates the line above as its very last action before ending**, so the next session's first read tells it exactly where to resume. If you are reading this and `CURRENT POSITION` says a task is already in progress or done, trust it — do not re-verify by re-auditing the repo; the session that updated it already did that verification and logged it in the Session Log (§ at the bottom of this file).
 
-**Step 4 — Annotate every file with empty/non-empty status.** For each path in each layer manifest:
-```bash
-sz=$(stat -c%s "$f"); [ "$sz" -eq 0 ] && echo "EMPTY|$sz|$f" || echo "OK|$sz|$f"
-```
-producing `layer{1,2,3}_annotated.txt`, which is the direct source for every completion percentage and every Appendix A/B entry in `architecture.md`.
+**If a session cannot finish an `x` task in one sitting**, it must still update `CURRENT POSITION` before ending — either to the same `x` with a note on what remains, or to wherever it actually got to. Never leave `CURRENT POSITION` pointing somewhere already completed.
 
-**Step 5 — Extract real signal from non-empty files, not just "it has bytes."** For every non-empty `.ts` action/lib file across all layers, and for API route files, ran:
-```bash
-grep -oE "export (async function|function|const) [A-Za-z0-9_]+" "$f" | awk '{print $NF}'
-grep -oE "export async function (GET|POST|PUT|DELETE|PATCH)" "$f"   # for API routes specifically
-```
-to list actual exported action/handler names rather than only file paths — this is what allows `architecture.md` to say e.g. "`wallet.ts` → `createTransactionPinAction`, `verifyTransactionPinAction`, ..." instead of just "`wallet.ts` exists."
+---
 
-**Step 6 — Targeted verification of specific claims before writing them down as findings.** Every irregularity/risk claim in `architecture.md`'s "Known Irregularities" section and every cross-cutting item in `blueprint.md` was individually re-verified with a direct, narrow `grep`/`head` check immediately before being written into the document — for example, the dead-code claim about `wallet-withxixicopy.ts` was confirmed with `grep -rln "wallet-withxixicopy" src/app` returning zero results, and the service-role-key naming issue was confirmed with `grep -rn "NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY" src` to get the exact two call sites before describing severity. Do not carry forward a claim from this document into new work without it having been through this kind of direct verification — and when extending these documents in future, hold new claims to the same standard.
+## Step 0 — one-time prerequisite actions (do before Task 1, not part of the 1-2-3-4 task board)
 
-**Step 7 — Compose the three documents.** `architecture.md` was written first (raw ground truth + full appendices), `blueprint.md` second (derived from `architecture.md`'s data, reorganized by product feature and prioritized), `handover.md` third (this file, written last so it could accurately describe the finished state of the other two).
+These are cheap, high-risk-reduction, no-design-decision-required actions flagged repeatedly across every prior document (`architecture.md`, `blueprint.md`, `master-architecture.md` §10). They are gated to run once, first, by whichever session picks this up first.
 
-**Step 8 — Commit and package.** All three files were added to git on the `codebase-analysis` branch in a single commit, then packaged as a `.patch` file via `git format-patch` for delivery outside the sandboxed environment (see §6 for the exact commit this corresponds to).
+- [ ] **0.1 — Database schema capture.** Run `supabase db dump`/`db pull` against the live Supabase project and commit the result under `supabase/migrations/`. This is the prerequisite every other task implicitly depends on (`master-architecture.md` §4's entire data model is a *guess* reconciled from working code until this happens).
+- [ ] **0.2 — `.env.example`.** Generate from the 55-variable inventory in `architecture.md` §"Environment variables inventory" and commit it.
+- [ ] **0.3 — Fix `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` naming.** Rename to a non-`NEXT_PUBLIC_`-prefixed variable in `src/lib/supabase/admin.ts` and `server.ts`; confirm via grep that nothing client-side references it before or after the rename.
 
-## 6. Exact repository state as of this audit
+**When all three are checked, update `CURRENT POSITION` to `Task 1a.i.x` and move to the task board below.**
 
-- Branch: `codebase-analysis`
-- Base branch: `reseller-gh`
-- Base commit: `7603a82217898d4c2a30e4d5dbe055de3059193f` (2026-08-16, "refactor(PlansClient): remove unused imports and commented-out code for cleaner structure")
-- Commit count on `reseller-gh` at audit time: 902
-- This audit's own commit: adds `architecture.md`, `blueprint.md`, `handover.md` at the repository root, in one commit, on top of the base commit above.
-- Delivered as: a `git format-patch`-generated `.patch` file, apply with `git am path/to/file.patch` against a checkout of `reseller-gh` at commit `7603a82217898d4c2a30e4d5dbe055de3059193f` (or any descendant — if applying against a newer commit, run the staleness check in §4 first and expect to reconcile drift per that procedure rather than expecting a clean apply if the same files have since diverged).
+---
 
-## 7. Delivery environment — standing rule for every future `.patch` file
+## THE TASK BOARD
 
-The user works from **Termux on Android**, and their downloaded files (including any `.patch` file produced by a session) land in **`~/storage/downloads`** (the Termux shared-storage symlink to the device's `Download` folder, set up via `termux-setup-storage`). Their working clone of this repository lives somewhere under the Termux home directory (path varies by session — ask if unknown, don't assume).
+**Structure (fixed, do not deviate):** 4 top-level Tasks → each splits into 3 subtasks (a/b/c) → each splits into 2 sub-subtasks (i/ii) → each has exactly one atomic unit of work, `x`, which is what a single session actually executes. **A session performs exactly one `x` per sitting** (or picks up an unfinished one, per the Top Orientation rule above). Work top-to-bottom, task-to-task, in the order below — the order already encodes dependency (Task 1 unblocks Task 2's Reseller-facing work, etc.) and priority (`master-architecture.md`'s P0/P1/P2/P3 tiers map onto Tasks 1/2/3/4 respectively, loosely).
 
-**Standing rule: any time this project (or any session working on it) generates a `.patch` file for the user, the response MUST include the exact `git am` command to apply it, written for this Termux/`storage/downloads` environment — never assume the user will infer the command themselves.** The command shape is:
+**Every `x` line below is a checkbox.** Mark `[x]` when done, in the same edit where you write the Session Log entry (§ bottom) describing what you actually built/decided — the checkbox alone is not enough; the log entry is what saves the next session from rediscovery.
 
-```bash
-cd /path/to/Edges_LandingPage        # the user's actual local clone path
-git am ~/storage/downloads/<exact-filename-of-the-.patch-file>
-```
+**CLEANUP RULE — read this before starting any task:** When every `x` under a top-level Task (all of 1a.i, 1a.ii, 1b.i, 1b.ii, 1c.i, 1c.ii for Task 1, for example) is checked, **the next session's first job — before touching any new `x` — is to delete that entire Task's block from this file** (every line from `### TASK N` down to its last `x`), and replace it with a single line in the "Completed Tasks Archive" section at the bottom: `Task N — <name> — completed <date>, see master-architecture.md for final architecture.` This keeps this file from growing forever and keeps it always reflecting only remaining work. Do the cleanup, commit it, THEN start the next task's first `x` in the same or a later session.
 
-Notes to include alongside the command when relevant:
-- If `git am` fails with an identity/committer error, the local git config needs `user.name`/`user.email` set (`git config user.name "..."` / `git config user.email "..."`) before retrying — this is a one-time local setup, not a problem with the patch itself.
-- If `git am` reports a conflict or fails to apply cleanly (e.g. because the user's local branch has diverged from the commit the patch was generated against), the safe fallback is `git am --abort` followed by `git apply --stat <file>` / `git apply --check <file>` to inspect, or `git apply ~/storage/downloads/<file>` (which applies the diff without creating a commit, for manual review before committing).
-- Always state which local branch/commit the patch was generated against (recorded in the patch-generating session's equivalent of this document's §6) so the user knows whether a clean apply is expected or whether they need to check out that base first.
+### TASK 1 — Reseller Lifecycle & Governance Foundation
+*(closes `master-architecture.md` §2 products #1, #2, #17; the P0 "core lifecycle is broken" finding)*
 
-## 8. What a new session should do differently from this one
+**1a. Identity & Access foundation**
+- [ ] 1a.i.x — Build the RBAC model: `roles`/`permissions` tables, the full role list from `master-architecture.md` §1.1 (`SUPER_ADMIN`, `PLATFORM_ADMIN`, `COMPLIANCE_OFFICER`, `FINANCE_ADMIN`, `SUPPORT_AGENT`, `MERCHANT_OWNER`, `MERCHANT_STAFF`, `CUSTOMER`, `API_CLIENT`), and `src/middleware/admin-auth.ts` (currently empty) enforcing role-scoped route access.
+- [ ] 1a.ii.x — Build device fingerprinting at Application time (`devices` table, fingerprint capture per `product-spec.md` §13's field list) plus the `risk_flags`/`fraud_rules_config` tables as an empty-but-ready foundation for Task 4b to write into later — do not build fraud *logic* yet, just the schema and the Application-stage hard block.
 
-This audit was read-only against the product code — no feature code was written or modified, only documentation was added. The natural next session should pick the top unchecked item from `blueprint.md`'s "Priority-ordered build sequence" (currently: database schema capture, then `.env.example`/service-role-key rename, then the verification/KYC flow) and begin implementation, updating `architecture.md`'s Appendix A/B and `blueprint.md`'s relevant status lines as files move from empty to implemented, per the targeted-diff procedure in §4 — rather than leaving documentation updates to accumulate into a future full re-audit.
+**1b. Verification/KYC**
+- [ ] 1b.i.x — Build document-upload infrastructure: `src/lib/storage/document-storage.ts`, `api/upload/[countryCode]/{document,image,logo}` routes, `DocumentUploader`/`DocumentPreview` components, backed by a private Supabase Storage bucket with signed-URL access (confirm bucket privacy as part of this task, per `master-architecture.md` §7's flagged gap).
+- [ ] 1b.ii.x — Build the Verification flow end-to-end: `[countryCode]/verify/[token]`, `actions/reseller/verification/*` (all 5 files), per-country `KYCRequirements`, and `verification-rules.ts`.
+
+**1c. Admin Panel & Storefront Provisioning**
+- [ ] 1c.i.x — Build the Country Admin application/verification review queue: `[countryCode]/admin/{applications,verifications}/*`, `actions/reseller/admin/{getApplicationQueue,getApplicationDetails,approveApplication,rejectApplication,getVerificationQueue,verifyDocument,rejectDocument}`, and the matching `components/reseller/admin/*` (ApplicationQueue, ApplicationDetails, DocumentReview, VerificationQueue, ApprovalWorkflow). This is the single item that actually closes the "resellers can apply but nothing can approve them" gap.
+- [ ] 1c.ii.x — Build the storefront-provisioning job (`storefront_provisioning_jobs` table + state machine `queued→generating→ready→failed`) and the Onboarding/Launch wizard (`[countryCode]/onboarding`, `[countryCode]/launch`, the `components/reseller/launch/*` step components) that walks an approved Reseller through country/payment/plan setup per `product-spec.md` §7/§8. Include `[countryCode]/status` (public application-status lookup — cheap, since `getApplicationStatus` action already exists).
+
+### TASK 2 — Commerce & Financial Core
+*(closes `master-architecture.md` §2 products #4, #5, #6, #8, #9; the wallet/ledger/pricing gaps)*
+
+**2a. Wallet, Ledger & Bonus completion**
+- [ ] 2a.i.x — Audit and fix `src/actions/reseller/wallet/withdrawFunds.ts` (resolve the duplicated-export finding from `blueprint.md` #8), then build the empty `resellerCustomerWallet.ts`/`customerVirtualAccount.ts` using Layer 2's equivalents as the direct reference. Confirm the bonus-first/wallet-second deduction order (`product-spec.md` §10) is actually enforced in code, not just assumed.
+- [ ] 2a.ii.x — Build the first-app-deposit bonus flow exactly as resolved in `product-spec.md` §9 (one-time, app-channel-only, local-currency equivalent of $10, `first_app_deposit_bonus_claimed_at` timestamp) plus a minimal reconciliation baseline (`reconciliation_runs` table + one scheduled job comparing ledger totals against one payment gateway's settlement report, as a proof of concept before expanding to all gateways).
+
+**2b. Pricing, FX & Multi-Country selling rules**
+- [ ] 2b.i.x — Build the FX-rate service (`fx_rates` table, a scheduled refresh job, and the conversion function) — resolve the static-vs-live-rate open question from `product-spec.md` §15 with the product owner before building; default to admin-configurable static rates if no answer is available, since that's the cheaper/safer default per that section's own reasoning.
+- [ ] 2b.ii.x — Build per-Reseller country-access limits: `reseller_countries` table, `actions/reseller/country/*` (all 6 files) enforcing default+2-free then $3-per-additional-country, per `product-spec.md` §11.
+
+**2c. Storefront Commerce & Customer Auth**
+- [ ] 2c.i.x — Implement the role-aware currency-display engine inside the already-file-complete storefront pages (Customer sees everything converted to their currency; Reseller sees each plan in its native provider-country currency) per `product-spec.md` §15, plus phone-prefix-based network-carrier auto-detection. Read the existing storefront components fully before writing anything — confirm exactly how much of this logic (if any) already exists, since file-completeness never confirmed the business logic itself.
+- [ ] 2c.ii.x — Build the Customer buy-triggered sign-up/auth modal (transaction PIN + country-conditional payment-method setup, per `product-spec.md` §16) and the Reseller-self-purchase-at-base-price rule with strikethrough UI (`product-spec.md` §17) inside the actual purchase-execution action.
+
+### TASK 3 — Platform, Provider & Distribution
+*(closes `master-architecture.md` §2 products #10, #11, #12, #13, #14)*
+
+**3a. Provider Integration Layer**
+- [ ] 3a.i.x — Build `provider_networks` (which provider serves which network/country) and `provider_health_checks` with a basic circuit-breaker wrapper around the existing Zendit/Accragh/Lizzysub calls, so a provider outage degrades gracefully instead of surfacing a raw error to Customers.
+- [ ] 3a.ii.x — Build `provider_cost_sync_log` and a scheduled cost-sync job that updates `platform_plans.base_price_minor` on a cadence, respecting the floor-price rule for every already-configured `merchant_plans` row (resolve the fixed-markup-vs-percentage-markup repricing question from `full-blueprint.md` §6f before this ships).
+
+**3b. Android Publishing & Maintenance**
+- [ ] 3b.i.x — Reconcile the `actions/reseller/build/*` vs `actions/reseller/publishing/*` namespace duplication (`blueprint.md` #7) into one canonical namespace, then build the tiered publishing-fee logic ($22/$28/$35 per `product-spec.md` §20) — **first get the product owner to resolve the maintenance-fee inconsistency flagged in `master-architecture.md` §10 before building the maintenance side of this.**
+- [ ] 3b.ii.x — Build the maintenance-billing scheduled job (`maintenance_subscriptions` table, due-date reminders, auto-debit from wallet only, suspension-on-nonpayment cascading into the Android app actually stopping) and the `dashboard/app-lifecycle/*` UI showing this status.
+
+**3c. API Platform & Notifications**
+- [ ] 3c.i.x — Build `api_tokens` (Reseller-issued Customer tokens), the token-issuance UI/action, and a token-authenticated purchase endpoint under `api/reseller/[countryCode]/*`, using Layer 2's fully-working `/api/v1/*` as the direct reference pattern (`product-spec.md` §19).
+- [ ] 3c.ii.x — Build the notification system end-to-end: `lib/notifications/*` (templates, localized across the 5 existing languages per `master-architecture.md` §"Internationalization"), `actions/reseller/notifications/*`, `dashboard/notifications/*` UI, with the API-Customer-vs-normal-Customer segmentation from `product-spec.md` §21. Reuse Layer 1's FCM push plumbing for delivery mechanics.
+
+### TASK 4 — Growth, Risk & Operations
+*(closes `master-architecture.md` §2 products #7-remainder, #15, #16, #18, plus infra/security)*
+
+**4a. Marketing, Gamification & Legal**
+- [ ] 4a.i.x — Build the campaign-banner system (3rd-app-use trigger, Customer-vs-Reseller copy per `product-spec.md` §22) and the weekly gamification challenge (`product-spec.md` §23 — get the reward-duration and week-start-day open questions resolved by the product owner first).
+- [ ] 4a.ii.x — Build Legal document generation (ToS/Privacy/Refund per store, `blueprint.md` #14 — **check with the product owner/legal counsel whether this needs to be reclassified higher-priority for regulatory reasons before or during this task, per that item's own flag**) and the basic marketing tools (flyer/QR/WhatsApp templates).
+
+**4b. Fraud/Risk/Compliance & Analytics**
+- [ ] 4b.i.x — Build fraud/risk monitoring on top of the `risk_flags` table from 1a.ii: velocity/anomaly checks, bonus-abuse detection, and a Compliance Officer review UI reading from it.
+- [ ] 4b.ii.x — Build the `platform_events` event-tracking layer and wire at least the Admin `reports/*` and dashboard `stats` screens to read from it instead of ad-hoc live queries.
+
+**4c. Security, Infra & Support**
+- [ ] 4c.i.x — Stand up automated testing (currently zero test files exist anywhere in the repo — pick a framework, write tests for the wallet/ledger logic first since it's the highest-risk code), and document/verify a backup and disaster-recovery policy for the Supabase project.
+- [ ] 4c.ii.x — Build the Support/ticketing system (`dashboard/support/*`, `actions/reseller/support/*`) with the Support Agent RBAC scope (read-only on transactions, no KYC/withdrawal access) defined in 1a.i.
+
+---
+
+## Completed Tasks Archive
+
+*(empty — no task fully closed yet as of this integration)*
+
+---
+
+## Standing rules carried forward from prior sessions (unchanged, still in force)
+
+**Patch delivery (Termux, `~/storage/downloads`):** any `.patch` file produced for this user must be accompanied by the exact `git am` command. For a NEW branch: `git checkout <base-branch>` → `git checkout -b <new-branch>` → `git am ~/storage/downloads/<file>` → `git push -u origin <new-branch>`. For a follow-up patch onto an already-pushed branch: `git checkout <branch>` → `git am ~/storage/downloads/<file>` → `git push origin <branch>` (no `-u`, no recreate). Always state explicitly which case applies.
+
+**Layer boundaries (still absolute):** Layer 1 (legacy consumer app) and Layer 2 (single-country reseller platform) are not build targets. Layer 2 is reference-only — mine it for working patterns (explicitly pointed to throughout the task board above) but never import its code into Layer 3 or route users through it. All new work happens under `[countryCode]`, `src/actions/reseller/**` (aliased `@/actions/reseller`, not `@/app/actions/reseller`), `src/components/reseller/**`, and Layer-3-owned `src/lib/` subdirectories.
+
+**Known irregularities still unresolved (do not rediscover these — act on them where the task board above references them, or flag if you find they've changed):** the `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` naming issue (Step 0.3), all 13 migrations + 53 RPC files still empty until Step 0.1, `wallet-withxixicopy.ts`/`WalletClient-withxixicopy.tsx` confirmed dead code (safe to delete once product owner confirms), the `build/` vs `publishing/` action-namespace duplication (Task 3b.i), the `generateIcon.ts`/`logo/generator.ts` duplicate pair (fold into whichever task touches app branding).
+
+---
+
+## Session Log
+
+*(Each session appends one entry here before ending. Format: date, which `x` was worked, what was actually built/decided, any new findings or open questions surfaced. This is what lets the next session skip rediscovery — read the last 2-3 entries here in addition to the Top Orientation block if `CURRENT POSITION` alone doesn't give enough context.)*
+
+- **2026-08-29** — Integration session. Merged `full-blueprint.md` (this session's own full-platform vision) with an externally-provided "Telcos Platform" production-grade architecture document into `master-architecture.md`, cross-referenced every item against `architecture.md`'s real file-completion data, and rebuilt this file from scratch around a 4×3×2×1 task-board structure (24 atomic `x` units across 4 top-level Tasks) plus Step 0's three prerequisite actions. No code was changed. `CURRENT POSITION` set to Step 0.
 
 *End of handover.md.*
