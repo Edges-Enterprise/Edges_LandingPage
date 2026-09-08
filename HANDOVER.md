@@ -188,6 +188,29 @@ on any plain Ubuntu box/CI runner without a Supabase CLI install/login.
   - `full.dump` — `pg_restore`-ready custom-format dump
   - `roles.sql` — role defs, best-effort (hosted Supabase often blocks this)
 
+### Status update — dump run confirmed (2026-09-08)
+
+Ran successfully inside the Ubuntu environment at
+`~/supabase-dumps/2026-09-08_033557/`:
+
+| File | Size |
+|---|---|
+| `schema.sql` | 318,536 bytes |
+| `data.sql` | 10,926,262 bytes (~10.4 MB) |
+| `full.dump` | 1,673,152 bytes (~1.6 MB) |
+
+All three files are non-trivial in size, consistent with a real dump
+rather than an empty/failed one. Connection used the resolved pooler
+details above (host/port/db/user as documented; password supplied
+directly in the Ubuntu terminal, not committed anywhere).
+
+**Still outstanding from the numbered steps below:** confirm the
+password used for this run has been rotated (it was exposed in a chat
+session earlier in this task), diff `schema.sql` against
+`supabase/rpc/**` for drift, add `supabase/dumps/` to `.gitignore` in
+both repos, and decide on long-term dump storage (not git) before this
+task can move from OPEN to closed.
+
 ### What the next session needs to do
 1. Pull branch `handover/supabase-dump` on `Edges_LandingPage` — inside
    the **Ubuntu environment**, not native Termux (see "Two working
@@ -287,3 +310,4 @@ handoff process at the top of this file.
 | 2026-09-08 | Setup session | User pointed out the branch already exists/is checked out, so `git checkout -b` shouldn't run on every handoff. Split the process into a one-time setup command (branch creation, run once) and a steady-state command (just `git am` + `git push` per repo) for every session after that. |
 | 2026-09-08 | Setup session | Added "Session bootstrap" section: every session (either environment) fetches all branches and checks out the latest commit on the most recently updated branch rather than assuming `main`, then re-reads this file from there. |
 | 2026-09-08 | Dump session | Documented the two-environment standing rule: native Termux clones for coding, separate Termux-Ubuntu (`proot-distro`) clones under `~/ubuntu-repos/` for DB/edge-function work needing a full Ubuntu userland. Resolved and recorded the pooler connection details (host/port/db/user, no password) for Task 1. User ran the dump command inside Ubuntu; **result not yet confirmed in this file** — whoever verifies `~/supabase-dumps/<timestamp>/` should update this row (or add a new one) with file sizes and pass/fail, and note here once the leaked password from this session has been rotated. |
+| 2026-09-08 | Dump session | Dump run confirmed: `~/supabase-dumps/2026-09-08_033557/` has all three files at non-trivial sizes (schema.sql 318KB, data.sql 10.4MB, full.dump 1.6MB). Task 1 still OPEN — remaining steps (password rotation confirmation, `.gitignore` entry, schema-drift diff, long-term storage decision) not yet done. |
