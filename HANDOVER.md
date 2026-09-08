@@ -107,6 +107,85 @@ filename(s) and branch name for its task — do not reinvent the handoff
 mechanism per task, and do not go back to two separate commands the
 user has to run one after another.**
 
+## Handoff process for DB migrations & edge functions (Ubuntu environment)
+
+This is a **separate handoff process** from the code-patch one above —
+migrations and edge functions change live infrastructure (the Supabase
+Postgres DB, deployed edge functions), not just repo files, so `git am`
+alone isn't enough for them. A session producing a migration or edge
+function should hand off **two things**:
+
+1. **A normal `.patch` file** (built and applied exactly per the
+   Standing handoff process above) that adds the migration's `.sql`
+   file to `supabase/migrations/` (or the edge function's source) in
+   the repo — so the change is version-controlled like everything else.
+2. **A direct command block**, run separately by the user **inside the
+   Ubuntu environment** (`proot-distro login ubuntu`, then
+   `~/ubuntu-repos/Edges_LandingPage`), that actually applies the
+   change to the live DB or deploys the function. This step is *not*
+   part of `git am`/`git push` — it talks to Supabase directly.
+
+### Pushing a migration directly to the DB
+
+Run from `~/ubuntu-repos/Edges_LandingPage`, after that repo's patch
+(step 1 above) has been applied so the migration file is in the
+checked-out tree:
+
+```bash
+export PGPASSWORD='<current-db-password-from-dashboard>' \
+       DBHOST='aws-0-eu-central-1.pooler.supabase.com' \
+       DBPORT=5432 DBUSER='postgres.jjyyfaxcwanrmiipzkoj' DBNAME='postgres' && \
+psql -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" \
+     -v ON_ERROR_STOP=1 \
+     -f supabase/migrations/<migration-file>.sql && \
+echo "Migration applied: <migration-file>.sql"
+```
+
+- `-v ON_ERROR_STOP=1` makes `psql` abort on the first SQL error instead
+  of plowing through the rest of the file — always include this for
+  migrations.
+- For a series of migrations that must run in order, chain them with
+  `&&` in a single block (same pattern as the dump command), one
+  `psql -f` per file, in filename order — don't rely on wildcard
+  expansion (`-f *.sql`) since ordering isn't guaranteed that way.
+- Same password rule as the dump process: get the current password from
+  the Supabase dashboard each time, type it directly into the Ubuntu
+  terminal, never paste it into a chat session or commit it anywhere.
+- If `psql` isn't installed yet in this Ubuntu environment, it comes
+  from the same package as the dump tooling:
+  `apt-get update && apt-get install -y postgresql-client` (no `sudo`
+  needed — the Ubuntu proot shell is already root).
+- There's no automatic rollback — for anything non-trivial, take a
+  fresh `pg_dump` (per the Task 1 process) immediately before applying
+  a migration, so there's a known-good restore point if it goes wrong.
+
+### Deploying an edge function
+
+Edge functions are deployed through the **Supabase CLI**, not `psql` —
+this needs a Supabase access token/login, separate from the DB
+password above. As of this session, no sandbox has that access token
+configured, so this is an **open item**, not a ready-to-run command
+(mirrors the "no GitHub push access" gap for code patches). Whoever
+picks this up next should:
+
+1. Confirm whether the Supabase CLI is installed in the Ubuntu
+   environment (`supabase --version`); if not,
+   `npm install -g supabase` (Ubuntu has `npm` via `apt-get install
+   -y nodejs npm` if needed).
+1. Get a Supabase access token (dashboard → Account → Access Tokens) and
+   run `supabase login` once, interactively, in the Ubuntu environment
+   — **do not** put the token in a patch, a chat, or a committed file.
+2. Link the project once: `supabase link --project-ref jjyyfaxcwanrmiipzkoj`
+   (project ref taken from the DB user `postgres.jjyyfaxcwanrmiipzkoj`
+   resolved in Task 1 below).
+3. Deploy with `supabase functions deploy <function-name>` from
+   `~/ubuntu-repos/Edges_LandingPage` (or wherever the function source
+   lives in the repo).
+
+Update this section with the actual working command once someone has
+run it successfully, the same way Task 1's dump command below was
+filled in after a real run confirmed it worked.
+
 ## Two working environments, same repos (standing rule)
 
 The user works across **two separate environments on the same Android
@@ -117,6 +196,11 @@ repos — this is intentional, not a mistake to "fix" by consolidating:
 |---|---|---|
 | Termux (native) | Day-to-day coding, patch review, `git am` + `git push` per the standing handoff process above | `~/Edges_LandingPage`, `~/reseller-app` |
 | Termux → Ubuntu (`proot-distro login ubuntu`) | DB migrations, Supabase edge functions, `pg_dump`/`pg_restore` — anything needing a full Ubuntu userland (e.g. `postgresql-client` isn't readily available in native Termux) | `~/ubuntu-repos/Edges_LandingPage`, `~/ubuntu-repos/reseller-app` |
+
+Migrations and edge functions have their own handoff process (see
+**"Handoff process for DB migrations & edge functions"** above) since
+they involve a direct-to-Ubuntu command in addition to the usual patch
+— don't route those through the plain code-patch process alone.
 
 Do not try to symlink or share the working tree between the two — they
 are deliberately separate git clones of the same GitHub repos. Any
@@ -311,3 +395,4 @@ handoff process at the top of this file.
 | 2026-09-08 | Setup session | Added "Session bootstrap" section: every session (either environment) fetches all branches and checks out the latest commit on the most recently updated branch rather than assuming `main`, then re-reads this file from there. |
 | 2026-09-08 | Dump session | Documented the two-environment standing rule: native Termux clones for coding, separate Termux-Ubuntu (`proot-distro`) clones under `~/ubuntu-repos/` for DB/edge-function work needing a full Ubuntu userland. Resolved and recorded the pooler connection details (host/port/db/user, no password) for Task 1. User ran the dump command inside Ubuntu; **result not yet confirmed in this file** — whoever verifies `~/supabase-dumps/<timestamp>/` should update this row (or add a new one) with file sizes and pass/fail, and note here once the leaked password from this session has been rotated. |
 | 2026-09-08 | Dump session | Dump run confirmed: `~/supabase-dumps/2026-09-08_033557/` has all three files at non-trivial sizes (schema.sql 318KB, data.sql 10.4MB, full.dump 1.6MB). Task 1 still OPEN — remaining steps (password rotation confirmation, `.gitignore` entry, schema-drift diff, long-term storage decision) not yet done. |
+| 2026-09-08 | Migrations session | Added a dedicated handoff process for DB migrations and edge functions, distinct from the plain code-patch process: a normal `.patch` adds the migration `.sql`/function source to the repo, plus a separate direct `psql -f` command (run in the Ubuntu environment) actually applies it to the live DB. Edge function deploy via Supabase CLI documented as an **open item** — no access token configured in any sandbox session yet, so `supabase login`/`link`/`deploy` steps are written but unverified. |
