@@ -5,6 +5,35 @@ below should read this file first, log their status here, and add any
 new task sections here. This repo is the source of truth; the mobile
 repo carries a pointer file back to this one.
 
+## Session bootstrap (do this before anything else)
+
+Every new session working with this repo — whether it's cloning fresh or
+already has a local copy — should always land on the **latest commit of
+the most recently updated branch**, not just `main`. Concretely:
+
+1. On clone (or if already cloned), fetch all branches:
+   ```bash
+   git fetch --all
+   ```
+2. Find the most recently updated branch:
+   ```bash
+   git for-each-ref --sort=-committerdate refs/remotes --format='%(committerdate:iso8601) %(refname:short) %(objectname:short)'
+   ```
+   The top line is the branch to work from.
+3. Check it out at its latest commit:
+   ```bash
+   git checkout -B <branch-name> origin/<branch-name>
+   ```
+4. Re-read this `HANDOVER.md` **from that checked-out branch** (not from
+   whatever branch you happened to land on first) — the file itself can
+   change between branches, and the copy on the latest branch is the
+   one that reflects current status.
+
+This applies every session, not just the first one: branches here move
+fast (see the log table below), so `main` being stale is expected and
+is not a sign anything is wrong — always prefer the latest branch over
+`main` when picking up work here.
+
 ## Standing handoff process (read this first — applies to every task, not just Task 1)
 
 Sandbox sessions building work for these repos do **not** have GitHub
