@@ -336,11 +336,24 @@ on its own line — no fix needed there.
 **Still outstanding from the numbered steps below:** confirm the
 password used for this run has been rotated (it was exposed in a chat
 session earlier in this task), diff `schema.sql` against
-`supabase/rpc/**` for drift (blocked — needs the actual dump file
-contents, which only exist on the user's Ubuntu machine; see the
-command below for getting them into a session that can diff them), and
-decide on long-term dump storage (not git) before this task can move
-from OPEN to closed.
+`supabase/rpc/**` for drift, and decide on long-term dump storage (not
+git) before this task can move from OPEN to closed.
+
+**Update (2026-09-08, re-verification session): the drift diff is now
+unblocked.** `supabase/schema.sql` is committed directly to this repo
+(see "Schema snapshots" section above) and was re-verified as a real,
+non-placeholder dump (318,536 bytes / 10,462 lines, valid `pg_dump`
+header) on a fresh clone of `handover/supabase-dump`. Any session can
+now just `git fetch`/`git pull` this repo and read
+`supabase/schema.sql` directly to run the diff — no more need to `cat`
+the file from the Ubuntu machine or paste dump output into chat. The
+diff itself still hasn't been run by anyone yet; that's the next
+concrete step. Also re-confirmed on this same clone: `data.sql` and
+`full.dump` are correctly absent from git (per the absolute rule
+below), and both repos' `.gitignore` entries for `supabase/dumps/` are
+correct and were re-tested live (create a file under
+`supabase/dumps/`, run `git check-ignore -v` on it, confirm it matches
+before removing the test file).
 
 To unblock the drift check, run this in the Ubuntu environment and
 share the output with whichever session is doing the diff:
@@ -464,3 +477,4 @@ handoff process at the top of this file.
 | 2026-09-08 | Dump session | Dump run confirmed: `~/supabase-dumps/2026-09-08_033557/` has all three files at non-trivial sizes (schema.sql 318KB, data.sql 10.4MB, full.dump 1.6MB). Task 1 still OPEN — remaining steps (password rotation confirmation, `.gitignore` entry, schema-drift diff, long-term storage decision) not yet done. |
 | 2026-09-08 | Migrations session | Added a dedicated handoff process for DB migrations and edge functions, distinct from the plain code-patch process: a normal `.patch` adds the migration `.sql`/function source to the repo, plus a separate direct `psql -f` command (run in the Ubuntu environment) actually applies it to the live DB. Edge function deploy via Supabase CLI documented as an **open item** — no access token configured in any sandbox session yet, so `supabase login`/`link`/`deploy` steps are written but unverified. |
 | 2026-09-08 | Verification session | Checked whether the standing-rule patches had landed (confirmed, up to `180f86c`) and whether the DB dump is reflected in the repo. Found and fixed a real bug: `Edges_LandingPage`'s `.gitignore` had `sz*.json` and `supabase/dumps/` merged onto one line with no newline, so `supabase/dumps/` was never actually being ignored — fixed and verified with a test file. `reseller-app`'s `.gitignore` was already correct. Schema-drift check against `supabase/rpc/**` is still blocked: the actual `schema.sql` contents only exist on the user's Ubuntu machine and haven't been shared into a session yet — command to do so added above. |
+| 2026-09-08 | Re-verification session | Fresh clone of both repos, landed on `handover/supabase-dump` (latest branch, confirmed via bootstrap steps: `Edges_LandingPage` @ `30e9133`, `reseller-app` @ `467a680`). Re-confirmed both prior findings hold on this clone: (1) `Edges_LandingPage`'s `.gitignore` has `sz*.json` and `supabase/dumps/` correctly on separate lines (line 53) — re-tested live by creating `supabase/dumps/test.txt` and running `git check-ignore -v`, which correctly matched it against `.gitignore:53:supabase/dumps/`; test file removed after. `reseller-app`'s `.gitignore` also confirmed correct (line 54), no fix needed. (2) `supabase/schema.sql` **is** committed in `Edges_LandingPage` and is a genuine dump, not a placeholder: 318,536 bytes, 10,462 lines, valid `pg_dump` header (source DB Postgres 15.8, dumped with pg_dump 18.6/Ubuntu 26.04). Confirmed `data.sql`/`full.dump` are correctly **absent** from both repos (per the absolute rule) — they only exist locally on the user's Ubuntu machine under `~/supabase-dumps/<timestamp>/`. **Task 1 remains OPEN** — still outstanding: (a) confirm the dump-session password was rotated in the Supabase dashboard, (b) run the schema-drift diff of `supabase/schema.sql` against `supabase/rpc/**` (unblocked now — `schema.sql` is committed and readable directly from the repo, no need to paste dump output into chat anymore), (c) decide long-term storage for `data.sql`/`full.dump`. Next session picking this up should start with the drift diff since it's now trivially unblocked. |
