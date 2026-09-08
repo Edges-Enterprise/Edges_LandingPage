@@ -107,6 +107,43 @@ filename(s) and branch name for its task — do not reinvent the handoff
 mechanism per task, and do not go back to two separate commands the
 user has to run one after another.**
 
+## Schema snapshots — committed directly, not via patch (standing rule)
+
+`supabase/schema.sql` is a tracked, schema-only snapshot of the live DB
+(tables, policies, functions, grants — **no row data**). It exists so
+any session (sandbox or otherwise) can `git pull`/`git fetch` this repo
+and read the current live schema without needing a fresh `pg_dump` or a
+copy-pasted chat dump every time.
+
+**This file is committed directly from the Ubuntu environment, not
+through the sandbox patch/`git am` process above.** The patch process
+exists because sandbox sessions lack push credentials; whoever has the
+live `pg_dump` output already has full git push access on their own
+machine, so routing it through a sandbox round-trip first would be
+pure overhead. After running the Task 1 dump command:
+
+```bash
+cd ~/ubuntu-repos/Edges_LandingPage
+cp ~/supabase-dumps/<timestamp>/schema.sql supabase/schema.sql
+git add supabase/schema.sql
+git commit -m "chore(db): snapshot current live schema for drift tracking"
+git push
+```
+
+**Absolute rule: never commit `data.sql` or `full.dump` (or any other
+row-data export) to either repo, ever.** Those contain real user
+records (emails, transactions, wallet balances). Once something lands
+in git history it's effectively permanent — deleting the file in a
+later commit does not remove it from history, and a bad-faith actor
+with clone access could still reconstruct it. `supabase/dumps/` stays
+`.gitignore`d for exactly this reason; `supabase/schema.sql` is the one
+deliberate, structure-only exception.
+
+A sandbox session that needs to check schema drift against
+`supabase/rpc/**` should `git fetch`/`git pull` this repo and read
+`supabase/schema.sql` directly, rather than asking the user to paste
+dump output into chat.
+
 ## Handoff process for DB migrations & edge functions (Ubuntu environment)
 
 This is a **separate handoff process** from the code-patch one above —
