@@ -441,6 +441,79 @@ psql -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" \
    file (it should just say "see master handover, Task 1" + current
    status, not duplicate the whole task).
 
+### Schema-drift check against `supabase/rpc/**` — RUN (2026-09-08)
+
+**Result: not "drift" — total non-overlap. Read this before touching
+either the RPC scaffolding or the live functions.**
+
+Method: extracted every `CREATE FUNCTION`/`CREATE OR REPLACE FUNCTION`
+name from `supabase/schema.sql` (79 total: 61 in `public`, 4 in `auth`,
+14 in `storage`), and compared against the expected function name for
+each of the 51 files under `supabase/rpc/**` (filename minus `.sql`,
+per the directory's own naming convention, e.g.
+`rpc/dashboard/get_dashboard_summary.sql` → expects a function named
+`get_dashboard_summary`).
+
+**Finding 1 — every `supabase/rpc/**` file is empty (0 bytes).**
+Checked all 51 files; every single one is 0 bytes. Git history
+confirms they were created empty from the start (single commit
+`7a2675b`, "terminal method of files creation" — i.e. `touch`-created
+placeholders) and have never had content added since. These are not
+"hand-maintained RPC source files" in the sense the earlier note in
+this doc implied — they're an empty scaffold of intended filenames,
+nothing more.
+
+**Finding 2 — zero of the 51 expected function names exist in the live
+DB.** Grepped `schema.sql` for each of the 51 names
+(`generate_admin_report`, `get_admin_dashboard`,
+`get_application_queue`, `detect_anomalies`, `approve_application`,
+`get_dashboard_summary`, `get_earnings_report`, `deploy_ota`,
+`publish_playstore`, `get_devices`, `check_kyc_compliance`, etc.) —
+**none** appear anywhere in `schema.sql`, not even as a near-miss
+naming variant. This isn't schema drift (an older version of a
+function that changed); it's that these functions have never been
+created in this database at all, per the current live schema.
+
+**Finding 3 — the live DB's actual `public` functions are a different,
+unrelated set**, centered on wallet/purchase/notification plumbing:
+`create_purchase_order`, `deduct_reseller_cost`,
+`process_airtime_purchase`, `process_data_purchase`,
+`recalculate_reseller_wallet`, `update_wallet_after_sale`,
+`get_global_reseller_dashboard_context`, `get_global_reseller_*`
+(build status / customer growth / dashboard stats / performance
+metrics / recent activity / revenue breakdown / top products),
+`get_reseller_dashboard`, `get_reseller_balance`, plus a set of
+`notify_*`/`handle_*`/`trigger_*` triggers. A couple are conceptually
+adjacent to scaffolded names (`get_reseller_dashboard` vs.
+`get_dashboard_summary`; `get_global_reseller_dashboard_context` vs.
+`get_dashboard_context`) but are **not** the same function under a
+different snapshot — different signatures, different bodies, no
+renaming relationship visible in git history.
+
+**Finding 4 — 7 filenames are duplicated across two `rpc/` subfolders**,
+independent of the DB comparison: `complete_build.sql` (`build/` and
+`publishing/`), `get_build_context.sql` (`build/` and `publishing/`),
+`queue_app_build.sql` (`build/` and `publishing/`),
+`update_build_status.sql` (`build/` and `publishing/`),
+`get_store_context.sql` (`business/` and `store/`),
+`generate_brand_assets.sql` (`business/` and `utils/`),
+`validate_store_name.sql` (`business/` and `utils/`). Since both
+files in each pair are empty, this isn't causing a conflict today, but
+whoever eventually populates these should pick one canonical location
+per function rather than filling in both copies.
+
+**What this means for the task:** there is nothing to "reconcile" or
+merge between `schema.sql` and `supabase/rpc/**` — they describe two
+non-overlapping surfaces (live production functions vs. a not-yet-built
+API layer). The open question for whoever picks this up next is a
+product/scope question, not a technical diff: is `supabase/rpc/**`
+dead/aspirational scaffolding that should be deleted or clearly marked
+as a roadmap, or is there a plan to actually implement these 51
+functions against the live DB (in which case that's new function
+development, not drift reconciliation)? This doc doesn't have that
+answer — flag it to whoever owns product scope for these repos before
+spending time writing any of the 51 files.
+
 ### Open questions for whoever picks this up
 - Where should dump artifacts actually be stored long-term (S3/GCS bucket,
   encrypted volume, etc.)? Not decided yet — do not default to committing
@@ -478,3 +551,4 @@ handoff process at the top of this file.
 | 2026-09-08 | Migrations session | Added a dedicated handoff process for DB migrations and edge functions, distinct from the plain code-patch process: a normal `.patch` adds the migration `.sql`/function source to the repo, plus a separate direct `psql -f` command (run in the Ubuntu environment) actually applies it to the live DB. Edge function deploy via Supabase CLI documented as an **open item** — no access token configured in any sandbox session yet, so `supabase login`/`link`/`deploy` steps are written but unverified. |
 | 2026-09-08 | Verification session | Checked whether the standing-rule patches had landed (confirmed, up to `180f86c`) and whether the DB dump is reflected in the repo. Found and fixed a real bug: `Edges_LandingPage`'s `.gitignore` had `sz*.json` and `supabase/dumps/` merged onto one line with no newline, so `supabase/dumps/` was never actually being ignored — fixed and verified with a test file. `reseller-app`'s `.gitignore` was already correct. Schema-drift check against `supabase/rpc/**` is still blocked: the actual `schema.sql` contents only exist on the user's Ubuntu machine and haven't been shared into a session yet — command to do so added above. |
 | 2026-09-08 | Re-verification session | Fresh clone of both repos, landed on `handover/supabase-dump` (latest branch, confirmed via bootstrap steps: `Edges_LandingPage` @ `30e9133`, `reseller-app` @ `467a680`). Re-confirmed both prior findings hold on this clone: (1) `Edges_LandingPage`'s `.gitignore` has `sz*.json` and `supabase/dumps/` correctly on separate lines (line 53) — re-tested live by creating `supabase/dumps/test.txt` and running `git check-ignore -v`, which correctly matched it against `.gitignore:53:supabase/dumps/`; test file removed after. `reseller-app`'s `.gitignore` also confirmed correct (line 54), no fix needed. (2) `supabase/schema.sql` **is** committed in `Edges_LandingPage` and is a genuine dump, not a placeholder: 318,536 bytes, 10,462 lines, valid `pg_dump` header (source DB Postgres 15.8, dumped with pg_dump 18.6/Ubuntu 26.04). Confirmed `data.sql`/`full.dump` are correctly **absent** from both repos (per the absolute rule) — they only exist locally on the user's Ubuntu machine under `~/supabase-dumps/<timestamp>/`. **Task 1 remains OPEN** — still outstanding: (a) confirm the dump-session password was rotated in the Supabase dashboard, (b) run the schema-drift diff of `supabase/schema.sql` against `supabase/rpc/**` (unblocked now — `schema.sql` is committed and readable directly from the repo, no need to paste dump output into chat anymore), (c) decide long-term storage for `data.sql`/`full.dump`. Next session picking this up should start with the drift diff since it's now trivially unblocked. |
+| 2026-09-08 | Drift-check session | Ran the schema-drift check against `supabase/rpc/**` (see "Schema-drift check — RUN" section above for full detail). **Result: not drift, total non-overlap.** All 51 files under `supabase/rpc/**` are 0 bytes (empty since the commit that created them — confirmed via git history, not just current state) and **none** of the 51 expected function names (derived from filenames) appear anywhere in `supabase/schema.sql`'s 61 live `public`-schema functions. The live DB's actual functions are an unrelated set centered on wallet/purchase/notification logic (`process_airtime_purchase`, `update_wallet_after_sale`, `get_global_reseller_dashboard_context`, etc.) with no renaming relationship to the scaffolded names. Also found 7 filenames duplicated across two `rpc/` subfolders each (e.g. `complete_build.sql` in both `build/` and `publishing/`) — harmless today since both copies are empty, but worth resolving before anyone populates them. This changes the shape of the remaining work: it's not a diff/merge task, it's a scope question (is `supabase/rpc/**` a dead scaffold to remove, or a real to-build list?) for whoever owns product direction here. Task 1's other two items (password rotation confirmation, long-term dump storage decision) are still open and unaffected by this finding. |
