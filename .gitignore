@@ -49,4 +49,5 @@ text.txt
 
 *.ps1
 s*.txt
-sz*.jsonsupabase/dumps/
+sz*.json
+supabase/dumps/
