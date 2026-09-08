@@ -107,6 +107,42 @@ filename(s) and branch name for its task — do not reinvent the handoff
 mechanism per task, and do not go back to two separate commands the
 user has to run one after another.**
 
+## Two working environments, same repos (standing rule)
+
+The user works across **two separate environments on the same Android
+device**, and each maintains its **own independent clone** of both
+repos — this is intentional, not a mistake to "fix" by consolidating:
+
+| Environment | Purpose | Clone location |
+|---|---|---|
+| Termux (native) | Day-to-day coding, patch review, `git am` + `git push` per the standing handoff process above | `~/Edges_LandingPage`, `~/reseller-app` |
+| Termux → Ubuntu (`proot-distro login ubuntu`) | DB migrations, Supabase edge functions, `pg_dump`/`pg_restore` — anything needing a full Ubuntu userland (e.g. `postgresql-client` isn't readily available in native Termux) | `~/ubuntu-repos/Edges_LandingPage`, `~/ubuntu-repos/reseller-app` |
+
+Do not try to symlink or share the working tree between the two — they
+are deliberately separate git clones of the same GitHub repos. Any
+session working inside Ubuntu should:
+
+1. Log in: `proot-distro login ubuntu` (adjust if a different
+   proot/chroot method was used to set up Ubuntu).
+2. If cloning for the first time in this environment:
+   ```bash
+   mkdir -p ~/ubuntu-repos && cd ~/ubuntu-repos
+   git clone https://github.com/Edges-Enterprise/Edges_LandingPage
+   git clone https://github.com/Erudite885/reseller-app
+   ```
+3. Either way (fresh clone or existing one), follow the **Session
+   bootstrap** steps above in *each* repo under `~/ubuntu-repos/` to
+   land on the latest commit of the latest branch — the bootstrap rule
+   applies per-environment, independently, since Termux-native and
+   Termux-Ubuntu are unrelated working copies that can drift out of
+   sync with each other.
+4. Install anything Ubuntu-specific once per environment, e.g.:
+   ```bash
+   apt-get update && apt-get install -y postgresql-client
+   ```
+   (No `sudo` needed inside this proot Ubuntu — the shell is already
+   root.)
+
 ## Repos in scope
 
 | Repo | Role | Branch | Path (this sandbox) |
@@ -153,20 +189,37 @@ on any plain Ubuntu box/CI runner without a Supabase CLI install/login.
   - `roles.sql` — role defs, best-effort (hosted Supabase often blocks this)
 
 ### What the next session needs to do
-1. Pull branch `handover/supabase-dump` on `Edges_LandingPage`.
+1. Pull branch `handover/supabase-dump` on `Edges_LandingPage` — inside
+   the **Ubuntu environment**, not native Termux (see "Two working
+   environments" section above). `pg_dump` runs from
+   `~/ubuntu-repos/Edges_LandingPage`.
 2. Get real connection details from Supabase dashboard → Project Settings →
-   Database (host, port, db name, user, password). **Do not commit these.**
+   Database. **Resolved as of the 2026-09-08 dump run (safe to reuse —
+   these are not secrets on their own):**
+   - Host: `aws-0-eu-central-1.pooler.supabase.com` (session-mode
+     pooler — port 5432, not the 6543 transaction-mode pooler; session
+     mode is required for `pg_dump` to work correctly)
+   - Port: `5432`
+   - Database: `postgres`
+   - User: `postgres.jjyyfaxcwanrmiipzkoj`
+   - Password: **not stored here — get current value from Supabase
+     dashboard each time, or from whoever last ran the dump.** If a
+     password value ever gets pasted into a chat, treat it as
+     compromised and rotate it in the dashboard immediately
+     (Project Settings → Database → Reset database password) —
+     don't just keep using a leaked password.
 
-3. **Direct command — run this on the Termux/Ubuntu environment** (proot/chroot
-   Ubuntu inside Termux, or any plain Ubuntu box). Setup + all three dumps
-   combined into a single command (chained with `&&`, safe to paste as one
-   block — if any step fails, the chain stops there):
+3. **Direct command — run this inside the Ubuntu environment**
+   (`~/ubuntu-repos/Edges_LandingPage`, after `proot-distro login ubuntu`).
+   Setup + all three dumps combined into a single command (chained with
+   `&&`, safe to paste as one block — if any step fails, the chain stops
+   there):
 
    ```bash
-   sudo apt-get update && sudo apt-get install -y postgresql-client && \
-   export PGPASSWORD='<db-password-from-dashboard>' \
-          DBHOST='db.<project-ref>.supabase.co' \
-          DBPORT=5432 DBUSER='postgres' DBNAME='postgres' && \
+   apt-get update && apt-get install -y postgresql-client && \
+   export PGPASSWORD='<current-db-password-from-dashboard>' \
+          DBHOST='aws-0-eu-central-1.pooler.supabase.com' \
+          DBPORT=5432 DBUSER='postgres.jjyyfaxcwanrmiipzkoj' DBNAME='postgres' && \
    mkdir -p ~/supabase-dumps/$(date +%Y-%m-%d_%H%M%S) && cd $_ && \
    pg_dump -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" --schema-only --no-owner --no-privileges --schema=public --schema=auth --schema=storage -f schema.sql && \
    pg_dump -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" --data-only --schema=public --column-inserts -f data.sql && \
@@ -174,8 +227,14 @@ on any plain Ubuntu box/CI runner without a Supabase CLI install/login.
    echo "Dump complete: $(pwd)"
    ```
 
-   Fill in `PGPASSWORD` and `DBHOST` before running. Output lands in
+   No `sudo` — the Ubuntu proot shell is already root. Fill in
+   `PGPASSWORD` directly in the terminal, never in a chat session or a
+   committed file. Output lands in
    `~/supabase-dumps/<timestamp>/schema.sql`, `data.sql`, `full.dump`.
+   After running, verify with `ls -la ~/supabase-dumps/*/` — the
+   multi-line pasted block can scroll past its own output, so confirm
+   the three files exist (and check sizes look non-trivial) rather than
+   assuming success from a clean-looking prompt return.
 
    `scripts/supabase_dump.sh` in this repo wraps the exact same three
    commands (plus a best-effort `pg_dumpall --roles-only`) if a
@@ -226,3 +285,5 @@ handoff process at the top of this file.
 | 2026-09-08 | Setup session | Created both branches, wrote `scripts/supabase_dump.sh` + the direct `pg_dump` command block above, verified pg_dump installs on Ubuntu, wrote this handover file and the standing Termux handoff process. Delivered as `.patch` files, applied via `git am` from `~/storage/downloads/`. Did not run the actual dump (no live credentials in this sandbox). |
 | 2026-09-08 | Setup session | User confirmed both patches applied cleanly and `handover/supabase-dump` was pushed to `origin` on both repos (PR links returned by GitHub for each). Updated the standing handoff process above to a single combined command (subshells per repo) so the user doesn't have to run two separate command blocks or manually `cd` back and forth. |
 | 2026-09-08 | Setup session | User pointed out the branch already exists/is checked out, so `git checkout -b` shouldn't run on every handoff. Split the process into a one-time setup command (branch creation, run once) and a steady-state command (just `git am` + `git push` per repo) for every session after that. |
+| 2026-09-08 | Setup session | Added "Session bootstrap" section: every session (either environment) fetches all branches and checks out the latest commit on the most recently updated branch rather than assuming `main`, then re-reads this file from there. |
+| 2026-09-08 | Dump session | Documented the two-environment standing rule: native Termux clones for coding, separate Termux-Ubuntu (`proot-distro`) clones under `~/ubuntu-repos/` for DB/edge-function work needing a full Ubuntu userland. Resolved and recorded the pooler connection details (host/port/db/user, no password) for Task 1. User ran the dump command inside Ubuntu; **result not yet confirmed in this file** — whoever verifies `~/supabase-dumps/<timestamp>/` should update this row (or add a new one) with file sizes and pass/fail, and note here once the leaked password from this session has been rotated. |
