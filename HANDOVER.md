@@ -288,12 +288,42 @@ rather than an empty/failed one. Connection used the resolved pooler
 details above (host/port/db/user as documented; password supplied
 directly in the Ubuntu terminal, not committed anywhere).
 
+**`.gitignore` step done (2026-09-08):** `Edges_LandingPage`'s
+`.gitignore` had a bug — `sz*.json` and `supabase/dumps/` were
+concatenated onto a single line with no newline between them
+(`sz*.jsonsupabase/dumps/`), so the `supabase/dumps/` pattern was never
+actually active. Fixed and verified with a test file.
+`reseller-app`'s `.gitignore` already had `supabase/dumps/` correctly
+on its own line — no fix needed there.
+
 **Still outstanding from the numbered steps below:** confirm the
 password used for this run has been rotated (it was exposed in a chat
 session earlier in this task), diff `schema.sql` against
-`supabase/rpc/**` for drift, add `supabase/dumps/` to `.gitignore` in
-both repos, and decide on long-term dump storage (not git) before this
-task can move from OPEN to closed.
+`supabase/rpc/**` for drift (blocked — needs the actual dump file
+contents, which only exist on the user's Ubuntu machine; see the
+command below for getting them into a session that can diff them), and
+decide on long-term dump storage (not git) before this task can move
+from OPEN to closed.
+
+To unblock the drift check, run this in the Ubuntu environment and
+share the output with whichever session is doing the diff:
+
+```bash
+cat ~/supabase-dumps/<timestamp>/schema.sql
+```
+
+(Or, for a shorter/more targeted check instead of the full schema
+dump, list just function definitions so they're easier to compare
+against `supabase/rpc/**`:
+
+```bash
+export PGPASSWORD='<current-db-password-from-dashboard>' \
+       DBHOST='aws-0-eu-central-1.pooler.supabase.com' \
+       DBPORT=5432 DBUSER='postgres.jjyyfaxcwanrmiipzkoj' DBNAME='postgres' && \
+psql -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" \
+     -c "\df+ public.*" -P pager=off
+```
+)
 
 ### What the next session needs to do
 1. Pull branch `handover/supabase-dump` on `Edges_LandingPage` — inside
@@ -396,3 +426,4 @@ handoff process at the top of this file.
 | 2026-09-08 | Dump session | Documented the two-environment standing rule: native Termux clones for coding, separate Termux-Ubuntu (`proot-distro`) clones under `~/ubuntu-repos/` for DB/edge-function work needing a full Ubuntu userland. Resolved and recorded the pooler connection details (host/port/db/user, no password) for Task 1. User ran the dump command inside Ubuntu; **result not yet confirmed in this file** — whoever verifies `~/supabase-dumps/<timestamp>/` should update this row (or add a new one) with file sizes and pass/fail, and note here once the leaked password from this session has been rotated. |
 | 2026-09-08 | Dump session | Dump run confirmed: `~/supabase-dumps/2026-09-08_033557/` has all three files at non-trivial sizes (schema.sql 318KB, data.sql 10.4MB, full.dump 1.6MB). Task 1 still OPEN — remaining steps (password rotation confirmation, `.gitignore` entry, schema-drift diff, long-term storage decision) not yet done. |
 | 2026-09-08 | Migrations session | Added a dedicated handoff process for DB migrations and edge functions, distinct from the plain code-patch process: a normal `.patch` adds the migration `.sql`/function source to the repo, plus a separate direct `psql -f` command (run in the Ubuntu environment) actually applies it to the live DB. Edge function deploy via Supabase CLI documented as an **open item** — no access token configured in any sandbox session yet, so `supabase login`/`link`/`deploy` steps are written but unverified. |
+| 2026-09-08 | Verification session | Checked whether the standing-rule patches had landed (confirmed, up to `180f86c`) and whether the DB dump is reflected in the repo. Found and fixed a real bug: `Edges_LandingPage`'s `.gitignore` had `sz*.json` and `supabase/dumps/` merged onto one line with no newline, so `supabase/dumps/` was never actually being ignored — fixed and verified with a test file. `reseller-app`'s `.gitignore` was already correct. Schema-drift check against `supabase/rpc/**` is still blocked: the actual `schema.sql` contents only exist on the user's Ubuntu machine and haven't been shared into a session yet — command to do so added above. |
