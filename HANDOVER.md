@@ -16,39 +16,67 @@ file, is:
 2. Those `.patch` files are handed to the user, who is working in
    **Termux on Android**. The user saves/downloads them into Termux's
    shared storage, which lands at `~/storage/downloads/`.
-3. The user applies each patch **from inside the target repo's working
-   directory**, pointing `git am` at the file's path under
-   `~/storage/downloads/`, then pushes:
+3. The user applies both repos' patches **in a single combined command**
+   — no manual `cd`-ing back and forth between repos. Each repo's steps
+   run inside their own subshell `(...)`, so the working directory
+   never actually changes for the user.
+
+   **Steady-state command (use this — the branch already exists and is
+   already checked out on both repos from initial setup):**
 
    ```bash
-   # Edges_LandingPage
-   cd Edges_LandingPage
-   git checkout reseller-gh && git pull
-   git checkout -b handover/supabase-dump   # or the branch named in the task below
-   git am ~/storage/downloads/<edges-landingpage-patch-file>.patch
-   git push -u origin handover/supabase-dump
+   (cd ~/Edges_LandingPage && \
+    git am ~/storage/downloads/<edges-landingpage-patch-file>.patch && \
+    git push) \
+   && \
+   (cd ~/reseller-app && \
+    git am ~/storage/downloads/<reseller-app-patch-file>.patch && \
+    git push)
    ```
+
+   No `git checkout`/`git checkout -b` needed here — do that only once,
+   the first time a repo's handover branch is created (see step 3a
+   below). Every session after that just downloads its patch(es) and
+   runs the command above from whatever branch is already checked out.
+
+   **One-time setup command (only the very first time, when the
+   handover branch doesn't exist yet on a repo):**
 
    ```bash
-   # reseller-app
-   cd reseller-app
-   git checkout main && git pull
-   git checkout -b handover/supabase-dump   # or the branch named in the task below
-   git am ~/storage/downloads/<reseller-app-patch-file>.patch
-   git push -u origin handover/supabase-dump
+   (cd ~/Edges_LandingPage && \
+    git checkout reseller-gh && git pull && \
+    git checkout -b handover/supabase-dump && \
+    git am ~/storage/downloads/<edges-landingpage-patch-file>.patch && \
+    git push -u origin handover/supabase-dump) \
+   && \
+   (cd ~/reseller-app && \
+    git checkout main && git pull && \
+    git checkout -b handover/supabase-dump && \
+    git am ~/storage/downloads/<reseller-app-patch-file>.patch && \
+    git push -u origin handover/supabase-dump)
    ```
 
-   Run `git am` from **inside the repo directory**, not from
-   `~/storage/downloads` — only the path to the patch file points there.
+   This assumes the two repos sit side by side under the home directory
+   (`~/Edges_LandingPage` and `~/reseller-app`, matching the Termux
+   prompts seen so far). If they live elsewhere, adjust both `cd` paths.
+
+   The `&&` chaining between and inside each subshell means: if the
+   first repo's steps fail partway (e.g. patch doesn't apply), the
+   command stops there and the second repo's subshell never runs, so a
+   half-applied first repo can't silently mask a skipped second repo.
+   Check the terminal output for which subshell got furthest.
+
 4. If `git am` fails with a "does not apply" / missing-base error, the
-   local `reseller-gh` / `main` branch is out of date relative to what
-   the patch was built against — `git pull` the base branch first, then
-   retry. If a patch series has multiple files (`0001-...`, `0002-...`),
-   pass them to `git am` together in order, or apply one at a time.
+   local branch is out of date relative to what the patch was built
+   against — `git pull` first, then retry. If a patch series has
+   multiple files (`0001-...`, `0002-...`), list them in order in the
+   same `git am file1.patch file2.patch` call.
 
 **Every session that builds a patch for these repos should re-use this
-process as-is and just fill in the actual patch filename(s) and branch
-name for its task — do not reinvent the handoff mechanism per task.**
+combined-command process as-is and just fill in the actual patch
+filename(s) and branch name for its task — do not reinvent the handoff
+mechanism per task, and do not go back to two separate commands the
+user has to run one after another.**
 
 ## Repos in scope
 
@@ -101,39 +129,24 @@ on any plain Ubuntu box/CI runner without a Supabase CLI install/login.
    Database (host, port, db name, user, password). **Do not commit these.**
 
 3. **Direct command — run this on the Termux/Ubuntu environment** (proot/chroot
-   Ubuntu inside Termux, or any plain Ubuntu box). This is the literal
-   command, no script required, one line per dump type:
+   Ubuntu inside Termux, or any plain Ubuntu box). Setup + all three dumps
+   combined into a single command (chained with `&&`, safe to paste as one
+   block — if any step fails, the chain stops there):
 
    ```bash
-   # one-time setup on the Termux Ubuntu environment
-   sudo apt-get update && sudo apt-get install -y postgresql-client
-
-   # set connection details (fill in from Supabase dashboard)
-   export PGPASSWORD='<db-password-from-dashboard>'
-   export DBHOST='db.<project-ref>.supabase.co'
-   export DBPORT=5432
-   export DBUSER='postgres'
-   export DBNAME='postgres'
-
-   # make an output folder for this run
-   mkdir -p ~/supabase-dumps/$(date +%Y-%m-%d_%H%M%S) && cd $_
-
-   # 1) schema only (public + auth + storage) — safe to review/version
-   pg_dump -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" \
-     --schema-only --no-owner --no-privileges \
-     --schema=public --schema=auth --schema=storage \
-     -f schema.sql
-
-   # 2) data only (public schema) — contains real data, keep private
-   pg_dump -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" \
-     --data-only --schema=public --column-inserts \
-     -f data.sql
-
-   # 3) full custom-format dump (for pg_restore) — contains real data, keep private
-   pg_dump -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" \
-     --format=custom --schema=public \
-     -f full.dump
+   sudo apt-get update && sudo apt-get install -y postgresql-client && \
+   export PGPASSWORD='<db-password-from-dashboard>' \
+          DBHOST='db.<project-ref>.supabase.co' \
+          DBPORT=5432 DBUSER='postgres' DBNAME='postgres' && \
+   mkdir -p ~/supabase-dumps/$(date +%Y-%m-%d_%H%M%S) && cd $_ && \
+   pg_dump -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" --schema-only --no-owner --no-privileges --schema=public --schema=auth --schema=storage -f schema.sql && \
+   pg_dump -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" --data-only --schema=public --column-inserts -f data.sql && \
+   pg_dump -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" --format=custom --schema=public -f full.dump && \
+   echo "Dump complete: $(pwd)"
    ```
+
+   Fill in `PGPASSWORD` and `DBHOST` before running. Output lands in
+   `~/supabase-dumps/<timestamp>/schema.sql`, `data.sql`, `full.dump`.
 
    `scripts/supabase_dump.sh` in this repo wraps the exact same three
    commands (plus a best-effort `pg_dumpall --roles-only`) if a
@@ -167,24 +180,20 @@ on any plain Ubuntu box/CI runner without a Supabase CLI install/login.
 
 ## Delivery for this task
 
-Uses the standing handoff process at the top of this file. Patch
-filenames for Task 1's setup commit:
+Already applied and pushed (both branches live on GitHub as of the log
+entry below). Left here for reference — patch filenames for Task 1's
+original setup commit were:
 
 - `edges-landingpage_0001-add-handover-master-file-and-dump-script.patch`
 - `reseller-app_0001-add-handover-pointer-file.patch`
 
-Applied as:
-```bash
-cd Edges_LandingPage
-git am ~/storage/downloads/edges-landingpage_0001-add-handover-master-file-and-dump-script.patch
-```
-```bash
-cd reseller-app
-git am ~/storage/downloads/reseller-app_0001-add-handover-pointer-file.patch
-```
+Applied using the combined single-command form from the standing
+handoff process at the top of this file.
 
 ## Log
 
 | Date | Session | Notes |
 |---|---|---|
 | 2026-09-08 | Setup session | Created both branches, wrote `scripts/supabase_dump.sh` + the direct `pg_dump` command block above, verified pg_dump installs on Ubuntu, wrote this handover file and the standing Termux handoff process. Delivered as `.patch` files, applied via `git am` from `~/storage/downloads/`. Did not run the actual dump (no live credentials in this sandbox). |
+| 2026-09-08 | Setup session | User confirmed both patches applied cleanly and `handover/supabase-dump` was pushed to `origin` on both repos (PR links returned by GitHub for each). Updated the standing handoff process above to a single combined command (subshells per repo) so the user doesn't have to run two separate command blocks or manually `cd` back and forth. |
+| 2026-09-08 | Setup session | User pointed out the branch already exists/is checked out, so `git checkout -b` shouldn't run on every handoff. Split the process into a one-time setup command (branch creation, run once) and a steady-state command (just `git am` + `git push` per repo) for every session after that. |
