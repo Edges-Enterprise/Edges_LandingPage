@@ -286,7 +286,14 @@ Cross-reference: the mobile repo's handover pointer is at `HANDOVER.md` in
 
 ## Task 1 — Supabase direct DB dump (both repos, shared backend)
 
-**Status: OPEN — picked up by whichever session works this next.**
+**Status: RESOLVED, one deliberately-deferred item remains (as of
+2026-09-09).** Dump pipeline built and verified, `.gitignore` fixed,
+`schema.sql` committed, drift check run (result: non-overlap, see
+below), long-term storage decided (Ubuntu-side, see Open questions),
+and `supabase/rpc/**` scaffold removed as dead. The only thing not
+"done" is password rotation — that's an explicit decision to defer
+until project completion, not an oversight; see the connection-details
+note below before touching it.
 
 ### Context
 Since both apps share one Supabase Postgres backend, we only need **one**
@@ -508,27 +515,37 @@ files in each pair are empty, this isn't causing a conflict today, but
 whoever eventually populates these should pick one canonical location
 per function rather than filling in both copies.
 
-**What this means for the task:** there is nothing to "reconcile" or
-merge between `schema.sql` and `supabase/rpc/**` — they describe two
-non-overlapping surfaces (live production functions vs. a not-yet-built
-API layer). The open question for whoever picks this up next is a
-product/scope question, not a technical diff: is `supabase/rpc/**`
-dead/aspirational scaffolding that should be deleted or clearly marked
-as a roadmap, or is there a plan to actually implement these 51
-functions against the live DB (in which case that's new function
-development, not drift reconciliation)? This doc doesn't have that
-answer — flag it to whoever owns product scope for these repos before
-spending time writing any of the 51 files.
+**Resolved (2026-09-09): `supabase/rpc/**` was dead scaffolding, now
+removed.** Product decision: the live Supabase DB is the only real
+surface for this project — the 51-file scaffold under `supabase/rpc/**`
+was never going to be built out. The entire `supabase/rpc/` directory
+has been deleted in this session's commit (all 51 files, all empty,
+confirmed via git history to have never held content — see Findings
+1-4 above for the full record of what was removed and why, kept here
+for future reference even though the directory itself is gone). This
+also resolves Finding 4's duplicate-filename issue, since there's
+nothing left to deduplicate.
 
-### Open questions for whoever picks this up
-- Where should dump artifacts actually be stored long-term (S3/GCS bucket,
-  encrypted volume, etc.)? Not decided yet — do not default to committing
-  them to git.
+### Open questions — status
+- **Long-term dump storage: RESOLVED (2026-09-09).** Decision:
+  `data.sql`/`full.dump` stay where they already land — on the Ubuntu
+  side of the project (`~/supabase-dumps/<timestamp>/`), accessed
+  there if/when needed. No S3/GCS bucket or separate encrypted volume
+  is being set up. This is a deliberate choice, not a placeholder —
+  don't re-flag it as undecided or migrate the dumps elsewhere without
+  a new explicit decision. The absolute rule from the "Schema
+  snapshots" section still applies unchanged: `data.sql`/`full.dump`
+  never get committed to git, regardless of where they live on disk.
 - Do we need `auth` schema **data** (not just schema) dumped too, or is
   schema-only sufficient for auth? Current script dumps auth schema
-  structure only, no auth data.
+  structure only, no auth data. Still open — not addressed by either
+  decision above.
 - Confirm whether pooler port (6543, pgbouncer) or direct port (5432)
   should be used — direct port is generally required for `pg_dump`.
+  Already answered in practice: session-mode pooler on port 5432 is
+  what the 2026-09-08 dump run used successfully (see connection
+  details above) — this line is stale and can be deleted next time
+  someone edits this section.
 
 ---
 
@@ -559,3 +576,4 @@ handoff process at the top of this file.
 | 2026-09-08 | Re-verification session | Fresh clone of both repos, landed on `handover/supabase-dump` (latest branch, confirmed via bootstrap steps: `Edges_LandingPage` @ `30e9133`, `reseller-app` @ `467a680`). Re-confirmed both prior findings hold on this clone: (1) `Edges_LandingPage`'s `.gitignore` has `sz*.json` and `supabase/dumps/` correctly on separate lines (line 53) — re-tested live by creating `supabase/dumps/test.txt` and running `git check-ignore -v`, which correctly matched it against `.gitignore:53:supabase/dumps/`; test file removed after. `reseller-app`'s `.gitignore` also confirmed correct (line 54), no fix needed. (2) `supabase/schema.sql` **is** committed in `Edges_LandingPage` and is a genuine dump, not a placeholder: 318,536 bytes, 10,462 lines, valid `pg_dump` header (source DB Postgres 15.8, dumped with pg_dump 18.6/Ubuntu 26.04). Confirmed `data.sql`/`full.dump` are correctly **absent** from both repos (per the absolute rule) — they only exist locally on the user's Ubuntu machine under `~/supabase-dumps/<timestamp>/`. **Task 1 remains OPEN** — still outstanding: (a) confirm the dump-session password was rotated in the Supabase dashboard, (b) run the schema-drift diff of `supabase/schema.sql` against `supabase/rpc/**` (unblocked now — `schema.sql` is committed and readable directly from the repo, no need to paste dump output into chat anymore), (c) decide long-term storage for `data.sql`/`full.dump`. Next session picking this up should start with the drift diff since it's now trivially unblocked. |
 | 2026-09-08 | Drift-check session | Ran the schema-drift check against `supabase/rpc/**` (see "Schema-drift check — RUN" section above for full detail). **Result: not drift, total non-overlap.** All 51 files under `supabase/rpc/**` are 0 bytes (empty since the commit that created them — confirmed via git history, not just current state) and **none** of the 51 expected function names (derived from filenames) appear anywhere in `supabase/schema.sql`'s 61 live `public`-schema functions. The live DB's actual functions are an unrelated set centered on wallet/purchase/notification logic (`process_airtime_purchase`, `update_wallet_after_sale`, `get_global_reseller_dashboard_context`, etc.) with no renaming relationship to the scaffolded names. Also found 7 filenames duplicated across two `rpc/` subfolders each (e.g. `complete_build.sql` in both `build/` and `publishing/`) — harmless today since both copies are empty, but worth resolving before anyone populates them. This changes the shape of the remaining work: it's not a diff/merge task, it's a scope question (is `supabase/rpc/**` a dead scaffold to remove, or a real to-build list?) for whoever owns product direction here. Task 1's other two items (password rotation confirmation, long-term dump storage decision) are still open and unaffected by this finding. |
 | 2026-09-09 | Status-check session | Picked up Task 1's password-rotation item. User made an explicit decision: keep using the currently-exposed password until the project is completed, then rotate it — a deliberate, accepted risk rather than an oversight, flagged to the user as a real exposure window (live wallet/purchase/user data) before confirming. Updated the connection-details section above with an explicit exception noting this so future sessions don't re-flag or rotate unprompted. Task 1's remaining open items are now just: long-term dump storage decision, and the `supabase/rpc/**` scope question (both still need the user/product owner, not a sandbox session). |
+| 2026-09-09 | Status-check session (cont.) | Both remaining Task 1 items resolved by user decision in the same session: (1) long-term dump storage stays Ubuntu-side (`~/supabase-dumps/<timestamp>/`), no bucket/volume being set up; (2) `supabase/rpc/**` confirmed dead scaffolding — the live Supabase DB is the only real surface for this project — so the entire directory (51 empty files) was deleted in this commit. Task 1 moved from OPEN to RESOLVED-with-one-deferred-item (password rotation, deliberately deferred per the prior log entry, not blocking). No open Task 1 items remain that need another sandbox session; next session should check this doc for any new task added after this one before assuming there's nothing to do. |
