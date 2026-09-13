@@ -34,6 +34,90 @@ fast (see the log table below), so `main` being stale is expected and
 is not a sign anything is wrong — always prefer the latest branch over
 `main` when picking up work here.
 
+## Task decomposition & session-pointer methodology (priority rule — applies to every task from here on)
+
+This is a **priority rule**, meaning it overrides other instinct about
+"just pick up whatever seems most useful" — every session should follow
+this exact structure when a task is (or should be) broken down, not a
+looser approximation of it.
+
+### The splitting formula
+
+Before any session starts executing, the **full architecture of the
+task** — everything currently known to be in scope — gets laid out and
+split into this exact five-level hierarchy:
+
+```
+1, 2, 3, 4, 5        <- Level 1: top-level task groups (the full architecture, split into up to 5 pieces)
+  a, b, c, d         <- Level 2: each top-level task splits into up to 4 sub-groups
+    i, ii, iii       <- Level 3: each sub-group splits into up to 3 units
+      zi, zo         <- Level 4: each unit splits into exactly 2 children
+        x            <- Level 5: each zi/zo splits into one final, atomic leaf — the actual unit of work
+```
+
+A fully-addressed leaf task looks like `1.a.i.zi.x` or `3.c.ii.zo.x` —
+five levels deep, ending in `x` every time. `x` is not a label choice;
+it is always the name of the deepest, smallest, actually-executable
+unit of work at the bottom of whichever branch you're in.
+
+### The pointer rule
+
+At any given time there is exactly **one active pointer**, always
+written as a full path ending in `x` (e.g. `2.b.iii.zi.x`), recorded at
+the top of the relevant task's section. **A session's job is to
+complete that one `x` and nothing else** — not to also start the next
+one "while it's fresh," not to jump ahead to a different branch that
+looks more urgent, not to redo the decomposition. If the current `x`
+turns out to need further splitting once a session actually looks at
+it, that's a sign it wasn't actually atomic — split it into its own
+`zi`/`zo`/`x` and update the pointer to the new, smaller `x`, then stop
+and hand off; don't push through original and new work in one session.
+
+### Advancing the pointer once `x` is done
+
+"Once x is completed, previous sub-numbering before it becomes the next
+x" — concretely, the pointer advances **depth-first, left to right**,
+one level at a time:
+
+1. Finish current `x` (child of `zi`, say).
+2. If its sibling `zo` isn't done yet, `zo`'s `x` becomes the new
+   active pointer.
+3. Once both `zi.x` and `zo.x` under a given `i`/`ii`/`iii` are done,
+   move to the next of `i → ii → iii`, and its `zi.x` becomes the new
+   pointer.
+4. Once all of `i, ii, iii` are done under a sub-group, move to the
+   next of `a → b → c → d`.
+5. Once all sub-groups under a top-level task are done, move to the
+   next of `1 → 2 → 3 → 4 → 5`.
+
+The pointer only ever names one `x` at a time. Whoever finishes a
+session's `x` updates the pointer to the next one (per the order above)
+and logs it, so the next session — sandbox or otherwise — doesn't have
+to re-derive where things stand; it just reads the pointer and starts.
+
+### What this does *not* replace
+
+This governs **how work gets sequenced and handed between sessions**,
+not the mechanics of delivering it — the Standing handoff process
+below (patches + `git am` + `git push`, or the direct-push exception
+for schema snapshots and DB migrations) still applies exactly as
+written to however the `x` in question gets delivered. A `1.a.i.zi.x`
+might itself produce a `.patch` file, a direct Ubuntu commit, or a
+`psql` migration command, depending on what kind of work it is — the
+numbering scheme doesn't change which of those applies.
+
+### Applying this to a new task
+
+When a new task is opened in this file, before any session starts
+executing it: lay out its full known scope as `1–5`, split each into
+`a–d`, each of those into `i–iii`, each of those into `zi`/`zo`, and
+each of those into a single `x`. Not every branch needs to be filled
+in immediately if the full scope isn't known yet — but the active
+pointer must always resolve to a real, atomic `x` before a session
+starts work, and any branch left unspecified should say so explicitly
+(e.g. "3.b — not yet decomposed, scope unclear") rather than being
+silently absent.
+
 ## Standing handoff process (read this first — applies to every task, not just Task 1)
 
 Sandbox sessions building work for these repos do **not** have GitHub
@@ -577,3 +661,4 @@ handoff process at the top of this file.
 | 2026-09-08 | Drift-check session | Ran the schema-drift check against `supabase/rpc/**` (see "Schema-drift check — RUN" section above for full detail). **Result: not drift, total non-overlap.** All 51 files under `supabase/rpc/**` are 0 bytes (empty since the commit that created them — confirmed via git history, not just current state) and **none** of the 51 expected function names (derived from filenames) appear anywhere in `supabase/schema.sql`'s 61 live `public`-schema functions. The live DB's actual functions are an unrelated set centered on wallet/purchase/notification logic (`process_airtime_purchase`, `update_wallet_after_sale`, `get_global_reseller_dashboard_context`, etc.) with no renaming relationship to the scaffolded names. Also found 7 filenames duplicated across two `rpc/` subfolders each (e.g. `complete_build.sql` in both `build/` and `publishing/`) — harmless today since both copies are empty, but worth resolving before anyone populates them. This changes the shape of the remaining work: it's not a diff/merge task, it's a scope question (is `supabase/rpc/**` a dead scaffold to remove, or a real to-build list?) for whoever owns product direction here. Task 1's other two items (password rotation confirmation, long-term dump storage decision) are still open and unaffected by this finding. |
 | 2026-09-09 | Status-check session | Picked up Task 1's password-rotation item. User made an explicit decision: keep using the currently-exposed password until the project is completed, then rotate it — a deliberate, accepted risk rather than an oversight, flagged to the user as a real exposure window (live wallet/purchase/user data) before confirming. Updated the connection-details section above with an explicit exception noting this so future sessions don't re-flag or rotate unprompted. Task 1's remaining open items are now just: long-term dump storage decision, and the `supabase/rpc/**` scope question (both still need the user/product owner, not a sandbox session). |
 | 2026-09-09 | Status-check session (cont.) | Both remaining Task 1 items resolved by user decision in the same session: (1) long-term dump storage stays Ubuntu-side (`~/supabase-dumps/<timestamp>/`), no bucket/volume being set up; (2) `supabase/rpc/**` confirmed dead scaffolding — the live Supabase DB is the only real surface for this project — so the entire directory (51 empty files) was deleted in this commit. Task 1 moved from OPEN to RESOLVED-with-one-deferred-item (password rotation, deliberately deferred per the prior log entry, not blocking). No open Task 1 items remain that need another sandbox session; next session should check this doc for any new task added after this one before assuming there's nothing to do. |
+| 2026-09-09 | Methodology session | Added the "Task decomposition & session-pointer methodology" section as a standing priority rule for all future tasks: full scope splits into a fixed 5-level hierarchy (`1-5` → `a-d` → `i-iii` → `zi/zo` → `x`), with exactly one active pointer (a full path ending in `x`) at any time. A session's job is to complete only that one `x`, then advance the pointer depth-first/left-to-right per the documented order. Does not replace the Standing handoff process (patches/direct-push/migrations) — governs sequencing of work, not delivery mechanics. Not applied retroactively to the now-closed Task 1; applies from the next task opened onward. |
