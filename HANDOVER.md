@@ -645,6 +645,125 @@ original setup commit were:
 Applied using the combined single-command form from the standing
 handoff process at the top of this file.
 
+## Task 2 — Android App toggle should default ON, not OFF (`[countryCode]` application flow)
+
+**Status: OPEN. Active pointer: `1.a.ii.zi.x`** (see below).
+
+### Context
+When a user applies for a storefront/app via `/[countryCode]/apply`,
+the application wizard has an "Android App" toggle. Today it defaults
+to **off** — the applicant has to explicitly turn it on. The desired
+behavior is the opposite: **default ON**, and only off if the user
+explicitly toggles it off themselves. Scope for this task is
+**everything under the `[countryCode]` folder tree** (web repo) — the
+older, separate onboarding path at `src/app/reseller/ResellerFormClient.tsx`
++ `src/app/actions/reseller/createReseller.ts` is a **different, legacy
+flow** and is explicitly **out of scope** unless a later branch of this
+task says otherwise.
+
+### Full architecture (as currently understood)
+
+```
+1. Client-side application wizard (in scope, [countryCode]/apply)
+   a. Initial form-state default (StoreConfigStep.tsx)
+      i.  Confirm current behavior — DONE, see findings below
+      ii. Implement the default-ON fix
+          zi. Apply the one-line code fix
+              x. <ACTIVE POINTER — see "Next atomic step" below>
+          zo. Not yet decomposed — verify no other local re-init
+              (e.g. step back-navigation, draft reset) reintroduces
+              `|| false` after the fix in zi lands
+      iii. Not yet decomposed — confirm draft load/save path
+           (getApplicationDraft.ts / saveApplicationDraft.ts) preserves
+           an explicit `false` from a previously-saved draft rather
+           than silently flipping it back to true
+   b. Submit-time serialization default (ApplicationWizard.tsx line 127:
+      `String(formData.androidApp || false)`) — not yet decomposed,
+      likely the same `|| false` → `?? true` fix, one level up
+   c. Not yet decomposed — reserved for UI copy (toggle label/hint)
+      update if product wants the copy to reflect "on by default"
+      framing
+   d. Not yet decomposed
+
+2. Server-side submission parsing default
+   (submitApplication.ts line 40: `formData.get("androidApp") === "true"`)
+   — not yet decomposed. Note: as long as 1.a/1.b are fixed, the client
+   will always send an explicit "true"/"false" string, so this may turn
+   out to need no change — confirm rather than assume.
+
+3. Database column defaults — not yet decomposed. Two columns found,
+   both `DEFAULT false`, both would need a migration to `DEFAULT true`
+   for consistency (belt-and-suspenders — the app path always sets it
+   explicitly, but a stray direct insert would otherwise silently
+   default to off):
+   - `public.global_reseller_applications.android_app`
+   - `public.resellers.android_app`
+
+4. Downstream consumers (read-only audit, no expected code change) —
+   not yet decomposed. Confirmed so far: `PublishingPlans.tsx` gates
+   app publishing on this flag being true — this is *why* the default
+   matters (a false default silently blocks publishing unless the user
+   opted in during application). `ReviewStep.tsx` displays the value.
+   Neither should need changes, just confirmation after 1-3 land that
+   nothing else re-derives its own default.
+
+5. Not yet decomposed — reserved for whatever turns up during 1-4
+   (e.g. i18n string updates, a QA pass through the full apply flow).
+```
+
+### Findings from this session (1.a.i — DONE)
+
+- `src/components/reseller/application/StoreConfigStep.tsx` line 115:
+  ```ts
+  androidApp: data.androidApp || false,
+  ```
+  This is the actual bug: `||` can't distinguish "never set" from
+  "explicitly set to false" — both collapse to `false`. The fix is
+  `??` (nullish coalescing), not a different boolean literal:
+  ```ts
+  androidApp: data.androidApp ?? true,
+  ```
+  This preserves an explicit `false` from a loaded draft while
+  defaulting genuinely-unset values to `true`.
+- Confirmed the toggle UI itself (`handleToggleAndroidApp`, the visual
+  switch around line 1058) needs **no change** — it already just flips
+  whatever the current value is; the bug is purely in the default, not
+  the toggle mechanism.
+- Confirmed `PublishingPlans.tsx`'s gating message ("Android App is not
+  enabled...") is a read-only consumer of this flag, not a second
+  default — no change needed there, just worth re-confirming after 1-3
+  ship.
+- Confirmed the legacy `src/app/reseller/` flow (`ResellerFormClient.tsx`
+  / `createReseller.ts`) has the identical bug pattern
+  (`formData.get("androidApp") === "true"`, no explicit default logic)
+  but is **out of scope** per the task's stated `[countryCode]` boundary
+  — noting it here so it isn't silently forgotten, not so it gets fixed
+  as part of this task.
+
+### Next atomic step — active pointer `1.a.ii.zi.x`
+
+**File:** `src/components/reseller/application/StoreConfigStep.tsx`
+**Line:** 115
+
+Change:
+```ts
+androidApp: data.androidApp || false,
+```
+to:
+```ts
+androidApp: data.androidApp ?? true,
+```
+
+That is the entire `x`. Once a session completes and delivers this one
+line (per the Standing handoff process — this is a normal code change,
+so a `.patch` + `git am` + `git push`, not a direct-push exception),
+update this section: mark `1.a.ii.zi.x` done, and advance the pointer
+to `1.a.ii.zo.x` (verify no other local re-init undoes the fix) per the
+pointer-advancement order in the methodology section above.
+
+### Delivery for this task
+Not yet started — no patch produced yet for Task 2 as of this entry.
+
 ## Log
 
 | Date | Session | Notes |
@@ -662,3 +781,4 @@ handoff process at the top of this file.
 | 2026-09-09 | Status-check session | Picked up Task 1's password-rotation item. User made an explicit decision: keep using the currently-exposed password until the project is completed, then rotate it — a deliberate, accepted risk rather than an oversight, flagged to the user as a real exposure window (live wallet/purchase/user data) before confirming. Updated the connection-details section above with an explicit exception noting this so future sessions don't re-flag or rotate unprompted. Task 1's remaining open items are now just: long-term dump storage decision, and the `supabase/rpc/**` scope question (both still need the user/product owner, not a sandbox session). |
 | 2026-09-09 | Status-check session (cont.) | Both remaining Task 1 items resolved by user decision in the same session: (1) long-term dump storage stays Ubuntu-side (`~/supabase-dumps/<timestamp>/`), no bucket/volume being set up; (2) `supabase/rpc/**` confirmed dead scaffolding — the live Supabase DB is the only real surface for this project — so the entire directory (51 empty files) was deleted in this commit. Task 1 moved from OPEN to RESOLVED-with-one-deferred-item (password rotation, deliberately deferred per the prior log entry, not blocking). No open Task 1 items remain that need another sandbox session; next session should check this doc for any new task added after this one before assuming there's nothing to do. |
 | 2026-09-09 | Methodology session | Added the "Task decomposition & session-pointer methodology" section as a standing priority rule for all future tasks: full scope splits into a fixed 5-level hierarchy (`1-5` → `a-d` → `i-iii` → `zi/zo` → `x`), with exactly one active pointer (a full path ending in `x`) at any time. A session's job is to complete only that one `x`, then advance the pointer depth-first/left-to-right per the documented order. Does not replace the Standing handoff process (patches/direct-push/migrations) — governs sequencing of work, not delivery mechanics. Not applied retroactively to the now-closed Task 1; applies from the next task opened onward. |
+| 2026-09-13 | Task-opening session | Opened Task 2 (Android App toggle should default ON, scoped to `[countryCode]` application flow) as the first task run through the new pointer methodology. Investigated the codebase to lay out the full known architecture (client default, submit-time serialization, DB column defaults, downstream consumers) across the `1-5/a-d/i-iii/zi-zo/x` tree; not every branch is decomposed yet, only what's needed to reach a real first `x`. Root cause found: `StoreConfigStep.tsx`'s `data.androidApp || false` can't distinguish "unset" from "explicitly false" — fix is `??`, not a literal flip. Confirmed the identical bug exists in the separate legacy `src/app/reseller/` flow but is explicitly out of scope per the task's stated boundary. Active pointer set to `1.a.ii.zi.x` — the single-line fix in `StoreConfigStep.tsx` line 115. No patch produced yet; next session should deliver that one line via the normal patch process, then advance the pointer per the methodology. |
