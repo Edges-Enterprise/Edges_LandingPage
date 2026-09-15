@@ -647,7 +647,7 @@ handoff process at the top of this file.
 
 ## Task 2 — Android App toggle should default ON, not OFF (`[countryCode]` application flow)
 
-**Status: OPEN. Active pointer: `1.a.ii.zi.x`** (see below).
+**Status: OPEN. Active pointer: `1.a.iii.x`** (see below).
 
 ### Context
 When a user applies for a storefront/app via `/[countryCode]/apply`,
@@ -667,16 +667,24 @@ task says otherwise.
 1. Client-side application wizard (in scope, [countryCode]/apply)
    a. Initial form-state default (StoreConfigStep.tsx)
       i.  Confirm current behavior — DONE, see findings below
-      ii. Implement the default-ON fix
-          zi. Apply the one-line code fix
-              x. <ACTIVE POINTER — see "Next atomic step" below>
-          zo. Not yet decomposed — verify no other local re-init
-              (e.g. step back-navigation, draft reset) reintroduces
-              `|| false` after the fix in zi lands
-      iii. Not yet decomposed — confirm draft load/save path
+      ii. Implement the default-ON fix — DONE (2026-09-15)
+          zi. Apply the one-line code fix — DONE, see findings below
+          zo. Verify no other local re-init reintroduces `|| false`
+              after the zi fix — DONE, see findings below (no fix
+              needed; every re-init path spreads existing state)
+      iii. Confirm draft load/save path
            (getApplicationDraft.ts / saveApplicationDraft.ts) preserves
            an explicit `false` from a previously-saved draft rather
            than silently flipping it back to true
+           zi. Inspect `getApplicationDraft.ts` (read path) — confirm
+               it returns `android_app`/`androidApp` as a raw
+               boolean/undefined, with no defaulting logic of its own
+               that could reintroduce the bug
+               x. <ACTIVE POINTER — see "Next atomic step" below>
+           zo. Not yet decomposed — inspect `saveApplicationDraft.ts`
+               (write path) for the mirror issue: confirm an explicit
+               `false` is actually persisted (not dropped by a falsy-
+               value check before the write)
    b. Submit-time serialization default (ApplicationWizard.tsx line 127:
       `String(formData.androidApp || false)`) — not yet decomposed,
       likely the same `|| false` → `?? true` fix, one level up
@@ -740,29 +748,61 @@ task says otherwise.
   — noting it here so it isn't silently forgotten, not so it gets fixed
   as part of this task.
 
-### Next atomic step — active pointer `1.a.ii.zi.x`
+### Findings from this session (1.a.ii.zi and 1.a.ii.zo — DONE, 2026-09-15)
 
-**File:** `src/components/reseller/application/StoreConfigStep.tsx`
-**Line:** 115
+- Applied the fix at `1.a.ii.zi`: `StoreConfigStep.tsx` line 115 now
+  reads `androidApp: data.androidApp ?? true,`. Verified the diff is
+  exactly this one line (the file has a large amount of dead,
+  commented-out historical code with the same string in it — confirmed
+  only the live line 115 changed, via `git diff` and line-targeted
+  `sed`, not a text-match `str_replace` which would have hit multiple
+  occurrences).
+- Checked `1.a.ii.zo` (no other local re-init undoes the fix) by
+  reading every `setFormData`/`onChange` call site in
+  `StoreConfigStep.tsx`:
+  - The three `onChange(...)` calls (proceed-to-next-step handler) all
+    spread `...formData` first, so `androidApp` always flows to the
+    parent intact regardless of whether the user touched the toggle.
+  - `removeLogo`'s `setFormData` spreads `...formData`, doesn't touch
+    `androidApp`.
+  - `handleToggleAndroidApp` spreads current state — normal toggle,
+    unaffected by the fix.
+  - No `key` prop forces an unexpected remount; even on a normal
+    step-navigation remount, the component re-initializes from parent
+    `data`, which by then already holds the correctly-synced value.
+  - **Conclusion: no code change needed for `zo`.** Verification-only.
 
-Change:
-```ts
-androidApp: data.androidApp || false,
-```
-to:
-```ts
-androidApp: data.androidApp ?? true,
-```
+### Next atomic step — active pointer `1.a.iii.zi.x`
 
-That is the entire `x`. Once a session completes and delivers this one
-line (per the Standing handoff process — this is a normal code change,
-so a `.patch` + `git am` + `git push`, not a direct-push exception),
-update this section: mark `1.a.ii.zi.x` done, and advance the pointer
-to `1.a.ii.zo.x` (verify no other local re-init undoes the fix) per the
+**File:** `src/actions/reseller/application/getApplicationDraft.ts`
+
+**Task:** Read this file and confirm how it returns the
+`android_app`/`androidApp` field from a loaded draft. Specifically
+check for:
+- Any `|| false`, `?? false`, or similar defaulting applied to this
+  field on the read path, which would reintroduce the exact bug just
+  fixed in `1.a.ii` one layer up.
+- Whether the field is passed through as-is (raw boolean or
+  `undefined` from the DB row) so that `StoreConfigStep.tsx`'s
+  `data.androidApp ?? true` is the *only* place a default gets applied.
+
+This is a read-and-report step, not necessarily a code-change step —
+if the file already passes the value through untouched, no fix is
+needed here (same outcome as `1.a.ii.zo`); if it applies its own
+`|| false`, that needs its own one-line `??` fix, delivered the same
+way as `1.a.ii.zi` was.
+
+Once this `x` is done, advance the pointer to `1.a.iii.zo.x`
+(mirror check on `saveApplicationDraft.ts`, the write path) per the
 pointer-advancement order in the methodology section above.
 
 ### Delivery for this task
-Not yet started — no patch produced yet for Task 2 as of this entry.
+- `1.a.ii.zi.x` — the one-line fix (commit `b04ae78`, local to this
+  sandbox session). Delivered via the normal Standing handoff process
+  like any other code change (patch + `git am` + `git push`) — see the
+  patch filename in the log entry below.
+- `1.a.ii.zo.x` — verification-only, no delivery needed (see findings
+  above).
 
 ## Log
 
@@ -782,3 +822,4 @@ Not yet started — no patch produced yet for Task 2 as of this entry.
 | 2026-09-09 | Status-check session (cont.) | Both remaining Task 1 items resolved by user decision in the same session: (1) long-term dump storage stays Ubuntu-side (`~/supabase-dumps/<timestamp>/`), no bucket/volume being set up; (2) `supabase/rpc/**` confirmed dead scaffolding — the live Supabase DB is the only real surface for this project — so the entire directory (51 empty files) was deleted in this commit. Task 1 moved from OPEN to RESOLVED-with-one-deferred-item (password rotation, deliberately deferred per the prior log entry, not blocking). No open Task 1 items remain that need another sandbox session; next session should check this doc for any new task added after this one before assuming there's nothing to do. |
 | 2026-09-09 | Methodology session | Added the "Task decomposition & session-pointer methodology" section as a standing priority rule for all future tasks: full scope splits into a fixed 5-level hierarchy (`1-5` → `a-d` → `i-iii` → `zi/zo` → `x`), with exactly one active pointer (a full path ending in `x`) at any time. A session's job is to complete only that one `x`, then advance the pointer depth-first/left-to-right per the documented order. Does not replace the Standing handoff process (patches/direct-push/migrations) — governs sequencing of work, not delivery mechanics. Not applied retroactively to the now-closed Task 1; applies from the next task opened onward. |
 | 2026-09-13 | Task-opening session | Opened Task 2 (Android App toggle should default ON, scoped to `[countryCode]` application flow) as the first task run through the new pointer methodology. Investigated the codebase to lay out the full known architecture (client default, submit-time serialization, DB column defaults, downstream consumers) across the `1-5/a-d/i-iii/zi-zo/x` tree; not every branch is decomposed yet, only what's needed to reach a real first `x`. Root cause found: `StoreConfigStep.tsx`'s `data.androidApp || false` can't distinguish "unset" from "explicitly false" — fix is `??`, not a literal flip. Confirmed the identical bug exists in the separate legacy `src/app/reseller/` flow but is explicitly out of scope per the task's stated boundary. Active pointer set to `1.a.ii.zi.x` — the single-line fix in `StoreConfigStep.tsx` line 115. No patch produced yet; next session should deliver that one line via the normal patch process, then advance the pointer per the methodology. |
+| 2026-09-15 | Pointer-execution session | Delivered `1.a.ii.zi.x`: changed `StoreConfigStep.tsx` line 115 to `data.androidApp ?? true` (commit `b04ae78`). Verified via `git diff` that only the live line changed, not any of the file's commented-out historical duplicates of the same string. Completed `1.a.ii.zo.x` as a verification-only step (no code change needed) — traced every `setFormData`/`onChange` call site in the file and confirmed all of them preserve `androidApp` via spreading existing state rather than re-initializing it. Advanced the pointer to `1.a.iii.zi.x`: read `getApplicationDraft.ts` and confirm it doesn't apply its own defaulting to this field. Patch for the `1.a.ii.zi.x` code fix produced and handed off in this session — see patch filename below. |
