@@ -112,7 +112,7 @@ export default function StoreConfigStep({
     notificationIconFile: null,
     logoPreview: data.logoPreview || null,
     brandColor: data.brandColor || config.defaultColor || "#C98A54",
-    androidApp: data.androidApp || false,
+    androidApp: data.androidApp ?? true,
   });
 
   // Auto-generate slug when store name changes
