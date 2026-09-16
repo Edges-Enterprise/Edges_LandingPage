@@ -647,7 +647,7 @@ handoff process at the top of this file.
 
 ## Task 2 — Android App toggle should default ON, not OFF (`[countryCode]` application flow)
 
-**Status: OPEN. Active pointer: `1.a.iii.x`** (see below).
+**Status: OPEN. Active pointer: `1.b.ii.zi.x`** (see below).
 
 ### Context
 When a user applies for a storefront/app via `/[countryCode]/apply`,
@@ -672,22 +672,28 @@ task says otherwise.
           zo. Verify no other local re-init reintroduces `|| false`
               after the zi fix — DONE, see findings below (no fix
               needed; every re-init path spreads existing state)
-      iii. Confirm draft load/save path
-           (getApplicationDraft.ts / saveApplicationDraft.ts) preserves
-           an explicit `false` from a previously-saved draft rather
-           than silently flipping it back to true
-           zi. Inspect `getApplicationDraft.ts` (read path) — confirm
-               it returns `android_app`/`androidApp` as a raw
-               boolean/undefined, with no defaulting logic of its own
-               that could reintroduce the bug
-               x. <ACTIVE POINTER — see "Next atomic step" below>
-           zo. Not yet decomposed — inspect `saveApplicationDraft.ts`
-               (write path) for the mirror issue: confirm an explicit
-               `false` is actually persisted (not dropped by a falsy-
-               value check before the write)
+      iii. Confirm draft load/save path preserves an explicit `false`
+           from a previously-saved draft — DONE (2026-09-15). See
+           findings below: **moot in practice** — the draft feature is
+           dead code (commented out in `ApplicationWizard.tsx`), not
+           currently reachable from the live wizard.
+           zi. Inspect `getApplicationDraft.ts` (read path) — DONE
+           zo. Inspect `saveApplicationDraft.ts` (write path) — DONE
    b. Submit-time serialization default (ApplicationWizard.tsx line 127:
-      `String(formData.androidApp || false)`) — not yet decomposed,
-      likely the same `|| false` → `?? true` fix, one level up
+      `String(formData.androidApp || false)`)
+      i.  Confirm current behavior — DONE, see findings below (same
+          `||`-can't-distinguish-unset bug pattern as `1.a`, one layer
+          up in the submit handler)
+      ii. Implement the default-ON fix
+          zi. Apply the one-line code fix
+              x. <ACTIVE POINTER — see "Next atomic step" below>
+          zo. Not yet decomposed — verify no other spot re-derives
+              `formData.androidApp` with its own `|| false` between
+              the wizard's state and this submit line
+      iii. Not yet decomposed — confirm the resulting `"true"`/`"false"`
+           string this line sends is read correctly by
+           `submitApplication.ts` (branch 2 below) with no further
+           defaulting mismatch
    c. Not yet decomposed — reserved for UI copy (toggle label/hint)
       update if product wants the copy to reflect "on by default"
       framing
@@ -717,7 +723,28 @@ task says otherwise.
 
 5. Not yet decomposed — reserved for whatever turns up during 1-4
    (e.g. i18n string updates, a QA pass through the full apply flow).
+   One candidate already surfaced: see "Unrelated finding" below —
+   not added as a numbered branch since it's arguably a separate task,
+   not part of this one's stated scope.
 ```
+
+### Unrelated finding — not part of Task 2, flagging so it isn't lost
+
+While checking `1.a.iii`, found that `getApplicationDraft.ts` and
+`saveApplicationDraft.ts` both query/write a table `reseller_applications`
+with columns `application_data`, `current_step`, `draft_saved_at` —
+**none of which exist in the live schema** (`supabase/schema.sql` only
+has `global_reseller_applications`, with none of those columns). Every
+call to either function would fail and be silently swallowed by their
+own `catch` blocks. In practice this isn't live-affecting right now
+because the only call sites, in `ApplicationWizard.tsx`, are entirely
+**commented out** (lines 44–89) — the real, active `updateFormData` is
+a plain in-memory merge with no persistence at all. So: dead code
+pointing at a table that doesn't exist, currently harmless, but a
+trap for whoever uncomments it later expecting it to work. Worth its
+own task (fix the table/columns, or delete the dead code — a product/
+priority call, not decided here) — not folded into Task 2 since it's
+unrelated to the toggle default and would blur this task's scope.
 
 ### Findings from this session (1.a.i — DONE)
 
@@ -772,29 +799,54 @@ task says otherwise.
     `data`, which by then already holds the correctly-synced value.
   - **Conclusion: no code change needed for `zo`.** Verification-only.
 
-### Next atomic step — active pointer `1.a.iii.zi.x`
+### Findings from this session (1.a.iii.zi and 1.a.iii.zo — DONE, 2026-09-15)
 
-**File:** `src/actions/reseller/application/getApplicationDraft.ts`
+- `getApplicationDraft.ts` (`zi`) queries table `reseller_applications`,
+  columns `application_data, current_step` — none of which exist in
+  `supabase/schema.sql` (only `global_reseller_applications` exists,
+  with none of those column names). The query would error and the
+  function's own `catch` returns `null`.
+- `saveApplicationDraft.ts` (`zo`) writes to the same nonexistent
+  `reseller_applications` table with `application_data`, `current_step`,
+  `draft_saved_at` — same story, errors caught and swallowed.
+- **But this is moot for Task 2**: the only call sites for both
+  functions are in `ApplicationWizard.tsx` lines 44–89, and that entire
+  block is commented out. The real, active `updateFormData` (line 93)
+  is `setFormData((prev) => ({ ...prev, ...stepData }))` — no
+  persistence, no draft table involved, at all. So there is no live
+  path today where a saved-draft `androidApp: false` could be
+  reloaded and re-defaulted — the whole draft mechanism is inert.
+- Logged as an **unrelated finding** (see above, not folded into this
+  task): dead code referencing a nonexistent table is still worth
+  fixing or removing at some point, just not as part of the toggle-
+  default fix.
 
-**Task:** Read this file and confirm how it returns the
-`android_app`/`androidApp` field from a loaded draft. Specifically
-check for:
-- Any `|| false`, `?? false`, or similar defaulting applied to this
-  field on the read path, which would reintroduce the exact bug just
-  fixed in `1.a.ii` one layer up.
-- Whether the field is passed through as-is (raw boolean or
-  `undefined` from the DB row) so that `StoreConfigStep.tsx`'s
-  `data.androidApp ?? true` is the *only* place a default gets applied.
+### Next atomic step — active pointer `1.b.ii.zi.x`
 
-This is a read-and-report step, not necessarily a code-change step —
-if the file already passes the value through untouched, no fix is
-needed here (same outcome as `1.a.ii.zo`); if it applies its own
-`|| false`, that needs its own one-line `??` fix, delivered the same
-way as `1.a.ii.zi` was.
+**File:** `src/components/reseller/application/ApplicationWizard.tsx`
+**Line:** 127 (confirmed unchanged as of this session)
 
-Once this `x` is done, advance the pointer to `1.a.iii.zo.x`
-(mirror check on `saveApplicationDraft.ts`, the write path) per the
-pointer-advancement order in the methodology section above.
+Change:
+```ts
+formDataObj.append("androidApp", String(formData.androidApp || false));
+```
+to:
+```ts
+formDataObj.append("androidApp", String(formData.androidApp ?? true));
+```
+
+Same bug pattern as `1.a.ii`, one layer up: `||` can't distinguish
+"never set" from "explicitly false." In the current live flow this is
+mostly defense-in-depth — by the time this line runs, `formData.androidApp`
+should already be `true` (from the `1.a` fix) unless the user explicitly
+toggled it off — but it's still worth fixing directly rather than
+relying solely on the upstream default, in case this submit path is
+ever reached with a genuinely-unset value from some other caller.
+
+Once this `x` is done, advance the pointer to `1.b.ii.zo.x` (verify no
+other spot between wizard state and this line re-derives `androidApp`
+with its own `|| false`) per the pointer-advancement order in the
+methodology section above.
 
 ### Delivery for this task
 - `1.a.ii.zi.x` — the one-line fix (commit `b04ae78`, local to this
@@ -803,6 +855,9 @@ pointer-advancement order in the methodology section above.
   patch filename in the log entry below.
 - `1.a.ii.zo.x` — verification-only, no delivery needed (see findings
   above).
+- `1.a.iii.zi.x` / `1.a.iii.zo.x` — verification-only, no delivery
+  needed (see findings above; the "unrelated finding" is logged, not
+  fixed, as part of this task).
 
 ## Log
 
@@ -823,3 +878,4 @@ pointer-advancement order in the methodology section above.
 | 2026-09-09 | Methodology session | Added the "Task decomposition & session-pointer methodology" section as a standing priority rule for all future tasks: full scope splits into a fixed 5-level hierarchy (`1-5` → `a-d` → `i-iii` → `zi/zo` → `x`), with exactly one active pointer (a full path ending in `x`) at any time. A session's job is to complete only that one `x`, then advance the pointer depth-first/left-to-right per the documented order. Does not replace the Standing handoff process (patches/direct-push/migrations) — governs sequencing of work, not delivery mechanics. Not applied retroactively to the now-closed Task 1; applies from the next task opened onward. |
 | 2026-09-13 | Task-opening session | Opened Task 2 (Android App toggle should default ON, scoped to `[countryCode]` application flow) as the first task run through the new pointer methodology. Investigated the codebase to lay out the full known architecture (client default, submit-time serialization, DB column defaults, downstream consumers) across the `1-5/a-d/i-iii/zi-zo/x` tree; not every branch is decomposed yet, only what's needed to reach a real first `x`. Root cause found: `StoreConfigStep.tsx`'s `data.androidApp || false` can't distinguish "unset" from "explicitly false" — fix is `??`, not a literal flip. Confirmed the identical bug exists in the separate legacy `src/app/reseller/` flow but is explicitly out of scope per the task's stated boundary. Active pointer set to `1.a.ii.zi.x` — the single-line fix in `StoreConfigStep.tsx` line 115. No patch produced yet; next session should deliver that one line via the normal patch process, then advance the pointer per the methodology. |
 | 2026-09-15 | Pointer-execution session | Delivered `1.a.ii.zi.x`: changed `StoreConfigStep.tsx` line 115 to `data.androidApp ?? true` (commit `b04ae78`). Verified via `git diff` that only the live line changed, not any of the file's commented-out historical duplicates of the same string. Completed `1.a.ii.zo.x` as a verification-only step (no code change needed) — traced every `setFormData`/`onChange` call site in the file and confirmed all of them preserve `androidApp` via spreading existing state rather than re-initializing it. Advanced the pointer to `1.a.iii.zi.x`: read `getApplicationDraft.ts` and confirm it doesn't apply its own defaulting to this field. Patch for the `1.a.ii.zi.x` code fix produced and handed off in this session — see patch filename below. |
+| 2026-09-15 | Pointer-execution session (cont.) | Completed `1.a.iii.zi.x` and `1.a.iii.zo.x` (verification-only): both `getApplicationDraft.ts` and `saveApplicationDraft.ts` reference a table/columns (`reseller_applications`, `application_data`, `current_step`, `draft_saved_at`) that don't exist in the live schema, but both are only called from code that's entirely commented out in `ApplicationWizard.tsx` — no live path exists for this task's concern to matter. Logged the dead-code/phantom-table issue as a separate, unaddressed finding rather than fixing it (out of scope for Task 2). Advanced the pointer to `1.b.ii.zi.x`: the mirror `|| false` bug in `ApplicationWizard.tsx` line 127's submit-time serialization. No patch produced this round — pure investigation/documentation turn, no code changed. |
