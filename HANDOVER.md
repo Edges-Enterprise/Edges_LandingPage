@@ -647,7 +647,7 @@ handoff process at the top of this file.
 
 ## Task 2 — Android App toggle should default ON, not OFF (`[countryCode]` application flow)
 
-**Status: OPEN. Active pointer: `1.b.iii.zi.x`** (see below).
+**Status: OPEN. Active pointer: `3.a.ii.zo.x`** (see below).
 
 ### Context
 When a user applies for a storefront/app via `/[countryCode]/apply`,
@@ -693,32 +693,54 @@ task says otherwise.
               re-derivation)
       iii. Confirm the resulting `"true"`/`"false"` string this line
            sends is read correctly by `submitApplication.ts` (branch 2
-           below) with no further defaulting mismatch
+           below) with no further defaulting mismatch — DONE
+           (2026-09-16), see findings below
            zi. Read `submitApplication.ts` line 40 and confirm its
-               parsing logic against what `1.b` now always sends
-               x. <ACTIVE POINTER — see "Next atomic step" below>
-           zo. Not yet decomposed — check for any other caller of
-               `submitApplication` (besides `ApplicationWizard.tsx`)
-               that might not send an explicit `androidApp` field at
-               all
-   c. Not yet decomposed — reserved for UI copy (toggle label/hint)
-      update if product wants the copy to reflect "on by default"
-      framing
-   d. Not yet decomposed
+               parsing logic against what `1.b` now always sends —
+               DONE, no fix needed
+           zo. Check for any other caller of `submitApplication`
+               (besides `ApplicationWizard.tsx`) that might not send
+               an explicit `androidApp` field at all — DONE, no other
+               caller exists (only a re-export barrel references it)
+   c. Reserved for UI copy (toggle label/hint) update — DONE
+      (2026-09-16), see findings below: **no change made**, closed as
+      not needed rather than force a cosmetic edit with no clear ask
+   d. Reserved, nothing surfaced during 1.a-1.c — closing empty
+
+1 is now fully closed (a, b, c, d all done or explicitly closed empty).
 
 2. Server-side submission parsing default
    (submitApplication.ts line 40: `formData.get("androidApp") === "true"`)
-   — not yet decomposed. Note: as long as 1.a/1.b are fixed, the client
-   will always send an explicit "true"/"false" string, so this may turn
-   out to need no change — confirm rather than assume.
+   — DONE, resolved as part of `1.b.iii` above (same file/line,
+   confirmed no fix needed since `1.b` guarantees a real boolean
+   reaches this parse). Not duplicating the work — see `1.b.iii`
+   findings.
 
-3. Database column defaults — not yet decomposed. Two columns found,
-   both `DEFAULT false`, both would need a migration to `DEFAULT true`
-   for consistency (belt-and-suspenders — the app path always sets it
-   explicitly, but a stray direct insert would otherwise silently
-   default to off):
-   - `public.global_reseller_applications.android_app`
-   - `public.resellers.android_app`
+3. Database column defaults
+   a. Write & apply a migration setting `DEFAULT true` on both columns
+      i.   Confirm current defaults — DONE (see Task 2's original
+           findings above): both `public.global_reseller_applications.android_app`
+           and `public.resellers.android_app` are `DEFAULT false`
+      ii.  Write the migration file
+           zi. Draft `supabase/migrations/20260916_default_android_app_true.sql`
+               — DONE (2026-09-16), see findings below
+           zo. Apply the migration to the live DB via `psql -f` (per
+               the migrations section of the Standing handoff process),
+               then refresh `supabase/schema.sql` to reflect the new
+               defaults
+               x. <ACTIVE POINTER — see "Next atomic step" below>
+      iii. Not yet decomposed — **explicit guardrail, not optional**:
+           this must be a schema-only `ALTER COLUMN ... SET DEFAULT`
+           change. Do **not** `UPDATE` existing rows currently `false`
+           — a reseller who already has `android_app = false` either
+           chose that explicitly or is a pre-fix record, and either
+           way silently flipping their existing data is a different,
+           much bigger action than "new applications default to on."
+           Confirm the migration file contains no `UPDATE` statement
+           before it's applied.
+   b. Not yet decomposed
+   c. Not yet decomposed
+   d. Not yet decomposed
 
 4. Downstream consumers (read-only audit, no expected code change) —
    not yet decomposed. Confirmed so far: `PublishingPlans.tsx` gates
@@ -844,30 +866,77 @@ unrelated to the toggle default and would blur this task's scope.
   re-derivation with its own default. **Conclusion: no code change
   needed for `zo`.** Verification-only.
 
-### Next atomic step — active pointer `1.b.iii.zi.x`
+### Findings from this session (1.b.iii, 1.c, 2 — DONE, 2026-09-16)
 
-**File:** `src/actions/reseller/application/submitApplication.ts`
-**Line:** 40
+- `1.b.iii.zi`: read `submitApplication.ts` line 40
+  (`formData.get("androidApp") === "true"`). Traced the type: since
+  `1.b.ii`'s fix guarantees `ApplicationWizard.tsx` always calls
+  `.append("androidApp", String(...))` with a real boolean, the value
+  reaching this line is always the literal string `"true"` or
+  `"false"` — never `null`, never a `File`. `=== "true"` correctly
+  parses both cases. **No fix needed.**
+- `1.b.iii.zo`: searched for every reference to `submitApplication`
+  in the repo — only `ApplicationWizard.tsx` (the caller) and
+  `src/actions/reseller/application/index.ts` (a plain re-export
+  barrel, `export { submitApplication } from "./submitApplication"`).
+  No other caller exists. **No fix needed.**
+- `1.c` (UI copy): read the toggle's label/hint —
+  `t?.store?.androidApp || "Android App"` and
+  `t?.store?.androidAppHint || "Get a branded APK in 3–5 business days"`.
+  Neither string references "off by default" or an opt-in framing —
+  the hint is purely about turnaround time. **Closed with no change**:
+  updating copy with no specific product ask would be a judgment call
+  outside this task's scope, not a bug fix.
+- Branch **2** (server parsing default) resolves to the exact same
+  file/line as `1.b.iii` — not duplicating the investigation; see
+  above. **No fix needed.**
+- `1` is now fully closed (`a`, `b`, `c`, `d`). Branch **2** is closed.
+  Moved to branch **3** (DB column defaults) as the next real
+  actionable item.
 
-**Task:** Read this line —
-```ts
-const androidApp = formData.get("androidApp") === "true";
+### Next atomic step — active pointer `3.a.ii.zo.x`
+
+**Delivered this session (`3.a.ii.zi.x`):**
+`supabase/migrations/20260916_default_android_app_true.sql`:
+```sql
+ALTER TABLE public.global_reseller_applications
+    ALTER COLUMN android_app SET DEFAULT true;
+
+ALTER TABLE public.resellers
+    ALTER COLUMN android_app SET DEFAULT true;
 ```
-— and confirm it correctly parses what `1.b` now always sends. Since
-`1.b.ii`'s fix guarantees `formData.androidApp` is a real boolean
-before it hits `String(...)`, this line should now always receive the
-literal string `"true"` or `"false"`, meaning `=== "true"` is already
-correct as-is. This is a **confirm-don't-assume** step (per branch 2's
-own note above) — read it, trace the type, and either close it as
-"no fix needed" (mirroring `1.a.ii.zo`/`1.b.ii.zo`) or, if something
-about `formData.get()` returning `null`/`FormDataEntryValue` type
-coercion turns out to matter here, flag the specific edge case found.
 
-Once this `x` is done, advance the pointer to `1.b.iii.zo.x` (check
-for any other caller of `submitApplication` besides
-`ApplicationWizard.tsx` that might not send an explicit `androidApp`
-field at all) per the pointer-advancement order in the methodology
-section above.
+**Next (`3.a.ii.zo.x`) — this is a direct-command step for the user,
+not a patch.** Run in the Ubuntu environment, from
+`~/ubuntu-repos/Edges_LandingPage`, **after** pulling this task's
+patches so the migration file is present in the checked-out tree:
+
+```bash
+export PGPASSWORD='<current-db-password-from-dashboard>' \
+       DBHOST='aws-0-eu-central-1.pooler.supabase.com' \
+       DBPORT=5432 DBUSER='postgres.jjyyfaxcwanrmiipzkoj' DBNAME='postgres' && \
+psql -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" \
+     -v ON_ERROR_STOP=1 \
+     -f supabase/migrations/20260916_default_android_app_true.sql && \
+echo "Migration applied: 20260916_default_android_app_true.sql"
+```
+
+Then take a fresh `pg_dump` (per Task 1's process) and commit the
+refreshed `schema.sql` directly (per the schema-snapshot direct-push
+rule — not a patch), so the tracked snapshot reflects the new
+`DEFAULT true` rather than drifting from the live DB.
+
+**Important — this is a schema-only default change.** It does not
+touch any existing row. Do not add an `UPDATE` statement to this
+migration under any circumstances — see `3.a.iii`'s guardrail note
+above for why.
+
+Once `3.a.ii.zo.x` is done, advance the pointer to `3.a.iii.x`... but
+per the formula, `iii` itself needs its own `zi`/`zo` before an `x` —
+`3.a.iii` (confirm no backfill happened) should be decomposed into a
+`zi` (diff `schema.sql` before/after to confirm only the `DEFAULT`
+changed, no row data changed) and a `zo` (spot-check a known-`false`
+existing row still reads `false`) when that session picks it up.
 
 ### Delivery for this task
 - `1.a.ii.zi.x` — the one-line fix (commit `b04ae78`). Delivered via
@@ -876,10 +945,18 @@ section above.
 - `1.a.iii.zi.x` / `1.a.iii.zo.x` — verification-only, no delivery
   needed (the "unrelated finding" is logged, not fixed, as part of
   this task).
-- `1.b.ii.zi.x` — the one-line fix (commit `a02ca8f`, local to this
-  sandbox session as of this entry). Delivered via the normal Standing
-  handoff process — see the patch filename in the log entry below.
+- `1.b.ii.zi.x` — the one-line fix (commit `a02ca8f`). Delivered via
+  the normal Standing handoff process.
 - `1.b.ii.zo.x` — verification-only, no delivery needed.
+- `1.b.iii.zi.x` / `1.b.iii.zo.x` — verification-only, no delivery
+  needed.
+- `1.c` / `1.d` / branch `2` — closed, no delivery needed (no code
+  change made).
+- `3.a.ii.zi.x` — the new migration file, drafted this session, local
+  to this sandbox as of this entry. Delivered via the normal Standing
+  handoff process — see the patch filename in the log entry below.
+  **Not yet applied to the live DB** — that's `3.a.ii.zo.x`, a
+  separate direct-command step for the user to run in Ubuntu.
 
 ## Log
 
@@ -902,3 +979,4 @@ section above.
 | 2026-09-15 | Pointer-execution session | Delivered `1.a.ii.zi.x`: changed `StoreConfigStep.tsx` line 115 to `data.androidApp ?? true` (commit `b04ae78`). Verified via `git diff` that only the live line changed, not any of the file's commented-out historical duplicates of the same string. Completed `1.a.ii.zo.x` as a verification-only step (no code change needed) — traced every `setFormData`/`onChange` call site in the file and confirmed all of them preserve `androidApp` via spreading existing state rather than re-initializing it. Advanced the pointer to `1.a.iii.zi.x`: read `getApplicationDraft.ts` and confirm it doesn't apply its own defaulting to this field. Patch for the `1.a.ii.zi.x` code fix produced and handed off in this session — see patch filename below. |
 | 2026-09-15 | Pointer-execution session (cont.) | Completed `1.a.iii.zi.x` and `1.a.iii.zo.x` (verification-only): both `getApplicationDraft.ts` and `saveApplicationDraft.ts` reference a table/columns (`reseller_applications`, `application_data`, `current_step`, `draft_saved_at`) that don't exist in the live schema, but both are only called from code that's entirely commented out in `ApplicationWizard.tsx` — no live path exists for this task's concern to matter. Logged the dead-code/phantom-table issue as a separate, unaddressed finding rather than fixing it (out of scope for Task 2). Advanced the pointer to `1.b.ii.zi.x`: the mirror `|| false` bug in `ApplicationWizard.tsx` line 127's submit-time serialization. No patch produced this round — pure investigation/documentation turn, no code changed. |
 | 2026-09-16 | Pointer-execution session | Delivered `1.b.ii.zi.x`: changed `ApplicationWizard.tsx` line 127 to `String(formData.androidApp ?? true)` (commit `a02ca8f`) — same bug pattern as `1.a.ii`, one layer up. Completed `1.b.ii.zo.x` (verification-only): the only other reference to `formData.androidApp` in the file is a plain truthy guard (notification-icon attach condition), not a re-derivation — no fix needed. Advanced the pointer to `1.b.iii.zi.x`: confirm `submitApplication.ts` line 40's `=== "true"` parsing is still correct given what `1.b` now always sends. |
+| 2026-09-16 | Pointer-execution session (cont.) | Closed `1.b.iii` (both `zi`/`zo` — no fix needed, only caller confirmed), `1.c` (UI copy — closed with no change, no product ask to update it), `1.d` (nothing surfaced, closed empty), and branch `2` (same file/line as `1.b.iii`, already resolved). `1` and `2` are now fully done. Moved to branch `3` (DB column defaults): drafted `supabase/migrations/20260916_default_android_app_true.sql` setting `DEFAULT true` on both `global_reseller_applications.android_app` and `resellers.android_app`, explicitly with no `UPDATE` statement (existing rows must not be backfilled). Advanced pointer to `3.a.ii.zo.x` — applying this migration to the live DB is a separate direct-command step for the user, not part of this patch. |
