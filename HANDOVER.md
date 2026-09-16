@@ -647,7 +647,7 @@ handoff process at the top of this file.
 
 ## Task 2 — Android App toggle should default ON, not OFF (`[countryCode]` application flow)
 
-**Status: OPEN. Active pointer: `1.b.ii.zi.x`** (see below).
+**Status: OPEN. Active pointer: `1.b.iii.zi.x`** (see below).
 
 ### Context
 When a user applies for a storefront/app via `/[countryCode]/apply`,
@@ -684,16 +684,23 @@ task says otherwise.
       i.  Confirm current behavior — DONE, see findings below (same
           `||`-can't-distinguish-unset bug pattern as `1.a`, one layer
           up in the submit handler)
-      ii. Implement the default-ON fix
-          zi. Apply the one-line code fix
-              x. <ACTIVE POINTER — see "Next atomic step" below>
-          zo. Not yet decomposed — verify no other spot re-derives
-              `formData.androidApp` with its own `|| false` between
-              the wizard's state and this submit line
-      iii. Not yet decomposed — confirm the resulting `"true"`/`"false"`
-           string this line sends is read correctly by
-           `submitApplication.ts` (branch 2 below) with no further
-           defaulting mismatch
+      ii. Implement the default-ON fix — DONE (2026-09-16)
+          zi. Apply the one-line code fix — DONE, see findings below
+          zo. Verify no other spot re-derives `formData.androidApp`
+              with its own `|| false` between wizard state and this
+              submit line — DONE, see findings below (no fix needed;
+              the only other reference is a plain truthy guard, not a
+              re-derivation)
+      iii. Confirm the resulting `"true"`/`"false"` string this line
+           sends is read correctly by `submitApplication.ts` (branch 2
+           below) with no further defaulting mismatch
+           zi. Read `submitApplication.ts` line 40 and confirm its
+               parsing logic against what `1.b` now always sends
+               x. <ACTIVE POINTER — see "Next atomic step" below>
+           zo. Not yet decomposed — check for any other caller of
+               `submitApplication` (besides `ApplicationWizard.tsx`)
+               that might not send an explicit `androidApp` field at
+               all
    c. Not yet decomposed — reserved for UI copy (toggle label/hint)
       update if product wants the copy to reflect "on by default"
       framing
@@ -821,43 +828,58 @@ unrelated to the toggle default and would blur this task's scope.
   fixing or removing at some point, just not as part of the toggle-
   default fix.
 
-### Next atomic step — active pointer `1.b.ii.zi.x`
+### Findings from this session (1.b.ii.zi and 1.b.ii.zo — DONE, 2026-09-16)
 
-**File:** `src/components/reseller/application/ApplicationWizard.tsx`
-**Line:** 127 (confirmed unchanged as of this session)
+- Applied the fix at `1.b.ii.zi`: `ApplicationWizard.tsx` line 127 now
+  reads `String(formData.androidApp ?? true)` (commit `a02ca8f`).
+  Confirmed via `grep` that this exact string was unique in the file
+  before editing — no commented-out duplicates to worry about here,
+  unlike `StoreConfigStep.tsx`.
+- Checked `1.b.ii.zo` (no other spot re-derives `formData.androidApp`
+  with its own `|| false`) by finding every reference to
+  `formData.androidApp` in the file: only one other hit, line 141 —
+  `if (formData.androidApp && formData.notificationIconFile
+  instanceof File)`, a plain truthy guard gating whether to attach the
+  notification icon file. It's a *consumer* of the value, not a
+  re-derivation with its own default. **Conclusion: no code change
+  needed for `zo`.** Verification-only.
 
-Change:
+### Next atomic step — active pointer `1.b.iii.zi.x`
+
+**File:** `src/actions/reseller/application/submitApplication.ts`
+**Line:** 40
+
+**Task:** Read this line —
 ```ts
-formDataObj.append("androidApp", String(formData.androidApp || false));
+const androidApp = formData.get("androidApp") === "true";
 ```
-to:
-```ts
-formDataObj.append("androidApp", String(formData.androidApp ?? true));
-```
+— and confirm it correctly parses what `1.b` now always sends. Since
+`1.b.ii`'s fix guarantees `formData.androidApp` is a real boolean
+before it hits `String(...)`, this line should now always receive the
+literal string `"true"` or `"false"`, meaning `=== "true"` is already
+correct as-is. This is a **confirm-don't-assume** step (per branch 2's
+own note above) — read it, trace the type, and either close it as
+"no fix needed" (mirroring `1.a.ii.zo`/`1.b.ii.zo`) or, if something
+about `formData.get()` returning `null`/`FormDataEntryValue` type
+coercion turns out to matter here, flag the specific edge case found.
 
-Same bug pattern as `1.a.ii`, one layer up: `||` can't distinguish
-"never set" from "explicitly false." In the current live flow this is
-mostly defense-in-depth — by the time this line runs, `formData.androidApp`
-should already be `true` (from the `1.a` fix) unless the user explicitly
-toggled it off — but it's still worth fixing directly rather than
-relying solely on the upstream default, in case this submit path is
-ever reached with a genuinely-unset value from some other caller.
-
-Once this `x` is done, advance the pointer to `1.b.ii.zo.x` (verify no
-other spot between wizard state and this line re-derives `androidApp`
-with its own `|| false`) per the pointer-advancement order in the
-methodology section above.
+Once this `x` is done, advance the pointer to `1.b.iii.zo.x` (check
+for any other caller of `submitApplication` besides
+`ApplicationWizard.tsx` that might not send an explicit `androidApp`
+field at all) per the pointer-advancement order in the methodology
+section above.
 
 ### Delivery for this task
-- `1.a.ii.zi.x` — the one-line fix (commit `b04ae78`, local to this
-  sandbox session). Delivered via the normal Standing handoff process
-  like any other code change (patch + `git am` + `git push`) — see the
-  patch filename in the log entry below.
-- `1.a.ii.zo.x` — verification-only, no delivery needed (see findings
-  above).
+- `1.a.ii.zi.x` — the one-line fix (commit `b04ae78`). Delivered via
+  the normal Standing handoff process (patch + `git am` + `git push`).
+- `1.a.ii.zo.x` — verification-only, no delivery needed.
 - `1.a.iii.zi.x` / `1.a.iii.zo.x` — verification-only, no delivery
-  needed (see findings above; the "unrelated finding" is logged, not
-  fixed, as part of this task).
+  needed (the "unrelated finding" is logged, not fixed, as part of
+  this task).
+- `1.b.ii.zi.x` — the one-line fix (commit `a02ca8f`, local to this
+  sandbox session as of this entry). Delivered via the normal Standing
+  handoff process — see the patch filename in the log entry below.
+- `1.b.ii.zo.x` — verification-only, no delivery needed.
 
 ## Log
 
@@ -879,3 +901,4 @@ methodology section above.
 | 2026-09-13 | Task-opening session | Opened Task 2 (Android App toggle should default ON, scoped to `[countryCode]` application flow) as the first task run through the new pointer methodology. Investigated the codebase to lay out the full known architecture (client default, submit-time serialization, DB column defaults, downstream consumers) across the `1-5/a-d/i-iii/zi-zo/x` tree; not every branch is decomposed yet, only what's needed to reach a real first `x`. Root cause found: `StoreConfigStep.tsx`'s `data.androidApp || false` can't distinguish "unset" from "explicitly false" — fix is `??`, not a literal flip. Confirmed the identical bug exists in the separate legacy `src/app/reseller/` flow but is explicitly out of scope per the task's stated boundary. Active pointer set to `1.a.ii.zi.x` — the single-line fix in `StoreConfigStep.tsx` line 115. No patch produced yet; next session should deliver that one line via the normal patch process, then advance the pointer per the methodology. |
 | 2026-09-15 | Pointer-execution session | Delivered `1.a.ii.zi.x`: changed `StoreConfigStep.tsx` line 115 to `data.androidApp ?? true` (commit `b04ae78`). Verified via `git diff` that only the live line changed, not any of the file's commented-out historical duplicates of the same string. Completed `1.a.ii.zo.x` as a verification-only step (no code change needed) — traced every `setFormData`/`onChange` call site in the file and confirmed all of them preserve `androidApp` via spreading existing state rather than re-initializing it. Advanced the pointer to `1.a.iii.zi.x`: read `getApplicationDraft.ts` and confirm it doesn't apply its own defaulting to this field. Patch for the `1.a.ii.zi.x` code fix produced and handed off in this session — see patch filename below. |
 | 2026-09-15 | Pointer-execution session (cont.) | Completed `1.a.iii.zi.x` and `1.a.iii.zo.x` (verification-only): both `getApplicationDraft.ts` and `saveApplicationDraft.ts` reference a table/columns (`reseller_applications`, `application_data`, `current_step`, `draft_saved_at`) that don't exist in the live schema, but both are only called from code that's entirely commented out in `ApplicationWizard.tsx` — no live path exists for this task's concern to matter. Logged the dead-code/phantom-table issue as a separate, unaddressed finding rather than fixing it (out of scope for Task 2). Advanced the pointer to `1.b.ii.zi.x`: the mirror `|| false` bug in `ApplicationWizard.tsx` line 127's submit-time serialization. No patch produced this round — pure investigation/documentation turn, no code changed. |
+| 2026-09-16 | Pointer-execution session | Delivered `1.b.ii.zi.x`: changed `ApplicationWizard.tsx` line 127 to `String(formData.androidApp ?? true)` (commit `a02ca8f`) — same bug pattern as `1.a.ii`, one layer up. Completed `1.b.ii.zo.x` (verification-only): the only other reference to `formData.androidApp` in the file is a plain truthy guard (notification-icon attach condition), not a re-derivation — no fix needed. Advanced the pointer to `1.b.iii.zi.x`: confirm `submitApplication.ts` line 40's `=== "true"` parsing is still correct given what `1.b` now always sends. |
