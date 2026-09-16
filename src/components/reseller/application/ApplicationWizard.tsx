@@ -124,7 +124,7 @@ export default function ApplicationWizard({
       formDataObj.append("storeName", formData.storeName || "");
       formDataObj.append("storeSlug", formData.storeSlug || "");
       formDataObj.append("brandColor", formData.brandColor || "#C98A54");
-      formDataObj.append("androidApp", String(formData.androidApp || false));
+      formDataObj.append("androidApp", String(formData.androidApp ?? true));
       formDataObj.append("countryCode", countryCode);
       formDataObj.append("agreed", "true");
 
