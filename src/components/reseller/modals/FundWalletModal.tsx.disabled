@@ -1,4 +1,18 @@
 // src/components/reseller/modals/FundWalletModal.tsx
+//
+// DISABLED (renamed .tsx -> .tsx.disabled) to unblock the Vercel build.
+// Orphaned duplicate: a different, actually-used FundWalletModal lives
+// at src/app/[countryCode]/dashboard/wallet/FundWalletModal.tsx (that
+// one is unaffected, still enabled). This copy calls
+// fundWallet(amount, paymentMethod) with two positional args, but the
+// real fundWallet() action takes a single object with a required
+// `countryCode` (missing here entirely) and a `mobileMoney` field
+// (no `paymentMethod` concept exists in the real signature) — this
+// isn't a mechanical fix, it needs real reconciliation of what this
+// modal is actually supposed to send. To re-enable: rewrite the call
+// against the real FundWalletParams shape, confirm this isn't just a
+// stale duplicate that should be deleted instead, rename back to
+// .tsx, then remove this note.
 "use client";
 
 import { useState } from "react";

@@ -5,7 +5,7 @@ import { fundWallet } from "@/actions/reseller/wallet/fundWallet";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { countryCode: string } },
+  { params }: { params: Promise<{ countryCode: string }> },
 ) {
   try {
     const { countryCode: urlCountryCode } = await params;

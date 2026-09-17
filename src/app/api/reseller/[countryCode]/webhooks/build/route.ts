@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase/server";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { countryCode: string } },
+  { params }: { params: Promise<{ countryCode: string }> },
 ) {
   try {
     const body = await req.json();

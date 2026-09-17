@@ -189,10 +189,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "10mb",
-    },
-  },
-};
+// Note: the old Pages-Router-style `export const config = { api: { bodyParser... } }`
+// was removed here — App Router route handlers never read this config at
+// all, so it was a silent no-op that only produced a build warning.
+// Body-size limits in App Router are controlled at the platform/hosting
+// level, not via a per-route export.

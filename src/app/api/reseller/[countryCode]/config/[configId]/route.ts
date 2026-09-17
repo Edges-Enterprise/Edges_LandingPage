@@ -4,10 +4,10 @@ import { createServerClient } from "@/lib/supabase/server";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { countryCode: string; configId: string } },
+  { params }: { params: Promise<{ countryCode: string; configId: string }> },
 ) {
   try {
-    const { countryCode, configId } = params;
+    const { countryCode, configId } = await params;
 
     if (!configId) {
       return NextResponse.json(

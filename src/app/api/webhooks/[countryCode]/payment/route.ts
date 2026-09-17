@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getCountryConfig } from "@/config/countries";
 import { getPaymentGateway } from "@/lib/payments";
+import type { PaymentGatewayType } from "@/lib/payments/payment.types";
 import { checkAndAwardFirstDepositBonus } from "@/lib/bonus/first-deposit";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { countryCode: string } },
+  { params }: { params: Promise<{ countryCode: string }> },
 ) {
   const { countryCode } = await params;
   const body = await req.json();
@@ -17,7 +18,7 @@ export async function POST(
 
   try {
     const config = getCountryConfig(countryCode);
-    const gateway = getPaymentGateway(provider);
+    const gateway = getPaymentGateway(provider as PaymentGatewayType);
 
     // Verify webhook signature
     const isValid = await gateway.verifyWebhook(body, req.headers);

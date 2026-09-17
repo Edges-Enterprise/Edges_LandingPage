@@ -1,4 +1,17 @@
 // src/components/reseller/modals/CreateOrderModal.tsx
+//
+// DISABLED (renamed .tsx -> .tsx.disabled) to unblock the Vercel build.
+// This component is not imported/used anywhere in the app (confirmed
+// via repo-wide search). It had three broken references; two are
+// already fixed here (the `Plan` type import, which didn't exist in
+// its source module — now uses the real `PlanWithConfig` type; and an
+// unsupported `limit` param passed to getPlans(), removed). One is
+// still open and deliberately NOT guessed at: `plan.price` doesn't
+// exist on `PlanWithConfig` — the real fields are `base_price` (cost)
+// or `config.selling_price` (what the reseller charges the customer),
+// and picking the wrong one would silently miscalculate a real money
+// amount. To re-enable: resolve that field correctly, wire this up to
+// an actual page/trigger, rename back to .tsx, then remove this note.
 "use client";
 
 import { useState, useEffect } from "react";
@@ -15,7 +28,8 @@ import {
   getCustomers,
   Customer,
 } from "@/actions/reseller/customers/getCustomers";
-import { getPlans, Plan } from "@/actions/reseller/plans/getPlans";
+import { getPlans } from "@/actions/reseller/plans/getPlans";
+import type { PlanWithConfig } from "@/types/reseller/plans";
 import { cn } from "@/lib/utils/helpers";
 
 interface CreateOrderModalProps {
@@ -32,7 +46,7 @@ export function CreateOrderModal({
   countryCode,
 }: CreateOrderModalProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plans, setPlans] = useState<PlanWithConfig[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [selectedPlan, setSelectedPlan] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("wallet");
@@ -55,7 +69,7 @@ export function CreateOrderModal({
     try {
       const [customersResult, plansResult] = await Promise.all([
         getCustomers({ limit: 100 }),
-        getPlans({ limit: 100 }),
+        getPlans(),
       ]);
 
       if (customersResult.success && customersResult.data) {
