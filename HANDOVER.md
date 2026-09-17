@@ -379,6 +379,20 @@ and `supabase/rpc/**` scaffold removed as dead. The only thing not
 until project completion, not an oversight; see the connection-details
 note below before touching it.
 
+**Chained reminder — surface this right after the password-rotation
+one, not before, not instead of it.** Once the DB password has
+actually been rotated, also raise Task 2's deliberately-unaddressed
+follow-up: `getApplicationDraft.ts` / `saveApplicationDraft.ts`
+reference a `reseller_applications` table/columns that don't exist in
+the live schema (see Task 2's "Unrelated finding" section below).
+It's inert today — only reachable from commented-out dead code in
+`ApplicationWizard.tsx` — so there's no urgency forcing it ahead of
+the password item; it's just parked here so it surfaces at the same
+natural checkpoint (project wrap-up) rather than getting lost. Same
+resolution options as when it was first found: fix the table/columns
+to actually implement draft-saving, or delete the dead code — a
+product/priority call, not decided here.
+
 ### Context
 Since both apps share one Supabase Postgres backend, we only need **one**
 dump pipeline, not one per repo. We're doing this via a direct Ubuntu
@@ -995,3 +1009,4 @@ delete the draft-save feature.
 | 2026-09-16 | Pointer-execution session | Delivered `1.b.ii.zi.x`: changed `ApplicationWizard.tsx` line 127 to `String(formData.androidApp ?? true)` (commit `a02ca8f`) — same bug pattern as `1.a.ii`, one layer up. Completed `1.b.ii.zo.x` (verification-only): the only other reference to `formData.androidApp` in the file is a plain truthy guard (notification-icon attach condition), not a re-derivation — no fix needed. Advanced the pointer to `1.b.iii.zi.x`: confirm `submitApplication.ts` line 40's `=== "true"` parsing is still correct given what `1.b` now always sends. |
 | 2026-09-16 | Pointer-execution session (cont.) | Closed `1.b.iii` (both `zi`/`zo` — no fix needed, only caller confirmed), `1.c` (UI copy — closed with no change, no product ask to update it), `1.d` (nothing surfaced, closed empty), and branch `2` (same file/line as `1.b.iii`, already resolved). `1` and `2` are now fully done. Moved to branch `3` (DB column defaults): drafted `supabase/migrations/20260916_default_android_app_true.sql` setting `DEFAULT true` on both `global_reseller_applications.android_app` and `resellers.android_app`, explicitly with no `UPDATE` statement (existing rows must not be backfilled). Advanced pointer to `3.a.ii.zo.x` — applying this migration to the live DB is a separate direct-command step for the user, not part of this patch. |
 | 2026-09-17 | Task-closing session | User applied the migration in Ubuntu (`ALTER TABLE` x2, no errors) and pushed a refreshed `schema.sql` snapshot directly (`fce05f6`) per the schema-snapshot rule. Diffed `schema.sql` before (`c099f24`) vs. after (`fce05f6`): confirmed the *only* `public.*` schema changes are the two intended `DEFAULT false` → `DEFAULT true` flips — no backfill, no other drift (the rest of the diff is Supabase's own managed `auth` schema picking up unrelated platform features between dumps). Completed branch `4` (downstream consumers) as verification-only: `PublishingPlans.tsx` and `ReviewStep.tsx` both already read the persisted value correctly, no code changes needed. Closed branch `5` (nothing surfaced). **Task 2 is now RESOLVED** — every branch of the `1-5` architecture is closed; see the "Resolution summary" table in the task section above. One known follow-up deliberately left open, not folded into this task: the dead-code/phantom-table finding in `getApplicationDraft.ts`/`saveApplicationDraft.ts`. |
+| 2026-09-17 | Follow-up sequencing session | User asked to leave Task 2's phantom-table/dead-code follow-up alone for now, but to chain it right after the Task 1 password-rotation reminder rather than let it get lost. Added a "Chained reminder" note in Task 1's status block: once the DB password is actually rotated (project wrap-up), also raise the `getApplicationDraft.ts`/`saveApplicationDraft.ts` issue at that same checkpoint. No urgency forcing it earlier — it's inert dead code today. |
