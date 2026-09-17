@@ -647,7 +647,8 @@ handoff process at the top of this file.
 
 ## Task 2 — Android App toggle should default ON, not OFF (`[countryCode]` application flow)
 
-**Status: OPEN. Active pointer: `3.a.ii.zo.x`** (see below).
+**Status: RESOLVED.** No active pointer — Task 2 is closed. See
+"Resolution summary" at the end of this section.
 
 ### Context
 When a user applies for a storefront/app via `/[countryCode]/apply`,
@@ -723,38 +724,49 @@ task says otherwise.
            and `public.resellers.android_app` are `DEFAULT false`
       ii.  Write the migration file
            zi. Draft `supabase/migrations/20260916_default_android_app_true.sql`
-               — DONE (2026-09-16), see findings below
-           zo. Apply the migration to the live DB via `psql -f` (per
-               the migrations section of the Standing handoff process),
-               then refresh `supabase/schema.sql` to reflect the new
-               defaults
-               x. <ACTIVE POINTER — see "Next atomic step" below>
-      iii. Not yet decomposed — **explicit guardrail, not optional**:
-           this must be a schema-only `ALTER COLUMN ... SET DEFAULT`
-           change. Do **not** `UPDATE` existing rows currently `false`
-           — a reseller who already has `android_app = false` either
-           chose that explicitly or is a pre-fix record, and either
-           way silently flipping their existing data is a different,
-           much bigger action than "new applications default to on."
-           Confirm the migration file contains no `UPDATE` statement
-           before it's applied.
-   b. Not yet decomposed
-   c. Not yet decomposed
-   d. Not yet decomposed
+               — DONE (2026-09-16)
+           zo. Apply the migration to the live DB, refresh
+               `supabase/schema.sql` — DONE (2026-09-17). Migration
+               applied cleanly (`ALTER TABLE` x2, no errors). Fresh
+               dump taken and committed directly (`fce05f6`) per the
+               schema-snapshot direct-push rule.
+      iii. Confirm no backfill happened — DONE (2026-09-17). Diffed
+           `supabase/schema.sql` before (`c099f24`) vs. after
+           (`fce05f6`) this session's changes. Outside Supabase's own
+           managed `auth`/`storage` schemas (unrelated platform
+           updates — new MFA/SCIM tables, nothing to do with this
+           task), the *only* two `public.*` hunks in the entire diff
+           are exactly `global_reseller_applications.android_app` and
+           `resellers.android_app`, each `DEFAULT false` → `DEFAULT true`.
+           Nothing else changed. Since this is a schema-only dump (no
+           row data), there's no mechanism by which existing rows could
+           have been altered by an `ALTER COLUMN ... SET DEFAULT` —
+           confirmed by the diff being clean, not just by the SQL
+           file's contents having no `UPDATE`.
+   b. Not needed — a/i/ii/iii above already cover both columns found;
+      no second migration required
+   c. Not needed
+   d. Not needed
 
-4. Downstream consumers (read-only audit, no expected code change) —
-   not yet decomposed. Confirmed so far: `PublishingPlans.tsx` gates
-   app publishing on this flag being true — this is *why* the default
-   matters (a false default silently blocks publishing unless the user
-   opted in during application). `ReviewStep.tsx` displays the value.
-   Neither should need changes, just confirmation after 1-3 land that
-   nothing else re-derives its own default.
+3 is now fully closed.
 
-5. Not yet decomposed — reserved for whatever turns up during 1-4
-   (e.g. i18n string updates, a QA pass through the full apply flow).
-   One candidate already surfaced: see "Unrelated finding" below —
-   not added as a numbered branch since it's arguably a separate task,
-   not part of this one's stated scope.
+4. Downstream consumers — DONE (2026-09-17), verification-only, no
+   code changes anywhere:
+   a. `PublishingPlans.tsx`: gates via
+      `if (!application.android_app) return <disabled message>;` —
+      reads the persisted DB value directly, no default logic of its
+      own to worry about. New applications will now see the publishing
+      UI by default instead of the disabled message, exactly as
+      intended; existing `false` rows are untouched and still see the
+      message, exactly as intended by `3.a.iii`'s guardrail.
+   b. `ReviewStep.tsx`: plain read-only display —
+      `data.androidApp ? "✅ Yes" : "❌ No"` — no default logic.
+
+4 is now fully closed.
+
+5. Closed — nothing turned up during 1-4 beyond the "Unrelated
+   finding" below, which stays a separate, unaddressed item rather
+   than expanding this task's scope.
 ```
 
 ### Unrelated finding — not part of Task 2, flagging so it isn't lost
@@ -896,7 +908,7 @@ unrelated to the toggle default and would blur this task's scope.
 
 ### Next atomic step — active pointer `3.a.ii.zo.x`
 
-**Delivered this session (`3.a.ii.zi.x`):**
+**Delivered:**
 `supabase/migrations/20260916_default_android_app_true.sql`:
 ```sql
 ALTER TABLE public.global_reseller_applications
@@ -905,38 +917,38 @@ ALTER TABLE public.global_reseller_applications
 ALTER TABLE public.resellers
     ALTER COLUMN android_app SET DEFAULT true;
 ```
+Applied to the live DB (2026-09-17, `ALTER TABLE` x2, no errors).
+Schema snapshot refreshed and committed (`fce05f6`). Diffed old vs.
+new `schema.sql`: only these two `DEFAULT` values changed in the
+entire `public` schema — no backfill, no unrelated drift.
 
-**Next (`3.a.ii.zo.x`) — this is a direct-command step for the user,
-not a patch.** Run in the Ubuntu environment, from
-`~/ubuntu-repos/Edges_LandingPage`, **after** pulling this task's
-patches so the migration file is present in the checked-out tree:
+### Resolution summary
 
-```bash
-export PGPASSWORD='<current-db-password-from-dashboard>' \
-       DBHOST='aws-0-eu-central-1.pooler.supabase.com' \
-       DBPORT=5432 DBUSER='postgres.jjyyfaxcwanrmiipzkoj' DBNAME='postgres' && \
-psql -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" \
-     -v ON_ERROR_STOP=1 \
-     -f supabase/migrations/20260916_default_android_app_true.sql && \
-echo "Migration applied: 20260916_default_android_app_true.sql"
-```
+Every branch of the full architecture (`1`-`5`) is closed:
 
-Then take a fresh `pg_dump` (per Task 1's process) and commit the
-refreshed `schema.sql` directly (per the schema-snapshot direct-push
-rule — not a patch), so the tracked snapshot reflects the new
-`DEFAULT true` rather than drifting from the live DB.
+| Branch | What | Result |
+|---|---|---|
+| `1.a` | `StoreConfigStep.tsx` initial state | Fixed: `?? true` |
+| `1.b` | `ApplicationWizard.tsx` submit serialization | Fixed: `?? true` |
+| `1.c` | Toggle UI copy | No change needed |
+| `1.d` | (reserved) | Nothing surfaced |
+| `2` | `submitApplication.ts` parsing | No change needed (already correct given `1.b`'s fix) |
+| `3.a` | DB column defaults (both tables) | Fixed: migration applied, schema snapshot refreshed |
+| `4` | Downstream consumers (`PublishingPlans.tsx`, `ReviewStep.tsx`) | No change needed, both already read the persisted value correctly |
+| `5` | Catch-all | Nothing beyond the logged unrelated finding |
 
-**Important — this is a schema-only default change.** It does not
-touch any existing row. Do not add an `UPDATE` statement to this
-migration under any circumstances — see `3.a.iii`'s guardrail note
-above for why.
+**Net effect:** a new application to `/[countryCode]/apply` now
+defaults the Android App toggle to **on**; a user who explicitly
+toggles it off still gets `false`, correctly, at every layer (client
+state, submit serialization, and — for direct inserts bypassing the
+app entirely — the DB column default). Existing resellers' data is
+untouched.
 
-Once `3.a.ii.zo.x` is done, advance the pointer to `3.a.iii.x`... but
-per the formula, `iii` itself needs its own `zi`/`zo` before an `x` —
-`3.a.iii` (confirm no backfill happened) should be decomposed into a
-`zi` (diff `schema.sql` before/after to confirm only the `DEFAULT`
-changed, no row data changed) and a `zo` (spot-check a known-`false`
-existing row still reads `false`) when that session picks it up.
+**Known follow-up, deliberately not folded into this task:** the
+dead-code/phantom-table finding in `getApplicationDraft.ts` /
+`saveApplicationDraft.ts` (see "Unrelated finding" above) — still
+open, needs its own task if/when someone wants to either fix or
+delete the draft-save feature.
 
 ### Delivery for this task
 - `1.a.ii.zi.x` — the one-line fix (commit `b04ae78`). Delivered via
@@ -952,11 +964,13 @@ existing row still reads `false`) when that session picks it up.
   needed.
 - `1.c` / `1.d` / branch `2` — closed, no delivery needed (no code
   change made).
-- `3.a.ii.zi.x` — the new migration file, drafted this session, local
-  to this sandbox as of this entry. Delivered via the normal Standing
-  handoff process — see the patch filename in the log entry below.
-  **Not yet applied to the live DB** — that's `3.a.ii.zo.x`, a
-  separate direct-command step for the user to run in Ubuntu.
+- `3.a.ii.zi.x` — the migration file (commit `c099f24`). Delivered via
+  the normal Standing handoff process.
+- `3.a.ii.zo.x` — applied directly by the user in the Ubuntu
+  environment (not a patch — a live DB operation); schema snapshot
+  refreshed and pushed directly (`fce05f6`) per the schema-snapshot
+  direct-push rule.
+- `3.a.iii` / branch `4` — verification-only, no delivery needed.
 
 ## Log
 
@@ -980,3 +994,4 @@ existing row still reads `false`) when that session picks it up.
 | 2026-09-15 | Pointer-execution session (cont.) | Completed `1.a.iii.zi.x` and `1.a.iii.zo.x` (verification-only): both `getApplicationDraft.ts` and `saveApplicationDraft.ts` reference a table/columns (`reseller_applications`, `application_data`, `current_step`, `draft_saved_at`) that don't exist in the live schema, but both are only called from code that's entirely commented out in `ApplicationWizard.tsx` — no live path exists for this task's concern to matter. Logged the dead-code/phantom-table issue as a separate, unaddressed finding rather than fixing it (out of scope for Task 2). Advanced the pointer to `1.b.ii.zi.x`: the mirror `|| false` bug in `ApplicationWizard.tsx` line 127's submit-time serialization. No patch produced this round — pure investigation/documentation turn, no code changed. |
 | 2026-09-16 | Pointer-execution session | Delivered `1.b.ii.zi.x`: changed `ApplicationWizard.tsx` line 127 to `String(formData.androidApp ?? true)` (commit `a02ca8f`) — same bug pattern as `1.a.ii`, one layer up. Completed `1.b.ii.zo.x` (verification-only): the only other reference to `formData.androidApp` in the file is a plain truthy guard (notification-icon attach condition), not a re-derivation — no fix needed. Advanced the pointer to `1.b.iii.zi.x`: confirm `submitApplication.ts` line 40's `=== "true"` parsing is still correct given what `1.b` now always sends. |
 | 2026-09-16 | Pointer-execution session (cont.) | Closed `1.b.iii` (both `zi`/`zo` — no fix needed, only caller confirmed), `1.c` (UI copy — closed with no change, no product ask to update it), `1.d` (nothing surfaced, closed empty), and branch `2` (same file/line as `1.b.iii`, already resolved). `1` and `2` are now fully done. Moved to branch `3` (DB column defaults): drafted `supabase/migrations/20260916_default_android_app_true.sql` setting `DEFAULT true` on both `global_reseller_applications.android_app` and `resellers.android_app`, explicitly with no `UPDATE` statement (existing rows must not be backfilled). Advanced pointer to `3.a.ii.zo.x` — applying this migration to the live DB is a separate direct-command step for the user, not part of this patch. |
+| 2026-09-17 | Task-closing session | User applied the migration in Ubuntu (`ALTER TABLE` x2, no errors) and pushed a refreshed `schema.sql` snapshot directly (`fce05f6`) per the schema-snapshot rule. Diffed `schema.sql` before (`c099f24`) vs. after (`fce05f6`): confirmed the *only* `public.*` schema changes are the two intended `DEFAULT false` → `DEFAULT true` flips — no backfill, no other drift (the rest of the diff is Supabase's own managed `auth` schema picking up unrelated platform features between dumps). Completed branch `4` (downstream consumers) as verification-only: `PublishingPlans.tsx` and `ReviewStep.tsx` both already read the persisted value correctly, no code changes needed. Closed branch `5` (nothing surfaced). **Task 2 is now RESOLVED** — every branch of the `1-5` architecture is closed; see the "Resolution summary" table in the task section above. One known follow-up deliberately left open, not folded into this task: the dead-code/phantom-table finding in `getApplicationDraft.ts`/`saveApplicationDraft.ts`. |
