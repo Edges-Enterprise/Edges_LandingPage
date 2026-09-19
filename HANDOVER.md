@@ -1130,10 +1130,10 @@ reverted it) before treating the working tree as clean, especially
 across multiple build iterations in the same session.
 
 ### Delivery for this task
-Committed locally as `104bef2` (105 files changed: 89 stubs + 6
-real fixes + 8 disabled/renamed modals + 1 README + 1 deletion). Not
-yet delivered to the user — patch generation and the handoff command
-follow immediately after this log entry.
+Delivered as two patches, applied and pushed by the user
+(`c21232f` — the fix; `8351a70` — this documentation). **Vercel deploy
+on `handover/supabase-dump` confirmed green** by the user after push —
+this task is fully closed, not just locally verified.
 
 ---
 
@@ -1162,3 +1162,4 @@ follow immediately after this log entry.
 | 2026-09-17 | Task-closing session | User applied the migration in Ubuntu (`ALTER TABLE` x2, no errors) and pushed a refreshed `schema.sql` snapshot directly (`fce05f6`) per the schema-snapshot rule. Diffed `schema.sql` before (`c099f24`) vs. after (`fce05f6`): confirmed the *only* `public.*` schema changes are the two intended `DEFAULT false` → `DEFAULT true` flips — no backfill, no other drift (the rest of the diff is Supabase's own managed `auth` schema picking up unrelated platform features between dumps). Completed branch `4` (downstream consumers) as verification-only: `PublishingPlans.tsx` and `ReviewStep.tsx` both already read the persisted value correctly, no code changes needed. Closed branch `5` (nothing surfaced). **Task 2 is now RESOLVED** — every branch of the `1-5` architecture is closed; see the "Resolution summary" table in the task section above. One known follow-up deliberately left open, not folded into this task: the dead-code/phantom-table finding in `getApplicationDraft.ts`/`saveApplicationDraft.ts`. |
 | 2026-09-17 | Follow-up sequencing session | User asked to leave Task 2's phantom-table/dead-code follow-up alone for now, but to chain it right after the Task 1 password-rotation reminder rather than let it get lost. Added a "Chained reminder" note in Task 1's status block: once the DB password is actually rotated (project wrap-up), also raise the `getApplicationDraft.ts`/`saveApplicationDraft.ts` issue at that same checkpoint. No urgency forcing it earlier — it's inert dead code today. |
 | 2026-09-17 | Build-fix session (Task 3) | User pasted a live Vercel build failure (`admin/error.tsx` must be a Client Component). Traced to the file being 0 bytes, then discovered 89 more empty Next.js special route files that would each break the build in turn, plus an entire orphaned `src/components/reseller/modals/` directory (8 files) with stale/broken API calls, plus several unrelated real bugs (async-params migration gaps, an orphaned duplicate route, a type mismatch, a dead no-op config export). User chose **Option A** (honest placeholders, not real feature builds) as the standing policy for scaffold routes going forward, unless a task specifically targets that route. Added the new "Standing policy" section codifying this. Fixed everything, verified with a full local `next build` (0 errors, 0 warnings, 72 pages) using temporary, fully-reverted local-only stubs to work around this sandbox's lack of network access to Google Fonts. Committed locally as `104bef2`; patch generation and push command follow this log entry. |
+| 2026-09-19 | Deploy-confirmation session | User applied and pushed both Task 3 patches (`c21232f`, `8351a70`) and confirmed the resulting Vercel deploy on `handover/supabase-dump` is green. **Task 3 is fully closed** — matches the local verification from the prior session, now confirmed against the real Vercel build environment rather than just this sandbox's approximation of it. |
