@@ -118,6 +118,59 @@ starts work, and any branch left unspecified should say so explicitly
 (e.g. "3.b — not yet decomposed, scope unclear") rather than being
 silently absent.
 
+## Standing policy — empty/broken scaffold routes get "Option A" (placeholder), not full builds, unless the current task needs them
+
+This codebase has a recurring pattern, found and confirmed twice now
+(`supabase/rpc/**` in Task 1; 89 empty Next.js special route files plus
+an entire `src/components/reseller/modals/` directory of orphaned,
+broken components in the 2026-09-17 Vercel-build-fix session): large
+amounts of scaffolding — folders, route files, components — were
+created early on but never actually filled in or wired up. This isn't
+a one-off; assume more of it exists elsewhere in the tree until proven
+otherwise.
+
+**The standing rule, set explicitly by the user:** when a session hits
+one of these (an empty required file breaking a build, an orphaned
+component with a stale/broken API call, etc.) that isn't itself the
+thing the *current task* is about, the default is **Option A** — get
+it to a valid, honestly-labeled, non-broken state (a "coming soon"
+placeholder, a 501 stub, a `.tsx.disabled` rename with an explanatory
+note) and move on. Do **not** default to actually building out the
+real feature that file was meant to hold — that's Option B, and it
+only happens when a task is specifically opened for that route/feature
+and scoped deliberately, the same way Task 2 was opened specifically
+for the Android App toggle rather than trying to fix everything
+`StoreConfigStep.tsx` touches.
+
+This flips only when the task at hand *is* that route: if a future
+task explicitly needs to build out, say, `/[countryCode]/admin/reports`,
+then that page's stub gets replaced with a real implementation as part
+of that task — Option A was never meant to be permanent for a route
+someone is actively working on, only for everything currently
+untouched by the task in front of a session.
+
+Practical guidance for applying Option A:
+- **Empty `page.tsx`/`layout.tsx`**: minimal valid component, clearly
+  commented as a placeholder, honest "coming soon" UI — not empty, not
+  fake-functional.
+- **Empty `route.ts`**: valid exported handler(s) returning a 501 "Not
+  implemented yet" — never a fabricated success response.
+- **A non-empty but broken/orphaned component** (confirmed unused via
+  a repo-wide import search first — don't assume, check): if the fix
+  is purely mechanical (a type annotation, a stale but unambiguous
+  calling convention), just fix it. If the fix requires a real
+  business-logic judgment call (which price field, what a required
+  param should be) that isn't yours to guess at, rename `.tsx` to
+  `.tsx.disabled` (drops out of the TypeScript build glob without
+  touching shared config) with an in-file comment explaining exactly
+  what's broken and what re-enabling it would require. A directory
+  with more than one such file gets a `README.md` instead of repeating
+  the same note per file.
+- Always confirm a component is actually unused (grep for its import
+  path across the repo) before disabling it — disabling something
+  that's live and load-bearing would be a real regression, not a
+  cleanup.
+
 ## Standing handoff process (read this first — applies to every task, not just Task 1)
 
 Sandbox sessions building work for these repos do **not** have GitHub
@@ -986,6 +1039,104 @@ delete the draft-save feature.
   direct-push rule.
 - `3.a.iii` / branch `4` — verification-only, no delivery needed.
 
+---
+
+## Task 3 — Vercel build broken: empty admin/error.tsx, plus a much bigger scaffold problem (2026-09-17)
+
+**Status: RESOLVED.** This was reactive incident response (a broken
+production deploy), not a pre-scoped task run through the pointer
+methodology — logged here in full for continuity, same as any other
+task, but it didn't start with a `1-5/a-d/i-iii/zi-zo/x` breakdown
+since the user pasted a live build failure needing an immediate fix,
+not a planned piece of work.
+
+### Context
+User pasted a Vercel build log. The proximate crash:
+`src/app/[countryCode]/admin/error.tsx` must be a Client Component.
+Investigating revealed this was one symptom of a much larger, systemic
+issue — see the new "Standing policy — empty/broken scaffold routes"
+section above, which this task's findings directly produced.
+
+### What was found and fixed (in the order encountered)
+1. **`admin/error.tsx` was 0 bytes** — the real root cause. Written
+   with real, working content matching the existing
+   `dashboard/error.tsx` pattern.
+2. **89 more empty Next.js special route files** (`page.tsx` x30,
+   `layout.tsx` x28, `loading.tsx` x1, `route.ts` x30) across
+   `admin/`, `dashboard/`, and `api/` — each would break the build in
+   turn as Turbopack's type-checker reached them one at a time.
+   Reproduced the full build locally (worked around this sandbox's
+   lack of network access to `fonts.googleapis.com` with a temporary,
+   fully-reverted local font stub + dummy `.env.local`, neither ever
+   committed) to catalog every failure at once instead of one slow
+   Vercel deploy per file. Per the user's explicit **Option A**
+   decision: stubbed all 89 with honest "coming soon" placeholders
+   (pages/layouts) or 501 "Not implemented yet" (API routes).
+3. **4 real route handlers** using the pre-Next-15 synchronous
+   `params` pattern — fixed mechanically:
+   `config/[configId]/route.ts`, `wallet/fund/route.ts`,
+   `webhooks/build/route.ts`, `webhooks/[countryCode]/payment/route.ts`.
+4. **1 orphaned duplicate route**: `api/store/storeName/favicon/route.ts`
+   — a literal `storeName` folder (missing brackets), so it never
+   matched any real request URL; its own header comment even said it
+   belonged at the bracketed path. Deleted — the correctly-bracketed
+   version already exists among the 89 stubs.
+5. **1 genuine type mismatch**: `payment/route.ts` passed a plain
+   `string` where `PaymentGatewayType` was expected. Fixed using the
+   exact type-assertion idiom already used elsewhere in the same
+   module (`getPaymentGatewayByCountry`).
+6. **`src/components/reseller/modals/` — an entire directory of
+   orphaned dead scaffold**, confirmed via repo-wide import search
+   (none of the 8 files are used anywhere): `CreateOrderModal.tsx`,
+   `FundWalletModal.tsx`, `CreateCustomerModal.tsx`, `CreatePlanModal.tsx`,
+   `EditPlanModal.tsx`, `PurchaseModal.tsx`, `SupportTicketModal.tsx`,
+   `WithdrawModal.tsx`. Same pattern as `supabase/rpc/**` from Task 1.
+   Two reviewed in real depth (`CreateOrderModal.tsx`: unresolved
+   `plan.price` vs. `base_price`/`config.selling_price` ambiguity —
+   a real-money field, not guessed at; `FundWalletModal.tsx`: calls
+   `fundWallet(amount, paymentMethod)` positionally against a real
+   action requiring `countryCode` and using `mobileMoney`, not
+   `paymentMethod` — not a mechanical fix). The other 6 disabled on
+   sight given the confirmed directory-wide pattern, flagged as
+   "not yet reviewed in detail" rather than pretending they were
+   checked as thoroughly as the first two. Renamed `.tsx` →
+   `.tsx.disabled` (drops out of the TypeScript build glob without
+   touching shared `tsconfig.json`), with a `README.md` in the
+   directory explaining the pattern and the real re-enable process.
+7. **Dead `config` export removed** from
+   `src/app/api/webhooks/xixapay/route.ts` — a Pages-Router-style
+   `export const config = { api: { bodyParser... } }` that App Router
+   never reads at all; pure no-op that only produced a build warning.
+   Confirmed App Router route handlers have no equivalent per-route
+   body-size config (it's a platform/hosting-level concern instead).
+
+### Verification
+Full local `next build`, from the actual committed source (temporary
+font/env stubs applied only for testing, then fully reverted — checked
+via `git diff` afterward to confirm the real Google Font imports and
+no `.env.local` are back in their original state before committing):
+**0 errors, 0 warnings, all 72 static/dynamic pages generated.**
+
+### One process note for future sessions
+Partway through, an earlier revert of the temporary font stubs (used
+to work around the sandbox's network restriction) didn't fully take —
+a second round of stubbing was applied without reverting immediately
+after, and `git status` caught it before anything was committed. Fixed
+via `git checkout -- <files>` against `HEAD` rather than manual
+reconstruction, then re-verified with a clean build from that exact
+state. Lesson for next time: after any temporary local-only stub,
+immediately verify with `git diff` (not just visual memory of having
+reverted it) before treating the working tree as clean, especially
+across multiple build iterations in the same session.
+
+### Delivery for this task
+Committed locally as `104bef2` (105 files changed: 89 stubs + 6
+real fixes + 8 disabled/renamed modals + 1 README + 1 deletion). Not
+yet delivered to the user — patch generation and the handoff command
+follow immediately after this log entry.
+
+---
+
 ## Log
 
 | Date | Session | Notes |
@@ -1010,3 +1161,4 @@ delete the draft-save feature.
 | 2026-09-16 | Pointer-execution session (cont.) | Closed `1.b.iii` (both `zi`/`zo` — no fix needed, only caller confirmed), `1.c` (UI copy — closed with no change, no product ask to update it), `1.d` (nothing surfaced, closed empty), and branch `2` (same file/line as `1.b.iii`, already resolved). `1` and `2` are now fully done. Moved to branch `3` (DB column defaults): drafted `supabase/migrations/20260916_default_android_app_true.sql` setting `DEFAULT true` on both `global_reseller_applications.android_app` and `resellers.android_app`, explicitly with no `UPDATE` statement (existing rows must not be backfilled). Advanced pointer to `3.a.ii.zo.x` — applying this migration to the live DB is a separate direct-command step for the user, not part of this patch. |
 | 2026-09-17 | Task-closing session | User applied the migration in Ubuntu (`ALTER TABLE` x2, no errors) and pushed a refreshed `schema.sql` snapshot directly (`fce05f6`) per the schema-snapshot rule. Diffed `schema.sql` before (`c099f24`) vs. after (`fce05f6`): confirmed the *only* `public.*` schema changes are the two intended `DEFAULT false` → `DEFAULT true` flips — no backfill, no other drift (the rest of the diff is Supabase's own managed `auth` schema picking up unrelated platform features between dumps). Completed branch `4` (downstream consumers) as verification-only: `PublishingPlans.tsx` and `ReviewStep.tsx` both already read the persisted value correctly, no code changes needed. Closed branch `5` (nothing surfaced). **Task 2 is now RESOLVED** — every branch of the `1-5` architecture is closed; see the "Resolution summary" table in the task section above. One known follow-up deliberately left open, not folded into this task: the dead-code/phantom-table finding in `getApplicationDraft.ts`/`saveApplicationDraft.ts`. |
 | 2026-09-17 | Follow-up sequencing session | User asked to leave Task 2's phantom-table/dead-code follow-up alone for now, but to chain it right after the Task 1 password-rotation reminder rather than let it get lost. Added a "Chained reminder" note in Task 1's status block: once the DB password is actually rotated (project wrap-up), also raise the `getApplicationDraft.ts`/`saveApplicationDraft.ts` issue at that same checkpoint. No urgency forcing it earlier — it's inert dead code today. |
+| 2026-09-17 | Build-fix session (Task 3) | User pasted a live Vercel build failure (`admin/error.tsx` must be a Client Component). Traced to the file being 0 bytes, then discovered 89 more empty Next.js special route files that would each break the build in turn, plus an entire orphaned `src/components/reseller/modals/` directory (8 files) with stale/broken API calls, plus several unrelated real bugs (async-params migration gaps, an orphaned duplicate route, a type mismatch, a dead no-op config export). User chose **Option A** (honest placeholders, not real feature builds) as the standing policy for scaffold routes going forward, unless a task specifically targets that route. Added the new "Standing policy" section codifying this. Fixed everything, verified with a full local `next build` (0 errors, 0 warnings, 72 pages) using temporary, fully-reverted local-only stubs to work around this sandbox's lack of network access to Google Fonts. Committed locally as `104bef2`; patch generation and push command follow this log entry. |
