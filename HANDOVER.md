@@ -1139,7 +1139,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `1.a.ii.zo.x`** (see below).
+**Status: OPEN. Active pointer: `1.b.iii.zi.x`** (see below).
 
 ### Context
 
@@ -1340,19 +1340,41 @@ worth correcting or adding before locking in an architecture:
                DONE, see findings below
            zo. Apply to live DB (direct psql command per the
                migrations handoff process), refresh schema.sql
-               snapshot
-               x. <ACTIVE POINTER — see "Next atomic step" below>
+               snapshot — DONE, see findings below
       iii. Confirm no existing multi-country code path assumes
            global_customers' current bare shape in a way this
            migration would break — DONE, see findings below
+
+   1.a is now fully closed (i, ii, iii all done).
+
    b. Auth actions — synthetic-email-per-store pattern from the
       legacy `registerCustomerToReseller`/`getCustomerAuthEmail`
       (confirmed exact mechanism above), adapted to global_customers,
       scoped by store_slug alone (finding #1)
-      i.   Not yet decomposed — registerCustomerToGlobalReseller
-           (mirrors registerCustomerToReseller)
-      ii.  Not yet decomposed — getGlobalCustomerAuthEmail (mirrors
-           getCustomerAuthEmail)
+      i.   registerCustomerToGlobalReseller (mirrors
+           registerCustomerToReseller) — DONE, see findings below
+           zi. Write the action — DONE
+           zo. Verify field/table names against the live schema
+               (post-migration) via a full project type-check — DONE
+      ii.  getGlobalCustomerAuthEmail (mirrors getCustomerAuthEmail)
+           zi. Write the action — DONE, see findings below
+           zo. Verify against the live schema, same as 1.b.i.zo —
+               DONE (same full-project type-check covered both)
+
+   1.b.i and 1.b.ii are both fully closed.
+
+      iii. Sign-up/sign-in handler wiring (mirrors handleAuth from
+           old-storeName/StoreContent.tsx)
+           zi. Not yet decomposed — write the client-side handler
+               (calls registerCustomerToGlobalReseller /
+               getGlobalCustomerAuthEmail + Supabase Auth
+               signUp/signInWithPassword, mirroring handleAuth's
+               control flow exactly)
+               x. <ACTIVE POINTER — see "Next atomic step" below>
+           zo. Not yet decomposed — verify against the new
+               StoreContent.tsx's actual auth-state shape once that
+               exists (branch 3.a) — may need to come back to this
+               after 3.a is underway rather than in isolation
       iii. Not yet decomposed — sign-up/sign-in handler wiring
            (mirrors handleAuth from old-storeName/StoreContent.tsx)
    c. Wallet & virtual-account/funding actions for customers
@@ -1463,41 +1485,74 @@ worth correcting or adding before locking in an architecture:
   files, so they don't break builds), just noting it since it was
   found directly adjacent to this work.
 
-### Next atomic step — active pointer `1.a.ii.zo.x`
+### Findings from this session (1.a.ii.zo, 1.b.i, 1.b.ii — DONE, 2026-09-20)
 
-**This is a direct-command step for the user, not a patch.** Run in
-the Ubuntu environment, from `~/ubuntu-repos/Edges_LandingPage`,
-**after** pulling this task's patch so the migration file is present:
+- **`1.a.ii.zo`**: user applied the migration in Ubuntu (`ALTER TABLE`
+  x2 / `CREATE TABLE` x2, no errors, pre-flight duplicate check passed
+  silently — meaning zero existing `(reseller_id, email)` collisions).
+  Pushed a refreshed `schema.sql` directly (`b13940f`). Diffed
+  `schema.sql` before (`b25548e`) vs. after (`b13940f`): confirmed the
+  *only* changes are the two new tables (with all their constraints
+  and indexes) and the three new `global_customers` columns plus its
+  new unique constraint — no other drift.
+- **`1.b.i`**: wrote
+  `src/actions/reseller/customers/registerCustomerToGlobalReseller.ts`
+  (commit `dda6686`), mirroring legacy's `registerCustomerToReseller`
+  logic against `global_*` tables. Two deliberate, documented
+  deviations from a literal port: `global_customers.last_name` is
+  `NOT NULL` (legacy's isn't) — uses an empty string rather than
+  fabricating a surname; and the new customer wallet's `currency` is
+  resolved via `getCountryConfig(reseller.country_code)` rather than
+  left to the column's `USD` default, so a Nigerian customer's wallet
+  doesn't silently show as USD.
+- **`1.b.ii`**: wrote
+  `src/actions/reseller/customers/getGlobalCustomerAuthEmail.ts`
+  (commit `6ad1b85`), mirroring legacy's `getCustomerAuthEmail`. Uses
+  `.maybeSingle()` instead of legacy's `.single()` for the
+  might-not-exist customer lookup — more correct than relying on how
+  `supabase-js` happens to behave when `.single()` finds no row and
+  the caller doesn't check the error.
+- Both new files verified via a full project `npx tsc --noEmit -p
+  tsconfig.json` (not just an isolated single-file check, which can't
+  resolve the `@/*` path aliases and would false-positive) — **0
+  errors across the entire project**, both times.
 
-```bash
-export PGPASSWORD='<current-db-password-from-dashboard>' \
-       DBHOST='aws-0-eu-central-1.pooler.supabase.com' \
-       DBPORT=5432 DBUSER='postgres.jjyyfaxcwanrmiipzkoj' DBNAME='postgres' && \
-psql -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" \
-     -v ON_ERROR_STOP=1 \
-     -f supabase/migrations/20260919_customer_auth_wallet_schema.sql && \
-echo "Migration applied: 20260919_customer_auth_wallet_schema.sql"
-```
+### Next atomic step — active pointer `1.b.iii.zi.x`
 
-If the pre-flight `DO` block raises an exception naming existing
-duplicate `(reseller_id, email)` pairs, **stop and report back** rather
-than trying to force it through — those rows need a real decision
-(merge vs. manual dedupe), not a blind fix.
+**File (new):** a client-side auth handler mirroring `handleAuth` from
+`old-storeName/StoreContent.tsx` (confirmed in this task's original
+investigation — branches on sign-up vs. sign-in mode, calls
+`getCustomerAuthEmail`/`registerCustomerToReseller` then Supabase
+Auth's `signInWithPassword`/`signUp`). The new version should call
+`getGlobalCustomerAuthEmail`/`registerCustomerToGlobalReseller`
+(both now written) in the same control-flow shape, but the exact
+file location depends on how far branch `3.a` (the new
+`StoreContent.tsx`) has progressed — if that file doesn't exist yet
+in usable form, this may be better written as a standalone hook/helper
+first (e.g. `src/hooks/customer/useCustomerAuth.ts`) and wired into
+`StoreContent.tsx` once that catches up, rather than blocking on it.
+Confirm which makes more sense at the start of the session that picks
+this up, rather than assuming.
 
-Then take a fresh `pg_dump` and commit the refreshed `schema.sql`
-directly (per the schema-snapshot direct-push rule — not a patch), so
-the tracked snapshot reflects the new tables/columns.
-
-Once `1.a.ii.zo.x` is done, advance the pointer to `1.b.i.x` (branch
-`a` — schema — is then fully closed; branch `b`, auth actions, needs
-its own `i.x` set as the next pointer once that session picks it up)
-per the pointer-advancement order in the methodology section above.
+Once this `x` is done, advance the pointer to `1.b.iii.zo.x` (verify
+against the new `StoreContent.tsx`'s actual auth-state shape, which
+may itself still be pending — use judgment on ordering here) per the
+pointer-advancement order in the methodology section above.
 
 ### Delivery for this task
 - `1.a.ii.zi.x` — the migration file (commit `cbe9f9e`). Delivered via
-  the normal Standing handoff process (patch + `git am` + `git push`).
-- `1.a.iii` — verification-only, no delivery needed (see findings
-  above).
+  the normal Standing handoff process.
+- `1.a.iii` — verification-only, no delivery needed.
+- `1.a.ii.zo.x` — applied directly by the user in Ubuntu; schema
+  snapshot refreshed and pushed directly (`b13940f`) per the
+  schema-snapshot direct-push rule.
+- `1.b.i.zi.x` — `registerCustomerToGlobalReseller.ts` (commit
+  `dda6686`). Delivered via the normal Standing handoff process.
+- `1.b.i.zo.x` — verification-only (full-project type-check), no
+  delivery needed beyond the code itself.
+- `1.b.ii.zi.x` — `getGlobalCustomerAuthEmail.ts` (commit `6ad1b85`).
+  Delivered via the normal Standing handoff process.
+- `1.b.ii.zo.x` — verification-only, no delivery needed.
 
 ---
 
@@ -1529,3 +1584,4 @@ per the pointer-advancement order in the methodology section above.
 | 2026-09-19 | Deploy-confirmation session | User applied and pushed both Task 3 patches (`c21232f`, `8351a70`) and confirmed the resulting Vercel deploy on `handover/supabase-dump` is green. **Task 3 is fully closed** — matches the local verification from the prior session, now confirmed against the real Vercel build environment rather than just this sandbox's approximation of it. |
 | 2026-09-19 | Task-opening session | Opened Task 4 (rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront, replacing cart/checkout entirely) from the attached `TASK-CUSTOMER-STOREFRONT-BRIEF.md`. Read `old-storeName/StoreContent.tsx` in full (3920 lines) and verified every specific behavioral claim in the brief against the actual code. Corrected/added eight findings beyond the brief's own draft architecture — most significantly: `global_reseller_stores` is dead unused schema (don't build against it); the purchase/fulfillment RPCs (`create_purchase_order` etc.) are confirmed legacy-table-bound (`INSERT INTO reseller_orders`, not `global_orders`) and need new `global_*` equivalents, not reuse; `CountryConfig` already has `phoneCode`/`currency`/`currencySymbol`/`paymentGateway.methods`, shrinking the "multi-country adaptations" branch considerably; and a real bug in the current `page.tsx` (`p.network` should be `p.provider` — `global_plans` has no `network` column). User confirmed the funding-model split (xixapay/virtual-account for NG only, mobile money via korapay with flutterwave as korapay's fallback everywhere else) — verified this is already correctly implemented for the reseller's own wallet (`FundWalletModal.tsx` + `fundWallet.ts` + `getPaymentGatewayByCountry`), giving a direct template to reuse for the customer side. Laid out the full `1-5/a-d/i-iii/zi-zo/x` architecture; set the active pointer to `1.a.ii.zi.x` — drafting the schema migration (auth columns + unique constraint on `global_customers`, plus two new customer wallet/virtual-account tables). No patch produced yet. |
 | 2026-09-19 | Pointer-execution session | Delivered `1.a.ii.zi.x`: drafted `supabase/migrations/20260919_customer_auth_wallet_schema.sql` (commit `cbe9f9e`) — three new `global_customers` columns, a `UNIQUE (reseller_id, email)` constraint with a pre-flight duplicate-check `DO` block, and two new tables (`global_customer_wallets`, `global_customer_virtual_accounts`) mirroring the reseller-side equivalents' exact shapes. Completed `1.a.iii` (verification-only): checked every current reader/writer of `global_customers` and confirmed the new unique constraint matches existing application-layer duplicate-email rejection in `createCustomer.ts` — safe to apply. Also noted (not fixed, out of scope) that 13 pre-existing "historical" migration files are all 0 bytes, same scaffolded-but-never-filled-in pattern found elsewhere in this project. Advanced the pointer to `1.a.ii.zo.x` — applying the migration to the live DB is a separate direct-command step for the user, not part of this patch. |
+| 2026-09-20 | Pointer-execution session | User applied the migration in Ubuntu and pushed a refreshed `schema.sql` directly (`b13940f`). Diffed before/after: confirmed only the intended additions landed. `1.a` is now fully closed. Wrote and delivered `registerCustomerToGlobalReseller.ts` (`1.b.i`, commit `dda6686`) and `getGlobalCustomerAuthEmail.ts` (`1.b.ii`, commit `6ad1b85`), both mirroring their legacy equivalents against `global_*` tables, each with a documented, deliberate deviation (NOT NULL `last_name` handling; country-resolved wallet currency; `.maybeSingle()` over `.single()`). Verified both with a full-project `tsc --noEmit` (0 errors), not just isolated single-file checks. `1.b.i` and `1.b.ii` are now fully closed. Advanced the pointer to `1.b.iii.zi.x` — the client-side auth handler mirroring legacy's `handleAuth`; flagged that its exact file location depends on how far `StoreContent.tsx`'s rebuild (branch `3.a`) has progressed by the time that session starts, rather than assuming a location now. |
