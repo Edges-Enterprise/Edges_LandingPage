@@ -1139,7 +1139,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `1.a.ii.zi.x`** (see below).
+**Status: OPEN. Active pointer: `1.a.ii.zo.x`** (see below).
 
 ### Context
 
@@ -1336,15 +1336,15 @@ worth correcting or adding before locking in an architecture:
            global_customer_virtual_accounts (reseller_id, customer_id,
            account_number, bank_name, account_name, provider, status —
            mirroring global_virtual_accounts's shape, finding #5)
-           zi. Draft the migration file covering i + ii together
+           zi. Draft the migration file covering i + ii together —
+               DONE, see findings below
+           zo. Apply to live DB (direct psql command per the
+               migrations handoff process), refresh schema.sql
+               snapshot
                x. <ACTIVE POINTER — see "Next atomic step" below>
-           zo. Not yet decomposed — apply to live DB (direct psql
-               command per the migrations handoff process), refresh
-               schema.sql snapshot
-      iii. Not yet decomposed — confirm no existing multi-country code
-           path assumes global_customers' current bare shape in a way
-           this migration would break (grep every current reader of
-           global_customers before applying)
+      iii. Confirm no existing multi-country code path assumes
+           global_customers' current bare shape in a way this
+           migration would break — DONE, see findings below
    b. Auth actions — synthetic-email-per-store pattern from the
       legacy `registerCustomerToReseller`/`getCustomerAuthEmail`
       (confirmed exact mechanism above), adapted to global_customers,
@@ -1431,48 +1431,73 @@ worth correcting or adding before locking in an architecture:
       process
 ```
 
-### Findings from this session (1.a.i — DONE, 2026-09-19)
+### Findings from this session (1.a.ii.zi, 1.a.iii — DONE, 2026-09-19)
 
-Confirmed via direct schema inspection (see "Reality check" #4 above):
-`global_customers` has no `auth_user_id`, `auth_email`, or
-`transaction_pin` columns, and no `UNIQUE` constraint on
-`(reseller_id, email)`. Both gaps need addressing in the same
-migration — the missing columns (as the brief expected) and the
-missing constraint (found during this session, not in the brief).
+- **`1.a.ii.zi`**: drafted
+  `supabase/migrations/20260919_customer_auth_wallet_schema.sql`
+  (commit `cbe9f9e`). Covers `1.a.i` + `1.a.ii` together as one
+  reviewable schema change: the three new `global_customers` columns,
+  the new `UNIQUE (reseller_id, email)` constraint (with a pre-flight
+  `DO` block that checks for existing duplicate pairs and raises a
+  clear, named exception if any exist, rather than a cryptic
+  constraint-violation error), and the two new tables — each mirroring
+  `global_wallets`/`global_virtual_accounts`'s exact column shapes
+  (verified via direct schema inspection) plus `customer_id`, with
+  matching FK-cascade and indexing conventions.
+- **`1.a.iii`**: checked every current reader/writer of
+  `global_customers` (`createOrder.ts`, `getOrderDetails.ts`,
+  `getCustomers.ts`, `createCustomer.ts`, `getCustomerDetails.ts`,
+  `updateCustomer.ts`, plus the dashboard customer-management UI) —
+  all reseller-dashboard-side "manually add a customer contact" flows,
+  unrelated to the storefront rebuild. The only `INSERT` path
+  (`createCustomer.ts`) already checks for and rejects a duplicate
+  email before inserting, so the new `UNIQUE (reseller_id, email)`
+  constraint matches existing behavior rather than introducing a new
+  restriction. **Confirmed safe to apply.**
+- Also noted, not fixed (out of scope for this pointer): the 13
+  pre-existing "historical" migration files
+  (`20250101_create_country_configs.sql` through
+  `20250113_create_rpc_functions.sql`) are **all 0 bytes** — same
+  scaffolded-but-never-filled-in pattern as everything else in this
+  project. Doesn't block anything (migrations aren't Next.js route
+  files, so they don't break builds), just noting it since it was
+  found directly adjacent to this work.
 
-### Next atomic step — active pointer `1.a.ii.zi.x`
+### Next atomic step — active pointer `1.a.ii.zo.x`
 
-**File (new):** a `supabase/migrations/` file adding the auth columns
-to `global_customers` plus the two new customer wallet/virtual-account
-tables, in one migration (per `1.a.i` + `1.a.ii` combined, since they're
-tightly related and reviewable together as a single schema change).
+**This is a direct-command step for the user, not a patch.** Run in
+the Ubuntu environment, from `~/ubuntu-repos/Edges_LandingPage`,
+**after** pulling this task's patch so the migration file is present:
 
-Must include:
-- `ALTER TABLE global_customers ADD COLUMN auth_user_id uuid`,
-  `ADD COLUMN auth_email text`, `ADD COLUMN transaction_pin text`
-- A `UNIQUE (reseller_id, email)` constraint on `global_customers`
-  (finding #4 — confirm no existing duplicate `(reseller_id, email)`
-  rows would violate this before applying; check with a `SELECT
-  reseller_id, email, COUNT(*) FROM global_customers GROUP BY 1,2
-  HAVING COUNT(*) > 1` first, as part of this same `x`)
-- `CREATE TABLE global_customer_wallets` (reseller_id, customer_id,
-  balance, currency, total_spent, timestamps) — mirror
-  `global_wallets`'s shape plus `customer_id`
-- `CREATE TABLE global_customer_virtual_accounts` (reseller_id,
-  customer_id, account_number, bank_name, account_name, provider,
-  status, timestamps) — mirror `global_virtual_accounts`'s shape plus
-  `customer_id`, xixapay-only in practice per finding #5 but not
-  worth hardcoding that into the schema itself
-- No `UPDATE` statements — this is additive/schema-only, same
-  guardrail pattern as Task 2's migration
+```bash
+export PGPASSWORD='<current-db-password-from-dashboard>' \
+       DBHOST='aws-0-eu-central-1.pooler.supabase.com' \
+       DBPORT=5432 DBUSER='postgres.jjyyfaxcwanrmiipzkoj' DBNAME='postgres' && \
+psql -h "$DBHOST" -p "$DBPORT" -U "$DBUSER" -d "$DBNAME" \
+     -v ON_ERROR_STOP=1 \
+     -f supabase/migrations/20260919_customer_auth_wallet_schema.sql && \
+echo "Migration applied: 20260919_customer_auth_wallet_schema.sql"
+```
 
-Once this `x` is done, advance the pointer to `1.a.ii.zo.x` (apply to
-the live DB — a direct Ubuntu `psql` command, not a patch — then
-refresh `schema.sql`) per the pointer-advancement order in the
-methodology section above.
+If the pre-flight `DO` block raises an exception naming existing
+duplicate `(reseller_id, email)` pairs, **stop and report back** rather
+than trying to force it through — those rows need a real decision
+(merge vs. manual dedupe), not a blind fix.
+
+Then take a fresh `pg_dump` and commit the refreshed `schema.sql`
+directly (per the schema-snapshot direct-push rule — not a patch), so
+the tracked snapshot reflects the new tables/columns.
+
+Once `1.a.ii.zo.x` is done, advance the pointer to `1.b.i.x` (branch
+`a` — schema — is then fully closed; branch `b`, auth actions, needs
+its own `i.x` set as the next pointer once that session picks it up)
+per the pointer-advancement order in the methodology section above.
 
 ### Delivery for this task
-Not yet started — no patch produced yet for Task 4 as of this entry.
+- `1.a.ii.zi.x` — the migration file (commit `cbe9f9e`). Delivered via
+  the normal Standing handoff process (patch + `git am` + `git push`).
+- `1.a.iii` — verification-only, no delivery needed (see findings
+  above).
 
 ---
 
@@ -1503,3 +1528,4 @@ Not yet started — no patch produced yet for Task 4 as of this entry.
 | 2026-09-17 | Build-fix session (Task 3) | User pasted a live Vercel build failure (`admin/error.tsx` must be a Client Component). Traced to the file being 0 bytes, then discovered 89 more empty Next.js special route files that would each break the build in turn, plus an entire orphaned `src/components/reseller/modals/` directory (8 files) with stale/broken API calls, plus several unrelated real bugs (async-params migration gaps, an orphaned duplicate route, a type mismatch, a dead no-op config export). User chose **Option A** (honest placeholders, not real feature builds) as the standing policy for scaffold routes going forward, unless a task specifically targets that route. Added the new "Standing policy" section codifying this. Fixed everything, verified with a full local `next build` (0 errors, 0 warnings, 72 pages) using temporary, fully-reverted local-only stubs to work around this sandbox's lack of network access to Google Fonts. Committed locally as `104bef2`; patch generation and push command follow this log entry. |
 | 2026-09-19 | Deploy-confirmation session | User applied and pushed both Task 3 patches (`c21232f`, `8351a70`) and confirmed the resulting Vercel deploy on `handover/supabase-dump` is green. **Task 3 is fully closed** — matches the local verification from the prior session, now confirmed against the real Vercel build environment rather than just this sandbox's approximation of it. |
 | 2026-09-19 | Task-opening session | Opened Task 4 (rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront, replacing cart/checkout entirely) from the attached `TASK-CUSTOMER-STOREFRONT-BRIEF.md`. Read `old-storeName/StoreContent.tsx` in full (3920 lines) and verified every specific behavioral claim in the brief against the actual code. Corrected/added eight findings beyond the brief's own draft architecture — most significantly: `global_reseller_stores` is dead unused schema (don't build against it); the purchase/fulfillment RPCs (`create_purchase_order` etc.) are confirmed legacy-table-bound (`INSERT INTO reseller_orders`, not `global_orders`) and need new `global_*` equivalents, not reuse; `CountryConfig` already has `phoneCode`/`currency`/`currencySymbol`/`paymentGateway.methods`, shrinking the "multi-country adaptations" branch considerably; and a real bug in the current `page.tsx` (`p.network` should be `p.provider` — `global_plans` has no `network` column). User confirmed the funding-model split (xixapay/virtual-account for NG only, mobile money via korapay with flutterwave as korapay's fallback everywhere else) — verified this is already correctly implemented for the reseller's own wallet (`FundWalletModal.tsx` + `fundWallet.ts` + `getPaymentGatewayByCountry`), giving a direct template to reuse for the customer side. Laid out the full `1-5/a-d/i-iii/zi-zo/x` architecture; set the active pointer to `1.a.ii.zi.x` — drafting the schema migration (auth columns + unique constraint on `global_customers`, plus two new customer wallet/virtual-account tables). No patch produced yet. |
+| 2026-09-19 | Pointer-execution session | Delivered `1.a.ii.zi.x`: drafted `supabase/migrations/20260919_customer_auth_wallet_schema.sql` (commit `cbe9f9e`) — three new `global_customers` columns, a `UNIQUE (reseller_id, email)` constraint with a pre-flight duplicate-check `DO` block, and two new tables (`global_customer_wallets`, `global_customer_virtual_accounts`) mirroring the reseller-side equivalents' exact shapes. Completed `1.a.iii` (verification-only): checked every current reader/writer of `global_customers` and confirmed the new unique constraint matches existing application-layer duplicate-email rejection in `createCustomer.ts` — safe to apply. Also noted (not fixed, out of scope) that 13 pre-existing "historical" migration files are all 0 bytes, same scaffolded-but-never-filled-in pattern found elsewhere in this project. Advanced the pointer to `1.a.ii.zo.x` — applying the migration to the live DB is a separate direct-command step for the user, not part of this patch. |
