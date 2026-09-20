@@ -1137,6 +1137,345 @@ this task is fully closed, not just locally verified.
 
 ---
 
+## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
+
+**Status: OPEN. Active pointer: `1.a.ii.zi.x`** (see below).
+
+### Context
+
+Full brief: `TASK-CUSTOMER-STOREFRONT-BRIEF.md` (attached by the user,
+not committed to the repo — treat this HANDOVER.md section as the
+authoritative, code-verified version of that brief going forward).
+Summary: `[countryCode]/[storeName]` is currently a cart+checkout flow
+(add items, fill a contact form, write a `pending` order — no auth, no
+payment, no wallet). It needs to become a wallet/PIN/login storefront
+matching `old-storeName` (the Nigeria-only legacy reference) exactly in
+UI/behavior, but working correctly across every supported country.
+Cart/checkout is removed entirely, not kept alongside.
+
+**Locked-in scope decisions (do not re-litigate):**
+- Cart/checkout removed entirely.
+- Multi-country required: currency, providers/networks, phone
+  validation, WhatsApp dial code must be country-driven.
+- Customer storefront stays **data/airtime only** — no
+  electricity/cable, even though `global_plans`/the reseller dashboard
+  already support both.
+- Translations needed for `en`/`fr`/`ar`/`es` (not `pt` — no configured
+  country uses it yet).
+- Funding model (confirmed by the user, see "Reality check" below):
+  xixapay (currently NG only) uses virtual accounts; every other
+  country uses mobile money via korapay, with flutterwave as the
+  fallback for countries korapay doesn't cover.
+
+### Reality check — what direct code inspection found vs. the brief's assumptions
+
+The brief's own architecture sketch (§9) was explicitly a draft. Full
+inspection of `old-storeName/StoreContent.tsx` (3920 lines, read in
+full), the current `[storeName]/*` files, `supabase/schema.sql`, and
+every server action the legacy flow touches surfaced several things
+worth correcting or adding before locking in an architecture:
+
+1. **`store_slug` uniqueness — resolved, not just "confirm this":**
+   `global_reseller_applications_store_slug_key` is a plain
+   `UNIQUE (store_slug)` constraint — **globally** unique, not scoped
+   per country. The synthetic-email lookup can key on `store_slug`
+   alone (matching legacy's `storeName`-only scoping), no compound
+   `countryCode + storeName` key needed.
+
+2. **A real, pre-existing bug in the current `[storeName]/page.tsx`:**
+   it derives the network filter via `products.map(p => p.network)` —
+   but `global_plans` has **no `network` column at all**; the actual
+   column is `provider` (confirmed via the dashboard's
+   `CreatePlanModal.tsx`, which stores network names like "MTN" into
+   `provider`). This filter has always silently returned nothing. Not
+   a bug to fix in isolation — this whole file is being replaced — but
+   don't repeat the mistake in the rebuild.
+
+3. **`global_reseller_stores` is dead schema.** A second table exists
+   alongside `global_reseller_applications` (`application_id`,
+   `reseller_id`, `store_name`, `store_slug` with its own separate
+   `UNIQUE` constraint, `logo_url`, `brand_color`, `theme`,
+   `is_active`) — but **zero code anywhere references it.** The real,
+   live source of store identity is `global_reseller_applications`
+   (confirmed by the current `page.tsx` actually querying it). Don't
+   build against `global_reseller_stores`; flag it as unused schema if
+   it comes up again, same pattern as `supabase/rpc/**` from Task 1.
+
+4. **`global_customers` confirmed bare, exactly as the brief said** —
+   `reseller_id, first_name, last_name, email, phone, address, city,
+   state, country, status`. No `auth_user_id`, `auth_email`,
+   `transaction_pin`. **Additionally found:** no `UNIQUE` constraint on
+   `(reseller_id, email)` either — only a plain (non-unique) index on
+   `email` and the PK on `id`. The migration needs to add this
+   constraint (or enforce it at the application layer) for the
+   multi-store-same-email model to actually prevent duplicate customer
+   rows per store, not just add the auth columns.
+
+5. **Virtual-account funding is real, but its true scope is narrower
+   than "multi-country" suggests, and the user has confirmed the
+   intended design:** only `xixapay` (currently: Nigeria only)
+   implements `createVirtualAccount`, and it's built on Nigeria's BVN
+   system (pulls a pre-verified BVN from a `waitlist` table — see
+   `src/lib/payments/xixapay.ts` lines ~460-520). `korapay` and
+   `flutterwave` have **no virtual-account method** — `korapay.ts` has
+   never had one, `flutterwave.ts` only has it as dead, commented-out
+   code. **This is by design, not a gap to fill**: per-country funding
+   already branches correctly today for the *reseller's own* wallet in
+   `src/app/[countryCode]/dashboard/wallet/FundWalletModal.tsx` — a
+   real, working, multi-gateway component:
+   - `isXixapay` → returns `null` (a different, virtual-account-style
+     modal handles this case — for the reseller side that's presumably
+     a separate legacy-style display, not this component; for the
+     customer side we need the equivalent split).
+   - `isKorapay`/`isFlutterwave` → collects a mobile money number (for
+     Flutterwave and Korapay's "Direct API" mode) or nothing (Korapay's
+     default checkout-redirect mode), hits
+     `/api/reseller/${countryCode}/wallet/fund`, then either shows an
+     STK-prompt message (Korapay Direct API) or redirects to a hosted
+     checkout page (`window.location.href = data.data.redirectUrl`).
+   - Backing action `src/actions/reseller/wallet/fundWallet.ts` already
+     calls `getPaymentGatewayByCountry(countryCode)` generically and
+     delegates to whichever gateway's `initiatePayment` — this pattern
+     is the direct template for the customer-side equivalent.
+   - `korapay.ts`'s `initiatePayment` already builds a hosted-checkout
+     payload with `channels: ["mobile_money"]` / `default_channel:
+     "mobile_money"` — confirms mobile money is already the real,
+     working funding path for korapay countries, not something to
+     build from scratch.
+   **Practical implication:** the customer "Fund Wallet" modal is
+   *not* a literal port of legacy's virtual-account-only modal — it
+   needs the same `isXixapay` / `isKorapay` / `isFlutterwave` branch,
+   reusing this exact pattern, customer-scoped instead of
+   reseller-scoped.
+
+6. **The purchase/fulfillment layer needs real new backend work, not
+   just a wire-up — confirmed by reading `purchasePlan.ts` in full:**
+   - `src/actions/reseller/orders/purchasePlan.ts` (the path under the
+     *new* `src/actions/` tree) is **empty (0 bytes)** — no
+     multi-country purchase action exists at all today.
+   - The real, working implementation legacy actually uses is
+     `src/app/actions/reseller/orders/purchasePlan.ts` (568 lines,
+     `src/app/actions/` tree) — and it is deeply Nigeria/Lizzysub-
+     specific: a hardcoded `NETWORK_MAP` (`MTN: 1, AIRTEL: 2, GLO: 3,
+     "9MOBILE": 4`), a direct call to a Supabase Edge Function named
+     literally `lizzysub-proxy` / `airtime_proxy`, and queries against
+     **legacy tables** (`reseller_customers`, `reseller_customer_wallets`,
+     `reseller_base_plans`, `reseller_plan_configs`,
+     `reseller_transactions`, `reseller_customer_transactions`) — none
+     of which are the `global_*` equivalents.
+   - The RPCs it calls (`get_reseller_balance`, `deduct_reseller_cost`,
+     `process_purchase_deductions`, `create_purchase_order`) are
+     **confirmed legacy-table-bound**, not generic — e.g.
+     `create_purchase_order`'s body does a plain
+     `INSERT INTO reseller_orders (...)`, not `global_orders`. These
+     are **not reusable as-is** for the multi-country flow; new
+     parallel RPCs (matching the `global_*` naming convention
+     established elsewhere, e.g. `deduct_global_reseller_cost`,
+     `process_global_purchase_deductions`, `create_global_purchase_order`,
+     `get_global_reseller_balance`) need to be written, mirroring the
+     legacy ones' logic against `global_wallets`, `global_customer_wallets`
+     (new), `global_orders`, `global_transactions`.
+   - Fulfillment must also dispatch to the right upstream provider per
+     country (`config.providers.data` / `.providers.airtime` — e.g.
+     `lizzysub` for Nigeria, `zendit` for Senegal per
+     `src/config/countries/sn.ts`), not hardcode a single provider.
+     Confirm each configured provider's actual API shape before
+     assuming they all take the same payload shape as Lizzysub's.
+
+7. **`CountryConfig` already has more than the brief assumed**, which
+   shrinks branch 2 (multi-country adaptations) considerably:
+   - `phoneCode` (e.g. `"+234"`) already exists per country — WhatsApp
+     dial-code prefixing is a direct config read, not a lookup to
+     build.
+   - `currency` / `currencySymbol` already exist per country — a
+     generic formatter (symbol + `Intl.NumberFormat` or simple
+     concatenation) replaces `formatNaira` directly, no new per-country
+     data needed.
+   - `paymentGateway.methods` (e.g. `["virtual_account", "card"]` for
+     NG) already declares funding methods per country at the config
+     level.
+   - **Still genuinely missing:** any phone-number length/format
+     validation field — `CountryConfig` has no such field today, only
+     `phoneCode`. Legacy hardcodes an 11-digit check. A lightweight
+     per-country min/max-length field (not a full regex library) is
+     probably the right scope here — confirm this is sufficient rather
+     than over-building it.
+   - **Also missing:** a canonical *networks* list per country.
+     Legacy hardcodes `["MTN", "AIRTEL", "GLO", "9MOBILE"]`; the
+     multi-country version should derive the network/provider tab list
+     from the reseller's actual `global_plans.provider` values (fixing
+     the bug in finding #2), not a static per-country array — plans
+     already carry this data, no new config needed.
+
+8. **Two more orphaned/empty files found in this area, unrelated to
+   the above but worth fixing/removing as part of general hygiene
+   while working in this directory:**
+   - `src/app/[countryCode]/[storeName]/StoreOrderConfirmation.tsx` —
+     0 bytes, not imported anywhere. Will be moot once cart/checkout
+     is removed (branch 4 below); no separate fix needed.
+   - `src/actions/reseller/wallet/customerVirtualAccount.ts` (the
+     `src/actions/` tree path) — 0 bytes, not imported anywhere; the
+     real, working legacy version lives at
+     `src/app/actions/reseller/wallet/customerVirtualAccount.ts`. The
+     new multi-country customer wallet actions this task builds should
+     probably land in the empty `src/actions/` path (matching where
+     `fundWallet.ts`/`createVirtualAccount.ts`/`getPaymentGatewayByCountry`
+     already live for the reseller side), not the legacy `src/app/actions/`
+     tree.
+
+### Full architecture
+
+```
+1. Backend infrastructure
+   a. Schema migration
+      i.   Add auth_user_id, auth_email, transaction_pin to
+           global_customers; add a UNIQUE (reseller_id, email)
+           constraint (finding #4) — DONE, see findings below
+      ii.  Create global_customer_wallets (reseller_id, customer_id,
+           balance, currency, total_spent) and
+           global_customer_virtual_accounts (reseller_id, customer_id,
+           account_number, bank_name, account_name, provider, status —
+           mirroring global_virtual_accounts's shape, finding #5)
+           zi. Draft the migration file covering i + ii together
+               x. <ACTIVE POINTER — see "Next atomic step" below>
+           zo. Not yet decomposed — apply to live DB (direct psql
+               command per the migrations handoff process), refresh
+               schema.sql snapshot
+      iii. Not yet decomposed — confirm no existing multi-country code
+           path assumes global_customers' current bare shape in a way
+           this migration would break (grep every current reader of
+           global_customers before applying)
+   b. Auth actions — synthetic-email-per-store pattern from the
+      legacy `registerCustomerToReseller`/`getCustomerAuthEmail`
+      (confirmed exact mechanism above), adapted to global_customers,
+      scoped by store_slug alone (finding #1)
+      i.   Not yet decomposed — registerCustomerToGlobalReseller
+           (mirrors registerCustomerToReseller)
+      ii.  Not yet decomposed — getGlobalCustomerAuthEmail (mirrors
+           getCustomerAuthEmail)
+      iii. Not yet decomposed — sign-up/sign-in handler wiring
+           (mirrors handleAuth from old-storeName/StoreContent.tsx)
+   c. Wallet & virtual-account/funding actions for customers
+      i.   Not yet decomposed — customer wallet read/create (mirrors
+           getCustomerWalletWithAccounts)
+      ii.  Not yet decomposed — customer virtual-account creation,
+           xixapay-only (mirrors createCustomerVirtualAccount, BVN
+           flow included — finding #5)
+      iii. Not yet decomposed — customer mobile-money funding via
+           fundWallet-equivalent + getPaymentGatewayByCountry, for
+           korapay/flutterwave countries (mirrors the dashboard
+           FundWalletModal.tsx pattern exactly — finding #5)
+   d. Purchase action — new global RPCs + provider-dispatching
+      purchase action (finding #6 — this is real new backend work,
+      not a wire-up)
+      i.   Not yet decomposed — write global_* RPC equivalents
+           (deduct_global_reseller_cost, process_global_purchase_deductions,
+           create_global_purchase_order, get_global_reseller_balance)
+      ii.  Not yet decomposed — provider-dispatch layer (lizzysub,
+           zendit, others per config.providers.data/.airtime — confirm
+           each provider's actual API shape first)
+      iii. Not yet decomposed — the purchase action itself (mirrors
+           purchasePlan.ts's PIN-check/deduct/fulfill/record sequence)
+
+2. Multi-country adaptations (smaller than originally scoped — finding #7)
+   a. Currency formatter using config.currency/currencySymbol —
+      not yet decomposed, likely trivial
+   b. Network/provider tab list derived from global_plans.provider
+      (fixes finding #2's bug) — not yet decomposed
+   c. Phone validation — needs a new lightweight per-country field
+      (min/max length), not yet decomposed
+   d. WhatsApp dial-code prefixing using config.phoneCode directly —
+      not yet decomposed, likely trivial
+
+3. Frontend replacement
+   a. StoreContent.tsx: drop cart/checkout state, add auth/wallet/PIN
+      state (mirrors old-storeName's state shape, confirmed above)
+   b. StoreHeader.tsx: legacy-style header behavior — note the
+      *current* StoreHeader.tsx (2640 lines) already has auth-state
+      checking, store-owner detection, install-banner logic, and a
+      dark/light theme toggle + mobile hamburger menu **not in the
+      legacy spec at all**. Confirm with a fresh look whether to
+      extend this file or start clean before assuming which — it's
+      wired in and live (imported by the current StoreContent.tsx),
+      not orphaned, so this isn't a disable-on-sight case
+   c. New modal components: sign-in/up (tabbed), fund wallet
+      (branches by gateway per finding #5), create virtual account
+      (xixapay only), support (WhatsApp deep link), purchase (+
+      PIN-creation sub-flow with info tooltip)
+   d. StoreFooter.tsx: legacy-style footer (current one is 44 lines,
+      minimal — confirm scope needed)
+
+4. Cleanup
+   a. Retire StoreCart.tsx / StoreCheckout.tsx / cart-related types;
+      remove the now-moot empty StoreOrderConfirmation.tsx (finding #8)
+   b. Update page.tsx/layout.tsx data-fetching for the new actions;
+      fix the network-derivation bug from finding #2 as part of this
+   c. Remove now-dead category/translation-filter plumbing (confirm
+      nothing else depends on it first)
+   d. Reconcile store-theme.css against whatever the final visual
+      approach is — brief's guidance: reuse the existing scaffolding,
+      legacy file is a behavioral/layout reference, not a literal
+      styling port
+
+5. Verification & handoff
+   a. Manual pass against old-storeName for behavioral parity, per
+      country (including RTL for Egypt — legacy hardcodes
+      left/right positioning throughout, e.g. pagination arrows at
+      `left: -12`/`right: -12` — confirmed via direct inspection)
+   b. Confirm no regressions to dashboard-side reseller flows sharing
+      the same tables/actions (global_wallets, global_virtual_accounts,
+      global_plans, the payment gateway layer)
+   c. es storefront.json translation file needs creating (en/fr/ar
+      exist at ~50 lines each; es is missing entirely; pt deferred)
+   d. Update HANDOVER.md, produce patch(es) per the standing handoff
+      process
+```
+
+### Findings from this session (1.a.i — DONE, 2026-09-19)
+
+Confirmed via direct schema inspection (see "Reality check" #4 above):
+`global_customers` has no `auth_user_id`, `auth_email`, or
+`transaction_pin` columns, and no `UNIQUE` constraint on
+`(reseller_id, email)`. Both gaps need addressing in the same
+migration — the missing columns (as the brief expected) and the
+missing constraint (found during this session, not in the brief).
+
+### Next atomic step — active pointer `1.a.ii.zi.x`
+
+**File (new):** a `supabase/migrations/` file adding the auth columns
+to `global_customers` plus the two new customer wallet/virtual-account
+tables, in one migration (per `1.a.i` + `1.a.ii` combined, since they're
+tightly related and reviewable together as a single schema change).
+
+Must include:
+- `ALTER TABLE global_customers ADD COLUMN auth_user_id uuid`,
+  `ADD COLUMN auth_email text`, `ADD COLUMN transaction_pin text`
+- A `UNIQUE (reseller_id, email)` constraint on `global_customers`
+  (finding #4 — confirm no existing duplicate `(reseller_id, email)`
+  rows would violate this before applying; check with a `SELECT
+  reseller_id, email, COUNT(*) FROM global_customers GROUP BY 1,2
+  HAVING COUNT(*) > 1` first, as part of this same `x`)
+- `CREATE TABLE global_customer_wallets` (reseller_id, customer_id,
+  balance, currency, total_spent, timestamps) — mirror
+  `global_wallets`'s shape plus `customer_id`
+- `CREATE TABLE global_customer_virtual_accounts` (reseller_id,
+  customer_id, account_number, bank_name, account_name, provider,
+  status, timestamps) — mirror `global_virtual_accounts`'s shape plus
+  `customer_id`, xixapay-only in practice per finding #5 but not
+  worth hardcoding that into the schema itself
+- No `UPDATE` statements — this is additive/schema-only, same
+  guardrail pattern as Task 2's migration
+
+Once this `x` is done, advance the pointer to `1.a.ii.zo.x` (apply to
+the live DB — a direct Ubuntu `psql` command, not a patch — then
+refresh `schema.sql`) per the pointer-advancement order in the
+methodology section above.
+
+### Delivery for this task
+Not yet started — no patch produced yet for Task 4 as of this entry.
+
+---
+
 ## Log
 
 | Date | Session | Notes |
@@ -1163,3 +1502,4 @@ this task is fully closed, not just locally verified.
 | 2026-09-17 | Follow-up sequencing session | User asked to leave Task 2's phantom-table/dead-code follow-up alone for now, but to chain it right after the Task 1 password-rotation reminder rather than let it get lost. Added a "Chained reminder" note in Task 1's status block: once the DB password is actually rotated (project wrap-up), also raise the `getApplicationDraft.ts`/`saveApplicationDraft.ts` issue at that same checkpoint. No urgency forcing it earlier — it's inert dead code today. |
 | 2026-09-17 | Build-fix session (Task 3) | User pasted a live Vercel build failure (`admin/error.tsx` must be a Client Component). Traced to the file being 0 bytes, then discovered 89 more empty Next.js special route files that would each break the build in turn, plus an entire orphaned `src/components/reseller/modals/` directory (8 files) with stale/broken API calls, plus several unrelated real bugs (async-params migration gaps, an orphaned duplicate route, a type mismatch, a dead no-op config export). User chose **Option A** (honest placeholders, not real feature builds) as the standing policy for scaffold routes going forward, unless a task specifically targets that route. Added the new "Standing policy" section codifying this. Fixed everything, verified with a full local `next build` (0 errors, 0 warnings, 72 pages) using temporary, fully-reverted local-only stubs to work around this sandbox's lack of network access to Google Fonts. Committed locally as `104bef2`; patch generation and push command follow this log entry. |
 | 2026-09-19 | Deploy-confirmation session | User applied and pushed both Task 3 patches (`c21232f`, `8351a70`) and confirmed the resulting Vercel deploy on `handover/supabase-dump` is green. **Task 3 is fully closed** — matches the local verification from the prior session, now confirmed against the real Vercel build environment rather than just this sandbox's approximation of it. |
+| 2026-09-19 | Task-opening session | Opened Task 4 (rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront, replacing cart/checkout entirely) from the attached `TASK-CUSTOMER-STOREFRONT-BRIEF.md`. Read `old-storeName/StoreContent.tsx` in full (3920 lines) and verified every specific behavioral claim in the brief against the actual code. Corrected/added eight findings beyond the brief's own draft architecture — most significantly: `global_reseller_stores` is dead unused schema (don't build against it); the purchase/fulfillment RPCs (`create_purchase_order` etc.) are confirmed legacy-table-bound (`INSERT INTO reseller_orders`, not `global_orders`) and need new `global_*` equivalents, not reuse; `CountryConfig` already has `phoneCode`/`currency`/`currencySymbol`/`paymentGateway.methods`, shrinking the "multi-country adaptations" branch considerably; and a real bug in the current `page.tsx` (`p.network` should be `p.provider` — `global_plans` has no `network` column). User confirmed the funding-model split (xixapay/virtual-account for NG only, mobile money via korapay with flutterwave as korapay's fallback everywhere else) — verified this is already correctly implemented for the reseller's own wallet (`FundWalletModal.tsx` + `fundWallet.ts` + `getPaymentGatewayByCountry`), giving a direct template to reuse for the customer side. Laid out the full `1-5/a-d/i-iii/zi-zo/x` architecture; set the active pointer to `1.a.ii.zi.x` — drafting the schema migration (auth columns + unique constraint on `global_customers`, plus two new customer wallet/virtual-account tables). No patch produced yet. |
