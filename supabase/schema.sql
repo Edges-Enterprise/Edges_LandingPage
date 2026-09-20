@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Btq6lIAZuuxQh2p6hemXD38pVJu7XaoSCaloNkHIi3EWv1kAcleqXzzoITYHDd2
+\restrict BIlMwp49oJ7f0X46LTH3u31ikwWunrx4o04KT4feUdXlGDqy5MZZK826iRYyNyN
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -4626,6 +4626,45 @@ CREATE TABLE public.global_base_plans (
 
 
 --
+-- Name: global_customer_virtual_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_customer_virtual_accounts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reseller_id uuid NOT NULL,
+    customer_id uuid NOT NULL,
+    account_number text NOT NULL,
+    bank_name text NOT NULL,
+    account_name text NOT NULL,
+    bank_code text,
+    provider text DEFAULT 'xixapay'::text,
+    account_type text,
+    status text DEFAULT 'active'::text,
+    tracking_reference text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: global_customer_wallets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_customer_wallets (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reseller_id uuid NOT NULL,
+    customer_id uuid NOT NULL,
+    balance numeric(10,2) DEFAULT 0,
+    currency text DEFAULT 'USD'::text,
+    total_spent numeric(10,2) DEFAULT 0,
+    status text DEFAULT 'active'::text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT global_customer_wallets_status_check CHECK ((status = ANY (ARRAY['active'::text, 'inactive'::text, 'suspended'::text])))
+);
+
+
+--
 -- Name: global_customers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4643,6 +4682,9 @@ CREATE TABLE public.global_customers (
     status text DEFAULT 'active'::text,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
+    auth_user_id uuid,
+    auth_email text,
+    transaction_pin text,
     CONSTRAINT global_customers_status_check CHECK ((status = ANY (ARRAY['active'::text, 'inactive'::text])))
 );
 
@@ -6443,11 +6485,51 @@ ALTER TABLE ONLY public.global_base_plans
 
 
 --
+-- Name: global_customer_virtual_accounts global_customer_virtual_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_virtual_accounts
+    ADD CONSTRAINT global_customer_virtual_accounts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: global_customer_virtual_accounts global_customer_virtual_accounts_reseller_customer_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_virtual_accounts
+    ADD CONSTRAINT global_customer_virtual_accounts_reseller_customer_key UNIQUE (reseller_id, customer_id);
+
+
+--
+-- Name: global_customer_wallets global_customer_wallets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_wallets
+    ADD CONSTRAINT global_customer_wallets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: global_customer_wallets global_customer_wallets_reseller_customer_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_wallets
+    ADD CONSTRAINT global_customer_wallets_reseller_customer_key UNIQUE (reseller_id, customer_id);
+
+
+--
 -- Name: global_customers global_customers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.global_customers
     ADD CONSTRAINT global_customers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: global_customers global_customers_reseller_email_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customers
+    ADD CONSTRAINT global_customers_reseller_email_key UNIQUE (reseller_id, email);
 
 
 --
@@ -7915,6 +7997,34 @@ CREATE INDEX idx_global_builds_status ON public.global_app_builds USING btree (b
 
 
 --
+-- Name: idx_global_customer_virtual_accounts_customer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_global_customer_virtual_accounts_customer_id ON public.global_customer_virtual_accounts USING btree (customer_id);
+
+
+--
+-- Name: idx_global_customer_virtual_accounts_reseller_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_global_customer_virtual_accounts_reseller_id ON public.global_customer_virtual_accounts USING btree (reseller_id);
+
+
+--
+-- Name: idx_global_customer_wallets_customer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_global_customer_wallets_customer_id ON public.global_customer_wallets USING btree (customer_id);
+
+
+--
+-- Name: idx_global_customer_wallets_reseller_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_global_customer_wallets_reseller_id ON public.global_customer_wallets USING btree (reseller_id);
+
+
+--
 -- Name: idx_global_customers_email; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8987,6 +9097,38 @@ ALTER TABLE ONLY public.flashsale_purchases
 
 ALTER TABLE ONLY public.global_app_builds
     ADD CONSTRAINT global_app_builds_application_id_fkey FOREIGN KEY (application_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_customer_virtual_accounts global_customer_virtual_accounts_customer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_virtual_accounts
+    ADD CONSTRAINT global_customer_virtual_accounts_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.global_customers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_customer_virtual_accounts global_customer_virtual_accounts_reseller_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_virtual_accounts
+    ADD CONSTRAINT global_customer_virtual_accounts_reseller_id_fkey FOREIGN KEY (reseller_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_customer_wallets global_customer_wallets_customer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_wallets
+    ADD CONSTRAINT global_customer_wallets_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.global_customers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_customer_wallets global_customer_wallets_reseller_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_wallets
+    ADD CONSTRAINT global_customer_wallets_reseller_id_fkey FOREIGN KEY (reseller_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
 
 
 --
@@ -10741,5 +10883,5 @@ ALTER TABLE storage.vector_indexes ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Btq6lIAZuuxQh2p6hemXD38pVJu7XaoSCaloNkHIi3EWv1kAcleqXzzoITYHDd2
+\unrestrict BIlMwp49oJ7f0X46LTH3u31ikwWunrx4o04KT4feUdXlGDqy5MZZK826iRYyNyN
 
