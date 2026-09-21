@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict BIlMwp49oJ7f0X46LTH3u31ikwWunrx4o04KT4feUdXlGDqy5MZZK826iRYyNyN
+\restrict 2OaJQ5atBXNHOrRbJEalTqSWetb5VfpzhXXIgBcqXcONOKzTXn3EzaQKP44oZXj
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -4626,6 +4626,34 @@ CREATE TABLE public.global_base_plans (
 
 
 --
+-- Name: global_customer_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_customer_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reseller_id uuid NOT NULL,
+    customer_id uuid NOT NULL,
+    type text NOT NULL,
+    amount numeric(10,2) NOT NULL,
+    fee numeric(10,2) DEFAULT 0,
+    net_amount numeric(10,2) NOT NULL,
+    previous_balance numeric(10,2) NOT NULL,
+    new_balance numeric(10,2) NOT NULL,
+    reference text,
+    order_id uuid,
+    plan_id uuid,
+    status text DEFAULT 'completed'::text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    description text,
+    payment_gateway text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT global_customer_transactions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text, 'reversed'::text]))),
+    CONSTRAINT global_customer_transactions_type_check CHECK ((type = ANY (ARRAY['deposit'::text, 'purchase'::text, 'refund'::text, 'adjustment'::text])))
+);
+
+
+--
 -- Name: global_customer_virtual_accounts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6485,6 +6513,14 @@ ALTER TABLE ONLY public.global_base_plans
 
 
 --
+-- Name: global_customer_transactions global_customer_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_transactions
+    ADD CONSTRAINT global_customer_transactions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: global_customer_virtual_accounts global_customer_virtual_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7997,6 +8033,27 @@ CREATE INDEX idx_global_builds_status ON public.global_app_builds USING btree (b
 
 
 --
+-- Name: idx_global_customer_transactions_customer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_global_customer_transactions_customer_id ON public.global_customer_transactions USING btree (customer_id);
+
+
+--
+-- Name: idx_global_customer_transactions_reference; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_global_customer_transactions_reference ON public.global_customer_transactions USING btree (reference);
+
+
+--
+-- Name: idx_global_customer_transactions_reseller_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_global_customer_transactions_reseller_id ON public.global_customer_transactions USING btree (reseller_id);
+
+
+--
 -- Name: idx_global_customer_virtual_accounts_customer_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9097,6 +9154,22 @@ ALTER TABLE ONLY public.flashsale_purchases
 
 ALTER TABLE ONLY public.global_app_builds
     ADD CONSTRAINT global_app_builds_application_id_fkey FOREIGN KEY (application_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_customer_transactions global_customer_transactions_customer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_transactions
+    ADD CONSTRAINT global_customer_transactions_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.global_customers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_customer_transactions global_customer_transactions_reseller_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_transactions
+    ADD CONSTRAINT global_customer_transactions_reseller_id_fkey FOREIGN KEY (reseller_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
 
 
 --
@@ -10883,5 +10956,5 @@ ALTER TABLE storage.vector_indexes ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict BIlMwp49oJ7f0X46LTH3u31ikwWunrx4o04KT4feUdXlGDqy5MZZK826iRYyNyN
+\unrestrict 2OaJQ5atBXNHOrRbJEalTqSWetb5VfpzhXXIgBcqXcONOKzTXn3EzaQKP44oZXj
 
