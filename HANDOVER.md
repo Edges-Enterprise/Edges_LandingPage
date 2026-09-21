@@ -1139,7 +1139,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `1.c.ii.zi.x`** (see below).
+**Status: OPEN. Active pointer: `1.c.iii.zi.x`** (see below).
 
 ### Context
 
@@ -1588,30 +1588,81 @@ worth correcting or adding before locking in an architecture:
   errors both times) — same standing practice as the rest of this
   task, not an isolated single-file check.
 
-### Next atomic step — active pointer `1.c.ii.zi.x`
+### Findings from this session (1.c.ii.zi, 1.c.ii.zo — DONE, 2026-09-21)
 
-**File (new):** a `createGlobalCustomerVirtualAccount` action mirroring
-legacy's `createCustomerVirtualAccount` (`src/app/actions/reseller/wallet/customerVirtualAccount.ts`,
-function starting around line 108). Per finding #5 in the "Reality
-check" section above, this is **xixapay-only in practice** — Nigeria
-currently, via the BVN/waitlist mechanism — but don't hardcode a
-country check into this action itself; let it fail naturally/return an
-error if called for a reseller whose country doesn't use xixapay,
-rather than special-casing "NG" as a literal string here.
+- **`1.c.ii.zi`**: wrote
+  `src/actions/reseller/customers/createGlobalCustomerVirtualAccount.ts`,
+  mirroring legacy's `createCustomerVirtualAccount` (BVN/waitlist
+  assignment, xixapay `createVirtualAccount` call, account + wallet
+  persistence). Resolved the missing-`auth_user_id`-column issue
+  flagged in the previous session's findings by **reordering** rather
+  than adding a second query: legacy checks for an existing virtual
+  account first (by `auth_user_id`) and resolves the customer record
+  second; this version resolves the customer record first (by
+  `auth_user_id` + `reseller_id`, which `global_customers` does have)
+  and then checks for an existing account by the resulting
+  `customer_id` — same two lookups legacy does, just swapped order, no
+  extra query and no follow-up migration needed.
+- Two more deliberate deviations from a literal port, both because the
+  new tables are slimmer than legacy's:
+  - `global_customers` has no `bvn` column (legacy's
+    `reseller_customers.bvn` does), so this version always draws a
+    fresh waitlist entry rather than checking for a previously-assigned
+    BVN first. Confirmed safe: the existing-active-account check above
+    already prevents a second call once an account exists, so legacy's
+    "customer already has a BVN but no account" branch has no live
+    trigger path here.
+  - `global_customer_virtual_accounts` has no `customer_email`/
+    `customer_name`/`customer_phone`/`customer_bvn`/`customer_nin`
+    columns (legacy's `reseller_customer_virtual_accounts` has all
+    five) — only `bank_name`/`account_number`/`account_name`/
+    `bank_code`/`account_type`/`tracking_reference`/`provider`/`status`
+    are stored. Not proposing a migration for this within this atomic
+    step; flagging here in case support/lookup tooling later needs to
+    see which BVN/waitlist identity backs a given account.
+- Also switched to the server-only `XIXAPAY_API_KEY`/
+  `XIXAPAY_SECRET_KEY`/`XIXAPAY_BUSINESS_ID` env vars (matching
+  `src/lib/payments/xixapay.ts`'s convention) instead of legacy's
+  `NEXT_PUBLIC_XIXAPAY_*` names, which unnecessarily expose these to
+  the client bundle for a value only ever read inside a `"use server"`
+  action. Not fixing legacy's version (out of scope for this task) —
+  just not repeating it here. **Needs confirming these non-public env
+  vars are actually set in the deployment environment** — they already
+  are for `src/lib/payments/xixapay.ts` to work at all today, so this
+  should be a non-issue, but wasn't independently re-verified this
+  session.
+- **`1.c.ii.zo`**: verified via a full-project `npx tsc --noEmit -p
+  tsconfig.json` (0 errors) **and** a manual field-by-field cross-check
+  of every column referenced against `schema.sql`'s actual `CREATE
+  TABLE` definitions for `global_customers`,
+  `global_customer_virtual_accounts`, `waitlist`,
+  `global_reseller_applications`, and `global_customer_wallets` — same
+  standing practice as `1.c.i.zo`. All fields match; the `waitlist`
+  `status`/`assigned_to_type` values used (`"pending"`/`"used"`,
+  `"customer"`) match that table's `CHECK` constraints exactly.
 
-Must resolve, as part of this same `x` (not deferred to `zo`): the
-missing-`auth_user_id`-column issue flagged above. Recommended
-approach — a two-step lookup (fetch `global_customers.auth_user_id`
-for the resolved `customer_id`, then filter
-`global_customer_virtual_accounts` by `customer_id` instead of
-`auth_user_id` directly) rather than a follow-up migration, since it
-avoids a second schema change for a single query's convenience — but
-use judgment if that turns out awkward once actually writing it.
+1.c.ii is now fully closed (zi and zo both done).
 
-Once this `x` is done, advance the pointer to `1.c.ii.zo.x` (verify
-against the live schema, same field-by-field cross-check practice as
-`1.c.i.zo`) per the pointer-advancement order in the methodology
-section above.
+### Next atomic step — active pointer `1.c.iii.zi.x`
+
+**File (new):** a customer-side mobile-money funding action mirroring
+the dashboard's `FundWalletModal.tsx` / `fundWallet.ts` pattern
+(finding #5 in the "Reality check" section above), for
+korapay/flutterwave countries — i.e. everywhere xixapay/virtual-account
+funding (branch `1.c.ii`, just closed) doesn't apply. Should call
+`getPaymentGatewayByCountry(countryCode)` the same way
+`src/actions/reseller/wallet/fundWallet.ts` does, customer-scoped
+instead of reseller-scoped (a new `global_customer_transactions`-style
+record or reuse of `global_transactions` with a `customer_id` — check
+which the reseller-side flow already uses via
+`handleSuccessfulDeposit.ts` before assuming a new table is needed).
+Confirm at the start of that session whether `global_transactions` has
+a `customer_id` column already or whether this needs its own follow-up
+migration — not checked yet as of this pointer.
+
+Once this `x` is done, advance the pointer to `1.c.iii.zo.x` (same
+verification practice: full-project `tsc` + manual schema cross-check)
+per the pointer-advancement order in the methodology section above.
 
 ### Delivery for this task
 - `1.a.ii.zi.x` — the migration file (commit `cbe9f9e`). Delivered via
@@ -1635,6 +1686,11 @@ section above.
   Delivered via the normal Standing handoff process.
 - `1.c.i.zo.x` — verification-only (schema cross-check), no delivery
   needed beyond the code itself.
+- `1.c.ii.zi.x` — `createGlobalCustomerVirtualAccount.ts` (this
+  session's commit, see Log below). Delivered via the normal Standing
+  handoff process.
+- `1.c.ii.zo.x` — verification-only (full-project type-check + schema
+  cross-check), no delivery needed beyond the code itself.
 
 ---
 
@@ -1668,3 +1724,4 @@ section above.
 | 2026-09-19 | Pointer-execution session | Delivered `1.a.ii.zi.x`: drafted `supabase/migrations/20260919_customer_auth_wallet_schema.sql` (commit `cbe9f9e`) — three new `global_customers` columns, a `UNIQUE (reseller_id, email)` constraint with a pre-flight duplicate-check `DO` block, and two new tables (`global_customer_wallets`, `global_customer_virtual_accounts`) mirroring the reseller-side equivalents' exact shapes. Completed `1.a.iii` (verification-only): checked every current reader/writer of `global_customers` and confirmed the new unique constraint matches existing application-layer duplicate-email rejection in `createCustomer.ts` — safe to apply. Also noted (not fixed, out of scope) that 13 pre-existing "historical" migration files are all 0 bytes, same scaffolded-but-never-filled-in pattern found elsewhere in this project. Advanced the pointer to `1.a.ii.zo.x` — applying the migration to the live DB is a separate direct-command step for the user, not part of this patch. |
 | 2026-09-20 | Pointer-execution session | User applied the migration in Ubuntu and pushed a refreshed `schema.sql` directly (`b13940f`). Diffed before/after: confirmed only the intended additions landed. `1.a` is now fully closed. Wrote and delivered `registerCustomerToGlobalReseller.ts` (`1.b.i`, commit `dda6686`) and `getGlobalCustomerAuthEmail.ts` (`1.b.ii`, commit `6ad1b85`), both mirroring their legacy equivalents against `global_*` tables, each with a documented, deliberate deviation (NOT NULL `last_name` handling; country-resolved wallet currency; `.maybeSingle()` over `.single()`). Verified both with a full-project `tsc --noEmit` (0 errors), not just isolated single-file checks. `1.b.i` and `1.b.ii` are now fully closed. Advanced the pointer to `1.b.iii.zi.x` — the client-side auth handler mirroring legacy's `handleAuth`; flagged that its exact file location depends on how far `StoreContent.tsx`'s rebuild (branch `3.a`) has progressed by the time that session starts, rather than assuming a location now. |
 | 2026-09-21 | Pointer-execution session | Confirmed `StoreContent.tsx` (branch `3.a`) still untouched (208 lines, old cart version) — wrote `useCustomerAuth.ts` (`1.b.iii.zi`, commit `e805e41`) as a standalone hook rather than inline. Caught and preserved an easy-to-miss legacy behavior: the storefront's own login form doubles as an owner-login shortcut, now checking `user_metadata.store_slug` (confirmed present on reseller accounts via `submitApplication.ts`) instead of legacy's `store_name`, redirecting to the country-prefixed dashboard route. Explicitly deferred `1.b.iii.zo` (can't verify against `StoreContent.tsx`'s auth-state shape until `3.a` exists) rather than treating it as done or as the pointer. Moved to branch `1.c`: wrote `getGlobalCustomerWallet.ts` (`1.c.i`, commit `d2a5f4d`), and this time verified `zo` properly with an explicit field-by-field cross-check against `schema.sql`'s actual column lists, not just a `tsc` pass (which doesn't validate Supabase column names at all in this codebase). Flagged a real gap for `1.c.ii`: legacy's virtual-account-creation existing-check needs an `auth_user_id` column that `global_customer_virtual_accounts` doesn't have. `1.b` and `1.c.i` are now fully closed. Advanced the pointer to `1.c.ii.zi.x` — the virtual-account creation action, which must resolve the flagged column gap as part of the same step, not defer it further. |
+| 2026-09-21 | Pointer-execution session | Wrote and delivered `createGlobalCustomerVirtualAccount.ts` (`1.c.ii.zi`), resolving the flagged `auth_user_id` column gap by reordering the customer-lookup and existing-account checks (no follow-up migration needed). Two further deliberate deviations documented: always draws a fresh waitlist BVN entry (`global_customers` has no `bvn` column to check against, unlike legacy) and drops five customer-identity columns on the virtual-account insert that `global_customer_virtual_accounts` doesn't have (`customer_email`/`customer_name`/`customer_phone`/`customer_bvn`/`customer_nin`) — flagged in case support tooling needs them later. Switched to the non-public `XIXAPAY_*` env var names already used by `src/lib/payments/xixapay.ts`, rather than repeating legacy's `NEXT_PUBLIC_XIXAPAY_*` exposure. Verified `1.c.ii.zo` with a full-project `tsc --noEmit` (0 errors) plus a manual field-by-field cross-check against `schema.sql` for every table touched (`global_customers`, `global_customer_virtual_accounts`, `waitlist`, `global_reseller_applications`, `global_customer_wallets`) — all fields and `CHECK`-constraint values match. `1.c.ii` is now fully closed. Advanced the pointer to `1.c.iii.zi.x` — customer-side mobile-money funding for korapay/flutterwave countries, mirroring `FundWalletModal.tsx`/`fundWallet.ts`; flagged that whoever picks this up needs to first confirm whether `global_transactions` already has a `customer_id` column or whether that's a new gap, not checked yet. |
