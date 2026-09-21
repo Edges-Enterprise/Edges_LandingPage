@@ -1139,7 +1139,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `1.c.iii.zo.x`** (see below).
+**Status: OPEN. Active pointer: `1.c.v.zi.x`** (see below).
 
 ### Context
 
@@ -1680,23 +1680,80 @@ worth correcting or adding before locking in an architecture:
   Documenting now so it isn't rediscovered from scratch; not fixing it
   as part of this session since it isn't blocking anything today.
 
-### Next atomic step — active pointer `1.c.iii.zo.x`
+### Findings from this session (1.c.iii.zo — DONE; 1.c.iv.zi — DONE, 2026-09-21)
 
-This migration needs to be **applied directly by the user in Ubuntu**
-before the funding action itself can be written and verified against
-the live schema — same pattern as `1.a.ii.zi.x` → `1.a.ii.zo.x`. See
-the direct command block delivered alongside this session's patch.
+- **`1.c.iii.zo`**: user applied the migration directly in Ubuntu and
+  pushed a refreshed `schema.sql` (`f14d676`). Diffed before/after:
+  confirmed only the intended `global_customer_transactions`
+  table/indexes/FKs landed. `1.c.iii` is now fully closed.
+- **`1.c.iv.zi`**: wrote
+  `src/actions/reseller/customers/fundGlobalCustomerWallet.ts`,
+  mirroring `fundWallet.ts`'s `getPaymentGatewayByCountry(countryCode)`
+  pattern, customer-scoped. Scoped deliberately to **mobile-money
+  countries only** (korapay/flutterwave) — xixapay-gateway resellers
+  get an explicit early error telling the caller to use the virtual
+  account flow (`1.c.ii`) instead, since that's how customer funding
+  already works for those countries (a persistent account to transfer
+  into, not an initiate-payment call). This is a
+  `config.paymentGateway.provider` branch, not a hardcoded country
+  check.
+- **Real pre-existing bug found and deliberately not repeated**: the
+  reseller-side `handleSuccessfulDeposit.ts` calls
+  `.update({ status: "completed", completed_at: ..., provider_reference: ... })`
+  on `global_transactions` — but that table has **neither a
+  `completed_at` nor a `provider_reference` column**. Confirmed against
+  `schema.sql` directly. This means that update almost certainly fails
+  at runtime today (PostgREST rejects unknown columns), so **reseller
+  wallet deposits via Flutterwave may never actually get marked
+  completed** — worth someone independently confirming and filing as
+  its own bug outside this task, since fixing legacy reseller code is
+  out of scope here. For the new customer version, `metadata` (jsonb)
+  is used to store the equivalent data instead of repeating the same
+  mistake, since `global_customer_transactions` (mirroring
+  `reseller_customer_transactions`) also has no dedicated columns for
+  either value.
+- Verified `1.c.iv.zi` with a full-project `tsc --noEmit -p
+  tsconfig.json` (0 errors); every table/column referenced
+  (`global_customers`, `global_customer_wallets`,
+  `global_customer_transactions`) cross-checked against `schema.sql`
+  directly since this table was only added this session and hasn't
+  been exercised by any other code yet.
+- **Important gap, not yet addressed**: this action only *initiates* a
+  deposit — nothing currently marks a `global_customer_transactions`
+  row `completed` or credits `global_customer_wallets` on a successful
+  webhook callback. The reseller-side equivalent
+  (`handleSuccessfulDeposit.ts`) is only wired into
+  `src/app/api/webhooks/flutterwave/route.ts`, not korapay's or
+  xixapay's routes either, and none of the three webhook routes have
+  any concept of "this might be a customer transaction, not a
+  reseller one" yet. Until this is built, customer wallet funding via
+  this action will initiate a payment but the wallet balance will
+  never actually update. This is real, necessary follow-up work, not
+  an optional polish item — flagged as the very next pointer below,
+  not deferred indefinitely.
 
-Once applied and `schema.sql` is refreshed and pushed (per the standing
-schema-snapshot rule), the **next session** picks up
-`1.c.iv.zi.x` — writing the actual customer-side mobile-money funding
-action mirroring `fundWallet.ts`'s `getPaymentGatewayByCountry(countryCode)`
-pattern, customer-scoped, writing to the now-existing
-`global_customer_transactions` on success. (Renumbered from `iii` to
-`iv` since `iii` turned out to be the schema prerequisite, not the
-action itself — branch `1.c`'s roman-numeral list in the architecture
-outline above should be read as i/ii/iii(schema)/iv, not iii doing
-double duty.)
+### Next atomic step — active pointer `1.c.v.zi.x`
+
+**Files:** a new customer-scoped completion handler (e.g.
+`handleSuccessfulCustomerDeposit.ts`, mirroring
+`handleSuccessfulDeposit.ts` but crediting `global_customer_wallets`
+and `global_customer_transactions` instead, keyed by the
+`customer_id` now present in `metadata.payment_type ===
+"customer_wallet_funding"`), **plus** wiring it into whichever of the
+three gateway webhook routes
+(`src/app/api/webhooks/{korapay,flutterwave,xixapay}/route.ts`, and/or
+the newer `src/app/api/webhooks/[countryCode]/payment/route.ts` — check
+which one is actually live/receiving traffic before assuming) need to
+branch on `metadata.payment_type` to call the customer handler instead
+of the reseller one. Read all three (plus the country-scoped one)
+before writing anything — don't assume they share enough structure to
+edit identically. This is bigger than a single-file `x` in practice;
+split further once actually in the code if it doesn't fit one atomic
+step (same judgment call already exercised for `1.c.iii`).
+
+Once `1.c.v` is done and verified (`1.c.v.zo.x`), branch `1.c` (wallet
+& virtual account actions) is fully closed and the next work is branch
+`1.d` (purchase action) per the architecture outline above.
 
 ### Delivery for this task
 - `1.a.ii.zi.x` — the migration file (commit `cbe9f9e`). Delivered via
@@ -1730,9 +1787,13 @@ double duty.)
   Standing handoff process, **plus** a direct `psql` command block for
   the user to run in Ubuntu (same pattern as `1.a.ii.zi.x`) — see
   below.
-- `1.c.iii.zo.x` — to be applied directly by the user in Ubuntu; not
-  delivered as a patch (schema application is never automated by a
-  sandbox session, per the standing schema-snapshot rule).
+- `1.c.iii.zo.x` — applied directly by the user in Ubuntu;
+  `schema.sql` refreshed and pushed directly (`f14d676`), not via
+  patch.
+- `1.c.iv.zi.x` — `fundGlobalCustomerWallet.ts` (this session's commit,
+  see Log below). Delivered via the normal Standing handoff process.
+- `1.c.iv.zo.x` — verification-only (full-project type-check + schema
+  cross-check), no delivery needed beyond the code itself.
 
 ---
 
@@ -1767,3 +1828,4 @@ double duty.)
 | 2026-09-20 | Pointer-execution session | User applied the migration in Ubuntu and pushed a refreshed `schema.sql` directly (`b13940f`). Diffed before/after: confirmed only the intended additions landed. `1.a` is now fully closed. Wrote and delivered `registerCustomerToGlobalReseller.ts` (`1.b.i`, commit `dda6686`) and `getGlobalCustomerAuthEmail.ts` (`1.b.ii`, commit `6ad1b85`), both mirroring their legacy equivalents against `global_*` tables, each with a documented, deliberate deviation (NOT NULL `last_name` handling; country-resolved wallet currency; `.maybeSingle()` over `.single()`). Verified both with a full-project `tsc --noEmit` (0 errors), not just isolated single-file checks. `1.b.i` and `1.b.ii` are now fully closed. Advanced the pointer to `1.b.iii.zi.x` — the client-side auth handler mirroring legacy's `handleAuth`; flagged that its exact file location depends on how far `StoreContent.tsx`'s rebuild (branch `3.a`) has progressed by the time that session starts, rather than assuming a location now. |
 | 2026-09-21 | Pointer-execution session | Confirmed `StoreContent.tsx` (branch `3.a`) still untouched (208 lines, old cart version) — wrote `useCustomerAuth.ts` (`1.b.iii.zi`, commit `e805e41`) as a standalone hook rather than inline. Caught and preserved an easy-to-miss legacy behavior: the storefront's own login form doubles as an owner-login shortcut, now checking `user_metadata.store_slug` (confirmed present on reseller accounts via `submitApplication.ts`) instead of legacy's `store_name`, redirecting to the country-prefixed dashboard route. Explicitly deferred `1.b.iii.zo` (can't verify against `StoreContent.tsx`'s auth-state shape until `3.a` exists) rather than treating it as done or as the pointer. Moved to branch `1.c`: wrote `getGlobalCustomerWallet.ts` (`1.c.i`, commit `d2a5f4d`), and this time verified `zo` properly with an explicit field-by-field cross-check against `schema.sql`'s actual column lists, not just a `tsc` pass (which doesn't validate Supabase column names at all in this codebase). Flagged a real gap for `1.c.ii`: legacy's virtual-account-creation existing-check needs an `auth_user_id` column that `global_customer_virtual_accounts` doesn't have. `1.b` and `1.c.i` are now fully closed. Advanced the pointer to `1.c.ii.zi.x` — the virtual-account creation action, which must resolve the flagged column gap as part of the same step, not defer it further. |
 | 2026-09-21 | Pointer-execution session | Confirmed both `createGlobalCustomerVirtualAccount.ts` patches from the prior session applied cleanly (`c860fc9`, `3400740`). Started `1.c.iii`: confirmed `global_transactions` genuinely has no `customer_id` column and, following legacy's actual precedent (a dedicated `reseller_customer_transactions` table, not a shared one), drafted `supabase/migrations/20260921_customer_transactions_schema.sql` adding `global_customer_transactions`. Separately flagged (not fixed, not blocking today) that `global_customer_virtual_accounts`'s `UNIQUE (reseller_id, customer_id)` constraint would need loosening before a customer could ever hold more than one virtual account — a real divergence from legacy's array-based design, currently masked because only one bank code is ever requested. Renumbered the remaining `1.c` work: `iii` is now the schema step just delivered, the actual funding action moves to `1.c.iv`. Advanced the pointer to `1.c.iii.zo.x` — applying this migration directly in Ubuntu, same pattern as `1.a.ii.zo.x`. |
+| 2026-09-21 | Pointer-execution session | User applied the `global_customer_transactions` migration in Ubuntu and pushed a refreshed `schema.sql` directly (`f14d676`). Diffed before/after: confirmed only the intended table/indexes/FKs landed. `1.c.iii` is now fully closed. Wrote and delivered `fundGlobalCustomerWallet.ts` (`1.c.iv.zi`), mirroring `fundWallet.ts`'s korapay/flutterwave pattern, deliberately erroring out for xixapay-gateway resellers (config-driven, not hardcoded) since those countries already fund via the persistent virtual account instead. Found and deliberately did not repeat a real pre-existing bug: `handleSuccessfulDeposit.ts` updates two columns (`completed_at`, `provider_reference`) that don't exist on `global_transactions` at all — almost certainly means reseller Flutterwave deposits silently fail to ever be marked completed; flagged as an independent bug outside this task's scope, not fixed here. Verified `1.c.iv.zi` with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Flagged the real remaining gap plainly rather than calling `1.c` done: nothing yet marks a customer deposit `completed` or credits `global_customer_wallets` on webhook callback — none of the three gateway webhook routes have any concept of a customer-scoped transaction yet. Advanced the pointer to `1.c.v.zi.x` — the customer deposit completion handler plus webhook-route wiring, explicitly called out as likely needing its own further split once someone is actually in those four route files. |
