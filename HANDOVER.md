@@ -1139,7 +1139,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `1.c.vi.zi.x`** (see below).
+**Status: OPEN. Active pointer: `1.d.i.zi.x`** (see below).
 
 ### Context
 
@@ -1811,25 +1811,61 @@ than the architecture outline assumed:
   referenced in the new handler and both edited routes against
   `schema.sql`.
 
-### Next atomic step — active pointer `1.c.vi.zi.x`
+### Findings from this session (1.c.vi.zi, 1.c.vi.zo — DONE, 2026-09-21)
 
-**File (new):** xixapay customer virtual-account webhook attribution.
-Needs its own lookup path inside `xixapay/route.ts` (not a
-`global_customer_transactions`-by-reference match, per the finding
-above): match the webhook's receiving account number against
-`global_customer_virtual_accounts.account_number`, resolve
-`reseller_id`/`customer_id` from that row, credit
-`global_customer_wallets`, and **insert** a new completed
-`global_customer_transactions` row on the fly (not update an existing
-pending one — there isn't one). Read `xixapay/route.ts`'s existing
-reseller-side bonus-handling branch fully before writing this — worth
-deciding whether the first-deposit bonus concept applies to customers
-at all, or is reseller-only by design (not decided yet, don't assume
-either way).
+- **Product decision confirmed** (from the user, not inferred): the
+  first-deposit bonus is reseller-only, and only for app-initiated
+  deposits even then. Customers never get one.
+- Implemented the xixapay customer virtual-account attribution branch
+  in `xixapay/route.ts`: when no pending row is found in
+  `global_transactions` by reference or `provider_reference` (the
+  reseller top-up path, via `fundWallet.ts`'s `initiatePayment` call —
+  confirmed this is the only thing that creates a pending row for
+  xixapay), falls back to matching the webhook's
+  `metadata.receiver.account_number` against
+  `global_customer_virtual_accounts.account_number`, then **inserts**
+  a new completed `global_customer_transactions` row directly (there's
+  nothing pending to update, unlike every other branch in this file).
+  Confirmed the `receiver.account_number` field name by finding it
+  already used elsewhere in `xixapay.ts` (line 368) rather than
+  guessing at xixapay's payload shape.
+- **Idempotency added deliberately**: since there's no pre-existing
+  pending row for this path to guard against a webhook retry the way
+  `transaction.status === "completed"` does for the reseller path, this
+  branch checks `global_customer_transactions` by `reference` first
+  and returns early if a row already exists, before crediting anything.
+- **Also fixed, while already editing this file**: the existing
+  reseller-side first-deposit bonus check had **no source gating at
+  all** — it fired for any deposit, not just app-initiated ones, unlike
+  the equivalent check in `[countryCode]/payment/route.ts` (`if (source
+  === "app")`). Added the same gate here, using
+  `transaction.metadata?.source`, per the product decision above. Not
+  a customer-side change — this only affects the pre-existing
+  reseller top-up path, and only makes the bonus fire *less* often
+  than before (a real, direct behavior change, delivered because it
+  was explicitly requested, not left silently as a guess).
+- Verified with a full-project `tsc --noEmit -p tsconfig.json` (0
+  errors) plus a manual field-by-field cross-check of every table/
+  column referenced (`global_customer_virtual_accounts`,
+  `global_customer_wallets`, `global_customer_transactions`) against
+  `schema.sql`.
 
-Once `1.c.vi` is done and verified (`1.c.vi.zo.x`), branch `1.c`
-(wallet & virtual account actions) is fully closed and the next work
-is branch `1.d` (purchase action) per the architecture outline above.
+**Branch `1.c` (wallet & virtual account actions) is now fully
+closed** — `i` through `vi` all done and verified.
+
+### Next atomic step — active pointer `1.d.i.zi.x`
+
+Branch `1.d` (purchase action) per the architecture outline above.
+Read `purchasePlan.ts` (legacy) and whatever RPCs it calls
+(`deduct_reseller_cost`, `process_data_purchase`,
+`process_airtime_purchase` — per Task 4's original "Reality check"
+finding #6, these are confirmed live DB functions bound to legacy
+tables, not stubs) before assuming anything about what a `global_*`
+equivalent needs to look like. This is purchase/fulfillment — real
+money movement plus a live provisioning call to whatever upstream data/
+airtime provider the legacy flow uses — treat it with at least as much
+care as the wallet-funding work in `1.c`, and expect it not to fit a
+single atomic `x` either.
 
 ### Delivery for this task
 - `1.a.ii.zi.x` — the migration file (commit `cbe9f9e`). Delivered via
@@ -1877,6 +1913,12 @@ is branch `1.d` (purchase action) per the architecture outline above.
   attribution is `1.c.vi`, not yet started.
 - `1.c.v.zo.x` — verification-only (full-project type-check + schema
   cross-check), no delivery needed beyond the code itself.
+- `1.c.vi.zi.x` — edits to `xixapay/route.ts` (customer virtual-account
+  attribution branch, plus the reseller bonus source-gate fix; this
+  session's commit, see Log below). Delivered via the normal Standing
+  handoff process.
+- `1.c.vi.zo.x` — verification-only (full-project type-check + schema
+  cross-check), no delivery needed beyond the code itself.
 
 ---
 
@@ -1913,3 +1955,4 @@ is branch `1.d` (purchase action) per the architecture outline above.
 | 2026-09-21 | Pointer-execution session | Confirmed both `createGlobalCustomerVirtualAccount.ts` patches from the prior session applied cleanly (`c860fc9`, `3400740`). Started `1.c.iii`: confirmed `global_transactions` genuinely has no `customer_id` column and, following legacy's actual precedent (a dedicated `reseller_customer_transactions` table, not a shared one), drafted `supabase/migrations/20260921_customer_transactions_schema.sql` adding `global_customer_transactions`. Separately flagged (not fixed, not blocking today) that `global_customer_virtual_accounts`'s `UNIQUE (reseller_id, customer_id)` constraint would need loosening before a customer could ever hold more than one virtual account — a real divergence from legacy's array-based design, currently masked because only one bank code is ever requested. Renumbered the remaining `1.c` work: `iii` is now the schema step just delivered, the actual funding action moves to `1.c.iv`. Advanced the pointer to `1.c.iii.zo.x` — applying this migration directly in Ubuntu, same pattern as `1.a.ii.zo.x`. |
 | 2026-09-21 | Pointer-execution session | User applied the `global_customer_transactions` migration in Ubuntu and pushed a refreshed `schema.sql` directly (`f14d676`). Diffed before/after: confirmed only the intended table/indexes/FKs landed. `1.c.iii` is now fully closed. Wrote and delivered `fundGlobalCustomerWallet.ts` (`1.c.iv.zi`), mirroring `fundWallet.ts`'s korapay/flutterwave pattern, deliberately erroring out for xixapay-gateway resellers (config-driven, not hardcoded) since those countries already fund via the persistent virtual account instead. Found and deliberately did not repeat a real pre-existing bug: `handleSuccessfulDeposit.ts` updates two columns (`completed_at`, `provider_reference`) that don't exist on `global_transactions` at all — almost certainly means reseller Flutterwave deposits silently fail to ever be marked completed; flagged as an independent bug outside this task's scope, not fixed here. Verified `1.c.iv.zi` with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Flagged the real remaining gap plainly rather than calling `1.c` done: nothing yet marks a customer deposit `completed` or credits `global_customer_wallets` on webhook callback — none of the three gateway webhook routes have any concept of a customer-scoped transaction yet. Advanced the pointer to `1.c.v.zi.x` — the customer deposit completion handler plus webhook-route wiring, explicitly called out as likely needing its own further split once someone is actually in those four route files. |
 | 2026-09-21 | Pointer-execution session | Read all four webhook routes before writing anything, per the previous session's own instruction — found a much messier picture than assumed: four mutually-inconsistent completion implementations (korapay inline, flutterwave inline with a dead `handleSuccessfulDeposit` import, xixapay inline with a different no-pending-row model, and a fourth `[countryCode]/payment/route.ts` calling a legacy RPC that's likely orphaned/not live). Confirmed `handleSuccessfulDeposit.ts` is genuinely dead code (imported, never called) and removed the dead import while already editing that file. Found a real, likely-live bug separate from Task 4: three of the four routes update `completed_at`/`provider_reference` columns that don't exist on `global_transactions` at all — reseller deposits via any of them may never actually get marked completed; flagged clearly, not fixed (out of scope, pre-existing, reseller-side). Scoped this atomic step to the korapay/flutterwave completion path only, since that's what `fundGlobalCustomerWallet.ts` (1.c.iv) actually produces (an initiate-then-webhook-matches-by-reference model) — xixapay virtual-account transfers have no pre-existing pending row to match at all and need a different lookup (by receiving account number), split out as `1.c.vi` rather than bolted on here. Delivered `handleSuccessfulCustomerDeposit.ts` plus wiring into `korapay/route.ts` and `flutterwave/route.ts` (each now falls back to `global_customer_transactions` before 404ing), deliberately not repeating the `completed_at`/`provider_reference` bug. Verified with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Advanced the pointer to `1.c.vi.zi.x` — xixapay customer virtual-account webhook attribution. |
+| 2026-09-21 | Pointer-execution session | User clarified the first-deposit bonus product rule directly: reseller-only, app-initiated only, never for customers. Implemented the xixapay customer virtual-account attribution branch in `xixapay/route.ts`: falls back to matching the webhook's receiving account number against `global_customer_virtual_accounts` when no pending row exists in `global_transactions` (confirmed via `fundWallet.ts` that a pending row for xixapay only ever exists for reseller-initiated top-ups, never for a raw transfer into any persistent virtual account), inserting a new completed `global_customer_transactions` row directly with its own idempotency check by reference (no pre-existing pending row to guard duplicates with here, unlike every other branch in this file). Confirmed the `receiver.account_number` field name by finding it already used elsewhere in the same file rather than guessing at xixapay's payload shape. Also fixed the existing reseller-side first-deposit bonus check, which had no source gating at all, to require `source === "app"`, per the user's stated rule — a real, direct behavior change on existing reseller code, made because it was explicitly requested. Verified with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Branch `1.c` (wallet & virtual account actions) is now fully closed. Advanced the pointer to `1.d.i.zi.x` — branch `1.d`, the purchase action, flagged as likely to need the same careful multi-step treatment as `1.c` rather than fitting one atomic step. |
