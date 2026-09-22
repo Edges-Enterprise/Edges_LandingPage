@@ -4,6 +4,7 @@ import { korapay } from "@/lib/payments/korapay";
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeeBreakdown } from "@/lib/payments/fees";
+import { handleSuccessfulCustomerDeposit } from "@/actions/reseller/customers/handleSuccessfulCustomerDeposit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +33,12 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerClient();
     const adminClient = createAdminClient();
 
-    // Get transaction by reference
+    // Get transaction by reference. global_transactions is
+    // reseller-only (no customer_id column at all - see HANDOVER.md
+    // Task 4, pointer 1.c.iii) - a deposit initiated by
+    // fundGlobalCustomerWallet.ts (1.c.iv) lives in
+    // global_customer_transactions instead, so fall back to that
+    // table before giving up.
     const { data: transaction, error: txError } = await supabase
       .from("global_transactions")
       .select("id, reseller_id, amount, status, metadata")
@@ -40,10 +46,82 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (txError || !transaction) {
-      console.error("❌ Transaction not found:", webhookData.reference);
+      const { data: customerTransaction, error: customerTxError } =
+        await adminClient
+          .from("global_customer_transactions")
+          .select("id, reseller_id, customer_id, amount, status, metadata")
+          .eq("reference", webhookData.reference)
+          .single();
+
+      if (customerTxError || !customerTransaction) {
+        console.error("❌ Transaction not found:", webhookData.reference);
+        return NextResponse.json(
+          { error: "Transaction not found" },
+          { status: 404 },
+        );
+      }
+
+      if (customerTransaction.status === "completed") {
+        console.log(
+          "⏭️ Customer transaction already processed:",
+          webhookData.reference,
+        );
+        return NextResponse.json(
+          { message: "Already processed" },
+          { status: 200 },
+        );
+      }
+
+      // Same 4%-total fee schedule as the reseller path above -
+      // deliberately not a different rate for customers, no product
+      // decision has been made to charge customers differently.
+      const customerFeeBreakdown = getFeeBreakdown(customerTransaction.amount);
+
+      const result = await handleSuccessfulCustomerDeposit({
+        transactionId: customerTransaction.id,
+        resellerId: customerTransaction.reseller_id,
+        customerId: customerTransaction.customer_id,
+        netAmount: customerFeeBreakdown.net_amount,
+        grossAmount: customerTransaction.amount,
+        providerReference: webhookData.providerReference,
+        provider: "korapay",
+        extraMetadata: {
+          korapay_fee: customerFeeBreakdown.korapay_fee,
+          platform_fee: customerFeeBreakdown.platform_fee,
+          total_fee: customerFeeBreakdown.total_fee,
+          korapay_fee_percent: customerFeeBreakdown.korapay_fee_percent,
+          platform_fee_percent: customerFeeBreakdown.platform_fee_percent,
+          total_fee_percent: customerFeeBreakdown.total_fee_percent,
+        },
+      });
+
+      if (!result.success) {
+        console.error(
+          "❌ Failed to process customer deposit:",
+          result.error,
+        );
+        return NextResponse.json(
+          { error: result.error || "Failed to process customer deposit" },
+          { status: 500 },
+        );
+      }
+
+      console.log("✅ Customer deposit processed successfully:", {
+        reference: webhookData.reference,
+        gross: customerTransaction.amount,
+        net: customerFeeBreakdown.net_amount,
+      });
+
       return NextResponse.json(
-        { error: "Transaction not found" },
-        { status: 404 },
+        {
+          status: "ok",
+          message: "Customer deposit processed successfully",
+          data: {
+            reference: webhookData.reference,
+            net_amount: customerFeeBreakdown.net_amount,
+          },
+        },
+        { status: 200 },
       );
     }
 

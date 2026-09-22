@@ -1,8 +1,8 @@
 // src/app/api/webhooks/flutterwave/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { flutterwave } from "@/lib/payments/flutterwave";
-import { handleSuccessfulDeposit } from "@/actions/reseller/wallet/handleSuccessfulDeposit";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { handleSuccessfulCustomerDeposit } from "@/actions/reseller/customers/handleSuccessfulCustomerDeposit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +30,12 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient();
 
-    // Get transaction by reference
+    // Get transaction by reference. global_transactions is
+    // reseller-only (no customer_id column at all - see HANDOVER.md
+    // Task 4, pointer 1.c.iii) - a deposit initiated by
+    // fundGlobalCustomerWallet.ts (1.c.iv) lives in
+    // global_customer_transactions instead, so fall back to that
+    // table before giving up.
     const { data: transaction, error: txError } = await adminClient
       .from("global_transactions")
       .select("id, reseller_id, amount, status, metadata")
@@ -38,10 +43,81 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (txError || !transaction) {
-      console.error("❌ Transaction not found:", webhookData.reference);
+      const { data: customerTransaction, error: customerTxError } =
+        await adminClient
+          .from("global_customer_transactions")
+          .select("id, reseller_id, customer_id, amount, status, metadata")
+          .eq("reference", webhookData.reference)
+          .single();
+
+      if (customerTxError || !customerTransaction) {
+        console.error("❌ Transaction not found:", webhookData.reference);
+        return NextResponse.json(
+          { error: "Transaction not found" },
+          { status: 404 },
+        );
+      }
+
+      if (customerTransaction.status === "completed") {
+        console.log(
+          "⏭️ Customer transaction already processed:",
+          webhookData.reference,
+        );
+        return NextResponse.json(
+          { message: "Already processed" },
+          { status: 200 },
+        );
+      }
+
+      // Same platform-fee-only rate as the reseller path above
+      // (Flutterwave's own fee is already deducted before the
+      // webhook fires) - no product decision has been made to charge
+      // customers differently.
+      const grossAmount = customerTransaction.amount;
+      const platformFee = grossAmount * 0.025;
+      const netAmount = grossAmount - platformFee;
+
+      const result = await handleSuccessfulCustomerDeposit({
+        transactionId: customerTransaction.id,
+        resellerId: customerTransaction.reseller_id,
+        customerId: customerTransaction.customer_id,
+        netAmount,
+        grossAmount,
+        providerReference: webhookData.providerReference,
+        provider: "flutterwave",
+        extraMetadata: {
+          flutterwave_fee: "Deducted by Flutterwave",
+          platform_fee: platformFee,
+        },
+      });
+
+      if (!result.success) {
+        console.error(
+          "❌ Failed to process customer deposit:",
+          result.error,
+        );
+        return NextResponse.json(
+          { error: result.error || "Failed to process customer deposit" },
+          { status: 500 },
+        );
+      }
+
+      console.log("✅ Customer deposit processed successfully:", {
+        reference: webhookData.reference,
+        gross: grossAmount,
+        net: netAmount,
+      });
+
       return NextResponse.json(
-        { error: "Transaction not found" },
-        { status: 404 },
+        {
+          status: "ok",
+          message: "Customer deposit processed successfully",
+          data: {
+            reference: webhookData.reference,
+            net_amount: netAmount,
+          },
+        },
+        { status: 200 },
       );
     }
 
