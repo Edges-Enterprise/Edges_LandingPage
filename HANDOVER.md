@@ -1139,7 +1139,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `1.d.i.zi.x`** (see below).
+**Status: OPEN. Active pointer: `1.d.i.zo.x`** (see below).
 
 ### Context
 
@@ -1853,7 +1853,86 @@ than the architecture outline assumed:
 **Branch `1.c` (wallet & virtual account actions) is now fully
 closed** — `i` through `vi` all done and verified.
 
-### Next atomic step — active pointer `1.d.i.zi.x`
+### Findings from this session (1.d.i.zi — DONE, 2026-09-22)
+
+Re-read `src/app/actions/reseller/orders/purchasePlan.ts` in full (fresh,
+not from summary) and all four RPC bodies directly in `schema.sql`
+(`get_reseller_balance`, `deduct_reseller_cost`,
+`process_purchase_deductions`, `create_purchase_order`) to confirm their
+actual behavior before drafting anything, per the pickup brief.
+Delivered `supabase/migrations/20260922_global_purchase_rpcs.sql` — the
+four `global_*` equivalents
+(`get_global_reseller_balance`/`deduct_global_reseller_cost`/
+`process_global_purchase_deductions`/`create_global_purchase_order`).
+
+Two real deviations from a literal mirror, both resolved by reading the
+actual `global_*` schema rather than assumed, so the migration didn't need
+splitting further:
+
+1. `global_wallets` has no `total_sales`/`total_profit` columns (unlike
+   `reseller_wallets`). Checked whether that's a gap or intentional:
+   `get_global_reseller_dashboard_stats` already computes those live via
+   `SUM(global_orders.amount)`/`SUM(profit) WHERE status = 'completed'`
+   instead of maintaining denormalized counters — so
+   `process_global_purchase_deductions` only touches `balance` on both
+   wallets, matching what actually exists. (No change needed for
+   `deduct_global_reseller_cost` either way — legacy's
+   `deduct_reseller_cost` also only ever touched `balance`.)
+2. `global_orders` requires `customer_id`, `customer_name`, and
+   `plan_name` (`customer_name`/`plan_name` are `NOT NULL`) — a wider
+   shape than `reseller_orders`, which only stores `customer_email`.
+   `create_global_purchase_order`'s signature is correspondingly wider
+   than `create_purchase_order`'s: `customer_id` is nullable (for
+   reseller self-purchase), `customer_name`/`plan_name` are required
+   caller inputs, and `payment_method`/`transaction_reference` are
+   optional extras the legacy table never had. Whoever writes the
+   purchase action (`1.d.iii`) needs to supply all of these — for a
+   reseller self-purchase, `customer_id` is `NULL` and `customer_name`
+   needs some placeholder value (store name, or similar) since it's
+   `NOT NULL`; that's a business-logic call for `1.d.iii`, not this RPC.
+
+**Real finding flagged, not fixed, out of scope for `1.d.i` (relevant to
+`1.d.ii`, the provider-dispatch layer, whenever that's picked up):**
+`src/lib/providers/` (`index.ts`, `lizzysub.ts`, `accragh.ts`, `zendit.ts`,
+`provider.types.ts`) already exists — a generic `ServiceProvider`
+interface with `getServiceProviderByCountry()` keyed off each country
+config's `serviceProvider` field. A repo-wide import search found **zero**
+callers anywhere outside that folder — it's unused scaffold, same pattern
+as `global_reseller_stores` (finding #3) and the empty route files from
+Task 3. More importantly, its `lizzysub.ts` implementation does **not**
+match the real, live Lizzysub integration: it POSTs to
+`${LIZZYSUB_BASE_URL}/api/v1/purchase` using env vars
+(`LIZZYSUB_BASE_URL`/`LIZZYSUB_API_KEY`/`LIZZYSUB_SECRET_KEY`) that don't
+appear anywhere else in the codebase, whereas the actual live path
+(confirmed again this session in `purchasePlan.ts`) calls Supabase Edge
+Functions `lizzysub-proxy`/`airtime_proxy` with a numeric `NETWORK_MAP`
+(1-4) and a `data_plan`/`request-id` payload — a completely different
+shape. **Do not build `1.d.ii` on top of this abstraction as-is** — it
+looks like a real dispatch layer but its Nigeria implementation alone is
+enough to prove it was never wired to anything real. `zendit.ts` and
+`accragh.ts` haven't been checked against their real upstream APIs yet
+either; assume the same risk until confirmed. Verified with a full-project
+`npx tsc --noEmit -p tsconfig.json` (0 errors — expected, this session's
+change is SQL-only) plus a manual field-by-field cross-check of every
+column referenced in the new migration against `schema.sql`'s actual
+`global_wallets`/`global_customer_wallets`/`global_orders` column lists.
+
+Advanced the pointer to `1.d.i.zo.x` — applying this migration to the live
+DB is a separate direct-command step for the user, not part of this patch
+(same pattern as `1.a.ii.zo.x`/`1.c.iii.zo.x`).
+
+### Next atomic step — active pointer `1.d.i.zo.x`
+
+Apply `supabase/migrations/20260922_global_purchase_rpcs.sql` directly in
+Ubuntu via the standard migration `psql` command (see "Handoff process for
+DB migrations" section), then refresh and push `schema.sql` directly (not
+via patch), and diff before/after to confirm only the four new functions
+landed. Once that's done, `1.d.i` is fully closed and the pointer advances
+to `1.d.ii` (provider-dispatch layer) — read the flagged finding above
+about `src/lib/providers/` before assuming that folder is a usable
+starting point.
+
+### Next atomic step (superseded, kept for reference) — was `1.d.i.zi.x`
 
 Branch `1.d` (purchase action) per the architecture outline above.
 Read `purchasePlan.ts` (legacy) and whatever RPCs it calls
@@ -1919,6 +1998,10 @@ single atomic `x` either.
   handoff process.
 - `1.c.vi.zo.x` — verification-only (full-project type-check + schema
   cross-check), no delivery needed beyond the code itself.
+- `1.d.i.zi.x` — `supabase/migrations/20260922_global_purchase_rpcs.sql`
+  (this session's commit, see Log below). Delivered via the normal
+  Standing handoff process, **plus** a direct `psql` command block for
+  the user to run in Ubuntu (same pattern as `1.a.ii.zi.x`) — see below.
 
 ---
 
@@ -1956,3 +2039,4 @@ single atomic `x` either.
 | 2026-09-21 | Pointer-execution session | User applied the `global_customer_transactions` migration in Ubuntu and pushed a refreshed `schema.sql` directly (`f14d676`). Diffed before/after: confirmed only the intended table/indexes/FKs landed. `1.c.iii` is now fully closed. Wrote and delivered `fundGlobalCustomerWallet.ts` (`1.c.iv.zi`), mirroring `fundWallet.ts`'s korapay/flutterwave pattern, deliberately erroring out for xixapay-gateway resellers (config-driven, not hardcoded) since those countries already fund via the persistent virtual account instead. Found and deliberately did not repeat a real pre-existing bug: `handleSuccessfulDeposit.ts` updates two columns (`completed_at`, `provider_reference`) that don't exist on `global_transactions` at all — almost certainly means reseller Flutterwave deposits silently fail to ever be marked completed; flagged as an independent bug outside this task's scope, not fixed here. Verified `1.c.iv.zi` with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Flagged the real remaining gap plainly rather than calling `1.c` done: nothing yet marks a customer deposit `completed` or credits `global_customer_wallets` on webhook callback — none of the three gateway webhook routes have any concept of a customer-scoped transaction yet. Advanced the pointer to `1.c.v.zi.x` — the customer deposit completion handler plus webhook-route wiring, explicitly called out as likely needing its own further split once someone is actually in those four route files. |
 | 2026-09-21 | Pointer-execution session | Read all four webhook routes before writing anything, per the previous session's own instruction — found a much messier picture than assumed: four mutually-inconsistent completion implementations (korapay inline, flutterwave inline with a dead `handleSuccessfulDeposit` import, xixapay inline with a different no-pending-row model, and a fourth `[countryCode]/payment/route.ts` calling a legacy RPC that's likely orphaned/not live). Confirmed `handleSuccessfulDeposit.ts` is genuinely dead code (imported, never called) and removed the dead import while already editing that file. Found a real, likely-live bug separate from Task 4: three of the four routes update `completed_at`/`provider_reference` columns that don't exist on `global_transactions` at all — reseller deposits via any of them may never actually get marked completed; flagged clearly, not fixed (out of scope, pre-existing, reseller-side). Scoped this atomic step to the korapay/flutterwave completion path only, since that's what `fundGlobalCustomerWallet.ts` (1.c.iv) actually produces (an initiate-then-webhook-matches-by-reference model) — xixapay virtual-account transfers have no pre-existing pending row to match at all and need a different lookup (by receiving account number), split out as `1.c.vi` rather than bolted on here. Delivered `handleSuccessfulCustomerDeposit.ts` plus wiring into `korapay/route.ts` and `flutterwave/route.ts` (each now falls back to `global_customer_transactions` before 404ing), deliberately not repeating the `completed_at`/`provider_reference` bug. Verified with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Advanced the pointer to `1.c.vi.zi.x` — xixapay customer virtual-account webhook attribution. |
 | 2026-09-21 | Pointer-execution session | User clarified the first-deposit bonus product rule directly: reseller-only, app-initiated only, never for customers. Implemented the xixapay customer virtual-account attribution branch in `xixapay/route.ts`: falls back to matching the webhook's receiving account number against `global_customer_virtual_accounts` when no pending row exists in `global_transactions` (confirmed via `fundWallet.ts` that a pending row for xixapay only ever exists for reseller-initiated top-ups, never for a raw transfer into any persistent virtual account), inserting a new completed `global_customer_transactions` row directly with its own idempotency check by reference (no pre-existing pending row to guard duplicates with here, unlike every other branch in this file). Confirmed the `receiver.account_number` field name by finding it already used elsewhere in the same file rather than guessing at xixapay's payload shape. Also fixed the existing reseller-side first-deposit bonus check, which had no source gating at all, to require `source === "app"`, per the user's stated rule — a real, direct behavior change on existing reseller code, made because it was explicitly requested. Verified with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Branch `1.c` (wallet & virtual account actions) is now fully closed. Advanced the pointer to `1.d.i.zi.x` — branch `1.d`, the purchase action, flagged as likely to need the same careful multi-step treatment as `1.c` rather than fitting one atomic step. |
+| 2026-09-22 | Pointer-execution session | Re-read `purchasePlan.ts` and all four legacy RPC bodies directly in `schema.sql` before writing anything, per the pickup brief. Delivered `supabase/migrations/20260922_global_purchase_rpcs.sql` — `get_global_reseller_balance`/`deduct_global_reseller_cost`/`process_global_purchase_deductions`/`create_global_purchase_order`, mirroring legacy logic against `global_wallets`/`global_customer_wallets`/`global_orders`. Resolved two real schema deviations directly rather than guessing: `global_wallets` has no `total_sales`/`total_profit` (confirmed `get_global_reseller_dashboard_stats` computes those live from `global_orders` instead, so the new deduction RPC only touches `balance`); `global_orders` requires `customer_id`/`customer_name`/`plan_name` that `reseller_orders` never had, so `create_global_purchase_order`'s signature is correspondingly wider — flagged as something `1.d.iii` (the purchase action itself) needs to supply, especially the reseller-self-purchase placeholder for `customer_name`. Also found and flagged (not fixed, out of scope for `1.d.i`): `src/lib/providers/` (a `ServiceProvider` abstraction with `lizzysub`/`accragh`/`zendit` implementations) already exists but has zero callers anywhere in the repo, and its `lizzysub.ts` calls a fictional REST endpoint that doesn't match the real, live Lizzysub integration (Supabase Edge Functions, numeric `NETWORK_MAP`) — flagged so `1.d.ii` doesn't get built on top of it without first confirming `zendit`/`accragh` against their real upstream APIs too. Verified with a full-project `tsc --noEmit` (0 errors, SQL-only change) plus a manual field-by-field cross-check against `schema.sql`. Advanced the pointer to `1.d.i.zo.x` — applying this migration directly in Ubuntu, same pattern as `1.a.ii.zo.x`/`1.c.iii.zo.x`. |
