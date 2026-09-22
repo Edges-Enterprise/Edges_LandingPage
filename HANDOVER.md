@@ -1139,7 +1139,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `1.c.v.zi.x`** (see below).
+**Status: OPEN. Active pointer: `1.c.vi.zi.x`** (see below).
 
 ### Context
 
@@ -1732,28 +1732,104 @@ worth correcting or adding before locking in an architecture:
   an optional polish item — flagged as the very next pointer below,
   not deferred indefinitely.
 
-### Next atomic step — active pointer `1.c.v.zi.x`
+### Findings from this session (1.c.v.zi — DONE, partial scope; 2026-09-21)
 
-**Files:** a new customer-scoped completion handler (e.g.
-`handleSuccessfulCustomerDeposit.ts`, mirroring
-`handleSuccessfulDeposit.ts` but crediting `global_customer_wallets`
-and `global_customer_transactions` instead, keyed by the
-`customer_id` now present in `metadata.payment_type ===
-"customer_wallet_funding"`), **plus** wiring it into whichever of the
-three gateway webhook routes
-(`src/app/api/webhooks/{korapay,flutterwave,xixapay}/route.ts`, and/or
-the newer `src/app/api/webhooks/[countryCode]/payment/route.ts` — check
-which one is actually live/receiving traffic before assuming) need to
-branch on `metadata.payment_type` to call the customer handler instead
-of the reseller one. Read all three (plus the country-scoped one)
-before writing anything — don't assume they share enough structure to
-edit identically. This is bigger than a single-file `x` in practice;
-split further once actually in the code if it doesn't fit one atomic
-step (same judgment call already exercised for `1.c.iii`).
+Reading all four webhook routes before writing anything (per the
+previous session's own instruction) surfaced a much messier picture
+than the architecture outline assumed:
 
-Once `1.c.v` is done and verified (`1.c.v.zo.x`), branch `1.c` (wallet
-& virtual account actions) is fully closed and the next work is branch
-`1.d` (purchase action) per the architecture outline above.
+- **Four different, mutually-inconsistent completion implementations
+  exist**, not one shared function to extend:
+  - `korapay/route.ts` — fully inline, own fee calc via
+    `getFeeBreakdown`.
+  - `flutterwave/route.ts` — fully inline, own flat-2.5%-fee calc.
+    **Imports `handleSuccessfulDeposit` but never calls it** — dead
+    import.
+  - `xixapay/route.ts` — fully inline, different shape entirely (no
+    pre-existing pending-transaction model — matches by `reference`
+    with a fallback to `metadata->>provider_reference`, includes a
+    first-deposit-bonus branch).
+  - `[countryCode]/payment/route.ts` — a fourth, distinct
+    implementation calling an `update_wallet_after_deposit(uuid,
+    numeric)` RPC. Its internal file-header comment still says
+    `src/app/api/reseller/[countryCode]/webhooks/payment/route.ts`
+    (a different path than where it actually lives), and that RPC is
+    otherwise only used by the **legacy** `src/app/actions/reseller/wallet/`
+    tree, not the new `src/lib/payments/` gateway system. Confirmed
+    via `korapay.ts`/`flutterwave.ts` that their `notification_url`/
+    `callback_url` point at `/api/webhooks/korapay` and
+    `/api/webhooks/flutterwave` respectively, **not** this
+    country-scoped route — so this route is likely a stale/orphaned
+    holdover, not something live traffic hits today. Not touched this
+    session; flagging for someone to confirm and probably delete
+    rather than assuming.
+  - `src/actions/reseller/wallet/handleSuccessfulDeposit.ts` itself is
+    **confirmed dead code** — nothing calls it. Removed the unused
+    import referencing it from `flutterwave/route.ts` while already
+    editing that file (trivial dead-code removal, not a behavior
+    change — did not touch the actual completion logic there).
+- **Real, likely-live bug, separate from anything Task 4 introduced**:
+  `korapay/route.ts`, `flutterwave/route.ts`, and
+  `[countryCode]/payment/route.ts` **all three** update
+  `completed_at`/`provider_reference` columns that don't exist on
+  `global_transactions` (same issue previously flagged only for
+  `handleSuccessfulDeposit.ts` — it's actually in three more places).
+  This means **reseller wallet deposits via any of these three paths
+  may never actually get marked `completed` today.** Confirmed by
+  reading `schema.sql` directly, not just this file. Out of Task 4's
+  scope to fix (it's reseller-side, pre-existing, unrelated to the
+  customer storefront) — flagging clearly here so it doesn't get
+  missed, since it's a real production-money issue, not a documentation
+  nitpick.
+- **Scope-splitting decision for this atomic step**: the
+  korapay/flutterwave completion path (what `fundGlobalCustomerWallet.ts`,
+  1.c.iv, actually produces — an `initiate` call followed by a webhook
+  matching a pending row by `reference`) is architecturally
+  straightforward to extend. The **xixapay virtual-account path is
+  not** — a customer transfer into their persistent VA (`1.c.ii`) has
+  **no pre-existing pending transaction row to match against at all**;
+  `createGlobalCustomerVirtualAccount.ts` never creates one when the
+  account itself is created. Attribution would need to key off the
+  **receiving account number** against `global_customer_virtual_accounts`
+  instead, which is a different lookup shape, not a small addition to
+  what's built here. Splitting this out rather than trying to also
+  handle it in the same step, per the same judgment already used for
+  `1.c.iii`.
+- **Delivered this session**: `handleSuccessfulCustomerDeposit.ts`
+  (shared completion action), wired into `korapay/route.ts` and
+  `flutterwave/route.ts` — each route now tries `global_transactions`
+  first (existing reseller behavior, untouched), and falls back to
+  `global_customer_transactions` before returning 404, branching to
+  the new customer completion path with the same per-gateway fee
+  calculation each route already does for resellers. Deliberately does
+  **not** repeat the `completed_at`/`provider_reference` bug — stores
+  the equivalent values inside `metadata` instead, since
+  `global_customer_transactions` has no dedicated columns for either
+  (same reasoning as `1.c.iv`'s findings).
+- Verified with a full-project `tsc --noEmit -p tsconfig.json` (0
+  errors) and a manual field-by-field cross-check of every table/column
+  referenced in the new handler and both edited routes against
+  `schema.sql`.
+
+### Next atomic step — active pointer `1.c.vi.zi.x`
+
+**File (new):** xixapay customer virtual-account webhook attribution.
+Needs its own lookup path inside `xixapay/route.ts` (not a
+`global_customer_transactions`-by-reference match, per the finding
+above): match the webhook's receiving account number against
+`global_customer_virtual_accounts.account_number`, resolve
+`reseller_id`/`customer_id` from that row, credit
+`global_customer_wallets`, and **insert** a new completed
+`global_customer_transactions` row on the fly (not update an existing
+pending one — there isn't one). Read `xixapay/route.ts`'s existing
+reseller-side bonus-handling branch fully before writing this — worth
+deciding whether the first-deposit bonus concept applies to customers
+at all, or is reseller-only by design (not decided yet, don't assume
+either way).
+
+Once `1.c.vi` is done and verified (`1.c.vi.zo.x`), branch `1.c`
+(wallet & virtual account actions) is fully closed and the next work
+is branch `1.d` (purchase action) per the architecture outline above.
 
 ### Delivery for this task
 - `1.a.ii.zi.x` — the migration file (commit `cbe9f9e`). Delivered via
@@ -1794,6 +1870,13 @@ Once `1.c.v` is done and verified (`1.c.v.zo.x`), branch `1.c` (wallet
   see Log below). Delivered via the normal Standing handoff process.
 - `1.c.iv.zo.x` — verification-only (full-project type-check + schema
   cross-check), no delivery needed beyond the code itself.
+- `1.c.v.zi.x` — `handleSuccessfulCustomerDeposit.ts` plus edits to
+  `korapay/route.ts` and `flutterwave/route.ts` (this session's
+  commit, see Log below). Delivered via the normal Standing handoff
+  process. Scoped to korapay/flutterwave only — xixapay virtual-account
+  attribution is `1.c.vi`, not yet started.
+- `1.c.v.zo.x` — verification-only (full-project type-check + schema
+  cross-check), no delivery needed beyond the code itself.
 
 ---
 
@@ -1829,3 +1912,4 @@ Once `1.c.v` is done and verified (`1.c.v.zo.x`), branch `1.c` (wallet
 | 2026-09-21 | Pointer-execution session | Confirmed `StoreContent.tsx` (branch `3.a`) still untouched (208 lines, old cart version) — wrote `useCustomerAuth.ts` (`1.b.iii.zi`, commit `e805e41`) as a standalone hook rather than inline. Caught and preserved an easy-to-miss legacy behavior: the storefront's own login form doubles as an owner-login shortcut, now checking `user_metadata.store_slug` (confirmed present on reseller accounts via `submitApplication.ts`) instead of legacy's `store_name`, redirecting to the country-prefixed dashboard route. Explicitly deferred `1.b.iii.zo` (can't verify against `StoreContent.tsx`'s auth-state shape until `3.a` exists) rather than treating it as done or as the pointer. Moved to branch `1.c`: wrote `getGlobalCustomerWallet.ts` (`1.c.i`, commit `d2a5f4d`), and this time verified `zo` properly with an explicit field-by-field cross-check against `schema.sql`'s actual column lists, not just a `tsc` pass (which doesn't validate Supabase column names at all in this codebase). Flagged a real gap for `1.c.ii`: legacy's virtual-account-creation existing-check needs an `auth_user_id` column that `global_customer_virtual_accounts` doesn't have. `1.b` and `1.c.i` are now fully closed. Advanced the pointer to `1.c.ii.zi.x` — the virtual-account creation action, which must resolve the flagged column gap as part of the same step, not defer it further. |
 | 2026-09-21 | Pointer-execution session | Confirmed both `createGlobalCustomerVirtualAccount.ts` patches from the prior session applied cleanly (`c860fc9`, `3400740`). Started `1.c.iii`: confirmed `global_transactions` genuinely has no `customer_id` column and, following legacy's actual precedent (a dedicated `reseller_customer_transactions` table, not a shared one), drafted `supabase/migrations/20260921_customer_transactions_schema.sql` adding `global_customer_transactions`. Separately flagged (not fixed, not blocking today) that `global_customer_virtual_accounts`'s `UNIQUE (reseller_id, customer_id)` constraint would need loosening before a customer could ever hold more than one virtual account — a real divergence from legacy's array-based design, currently masked because only one bank code is ever requested. Renumbered the remaining `1.c` work: `iii` is now the schema step just delivered, the actual funding action moves to `1.c.iv`. Advanced the pointer to `1.c.iii.zo.x` — applying this migration directly in Ubuntu, same pattern as `1.a.ii.zo.x`. |
 | 2026-09-21 | Pointer-execution session | User applied the `global_customer_transactions` migration in Ubuntu and pushed a refreshed `schema.sql` directly (`f14d676`). Diffed before/after: confirmed only the intended table/indexes/FKs landed. `1.c.iii` is now fully closed. Wrote and delivered `fundGlobalCustomerWallet.ts` (`1.c.iv.zi`), mirroring `fundWallet.ts`'s korapay/flutterwave pattern, deliberately erroring out for xixapay-gateway resellers (config-driven, not hardcoded) since those countries already fund via the persistent virtual account instead. Found and deliberately did not repeat a real pre-existing bug: `handleSuccessfulDeposit.ts` updates two columns (`completed_at`, `provider_reference`) that don't exist on `global_transactions` at all — almost certainly means reseller Flutterwave deposits silently fail to ever be marked completed; flagged as an independent bug outside this task's scope, not fixed here. Verified `1.c.iv.zi` with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Flagged the real remaining gap plainly rather than calling `1.c` done: nothing yet marks a customer deposit `completed` or credits `global_customer_wallets` on webhook callback — none of the three gateway webhook routes have any concept of a customer-scoped transaction yet. Advanced the pointer to `1.c.v.zi.x` — the customer deposit completion handler plus webhook-route wiring, explicitly called out as likely needing its own further split once someone is actually in those four route files. |
+| 2026-09-21 | Pointer-execution session | Read all four webhook routes before writing anything, per the previous session's own instruction — found a much messier picture than assumed: four mutually-inconsistent completion implementations (korapay inline, flutterwave inline with a dead `handleSuccessfulDeposit` import, xixapay inline with a different no-pending-row model, and a fourth `[countryCode]/payment/route.ts` calling a legacy RPC that's likely orphaned/not live). Confirmed `handleSuccessfulDeposit.ts` is genuinely dead code (imported, never called) and removed the dead import while already editing that file. Found a real, likely-live bug separate from Task 4: three of the four routes update `completed_at`/`provider_reference` columns that don't exist on `global_transactions` at all — reseller deposits via any of them may never actually get marked completed; flagged clearly, not fixed (out of scope, pre-existing, reseller-side). Scoped this atomic step to the korapay/flutterwave completion path only, since that's what `fundGlobalCustomerWallet.ts` (1.c.iv) actually produces (an initiate-then-webhook-matches-by-reference model) — xixapay virtual-account transfers have no pre-existing pending row to match at all and need a different lookup (by receiving account number), split out as `1.c.vi` rather than bolted on here. Delivered `handleSuccessfulCustomerDeposit.ts` plus wiring into `korapay/route.ts` and `flutterwave/route.ts` (each now falls back to `global_customer_transactions` before 404ing), deliberately not repeating the `completed_at`/`provider_reference` bug. Verified with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Advanced the pointer to `1.c.vi.zi.x` — xixapay customer virtual-account webhook attribution. |
