@@ -50,3 +50,5 @@ sdb.txt
 *.ps1
 
 sz*.json
+
+!szglobaldb.json
