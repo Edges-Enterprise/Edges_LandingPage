@@ -1,4 +1,4 @@
-// app/(store)/[storeName]/page.tsx
+// app/oldstore/old-storeName/page.tsx
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata, ResolvingMetadata } from "next";

@@ -1,4 +1,4 @@
-// app/(store)/layout.tsx
+// app/oldstore/layout.tsx
 
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";

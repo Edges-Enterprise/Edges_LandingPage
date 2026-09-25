@@ -1,4 +1,4 @@
-// app/(store)/[storeName]/StoreContent.tsx
+// app/oldstore/old-storeName/StoreContent.tsx
 
 "use client";
 
