@@ -1,0 +1,126 @@
+Airtime Subscription API
+Dashboard
+Home
+
+bossexply5kr
+
+This section contains the recommended flow for integrating Airtime Subscription services on the Lizzysub RESTful API.
+
+Available Endpoints
+
+To integrate the Lizzysub Airtime Subscription Payment RESTful API, the endpoints below applies:
+
+
+
+
+network
+phone
+plan_type
+amount
+bypass (boolean)
+request-id (unique)
+Network Plan
+MTN
+1
+GLO
+3
+AIRTEL
+2
+9MOBILE
+4
+Dense padding
+Rows per page:
+
+5
+1–4 of 4
+
+PURCHASE PRODUCT
+
+Using a POST method, Airtime purchase can with the endpoint below:
+
+
+
+
+Enpoint URL
+
+https://lizzysub.com/api/topup/
+Code Sample
+
+                $paypload = array(
+                    'network' => 1,
+                     'phone' => 07057517841,
+                     'plan_type' => 'VTU',
+                     'bypass' => false,
+                     'amount' => 100,
+                     'request-id' => Airtime_12345678900);
+                     $ch = curl_init();
+                     curl_setopt($ch, CURLOPT_URL, 'https://lizzysub.com/api/topup');
+                     curl_setopt($ch, CURLOPT_POST, 1);
+                     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($paypload));
+                     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                     $headers = [
+                          "Authorization: Token b5b39c2645893a318c432507d00a91270f39bd987e5fcc904dc72276a00c",
+                         'Content-Type: application/json'
+                     ];
+                     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                     $response = curl_exec($ch);
+                     curl_close($ch);
+                
+
+Expected Response
+
+                {
+                    "network": "MTN",
+                    "request-id": "Airtime_1234567890",
+                    "amount": 100,
+                    "discount": 97,
+                    "status": "success",
+                    "message": "successfully purchase MTN VTU to 07013397088 , ₦100",
+                    "phone_number": "07013397088",
+                    "oldbal": "110225",
+                    "newbal": 110128,
+                    "system": "API",
+                    "plan_type": "VTU",
+                    "wallet_vending": "wallet"
+                }
+                
+
+
+
+Name: Maya Bennett
+Age: 29
+Gender: Female
+Location: Los Angeles, California
+Neighborhood: Downtown Los Angeles
+Email: maya.bennett@example.com
+Phone: +1 (555) 010-4827 (fictional/test number)
+Address: 1234 Fictional Ave, Los Angeles, CA 90014 (fictional)
+Occupation: Digital Marketing Specialist
+Employer: West Coast Creative Studio (fictional)
+Work arrangement: Hybrid
+Education: B.A. in Communications
+Interests: Coffee shops, live music, photography, fitness, and exploring Los Angeles
+Languages: English, conversational Spanish
+
+Name: Maya Bennett
+Date of birth: March 14, 1997
+Age: 29
+Gender: Female
+Location: Los Angeles, California
+Neighborhood: Downtown Los Angeles
+Email: maya.bennett@example.com
+Phone: +1 (555) 010-4827 (fictional/test number)
+Address: 1234 Fictional Ave, Los Angeles, CA 90014 (fictional)
+Occupation: Digital Marketing Specialist
+Employer: West Coast Creative Studio (fictional)
+
+redditpass:mbennett1994
+FeelingViolinist3207
+username:FeelingViolinist3207
+Email address
+m.bennett@apply.work.gd
+Birthday
+March 14, 1994
+Gender
+Woman
+

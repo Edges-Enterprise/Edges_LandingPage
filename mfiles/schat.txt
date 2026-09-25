@@ -1,0 +1,7769 @@
+q:
+Great. Lets work on an Idea together. I have a nextjs project
+ It's for data bundle resellers. I want to create a form where they can apply from, the storefront and the dashboard. List out all what would be needed for it to be top notch high quality website international standard. No codes
+
+a:
+For a professional reseller application system, think of it as an onboarding pipeline rather than just a form. The best SaaS platforms don't simply collect information—they qualify applicants, verify them, and guide them through activation.
+
+Here's what I'd include.
+
+## 1. Landing Section
+
+Before the form starts:
+
+* Clear headline
+* Benefits of becoming a reseller
+* Profit examples
+* Commission structure
+* Requirements
+* FAQ
+* Estimated approval time
+* Success stories/testimonials
+* "Apply Now" CTA
+
+---
+
+## 2. Progress Indicator
+
+Instead of one long form.
+
+Example:
+
+* Account Information
+* Business Details
+* Verification
+* Store Preferences
+* Review & Submit
+
+Users always know how far they've gone.
+
+---
+
+## 3. Account Information
+
+Basic identity.
+
+* Full Name
+* Email
+* Phone Number
+* Country
+* State/Province
+* City
+* Password
+* Confirm Password
+
+Optional
+
+* Referral Code
+* How did you hear about us?
+
+---
+
+## 4. Business Information
+
+Not everyone owns a registered company.
+
+Ask:
+
+Business Type
+
+* Individual
+* Freelancer
+* Registered Business
+* Startup
+* NGO
+* School
+* Enterprise
+
+Business Name
+
+Industry
+
+Years in operation
+
+Website
+
+Business Address
+
+Tax ID (optional depending on country)
+
+---
+
+## 5. Identity Verification
+
+International standard.
+
+Upload:
+
+* Government ID
+* Selfie (optional)
+* CAC Certificate (Nigeria only)
+* Company Registration Certificate
+* Utility Bill (optional)
+
+Supported formats
+
+Maximum upload size
+
+---
+
+## 6. Contact Preferences
+
+Preferred communication
+
+* WhatsApp
+* Email
+* SMS
+
+Best time to contact
+
+Timezone
+
+Language
+
+---
+
+## 7. Store Configuration
+
+Since every reseller gets a storefront.
+
+Ask:
+
+Store Name
+
+Desired Store URL
+
+Example
+
+```
+bianca.edges.com
+```
+
+Or
+
+```
+edges.com/bianca
+```
+
+Store Category
+
+Logo upload
+
+Preferred Theme
+
+Brand Color
+
+Short Store Description
+
+---
+
+## 8. Business Goals
+
+Useful for sales.
+
+Questions like:
+
+Expected monthly customers
+
+Expected monthly transactions
+
+Current data vendor
+
+Do you already sell airtime?
+
+Do you own a website?
+
+Social media links
+
+---
+
+## 9. Platform Requirements
+
+What services do they want?
+
+Checkboxes
+
+* Data
+* Airtime
+* Electricity
+* Cable TV
+* Betting Wallet
+* Bulk SMS
+* Virtual Account
+* API Access
+
+---
+
+## 10. Marketing Information
+
+Optional.
+
+Facebook
+
+Instagram
+
+TikTok
+
+LinkedIn
+
+Twitter/X
+
+Telegram
+
+---
+
+## 11. Payment Information
+
+Depending on onboarding stage.
+
+Bank Country
+
+Bank
+
+Account Name
+
+Account Number
+
+Preferred Currency
+
+Wallet Funding Method
+
+---
+
+## 12. Compliance
+
+Checkboxes
+
+Agree to:
+
+Terms
+
+Privacy Policy
+
+Acceptable Use Policy
+
+KYC Policy
+
+Marketing Emails
+
+---
+
+## 13. Review Page
+
+Before submission.
+
+Show everything entered.
+
+Allow editing.
+
+---
+
+## 14. Success Page
+
+Instead of
+
+"Submitted"
+
+Show
+
+Application ID
+
+Status
+
+Estimated approval
+
+Email sent
+
+Next steps
+
+Dashboard link
+
+Support contact
+
+---
+
+# Dashboard Features
+
+Inside dashboard.
+
+Application Status
+
+Examples
+
+🟡 Pending Review
+
+🟢 Approved
+
+🔴 Rejected
+
+🟠 Need More Information
+
+Timeline
+
+```
+Submitted
+
+↓
+
+Documents Received
+
+↓
+
+Verification
+
+↓
+
+Approval
+
+↓
+
+Store Created
+
+↓
+
+Activated
+```
+
+---
+
+Ability to
+
+* Edit application before approval
+* Upload missing documents
+* Download submitted application
+* Message support
+* View approval notes
+* Receive notifications
+
+---
+
+# Admin Side
+
+Very important.
+
+Application Queue
+
+Filters
+
+* Pending
+* Approved
+* Rejected
+* Country
+* Date
+* Business Type
+* Referral
+* Revenue Potential
+
+Applicant Profile
+
+Everything on one page.
+
+Internal notes
+
+Tags
+
+Risk score
+
+Approve
+
+Reject
+
+Request additional documents
+
+Suspend
+
+Assign to staff
+
+Email history
+
+Activity timeline
+
+---
+
+# User Experience
+
+Auto-save drafts
+
+Resume later
+
+Mobile responsive
+
+Dark mode
+
+Real-time validation
+
+Country-aware fields
+
+International phone input
+
+Address autocomplete
+
+File upload progress
+
+Loading skeletons
+
+Success animations
+
+Accessibility support
+
+Keyboard navigation
+
+Screen reader support
+
+High contrast mode
+
+Fast page speed
+
+---
+
+# Security
+
+CSRF protection
+
+Rate limiting
+
+Spam detection
+
+Bot protection (e.g., CAPTCHA)
+
+Email verification
+
+Phone verification (optional)
+
+File scanning
+
+Encryption
+
+Audit logs
+
+Role-based access
+
+Session management
+
+Consent logging
+
+---
+
+# Trust Signals
+
+SSL badge
+
+Privacy notice
+
+Company registration
+
+Supported countries
+
+Customer reviews
+
+Partner logos
+
+Number of active resellers
+
+Support channels
+
+Knowledge base
+
+Live chat
+
+---
+
+# Notifications
+
+Email confirmation
+
+Application received
+
+Documents requested
+
+Approved
+
+Rejected
+
+Store ready
+
+Password setup
+
+Welcome series
+
+Admin notifications
+
+---
+
+# Analytics
+
+Track:
+
+* Form starts
+* Drop-off points
+* Completion rate
+* Average completion time
+* Conversion rate
+* Approval rate
+* Rejection reasons
+* Referral sources
+* Country distribution
+* Device types
+* Marketing campaign attribution
+
+---
+
+## A feature that sets it apart
+
+Instead of ending with "Your application has been submitted," immediately provision a **limited-access dashboard**. Applicants can log in right away to track their application, upload additional documents, complete pending tasks, and explore onboarding materials while awaiting approval. This creates a much more polished, enterprise-grade experience than making users wait for an email, and it keeps them engaged throughout the review process.
+
+q:
+Let's say the form is done, user has registered what does first time and returning user experience 
+
+a:
+This is where you differentiate yourself. Most platforms think the application is the product. It isn't. **The experience after registration is the product.**
+
+I'd design it like this.
+
+---
+
+# First-Time User Experience (FTUE)
+
+The user clicks **Submit Application**.
+
+Instead of seeing:
+
+> "Application Submitted"
+
+They enter their dashboard immediately.
+
+---
+
+## 1. Welcome Screen
+
+```
+Welcome, Bianca 👋
+
+Thanks for choosing Edges.
+
+Let's get your reseller business ready.
+```
+
+Button
+
+> Start Setup
+
+---
+
+## 2. Setup Checklist (the heart of onboarding)
+
+Think GitHub, Stripe, Notion, Vercel.
+
+```
+□ Verify Email
+
+□ Verify Phone
+
+□ Complete Business Profile
+
+□ Upload Verification
+
+□ Customize Store
+
+□ Add Bank Account
+
+□ Fund Wallet
+
+□ Place First Order
+
+□ Share Your Store
+
+Progress
+
+2 / 8 Complete
+```
+
+Every completed task gives a dopamine hit.
+
+---
+
+## 3. Dashboard isn't empty
+
+Empty dashboards feel dead.
+
+Instead show
+
+Today's Tip
+
+Potential Monthly Earnings
+
+Quick Start Guide
+
+Video Tutorial
+
+Latest Promotions
+
+Support Contact
+
+Knowledge Base
+
+Community
+
+---
+
+## 4. Interactive Product Tour
+
+Instead of forcing it
+
+Highlight
+
+"This is your wallet."
+
+"This is where orders appear."
+
+"This is your storefront."
+
+Skip anytime.
+
+---
+
+## 5. Personalized Welcome
+
+Example
+
+```
+Good afternoon Bianca.
+
+You're only 3 steps away from selling data.
+
+Estimated setup time
+
+6 minutes.
+```
+
+---
+
+## 6. Store Preview
+
+Instead of waiting
+
+Immediately generate
+
+```
+https://bianca.edges.com
+```
+
+or
+
+```
+Coming Soon...
+
+Your store is being prepared.
+```
+
+People love seeing something they've created.
+
+---
+
+## 7. Smart Recommendations
+
+If they skipped logo
+
+```
+Your store will look more trustworthy with a logo.
+```
+
+If no bank
+
+```
+Add a bank account before your first withdrawal.
+```
+
+If wallet empty
+
+```
+Fund your wallet to begin selling.
+```
+
+---
+
+## 8. Progress Level
+
+Gamify
+
+```
+Starter
+
+████░░░░
+
+35%
+```
+
+Levels
+
+Starter
+
+Growing
+
+Verified
+
+Professional
+
+Elite Partner
+
+---
+
+## 9. Notifications
+
+Welcome Email
+
+Welcome Notification
+
+Setup Reminder
+
+Verification Reminder
+
+Approval Notification
+
+---
+
+# Returning User Experience
+
+This is where SaaS products shine.
+
+When they log in
+
+Don't just show
+
+Dashboard
+
+Instead
+
+```
+Welcome back Bianca 👋
+
+Yesterday
+
+8 Sales
+
+₦12,500 Profit
+
+Wallet
+
+₦42,300
+
+2 New Notifications
+
+1 Pending Task
+```
+
+---
+
+## Dynamic Homepage
+
+Every login changes.
+
+Examples
+
+If pending verification
+
+```
+Complete verification to unlock higher limits.
+```
+
+If wallet low
+
+```
+Wallet balance is getting low.
+
+Fund now.
+```
+
+If no sales
+
+```
+Need customers?
+
+Share your storefront.
+```
+
+If inactive
+
+```
+You've been away for 9 days.
+
+Here's what's new.
+```
+
+---
+
+## Continue Where You Left Off
+
+If they were editing
+
+```
+Continue Store Customization
+```
+
+Instead of making them find it.
+
+---
+
+## Recent Activity
+
+```
+Yesterday
+
+Customer bought MTN 5GB
+
+Wallet funded
+
+Store logo updated
+
+Referral joined
+
+Application approved
+```
+
+---
+
+## Quick Actions
+
+Large buttons
+
+Buy Data
+
+Fund Wallet
+
+View Orders
+
+Share Store
+
+Support
+
+Withdraw
+
+---
+
+## Insights
+
+```
+Sales Today
+
+Weekly Revenue
+
+Monthly Profit
+
+Returning Customers
+
+Top Selling Plan
+
+Conversion Rate
+```
+
+---
+
+## Motivation
+
+```
+Congratulations!
+
+You've served
+
+100 customers.
+```
+
+```
+You're among the top
+
+12%
+
+of resellers.
+```
+
+---
+
+## Contextual Suggestions
+
+If they're selling mostly MTN:
+
+> MTN sales are trending this week. Consider promoting your MTN bundles.
+
+If they have no referrals:
+
+> Invite another reseller and earn commissions.
+
+If customers abandon purchases:
+
+> Enable WhatsApp support to recover more sales.
+
+---
+
+## Achievement System
+
+```
+First Sale
+
+Verified Seller
+
+100 Orders
+
+₦1M Sales
+
+Top Performer
+
+One Year Anniversary
+```
+
+These don't have to provide rewards immediately—they encourage continued engagement.
+
+---
+
+## Personalization
+
+The dashboard should remember the user's habits. If they always check orders first, surface **Recent Orders** at the top. If they mostly manage pricing, show **Pricing & Markups** prominently. If they frequently share their storefront, make **Share Store** a primary action.
+
+---
+
+### The key principle
+
+A first-time user should feel guided, never overwhelmed. A returning user should feel recognized, productive, and informed. The dashboard should evolve with their journey—starting as an onboarding hub, then becoming a business operations center, and eventually a growth dashboard focused on helping them sell more, earn more, and manage their reseller business efficiently.
+
+
+q:
+This is basic. I want it to be that when user is a first timer, they are given a tutorial on how to use the platform, overview, the welcome, the create virtual account, the add mark up to the plans, check for customers, check wallet, the fund wallet, the check store front, purchase data bundle, explain the difference between reseller and the resellers customer, the where reseller see profit, the withdrawal of funds and that should complete the tour/tutorial, user is set up is complete user can also click skip at any point to end the show
+
+a:
+Now we're talking about a **true onboarding experience**, not just a checklist. What you're describing is closer to the onboarding used by products like Stripe, Shopify, Linear, Slack, and Notion—a guided, contextual tour that teaches users how to succeed, not just where to click.
+
+I'd structure it as a **"Reseller Academy"** or **"Guided First-Time Experience."**
+
+---
+
+# Trigger
+
+Immediately after the user signs in for the first time.
+
+A welcome modal appears.
+
+---
+
+## Welcome
+
+> **Welcome to Edges! 👋**
+>
+> Congratulations on becoming a reseller. In the next 5–10 minutes, we'll show you everything you need to know to start selling data confidently. By the end of this tour, you'll understand how your business works, how you earn profits, and where to find every important feature.
+>
+> **Estimated time:** 8 minutes
+>
+> **Buttons**
+>
+> • Start Tour
+> • Skip for Now
+
+---
+
+# Tour Structure
+
+Each step highlights the relevant page or feature while explaining it. The user clicks **Next**, **Previous**, or **Skip Tour** at any time.
+
+---
+
+## Lesson 1 — Dashboard Overview
+
+Highlight the dashboard.
+
+Explain:
+
+* This is your business home.
+* Everything starts here.
+* You'll always see your wallet, recent activity, sales, notifications, and shortcuts here.
+
+---
+
+## Lesson 2 — Wallet
+
+Highlight the wallet card.
+
+Explain:
+
+* Your wallet is where your business funds are kept.
+* Customers do not spend from this wallet.
+* Every purchase you make deducts from this balance.
+* Profits accumulate here.
+
+---
+
+## Lesson 3 — Virtual Account
+
+Navigate to the Funding page.
+
+Highlight "Create Virtual Account."
+
+Explain:
+
+* Create your dedicated virtual account.
+* Any transfer to this account automatically funds your wallet.
+* No manual confirmation is needed.
+* You only need to create it once.
+
+Let them click **Create Virtual Account** directly from the tutorial if they haven't already.
+
+---
+
+## Lesson 4 — Funding Your Wallet
+
+Explain:
+
+* Without wallet funds, you can't fulfill customer orders.
+* Show all available funding methods.
+* Mention processing times if applicable.
+
+---
+
+## Lesson 5 — Understanding Reseller Pricing
+
+Navigate to Plans.
+
+Highlight Markup.
+
+Explain with a visual example:
+
+```
+MTN 1GB
+
+System Cost
+₦485
+
+Your Selling Price
+₦500
+
+Profit
+₦15
+```
+
+Explain that markup determines profit.
+
+---
+
+## Lesson 6 — Customers
+
+Navigate to Customers.
+
+Explain:
+
+* Customers are the people who buy from your storefront.
+* Every customer belongs to your reseller account.
+* You manage them here.
+
+---
+
+## Lesson 7 — Reseller vs Customer
+
+This deserves its own screen.
+
+Show a simple comparison.
+
+### You (Reseller)
+
+* Own the business
+* Set prices
+* Fund wallet
+* Receive profits
+* Manage customers
+
+↓
+
+### Customer
+
+* Registers on your store
+* Funds their own wallet
+* Buys data
+* Never sees your profit
+
+This is probably the most important concept in the whole onboarding.
+
+---
+
+## Lesson 8 — Storefront
+
+Open their storefront.
+
+Explain:
+
+* This is your public business.
+* Customers register here.
+* Customers buy data here.
+* Share this link to start getting sales.
+
+Show a **Copy Store Link** button.
+
+---
+
+## Lesson 9 — Purchasing Data
+
+Walk through a sample purchase.
+
+Explain:
+
+Customer
+
+↓
+
+Pays
+
+↓
+
+Order created
+
+↓
+
+Wallet deducted
+
+↓
+
+Data delivered
+
+↓
+
+Profit earned
+
+---
+
+## Lesson 10 — Where Profit Comes From
+
+Highlight Sales History.
+
+Explain:
+
+Example
+
+```
+Customer paid
+
+₦500
+
+System Cost
+
+₦485
+
+Profit
+
+₦15
+```
+
+Explain that profit is the difference between your selling price and the system cost, and it stays in your reseller wallet.
+
+---
+
+## Lesson 11 — Withdrawals
+
+Navigate to Withdraw.
+
+Explain:
+
+* Withdraw available earnings to your bank account.
+* Ensure your bank account is verified.
+* Mention any minimum withdrawal amount or processing timeline if applicable.
+
+---
+
+## Lesson 12 — Reports
+
+Explain:
+
+* Sales
+* Profits
+* Wallet history
+* Customer growth
+* Daily earnings
+
+This is where they monitor business performance.
+
+---
+
+## Lesson 13 — Support
+
+Show:
+
+* Help Center
+* WhatsApp
+* Email
+* FAQ
+
+Remind them that support is always available if they get stuck.
+
+---
+
+# Completion Screen
+
+Celebrate the milestone.
+
+> 🎉 **Congratulations!**
+>
+> You've completed the onboarding tour and are ready to start your reseller business.
+>
+> Your next goal is to:
+>
+> * Fund your wallet
+> * Set your preferred markups
+> * Share your storefront
+> * Get your first customer
+>
+> **Buttons**
+>
+> • Go to Dashboard
+> • Fund Wallet Now
+
+Awarding a small "Onboarding Complete" badge can reinforce the achievement.
+
+---
+
+# Additional Quality-of-Life Features
+
+To make it feel truly polished:
+
+* **Progress indicator:** "Step 4 of 13"
+* **Back** and **Next** buttons on every step.
+* **Skip Tour** available at all times.
+* **Pause and Resume Later** if they leave mid-tour.
+* **Restart Tour** from the Settings or Help menu.
+* Automatically **skip completed setup tasks** (e.g., if they already created a virtual account, acknowledge it and move on).
+* Optional **interactive tasks** where users perform the action themselves (e.g., "Click 'Create Virtual Account'" or "Open the Plans page"), making the onboarding memorable instead of passive.
+
+The goal is that when a reseller finishes the tour, they shouldn't need to ask, "How do I make money?" or "Where do I start?" They should understand the complete business flow—from funding their wallet, setting markups, attracting customers, earning profit, and finally withdrawing their earnings—with confidence.
+
+
+q:
+Perfect. For my nextjs 16 project where does this go into, folders components server components or actions
+
+a:
+For a **Next.js 16 App Router** project, I wouldn't treat this as a single component. I'd treat it as an **onboarding feature** with its own module. That keeps it maintainable as it grows.
+
+A structure like this works well:
+
+```text
+app/
+├── (dashboard)/
+│   ├── layout.tsx          ← Checks whether onboarding should start
+│   ├── page.tsx
+│   └── ...
+
+components/
+├── onboarding/
+│   ├── OnboardingProvider.tsx
+│   ├── TourModal.tsx
+│   ├── TourStep.tsx
+│   ├── Spotlight.tsx
+│   ├── ProgressBar.tsx
+│   ├── TutorialCard.tsx
+│   ├── SkipButton.tsx
+│   └── CompletionModal.tsx
+
+lib/
+├── onboarding/
+│   ├── steps.ts            ← Defines every tutorial step
+│   ├── routes.ts           ← Maps steps to dashboard pages
+│   ├── helpers.ts
+│   └── types.ts
+
+actions/
+├── onboarding/
+│   ├── complete.ts         ← Marks onboarding complete
+│   ├── skip.ts             ← Marks onboarding skipped
+│   ├── progress.ts         ← Saves current step
+│   └── restart.ts          ← Restarts the tour
+
+hooks/
+├── useOnboarding.ts
+├── useSpotlight.ts
+
+```
+
+### Responsibilities
+
+**Server Components**
+
+* Determine whether the user has completed onboarding.
+* Fetch onboarding state from your database.
+* Pass the initial state to the client.
+
+**Client Components**
+
+* Show the tour.
+* Highlight elements.
+* Animate transitions.
+* Handle Next, Previous, Skip, and Finish.
+* Track the current step.
+
+**Server Actions**
+
+* Save progress.
+* Mark onboarding complete.
+* Record skipped onboarding.
+* Allow restarting the tour later.
+
+### Database
+
+Have a dedicated onboarding state for each reseller, for example:
+
+```text
+reseller_onboarding
+
+- reseller_id
+- completed (boolean)
+- skipped (boolean)
+- current_step
+- completed_at
+- last_seen_at
+```
+
+This lets users:
+
+* Resume where they left off.
+* Skip and never see it again.
+* Restart it from Settings or Help.
+* Continue after logging in on another device.
+
+### Where to trigger it
+
+The best place is your **dashboard layout**, not the dashboard page itself.
+
+Why?
+
+The onboarding moves users across multiple pages:
+
+* Dashboard
+* Wallet
+* Funding
+* Plans
+* Customers
+* Storefront
+* Reports
+* Withdrawals
+
+Since the layout wraps all dashboard routes, the onboarding can persist while the user navigates between them instead of restarting on every page.
+
+### One improvement I'd make
+
+Don't hard-code the tutorial. Make it **data-driven**.
+
+Instead of writing dozens of `if` statements, define each step in a configuration file (`lib/onboarding/steps.ts`) with properties such as:
+
+* title
+* description
+* route
+* target element selector
+* placement
+* next step
+* optional action required
+
+Then your `OnboardingProvider` simply reads the configuration and renders the appropriate step. This makes it easy to add, remove, reorder, or localize steps later without rewriting the onboarding logic.
+
+For a SaaS product like yours, this architecture scales much better than embedding tutorial logic throughout individual pages.
+
+
+q:
+Great. I am offering resellers to Drc, Morocco, Zimbabwe, Cameroon and Togo for now I will expand to other countries soon. Can the folder be dynamic?
+
+a:
+Yes—and I actually think it **should** be dynamic. Since you're building a multi-country platform, don't build an onboarding system that's hardcoded to today's countries.
+
+I'd go one step further and make it **configuration-driven**.
+
+For example:
+
+```text
+lib/
+└── onboarding/
+    ├── common/
+    │   ├── welcome.ts
+    │   ├── dashboard.ts
+    │   ├── wallet.ts
+    │   ├── customers.ts
+    │   ├── storefront.ts
+    │   └── withdrawal.ts
+    │
+    ├── countries/
+    │   ├── drc.ts
+    │   ├── morocco.ts
+    │   ├── zimbabwe.ts
+    │   ├── cameroon.ts
+    │   ├── togo.ts
+    │   └── nigeria.ts
+    │
+    └── index.ts
+```
+
+Then each country simply contributes its own steps.
+
+For example:
+
+* 🇨🇩 DRC
+
+  * Mobile Money
+  * Franc (CDF)
+  * Supported networks
+  * Local payment methods
+
+* 🇲🇦 Morocco
+
+  * Dirham (MAD)
+  * Moroccan operators
+  * Bank transfer explanation
+
+* 🇿🇼 Zimbabwe
+
+  * EcoCash
+  * USD/ZWG support
+  * Local funding flow
+
+When you launch Ghana later, you simply add:
+
+```
+ghana.ts
+```
+
+No existing code changes.
+
+---
+
+## Even better: Make onboarding feature-based
+
+Instead of organizing by country only, organize by **modules**.
+
+```
+onboarding/
+
+modules/
+
+welcome/
+
+wallet/
+
+virtual-account/
+
+pricing/
+
+customers/
+
+storefront/
+
+withdrawal/
+
+analytics/
+
+api/
+
+countries/
+
+drc.ts
+
+morocco.ts
+
+togo.ts
+
+...
+```
+
+Then build the onboarding like Lego.
+
+For DRC:
+
+```
+Welcome
+
+↓
+
+Dashboard
+
+↓
+
+Wallet
+
+↓
+
+Virtual Account
+
+↓
+
+Funding
+
+↓
+
+Pricing
+
+↓
+
+Customers
+
+↓
+
+Storefront
+
+↓
+
+Withdrawal
+```
+
+For another country that doesn't yet support withdrawals:
+
+```
+Welcome
+
+↓
+
+Dashboard
+
+↓
+
+Wallet
+
+↓
+
+Pricing
+
+↓
+
+Customers
+
+↓
+
+Storefront
+```
+
+The Withdrawal module simply isn't included.
+
+---
+
+## I would make it dynamic based on four things
+
+### 1. Country
+
+Different payment methods.
+
+Different currencies.
+
+Different telecom operators.
+
+---
+
+### 2. User Role
+
+Reseller
+
+Master Reseller
+
+Admin
+
+Support
+
+Each role sees a different tour.
+
+---
+
+### 3. Enabled Features
+
+Suppose later you add:
+
+* Electricity
+* Betting
+* Airtime
+* eSIM
+* Bulk SMS
+* Virtual Cards
+
+Don't show tutorials for features that aren't enabled.
+
+---
+
+### 4. Progress
+
+If a reseller has already:
+
+* Created Virtual Account ✅
+* Funded Wallet ✅
+
+don't waste their time explaining those again.
+
+Instead:
+
+> Great! You've already funded your wallet. Let's learn how to attract customers.
+
+---
+
+## I also recommend versioning your onboarding
+
+Imagine this.
+
+Today you have
+
+```
+onboarding_version = 1
+```
+
+Six months later you add:
+
+* eSIM
+* AI pricing
+* Affiliate program
+
+Create:
+
+```
+onboarding_version = 2
+```
+
+When a user logs in:
+
+```
+Current Version: 1
+
+Latest Version: 2
+
+→ Show "What's New"
+```
+
+Not the entire onboarding again—just the new features.
+
+---
+
+This architecture is how enterprise SaaS products evolve. You're not building "an onboarding"; you're building an **Onboarding Engine** that adapts based on the reseller's country, enabled features, role, and progress. That means when you expand from five countries to fifty, you won't be rewriting the onboarding—you'll just be adding new modules and configurations.
+
+q:
+Lovely. Asides from that how about the language because it should not be English in none English speaking countries but user should be able to change language in the settings 
+
+a:
+This is exactly the kind of decision that's easier to get right now than after you have thousands of users.
+
+I wouldn't think of it as "language support." I'd think of it as **localization (i18n)**.
+
+## Detect the user's preferred language
+
+When a reseller signs up, ask for their **Country**. Based on that, set a default language.
+
+For your initial countries, something like:
+
+| Country       | Default Language | Alternatives            |
+| ------------- | ---------------- | ----------------------- |
+| 🇨🇩 DR Congo | French           | English                 |
+| 🇲🇦 Morocco  | French           | Arabic, English         |
+| 🇿🇼 Zimbabwe | English          | Shona, Ndebele (future) |
+| 🇨🇲 Cameroon | French           | English                 |
+| 🇹🇬 Togo     | French           | English                 |
+
+So someone from Togo shouldn't see English first—they should land in French.
+
+---
+
+# Let users override it
+
+In **Settings**, include:
+
+```
+Language
+
+✓ Français
+
+English
+
+العربية (future)
+
+Português (future)
+
+Español (future)
+```
+
+When they change it:
+
+* Save it in the database.
+* Save it in a cookie/local storage for faster loading.
+* Use the saved preference on every login, regardless of their country.
+
+Their chosen language should always take precedence over the country default.
+
+---
+
+# Make onboarding multilingual too
+
+Don't hardcode English tutorial text.
+
+Instead of:
+
+```
+Welcome to Edges!
+
+Let's learn how to fund your wallet.
+```
+
+Use translation keys like:
+
+```
+onboarding.welcome.title
+
+onboarding.wallet.description
+
+onboarding.withdrawal.title
+```
+
+Then create translation files.
+
+```text
+messages/
+├── en/
+│   ├── onboarding.json
+│   ├── dashboard.json
+│   └── common.json
+│
+├── fr/
+│   ├── onboarding.json
+│   ├── dashboard.json
+│   └── common.json
+│
+├── ar/
+│   └── ...
+```
+
+When you add a new language, you translate the files instead of touching the application logic.
+
+---
+
+# Localize more than words
+
+A reseller in Morocco shouldn't feel like they're using a Nigerian product translated into French.
+
+Also localize:
+
+* Currency symbols (MAD, CDF, XOF, USD, etc.)
+* Date format
+* Number formatting
+* Phone number format
+* Payment method names
+* Network names
+* Help articles
+* Emails
+* Notifications
+* PDFs or invoices
+
+---
+
+# Country-specific onboarding
+
+Your onboarding engine can also choose examples based on the reseller's country.
+
+For example:
+
+**🇨🇩 DR Congo**
+
+> "Your customers can buy Orange, Airtel, Vodacom and Africell bundles."
+
+**🇹🇬 Togo**
+
+> "Your customers can buy Togocom and Moov Africa bundles."
+
+The flow stays the same, but the examples become familiar.
+
+---
+
+# Future AI translation
+
+As you expand, you can eventually manage translations through an admin panel instead of editing files. That lets your team update wording without deploying code, and later you could even use AI to generate first-pass translations that a human reviews.
+
+---
+
+## If I were designing Edges as a long-term SaaS, I'd separate everything into four layers:
+
+1. **Core application** – business logic (wallets, orders, customers).
+2. **Country configuration** – currencies, telecom operators, payment methods, regulations.
+3. **Localization** – languages, translations, date and number formats.
+4. **Onboarding engine** – tutorials that adapt based on the reseller's country, enabled features, role, and selected language.
+
+With those four layers, adding a new market becomes mostly configuration work rather than rewriting features. That's the kind of architecture that scales well as you expand across Africa and beyond.
+
+
+q:
+When user lands on the page their IP tells where they are from
+
+a:
+Yes, and that's actually the approach I'd use—but **only as the initial default**, not as the permanent source of truth.
+
+I'd have a priority order like this:
+
+### 1. User's saved language preference (Highest priority)
+
+If they've already chosen French, always use French—even if they're currently in London or Lagos.
+
+### 2. User's account country
+
+If they're logging in for the first time and haven't chosen a language, use the country they selected during registration.
+
+### 3. IP geolocation (First visit only)
+
+For a brand new visitor who isn't logged in, use their IP to guess:
+
+* Country
+* Language
+* Currency
+* Time zone
+
+For example:
+
+* IP → Morocco → French
+* IP → Togo → French
+* IP → DR Congo → French
+* IP → Zimbabwe → English
+* IP → Cameroon → French (with an option to switch to English)
+
+This makes the site feel local immediately.
+
+### 4. Browser language (Good fallback)
+
+Also check the browser's `Accept-Language` header.
+
+For example:
+
+* `fr-FR`
+* `fr-CD`
+* `en-US`
+* `ar-MA`
+
+Sometimes this is more accurate than IP, especially for people traveling or using a VPN.
+
+---
+
+## The experience could be:
+
+Visitor opens `edges.com`
+
+System detects:
+
+```
+Country:
+Morocco
+
+Language:
+French
+
+Currency:
+MAD
+```
+
+The site loads in French automatically.
+
+A small, non-intrusive banner appears:
+
+> **Nous avons détecté que vous êtes au Maroc. Continuer en Français ?**
+>
+> [Oui] [English] [العربية]
+
+If they choose English, save that preference and don't ask again.
+
+---
+
+## For your reseller platform
+
+Since you're targeting multiple African countries, you could also automatically:
+
+* Display the correct telecom operators.
+* Show the local currency.
+* Highlight country-specific payment methods.
+* Load the correct onboarding tutorial.
+* Show country-relevant promotions.
+
+So the experience isn't just translated—it feels like the platform was built for that country.
+
+One caveat: **don't rely on IP alone.** Users may travel, use VPNs, or simply prefer another language. IP is excellent for making a smart first guess, but once a user chooses a language, that choice should override the IP on future visits. That gives you the best balance of convenience and user control.
+
+
+
+q:
+Yes IP for first timers then whatever selected by IP if user didn't change it in settings it stays
+
+a:
+Exactly. That's the pattern many international SaaS products follow.
+
+Your language resolution could be:
+
+1. **First visit (not logged in)**
+
+   * Detect the user's country from their IP.
+   * Determine the default language for that country.
+   * Show the site in that language.
+   * Store this as the initial preference.
+
+2. **During registration**
+
+   * Continue using that detected language unless the user explicitly changes it.
+
+3. **After login**
+
+   * Always use the language saved in the user's account settings.
+   * Ignore the IP from this point onward.
+
+4. **If the user changes their language in Settings**
+
+   * Save the new preference immediately.
+   * Use it on every device after they log in.
+   * Never override it based on IP again.
+
+So the flow becomes:
+
+```text
+New Visitor
+      │
+      ▼
+Detect Country from IP
+      │
+      ▼
+Load Default Language
+      │
+      ▼
+User Registers
+      │
+      ▼
+Save Language Preference
+      │
+      ▼
+Future Logins
+      │
+      ▼
+Use Saved Preference
+```
+
+### Example
+
+A reseller visits from Morocco.
+
+* IP → Morocco
+* Site loads in **French**
+* They register.
+* Their account stores **language = fr**.
+
+Months later they're in Canada.
+
+* IP → Canada (English/French)
+* They log in.
+* The platform still loads **French**, because that's their saved preference.
+
+If they later go to **Settings → Language** and switch to English:
+
+* `language = en`
+* From then on, every login—whether from Morocco, Canada, or anywhere else—opens in English.
+
+One additional recommendation: keep the **country** and **language** as separate settings. A reseller in Cameroon might want the platform in English even though the default is French, and they should never have to change their country just to change the interface language. This separation also gives you flexibility as you expand into more countries and languages.
+
+
+q:
+Right. What else
+
+a:
+I think you're at the point where you should stop thinking of Edges as a VTU app and start thinking of it as a **business operating system for resellers**. Here are the things I'd add that make people say, *"This feels premium."*
+
+---
+
+# 1. Onboarding Status Center
+
+After the tutorial, don't just remove it.
+
+Create a page called **Getting Started**.
+
+```
+✓ Tour Completed
+
+✓ Virtual Account Created
+
+✓ Wallet Funded
+
+✓ First Markup Set
+
+□ First Customer
+
+□ First Sale
+
+□ First Withdrawal
+```
+
+Users can always revisit it.
+
+---
+
+# 2. Daily Business Insights
+
+Every morning when they log in:
+
+> Good morning, Bianca.
+
+Today's opportunities
+
+• MTN demand is high today
+
+• Wallet balance is low
+
+• You earned ₦3,250 yesterday
+
+• 4 customers haven't purchased this week
+
+---
+
+# 3. Business Health Score
+
+```
+Business Health
+
+92%
+
+★★★★★
+```
+
+Calculated from:
+
+* Wallet funded
+* Active customers
+* Recent sales
+* Profile completed
+* Store customized
+* Response time
+* Verification
+
+Instead of just numbers, users feel how healthy their business is.
+
+---
+
+# 4. First Sale Celebration
+
+When they make their first sale:
+
+🎉 Confetti
+
+> Congratulations!
+
+> You just made your first sale.
+
+Then
+
+```
+1 Sale
+
+₦15 Profit
+
+Keep going!
+```
+
+Little moments like this keep users engaged.
+
+---
+
+# 5. Empty States
+
+Never show an empty table.
+
+Instead of
+
+"No customers"
+
+Show
+
+> You don't have customers yet.
+
+> Share your storefront to get your first customer.
+
+[Copy Store Link]
+
+---
+
+# 6. Smart Tips
+
+Based on activity.
+
+Example
+
+No markup
+
+> You haven't added a markup.
+
+> You're currently making ₦0 profit.
+
+Wallet low
+
+> Your wallet can fulfill only 3 more orders.
+
+Inactive
+
+> You haven't logged in for 6 days.
+
+---
+
+# 7. Country Awareness
+
+The platform should know where the reseller is.
+
+Not only language.
+
+Everything.
+
+Example
+
+```
+Country
+
+Morocco
+
+Currency
+
+MAD
+
+Timezone
+
+Africa/Casablanca
+
+Operators
+
+Orange
+
+Inwi
+
+Maroc Telecom
+```
+
+---
+
+# 8. Announcement Center
+
+Instead of random popups.
+
+Create
+
+"Updates"
+
+```
+What's New
+
+New Country Added
+
+New Network
+
+Maintenance
+
+New Feature
+
+Promotions
+```
+
+Very SaaS-like.
+
+---
+
+# 9. Notification Center
+
+Separate from announcements.
+
+Types
+
+* Sales
+* Wallet
+* Orders
+* Support
+* Marketing
+* System
+* Security
+
+---
+
+# 10. Activity Timeline
+
+Like GitHub.
+
+```
+Today
+
+Wallet funded
+
+↓
+
+Customer joined
+
+↓
+
+Sale completed
+
+↓
+
+Withdrawal requested
+
+↓
+
+Withdrawal approved
+```
+
+Users can literally watch their business grow.
+
+---
+
+# 11. Security Center
+
+A page just for account security.
+
+Password
+
+Sessions
+
+Devices
+
+Login history
+
+2FA (future)
+
+Trusted devices
+
+---
+
+# 12. Referral Hub
+
+Instead of just giving a referral code.
+
+Explain
+
+How referrals work
+
+Commission
+
+Payout
+
+Leaderboard
+
+---
+
+# 13. Achievement Badges
+
+```
+✓ First Customer
+
+✓ First Sale
+
+✓ 100 Orders
+
+✓ Verified Seller
+
+✓ ₦100,000 Sales
+
+✓ One Year Member
+```
+
+---
+
+# 14. Command Palette
+
+Like GitHub.
+
+Press
+
+Ctrl + K
+
+Search anything.
+
+```
+Wallet
+
+Customers
+
+Withdraw
+
+Orders
+
+Support
+
+Settings
+
+Pricing
+```
+
+Power users love this.
+
+---
+
+# 15. Search Everything
+
+One search bar.
+
+Search
+
+Customer
+
+Transaction
+
+Phone Number
+
+Order
+
+Wallet
+
+Store
+
+Notification
+
+---
+
+# 16. Support Hub
+
+Instead of
+
+"Contact us"
+
+Have
+
+Documentation
+
+Video tutorials
+
+FAQs
+
+WhatsApp
+
+Email
+
+System status
+
+---
+
+# 17. Guided Recovery
+
+If something fails.
+
+Instead of
+
+"Payment failed"
+
+Show
+
+```
+Reason
+
+Insufficient Wallet Balance
+
+Next Step
+
+Fund Wallet
+
+Estimated Time
+
+Instant
+```
+
+Tell users how to fix the problem.
+
+---
+
+# 18. Reseller Growth Center
+
+This is something I haven't seen many VTU platforms do.
+
+A dedicated **Grow My Business** page.
+
+It teaches:
+
+* How to get customers
+* How to price bundles
+* Marketing tips
+* WhatsApp selling strategies
+* Facebook marketing
+* TikTok marketing
+* Referral strategies
+* Customer retention
+
+The platform becomes a business coach, not just a transaction tool.
+
+---
+
+## The feature I'd build last—but it would become your signature feature
+
+An **AI Business Assistant**.
+
+Not a generic chatbot, but one that understands the reseller's business.
+
+Imagine a button in the dashboard:
+
+> 💡 **Ask Edges AI**
+
+Questions like:
+
+* "Why are my sales down this week?"
+* "How much profit did I make this month?"
+* "Which network sells the most?"
+* "What markup do you recommend?"
+* "How do I get more customers?"
+* "Summarize my business this week."
+
+Because it has access to the reseller's own data, it can give personalized answers and actionable advice.
+
+If you build everything we've discussed—the adaptive onboarding engine, localization, country awareness, business insights, growth center, and an AI assistant—you'll move beyond being "another data reseller platform." You'll have something that feels like a professional SaaS product built for African digital entrepreneurs rather than just a place to buy and resell data.
+
+
+
+q:
+Perfect. Include the feature to publish app on playstore. It would cost $22 for local, $28 for regional  and $35 for worldwide.  
+So if they paid for local it would publish on the store but only people in their local country will see it, for regional only people in the selected region will see it, then for worldwide everyone can see it.  
+They can pay from wallet balance or with card or something other method 
+
+a:
+That's a strong value-add because you're solving a real problem for resellers. Most don't know how to create a Play Store account, prepare assets, or publish an app. You're turning it into a managed service.
+
+I'd make it a complete **App Publishing Center**, not just a payment page.
+
+---
+
+# App Publishing Center
+
+Menu
+
+> 📱 Publish My App
+
+Dashboard
+
+```text
+App Status
+
+🟢 Live
+🟡 Pending Review
+🔵 Preparing Release
+🔴 Rejected
+⚪ Not Published
+```
+
+---
+
+# Before Publishing
+
+Run an automatic readiness check.
+
+```text
+✓ Logo Uploaded
+
+✓ Splash Screen Uploaded
+
+✓ Privacy Policy
+
+✓ Store Description
+
+✓ Support Email
+
+✓ App Icon
+
+✓ Feature Graphic
+
+✓ Screenshots
+
+✓ Terms & Conditions
+
+✓ Version Number
+```
+
+If anything is missing:
+
+> Complete your store profile before publishing.
+
+---
+
+# Publishing Plans
+
+### 🌍 Local
+
+**$22**
+
+* Publish to one country
+* Visible only in the selected country
+* Best for local businesses
+
+---
+
+### 🌍 Regional
+
+**$28**
+
+* Publish to a selected region (for example, West Africa, Central Africa, North Africa)
+* Available in all countries within that region
+
+---
+
+### 🌍 Worldwide
+
+**$35**
+
+* Publish globally
+* Available in all supported countries
+
+---
+
+# Choose Visibility
+
+If they select Local:
+
+```text
+Country
+
+✓ Morocco
+```
+
+If Regional:
+
+```text
+Region
+
+West Africa
+
+Central Africa
+
+East Africa
+
+North Africa
+
+Southern Africa
+```
+
+Worldwide has no additional selection.
+
+---
+
+# Payment Options
+
+Choose how to pay.
+
+* Wallet Balance
+* Debit/Credit Card
+* Mobile Money (where available)
+* Bank Transfer (optional)
+
+If Wallet Balance is insufficient:
+
+> You need an additional $8 to complete this purchase.
+
+Provide buttons to:
+
+* Fund Wallet
+* Pay the Difference by Card (if you support mixed payments in the future)
+
+---
+
+# Review & Confirm
+
+Show a summary.
+
+```text
+App Name
+
+Bianca Data
+
+Plan
+
+Regional
+
+Region
+
+West Africa
+
+Amount
+
+$28
+```
+
+Button:
+
+**Publish My App**
+
+---
+
+# What Happens Next
+
+After payment:
+
+1. Deduct wallet balance or confirm card payment.
+2. Queue the publishing request.
+3. Show progress.
+
+```text
+Preparing App
+
+↓
+
+Uploading to Play Console
+
+↓
+
+Google Review
+
+↓
+
+Published
+```
+
+Each stage updates automatically.
+
+---
+
+# Notifications
+
+Notify the reseller when:
+
+* Payment received
+* Build started
+* Upload completed
+* Google review in progress
+* App approved
+* App rejected (with Google's reason)
+* App updated successfully
+
+---
+
+# Manage Published Apps
+
+Allow them to:
+
+* View Play Store link
+* Copy app link
+* View current visibility (Local/Regional/Worldwide)
+* Request updates
+* Submit a new version
+* Pause future releases if needed
+
+---
+
+# Upgrade Visibility
+
+Suppose a reseller starts with Local.
+
+Later they want Regional.
+
+Offer an upgrade page.
+
+```text
+Current
+
+Local
+
+Upgrade
+
+Regional
+
+Pay only the difference.
+```
+
+Likewise:
+
+Local → Worldwide
+
+Regional → Worldwide
+
+This feels much fairer than charging the full amount again.
+
+---
+
+# Publishing History
+
+```text
+Version 1.0.0
+
+Published
+
+12 July
+
+Version 1.1.0
+
+Updated
+
+20 July
+
+Version 1.2.0
+
+Pending Review
+```
+
+---
+
+# Analytics (Future)
+
+After publication, display:
+
+* Play Store downloads
+* Active installs
+* Countries with the most installs
+* App rating
+* Reviews
+* Latest version adoption
+
+---
+
+## One important business consideration
+
+I would **not** describe the pricing as "charging to publish to the Play Store." Google only allows country availability if the app owner (or the account managing the app) selects those countries in the Play Console. If you're providing a managed publishing service, present the plans as the **managed distribution coverage** you provide.
+
+For example:
+
+* **Local Distribution** – $22 (publish and make the app available in one selected country)
+* **Regional Distribution** – $28 (publish and make the app available across one selected region)
+* **Worldwide Distribution** – $35 (publish and make the app available globally)
+
+That wording accurately reflects the service you're offering and sets the right expectations. It also leaves room to include everything else that comes with the service—build validation, asset checks, submission, review monitoring, updates, and support—making it feel like a premium managed offering rather than simply charging for a Play Store upload.
+
+
+
+q:
+So the app will be provided by me, so publishing on playstore technically is under my organisation play console.
+
+a:
+In that case, the architecture actually makes a lot of sense.
+
+Since **you own the Play Console account**, the reseller isn't paying Google directly. They're paying **Edges** for a managed publishing service.
+
+The flow would be:
+
+```
+Reseller
+
+↓
+
+Purchases Publishing Plan
+
+↓
+
+Edges receives payment
+
+↓
+
+Edges builds the reseller's APK/AAB
+
+↓
+
+Edges uploads it to the Edges Play Console
+
+↓
+
+Edges configures country availability
+
+↓
+
+Google reviews it
+
+↓
+
+App goes live
+```
+
+That means the pricing is **your service fee**, not Google's.
+
+---
+
+## I'd make it an "App Distribution Center"
+
+Instead of only "Publish on Play Store."
+
+Why?
+
+Because in the future you can support:
+
+* Google Play
+* Huawei AppGallery
+* Samsung Galaxy Store
+* Direct APK
+* Enterprise Distribution
+
+without redesigning the feature.
+
+---
+
+## Dashboard
+
+```
+Distribution
+
+Google Play
+
+Status
+
+Published
+
+Visibility
+
+Regional
+
+Version
+
+1.2.4
+
+Downloads
+
+1,247
+
+Last Updated
+
+Yesterday
+```
+
+---
+
+## Distribution Plans
+
+### Starter Distribution
+
+Local Country
+
+$22
+
+---
+
+### Regional Distribution
+
+Selected Region
+
+$28
+
+---
+
+### Global Distribution
+
+Worldwide
+
+$35
+
+---
+
+## Build Queue
+
+After payment
+
+```
+Queued
+
+↓
+
+Building App
+
+↓
+
+Signing
+
+↓
+
+Uploading
+
+↓
+
+Google Review
+
+↓
+
+Published
+```
+
+The reseller watches the entire process.
+
+---
+
+## Countries
+
+For Local
+
+```
+Select Country
+
+🇲🇦 Morocco
+
+🇨🇲 Cameroon
+
+🇹🇬 Togo
+
+🇿🇼 Zimbabwe
+
+🇨🇩 DR Congo
+```
+
+Later
+
+150+ countries.
+
+---
+
+## Regional
+
+```
+West Africa
+
+Central Africa
+
+Southern Africa
+
+East Africa
+
+North Africa
+```
+
+---
+
+## Worldwide
+
+```
+All Countries
+```
+
+Simple.
+
+---
+
+## Updates
+
+One thing I would monetize.
+
+When the reseller changes:
+
+* Logo
+* Splash Screen
+* App Name
+* Package
+* Theme
+* Store Screenshots
+
+Show
+
+```
+Your Play Store app is out of date.
+
+Publish Update
+
+$5
+```
+
+Or include unlimited updates in a higher subscription tier.
+
+---
+
+## Premium Plans
+
+Imagine
+
+### Standard
+
+One publish
+
+---
+
+### Pro
+
+Unlimited updates
+
+Priority review
+
+Play Store optimization
+
+Store listing improvements
+
+Priority support
+
+---
+
+### Enterprise
+
+Dedicated Play Console management
+
+A/B rollout
+
+Crash monitoring
+
+Store optimization
+
+Release notes
+
+---
+
+## One thing I'd automate
+
+Since your GitHub Actions already generate APKs for every reseller, the publishing request should simply trigger the pipeline.
+
+Something like:
+
+```
+Reseller clicks Publish
+
+↓
+
+Payment successful
+
+↓
+
+Create publishing job
+
+↓
+
+GitHub Action builds latest release
+
+↓
+
+Signs AAB
+
+↓
+
+Uploads to Google Play API
+
+↓
+
+Sets country availability
+
+↓
+
+Returns status
+
+↓
+
+Notify reseller
+```
+
+No manual intervention from you.
+
+---
+
+### One legal consideration
+
+Because **all the apps are published under your organization's Google Play Console account**, you should make this very clear in your Terms of Service. State that:
+
+* Edges manages the Play Store listing on the reseller's behalf.
+* The app is published under the Edges developer account.
+* Edges may remove or suspend apps that violate policies.
+* Resellers are responsible for the content, branding, and conduct of their business.
+* Google Play policy violations by a reseller can affect their listing, and they must comply with your platform rules.
+
+This protects both your business and your Play Console account, which becomes one of your most valuable assets.
+
+
+
+q:
+I give the apk free but publishing on playstore is what cost
+
+a:
+That's actually an even stronger business model.
+
+You're saying:
+
+* ✅ Every reseller gets their branded APK **for free**.
+* ✅ They can distribute it however they want (WhatsApp, Telegram, website, QR code, etc.).
+* 💰 Publishing to the Google Play Store is an **optional premium service**.
+
+I would market it exactly that way.
+
+---
+
+## App Distribution
+
+### Free
+
+**Branded APK**
+
+Included with every reseller account.
+
+Features:
+
+* Custom app name
+* Custom logo
+* Custom splash screen
+* Install via APK
+* Share through WhatsApp, Telegram, website, QR code, etc.
+
+**Cost:** Free
+
+---
+
+### Google Play Publishing (Optional)
+
+Increase trust and make installation easier by publishing your branded app on the Google Play Store.
+
+#### Local Distribution — **$22**
+
+* Publish to one selected country
+* Managed submission
+* Google Play review monitoring
+
+#### Regional Distribution — **$28**
+
+* Publish to one selected region
+* Greater visibility across multiple countries
+
+#### Worldwide Distribution — **$35**
+
+* Publish globally
+* Available wherever your business operates
+
+---
+
+## On the dashboard
+
+Instead of showing "Publish App" immediately, show the APK first.
+
+```text id="0z3rv4"
+📱 Your Mobile App
+
+Status
+
+Ready
+
+APK
+
+✓ Available
+
+Google Play
+
+Not Published
+
+[Download APK]
+
+[Share APK]
+
+[Publish to Google Play]
+```
+
+This tells the reseller they already have value before spending anything.
+
+---
+
+## Why this is psychologically effective
+
+The reseller thinks:
+
+> "I already have my own app!"
+
+Then, after they've started getting customers:
+
+> "Maybe I should publish it on Google Play to look more professional."
+
+That upsell happens naturally, after they've seen the platform's value.
+
+---
+
+## One feature I'd add
+
+Call it **Distribution Options** instead of **Publishing**.
+
+```
+How would you like customers to install your app?
+
+✓ APK (Free)
+
+Google Play ($22–$35)
+
+Coming Soon
+Huawei AppGallery
+
+Coming Soon
+Apple App Store
+```
+
+That makes Google Play feel like one of several premium distribution channels rather than the only way to get an app.
+
+I also like your pricing because it creates a clear value ladder: **free branded APK → optional paid Play Store distribution**. Users don't feel forced to pay just to have an app, but many businesses will eventually pay for the added credibility and discoverability of being on the Play Store.
+
+
+
+q:
+I don't want to charge maintanace is that ok
+
+a:
+Yes, it's perfectly okay **if it's a deliberate business decision**.
+
+In fact, **"One-time payment. No maintenance fees."** can be a strong selling point because many white-label app providers charge recurring fees just to keep an app published.
+
+That said, you should understand what you're committing to.
+
+### What "no maintenance fee" means for you
+
+If a reseller pays **$22 / $28 / $35** today, they will reasonably expect that you will continue to:
+
+* Keep their app on the Play Store.
+* Submit updates when Google requires a newer Android target SDK.
+* Fix Play Store compliance issues that affect all apps.
+* Rebuild the app if your platform changes.
+* Handle Play Store policy updates.
+
+Those costs come out of your business unless you charge for something else.
+
+### A model I think fits Edges better
+
+Don't charge an annual maintenance fee.
+
+Instead:
+
+* ✅ APK generation — Free
+* ✅ Initial Play Store publishing — One-time fee
+* ✅ Platform-wide maintenance — Included (because it benefits everyone)
+* ✅ Optional custom work (new logo, new package name, major redesign, etc.) — Charge only if you want to
+
+That feels fair to resellers.
+
+### Why this can work
+
+Your reseller platform already generates revenue through your core business (selling data and related services). The Play Store publishing service doesn't necessarily need to be a recurring revenue stream if its main purpose is to attract and retain resellers.
+
+### One thing I'd communicate clearly
+
+I'd advertise it as:
+
+> **One-time publishing fee. No annual renewal or maintenance charges from Edges.**
+
+Notice the wording: **from Edges**.
+
+That's important because Google Play policies can change. You don't want to promise you'll never charge for any future service under any circumstances. For example, if a reseller later requests a completely different app, a rebrand, or additional premium services, those can still be priced separately.
+
+Given what you've described, I think offering **free branded APKs** plus a **one-time managed Play Store publishing service with no recurring maintenance fee** is a compelling and competitive offering that will make your platform stand out.
+
+
+
+q:
+Great. We have a good project. Lets put all these in a markdown file so gpt can understand at all times 
+
+a:
+Done! I've consolidated the vision and decisions we've made so far into a reusable project context document.
+
+You can download it here:
+
+**📄 [Edges_Product_Context.md](sandbox:/mnt/data/Edges_Product_Context.md)**
+
+As we continue designing Edges, I recommend turning this into a proper **Product Requirements Document (PRD)** instead of just notes. I would organize it into sections like:
+
+1. Vision & Mission
+2. Product Architecture
+3. User Types
+4. Countries & Localization
+5. Authentication
+6. Onboarding Engine
+7. Dashboard Experience
+8. Storefront
+9. Wallet & Payments
+10. Customers
+11. Orders
+12. Profit System
+13. Notifications
+14. AI Assistant
+15. Mobile Apps
+16. Play Store Distribution
+17. Admin Portal
+18. APIs
+19. Database Design
+20. Future Roadmap
+
+That document can become the **single source of truth** for the project. Any time you or I build a feature, we can reference it to ensure consistency. Over time, it becomes detailed enough that another developer could join the project and understand the entire platform without needing long explanations. I think that's the next step for a project of this scale.
+
+
+q:
+Great let's do the prd
+
+a:
+Excellent. This is exactly the stage where successful SaaS products start to become much easier to build because every feature has a reference point.
+
+I've created the first version of the PRD for you.
+
+**📄 [Download: Edges_PRD_v1.md](sandbox:/mnt/data/Edges_PRD_v1.md)**
+
+That said, I think we can go much further.
+
+Given everything you've told me over the past several months, Edges is no longer "a data reseller app." It's becoming an ecosystem. I would aim for a **100–200 page PRD** over time that covers every aspect of the platform.
+
+I'd break it into a `docs/` folder inside your repository instead of one massive file:
+
+```text
+docs/
+│
+├── 00-Vision.md
+├── 01-Product-Overview.md
+├── 02-Architecture.md
+├── 03-Multi-Tenant-System.md
+├── 04-Authentication.md
+├── 05-Onboarding-Engine.md
+├── 06-Localization.md
+├── 07-Storefront.md
+├── 08-Dashboard.md
+├── 09-Wallet.md
+├── 10-Customers.md
+├── 11-Orders.md
+├── 12-Profit-System.md
+├── 13-Notifications.md
+├── 14-Mobile-App.md
+├── 15-Play-Store-Distribution.md
+├── 16-Admin-Portal.md
+├── 17-Analytics.md
+├── 18-AI-Assistant.md
+├── 19-Security.md
+├── 20-API.md
+├── 21-Database.md
+├── 22-Roadmap.md
+└── PRD.md
+```
+
+This has a few advantages:
+
+* Every feature has its own living document.
+* Git tracks changes cleanly.
+* You can point an AI coding assistant to a specific document instead of a huge file.
+* New developers can onboard much faster.
+* As the product grows, you update only the relevant document.
+
+I also recommend including for every feature:
+
+* **Purpose** – why it exists.
+* **Business rules** – how it should behave.
+* **User flow** – step-by-step journey.
+* **UI/UX requirements** – what the user sees and experiences.
+* **Acceptance criteria** – how you know it's complete.
+* **Future enhancements** – ideas that aren't in the first release.
+
+That level of detail turns the PRD into a true engineering blueprint rather than just a feature list. I think that's the best foundation for a platform as ambitious as Edges.
+
+
+q:
+What else can be included?
+
+a:
+A lot. In fact, I think you've only designed about **25–30%** of what an enterprise SaaS product typically includes. Here are areas that would make Edges feel like a mature platform rather than just a reseller app.
+
+---
+
+# Business Suite
+
+## Business Profile
+
+Instead of just a reseller profile:
+
+* Business Name
+* Business Logo
+* Business Registration Number
+* Tax Number
+* Support Email
+* Support Phone
+* WhatsApp
+* Website
+* Facebook
+* Instagram
+* TikTok
+* Business Hours
+* Time Zone
+
+---
+
+## Branding Center
+
+A dedicated page.
+
+Manage:
+
+* Logo
+* Splash Screen
+* App Icon
+* Store Colors
+* Fonts
+* Banner Images
+* Store Description
+* Favicon
+* Welcome Message
+
+---
+
+## Customer CRM
+
+Not just a customer list.
+
+For every customer:
+
+* Lifetime Value
+* Last Purchase
+* Average Spend
+* Favorite Network
+* Referral Source
+* Wallet Balance
+* Purchase Frequency
+* Last Login
+* Notes
+* Tags
+
+---
+
+## Marketing Center
+
+This alone could become a selling point.
+
+Features:
+
+* QR Code Generator
+* Share Store
+* WhatsApp Templates
+* Facebook Posts
+* Referral Posters
+* Downloadable Flyers
+* Short Links
+* Campaign Tracking
+
+---
+
+## Coupons & Promotions
+
+Create:
+
+* Discount Codes
+* Free Data Promotions
+* Referral Rewards
+* Holiday Campaigns
+* Customer Segments
+
+---
+
+# Finance
+
+## Profit Analytics
+
+Instead of just total profit.
+
+Break down by:
+
+* Network
+* Country
+* Day
+* Week
+* Month
+* Customer
+* Bundle
+
+---
+
+## Expense Tracking
+
+Allow resellers to record:
+
+* Advertising
+* Internet
+* Staff
+* Rent
+* Miscellaneous
+
+Show actual business profit.
+
+---
+
+## Taxes
+
+Future
+
+Automatic tax summaries.
+
+---
+
+# Store Management
+
+## Operating Hours
+
+Example:
+
+```text
+Monday
+
+8 AM - 10 PM
+
+Tuesday
+
+Closed
+```
+
+Customers know availability.
+
+---
+
+## Maintenance Mode
+
+Reseller can temporarily close the store.
+
+Customers see:
+
+> We're currently undergoing maintenance.
+
+---
+
+## Holiday Mode
+
+Useful if the reseller is away.
+
+---
+
+# Communication
+
+## Customer Broadcast
+
+Send:
+
+* Push Notifications
+* Email
+* SMS (future)
+
+Examples:
+
+> MTN promo today.
+
+---
+
+## Customer Segments
+
+Message:
+
+Only
+
+* New customers
+* VIP customers
+* Inactive customers
+* High spenders
+
+---
+
+# Reporting
+
+Generate PDF reports.
+
+Weekly
+
+Monthly
+
+Yearly
+
+Include:
+
+* Sales
+* Profit
+* Customers
+* Growth
+* Wallet
+
+---
+
+# Team Management
+
+Later.
+
+Invite staff.
+
+Roles:
+
+Manager
+
+Support
+
+Sales
+
+Accountant
+
+Viewer
+
+---
+
+# Automation
+
+Example:
+
+"If wallet drops below ₦5,000"
+
+↓
+
+Notify me.
+
+"If profit exceeds ₦50,000"
+
+↓
+
+Email report.
+
+"If customer registers"
+
+↓
+
+Send welcome message.
+
+---
+
+# Integrations
+
+Future.
+
+WhatsApp Business
+
+Google Analytics
+
+Meta Pixel
+
+Telegram
+
+Slack
+
+Zapier
+
+Webhooks
+
+---
+
+# Trust Center
+
+Verification badges.
+
+Example
+
+✓ Verified Business
+
+✓ Verified Identity
+
+✓ Verified Store
+
+Customers trust verified stores more.
+
+---
+
+# App Center
+
+Eventually.
+
+Instead of only data.
+
+Allow enabling:
+
+* Airtime
+* Electricity
+* Cable TV
+* Betting
+* Bulk SMS
+* eSIM
+* Gift Cards
+* Virtual Cards
+
+The reseller chooses what appears in their app and storefront.
+
+---
+
+# Themes
+
+Offer multiple storefront themes.
+
+Instead of everyone having the same layout.
+
+---
+
+# Store Templates
+
+Examples:
+
+Modern
+
+Minimal
+
+Corporate
+
+Colorful
+
+Dark
+
+---
+
+# Knowledge Academy
+
+Courses.
+
+How to sell.
+
+How to advertise.
+
+How to grow.
+
+How to retain customers.
+
+Track completion.
+
+Issue certificates.
+
+---
+
+# AI Assistant
+
+This deserves its own module.
+
+Not just chat.
+
+Capabilities:
+
+* Explain reports.
+* Suggest pricing.
+* Detect unusual sales patterns.
+* Recommend promotions.
+* Forecast revenue.
+* Help onboard new users.
+* Answer support questions.
+* Generate marketing copy.
+* Analyze customer behavior.
+
+---
+
+# Gamification
+
+Leaderboard.
+
+Top sellers.
+
+Monthly challenges.
+
+Milestones.
+
+Rewards.
+
+Badges.
+
+---
+
+# Community
+
+A place where resellers can:
+
+Ask questions.
+
+Share ideas.
+
+Vote on features.
+
+Read announcements.
+
+---
+
+# Developer Center
+
+Later.
+
+API Keys.
+
+Webhooks.
+
+SDKs.
+
+Documentation.
+
+Sandbox.
+
+---
+
+## The one feature I think would completely differentiate Edges
+
+A **Business Launch Wizard**.
+
+Imagine a new reseller signs up.
+
+Instead of dropping them into a dashboard, Edges asks:
+
+* What country are you operating in?
+* What's your business name?
+* Upload your logo.
+* Choose your brand colors.
+* Select your services.
+* Set your pricing strategy.
+* Create your virtual account.
+* Generate your app.
+* Publish your storefront.
+* Share your store.
+
+At the end, Edges says:
+
+> 🎉 **Congratulations!**
+>
+> Your digital business is now live.
+>
+> Your storefront is ready.
+>
+> Your Android app is ready.
+>
+> Your virtual account is active.
+>
+> Your pricing has been configured.
+>
+> You can now start accepting customers.
+
+That shifts the experience from "I've signed up for a platform" to **"I've launched a business."** I think that's the emotional outcome Edges should aim to deliver.
+
+
+q:
+Which ai can one use for the ai feature 
+
+a:
+For Edges, I wouldn't rely on a single AI model. I'd use the best model for each job. Here's what I'd recommend:
+
+| Task                                     | Recommended AI             |
+| ---------------------------------------- | -------------------------- |
+| Business Assistant (chat with resellers) | GPT-5.5                    |
+| Coding & debugging                       | Claude Opus 4.1 or GPT-5.5 |
+| Report summarization                     | GPT-5.5                    |
+| Marketing copy                           | GPT-5.5                    |
+| Translation (French, Arabic, English)    | GPT-5.5                    |
+| OCR (reading uploaded documents)         | GPT-5.5 or Gemini 2.5 Pro  |
+| Image understanding                      | Gemini 2.5 Pro             |
+| Fast, low-cost tasks                     | GPT-5 mini or Gemini Flash |
+
+## If I were building Edges today
+
+I'd have an abstraction layer so you can switch providers without changing your application logic.
+
+```text
+AI Service
+
+↓
+
+GPT-5.5
+
+Claude
+
+Gemini
+
+DeepSeek
+
+OpenRouter
+
+Local LLM
+```
+
+Your app only talks to the **AI Service**. The AI Service decides which model to use.
+
+## My recommendation
+
+### Primary Model
+
+**GPT-5.5**
+
+Use it for:
+
+* Business assistant
+* Customer support
+* Dashboard explanations
+* Report summaries
+* Profit analysis
+* Marketing suggestions
+* Onboarding guidance
+
+It's an excellent general-purpose model.
+
+### Secondary Model
+
+**Gemini 2.5 Flash**
+
+Use it for:
+
+* Fast responses
+* OCR
+* Image analysis
+* Lower-cost requests
+
+### Coding
+
+If you build AI-assisted developer tools later:
+
+* Claude Opus 4.1
+* GPT-5.5
+
+## Future AI Features
+
+Your AI could answer questions like:
+
+> "Why are my sales down this week?"
+
+> "How much profit did I make in June?"
+
+> "Which network sells the most?"
+
+> "What markup should I use in Morocco?"
+
+> "Generate a WhatsApp advert in French."
+
+> "Summarize today's business."
+
+> "Which customers haven't bought anything in 30 days?"
+
+Those aren't generic chatbot questions—they're answers based on the reseller's own data.
+
+## Cost optimization
+
+You don't need to send every request to the most expensive model.
+
+A smart routing strategy could be:
+
+* **Simple tasks** (translation, rewriting, FAQs) → GPT-5 mini.
+* **Business analysis and recommendations** → GPT-5.5.
+* **Vision tasks** (analyzing uploaded images or documents) → Gemini 2.5 Pro or GPT-5.5.
+* **Complex reasoning** → GPT-5.5.
+
+That gives you a good balance of capability and operating cost.
+
+### One more idea
+
+Instead of branding it as "AI Chat," give it a product name such as **Edges Advisor**, **Edges Business Coach**, or **Edges Assistant**. Users feel like they're getting help from the platform itself, not just interacting with another generic chatbot. That reinforces your brand and makes the AI feel like an integrated business tool rather than an add-on.
+
+
+q:
+Free ai
+
+a:
+If your goal is **free or nearly free AI** to start with, there are several good options.
+
+### 1. Gemini API (Best starting point)
+
+Google offers a generous free tier for many developers.
+
+Good for:
+
+* Chat
+* Summaries
+* Translation
+* Marketing copy
+* OCR
+* Image understanding
+
+**Pros**
+
+* High quality
+* Multimodal
+* Generous free usage for development and low-volume apps
+
+---
+
+### 2. NVIDIA NIM (Free)
+
+You mentioned NVIDIA before.
+
+They provide free access to several open-source models through their API.
+
+Models include:
+
+* Llama 3.3
+* DeepSeek
+* Mistral
+* Qwen
+* Gemma
+
+Good for:
+
+* Chat
+* Coding
+* Summarization
+
+---
+
+### 3. Groq (One of my favorites)
+
+Groq offers a free developer tier with extremely fast inference.
+
+Models include:
+
+* Llama
+* Qwen
+* Gemma
+* DeepSeek variants (availability can change)
+
+Excellent for:
+
+* Chat
+* Customer support
+* AI assistant
+* Fast responses
+
+---
+
+### 4. OpenRouter
+
+OpenRouter gives access to many models through one API.
+
+Many models are free or low-cost, including some community-hosted options.
+
+Examples:
+
+* DeepSeek
+* Qwen
+* Mistral
+* Gemma
+* Llama
+
+Great if you want flexibility.
+
+---
+
+### 5. Cloudflare AI
+
+If you're already using Cloudflare, AI models can run through their platform.
+
+Useful for:
+
+* Chat
+* Translation
+* Embeddings
+* Classification
+
+---
+
+## What I'd use for Edges
+
+To keep costs at **$0** initially:
+
+| Purpose            | AI                   |
+| ------------------ | -------------------- |
+| Business Assistant | Groq (Llama or Qwen) |
+| Translation        | Gemini               |
+| Marketing Content  | Gemini               |
+| Dashboard Insights | Groq                 |
+| Customer Support   | Groq                 |
+| OCR                | Gemini               |
+
+This combination can take you surprisingly far before you need to pay.
+
+## My architecture recommendation
+
+Don't tie Edges to one provider.
+
+Create a simple AI service:
+
+```text
+AI Provider
+
+↓
+
+Gemini
+
+Groq
+
+NVIDIA
+
+OpenRouter
+
+Future GPT
+```
+
+Then, if Groq changes its limits or Gemini becomes more expensive, you switch providers without rewriting your application.
+
+### One caution
+
+"Free" APIs usually come with:
+
+* Rate limits
+* Usage quotas
+* Potential changes over time
+
+They're excellent for development, testing, and early production, but if Edges grows to thousands of active resellers using AI every day, you'll likely need a paid tier or a hybrid approach. Designing your AI layer to be provider-agnostic from the start will make that transition much easier.
+
+
+q:
+It's supposed to interact with the dashboard for the resellers that's all
+
+a:
+In that case, your AI is much simpler than a general chatbot. It doesn't need broad world knowledge—it needs to understand **the reseller's own business**.
+
+Think of it as a **Dashboard Copilot**.
+
+Examples:
+
+> "How much profit did I make today?"
+
+> "How many customers joined this week?"
+
+> "Why are my sales lower than yesterday?"
+
+> "Who is my highest spending customer?"
+
+> "How much money is in my wallet?"
+
+> "Which network sells the most?"
+
+> "How many customers haven't purchased in 30 days?"
+
+> "Create a WhatsApp advert for MTN 5GB."
+
+Most of these answers come from **your database**, not from AI knowledge.
+
+### How it should work
+
+```
+User Question
+        ↓
+AI Intent Detection
+        ↓
+Query Your Database
+        ↓
+Return Results to AI
+        ↓
+AI Explains Them Naturally
+```
+
+For example:
+
+User:
+
+> "How much profit did I make this week?"
+
+Your backend calculates:
+
+```
+Profit = $184.32
+Orders = 156
+Top Network = MTN
+```
+
+The AI then replies:
+
+> This week you earned **$184.32** from **156 completed orders**. MTN generated the highest profit, accounting for approximately 63% of your earnings.
+
+The AI isn't guessing—it is formatting and explaining your own data.
+
+### Free models are enough
+
+For this use case, you **do not need GPT-5.5**.
+
+I'd look at:
+
+* **Groq + Llama 3.3** ⭐⭐⭐⭐⭐
+* **Gemma 3**
+* **Qwen 3**
+* **DeepSeek**
+
+All of these are capable of taking structured data and producing clear, conversational responses.
+
+### Even better
+
+You can reduce AI usage by handling common questions yourself.
+
+For example:
+
+> "What's my wallet balance?"
+
+No AI needed.
+
+Your app can respond instantly from the database.
+
+Reserve AI for questions like:
+
+* "Summarize my business this month."
+* "Why are sales lower than last week?"
+* "Give me ideas to increase customer retention."
+* "Write a promotion for my customers."
+
+This hybrid approach is:
+
+* Faster
+* Cheaper
+* More accurate
+* Easier to scale
+
+For Edges, I'd describe the feature as a **Business Copilot** rather than a chatbot. Its job is to help resellers understand and grow their business by using the data already in your platform, not by answering arbitrary questions about the world.
+
+
+q:
+Great. I don't want much dB calls am using supabase so rpc will be okay right
+
+a:
+Yes. In fact, **Supabase RPCs are probably the best approach** for what you're building.
+
+I wouldn't let the AI make lots of individual queries like:
+
+* Get wallet
+* Get profit
+* Get customers
+* Get sales
+* Get transactions
+
+That's slow and expensive.
+
+Instead, create **business intelligence RPCs** that return everything the AI needs in one call.
+
+For example:
+
+### `get_business_summary()`
+
+Returns:
+
+```json
+{
+  "wallet": 520.50,
+  "profit_today": 23.10,
+  "profit_month": 412.40,
+  "sales_today": 18,
+  "sales_month": 387,
+  "customers": 129,
+  "new_customers": 6,
+  "top_network": "MTN",
+  "top_bundle": "5GB",
+  "pending_withdrawals": 1,
+  "last_sale": "...",
+  "business_health": 92
+}
+```
+
+Then the AI receives one object instead of making ten database calls.
+
+---
+
+Another RPC:
+
+### `get_customer_insights()`
+
+Returns:
+
+* Active customers
+* Inactive customers
+* High spenders
+* Customers who haven't purchased in 30 days
+* Customer lifetime value
+* Retention rate
+
+One RPC.
+
+---
+
+Another:
+
+### `get_sales_insights()`
+
+Returns:
+
+* Daily sales
+* Weekly sales
+* Monthly sales
+* Profit trends
+* Top-selling bundles
+* Top networks
+* Peak sales hours
+
+Again, one RPC.
+
+---
+
+## Then the architecture becomes
+
+```text
+User
+
+↓
+
+AI
+
+↓
+
+RPC
+
+↓
+
+Supabase
+
+↓
+
+Structured JSON
+
+↓
+
+AI Response
+```
+
+Not
+
+```text
+AI
+
+↓
+
+Wallet Query
+
+↓
+
+Profit Query
+
+↓
+
+Customer Query
+
+↓
+
+Sales Query
+
+↓
+
+Bundle Query
+
+↓
+
+History Query
+```
+
+---
+
+## Even better
+
+Create an **AI Context RPC**.
+
+Literally call it:
+
+```sql
+get_ai_context(reseller_id)
+```
+
+It returns **everything** the AI is allowed to know.
+
+Then every AI conversation starts with exactly one database request.
+
+---
+
+## Another optimization
+
+Cache the RPC result for about **60 seconds**.
+
+Imagine the reseller asks:
+
+> What's my wallet?
+
+↓
+
+RPC
+
+↓
+
+AI answers
+
+Immediately after:
+
+> How much profit did I make?
+
+Don't hit the database again.
+
+Use the cached context.
+
+---
+
+## Even smarter
+
+Separate **live** from **historical** data.
+
+Live:
+
+* Wallet
+* Pending orders
+* Notifications
+
+Historical:
+
+* Sales
+* Customers
+* Analytics
+
+The historical metrics can be refreshed every few minutes instead of recalculated for every question.
+
+---
+
+## If I were designing Edges, I'd create an AI service like this:
+
+```text
+AI Service
+│
+├── get_ai_context()
+├── get_dashboard_summary()
+├── get_sales_summary()
+├── get_customer_summary()
+├── get_wallet_summary()
+├── get_marketing_summary()
+└── ask_ai()
+```
+
+Notice something?
+
+The AI **never touches the database directly**.
+
+It only consumes structured, curated data from your RPC layer.
+
+That's a much cleaner architecture, keeps your prompts small, reduces Supabase load, and makes it easier to control exactly what data the AI can access. Given your use case, I'd strongly recommend this pattern.
+
+
+q:
+Where else can I use RPCs in the project 
+
+a:
+Honestly, **almost everywhere**. Given your architecture (Next.js 16 + Supabase + multi-tenant), I'd move as much business logic as possible into PostgreSQL RPCs. PostgreSQL is extremely good at aggregations, joins, and business rules, and it reduces the number of round trips from your application.
+
+Here are the areas I'd use RPCs.
+
+---
+
+# Dashboard
+
+Instead of 15 queries:
+
+```text
+Wallet
+
+Profit
+
+Orders
+
+Customers
+
+Notifications
+
+Recent Sales
+
+Top Network
+
+Top Bundle
+```
+
+One RPC:
+
+```text
+get_dashboard_summary()
+```
+
+---
+
+# Wallet
+
+One RPC:
+
+```text
+get_wallet_summary()
+```
+
+Returns:
+
+* Balance
+* Pending deposits
+* Pending withdrawals
+* Today's funding
+* This month's funding
+* Recent transactions
+
+---
+
+# Sales
+
+```text
+get_sales_summary()
+```
+
+Returns:
+
+* Daily
+* Weekly
+* Monthly
+* Yearly
+* Growth
+* Best-selling plans
+
+---
+
+# Customers
+
+```text
+get_customer_summary()
+```
+
+Returns:
+
+* Total customers
+* Active customers
+* New customers
+* Returning customers
+* Top spenders
+* Inactive customers
+
+---
+
+# Analytics
+
+This is where RPCs really shine.
+
+Instead of calculating everything in JavaScript:
+
+```text
+get_business_analytics()
+```
+
+Returns:
+
+* Revenue
+* Profit
+* Conversion rate
+* Customer retention
+* Average order value
+* Average markup
+* Growth percentage
+
+---
+
+# Storefront
+
+```text
+get_storefront_data()
+```
+
+Returns:
+
+* Branding
+* Categories
+* Pricing
+* Active services
+* Promotions
+* Theme
+
+One call.
+
+---
+
+# Customer Home
+
+Customer app loads
+
+```text
+get_customer_dashboard()
+```
+
+Returns:
+
+* Wallet
+* Recent purchases
+* Promotions
+* Notifications
+* Referral earnings
+
+---
+
+# Notifications
+
+```text
+get_notifications()
+```
+
+Returns:
+
+Unread
+
+Read
+
+Announcement
+
+Marketing
+
+System
+
+---
+
+# Reports
+
+Instead of multiple queries.
+
+```text
+generate_monthly_report()
+```
+
+Returns everything.
+
+---
+
+# Leaderboards
+
+```text
+get_top_resellers()
+
+get_top_customers()
+```
+
+---
+
+# AI
+
+As we discussed.
+
+```text
+get_ai_context()
+```
+
+---
+
+# App Publishing
+
+```text
+get_publish_status()
+```
+
+Returns:
+
+* Build status
+* Google review status
+* Play Store link
+* Version
+
+---
+
+# Admin Dashboard
+
+Instead of dozens of admin queries.
+
+```text
+get_admin_dashboard()
+```
+
+Returns:
+
+* Total resellers
+* Active resellers
+* Total customers
+* Revenue
+* Withdrawals
+* Pending applications
+* Publishing queue
+
+---
+
+# Search
+
+Rather than searching five tables separately:
+
+```text
+global_search()
+```
+
+Returns:
+
+Customers
+
+Orders
+
+Transactions
+
+Resellers
+
+Stores
+
+---
+
+# Profit Engine
+
+This is a perfect RPC.
+
+```text
+calculate_profit()
+```
+
+Returns:
+
+* Gross revenue
+* Cost
+* Profit
+* Margin
+
+Everywhere uses the same calculation.
+
+---
+
+# Multi-Tenant Configuration
+
+```text
+get_reseller_config()
+```
+
+Returns:
+
+* Branding
+* Theme
+* Features
+* Country
+* Currency
+* Language
+* Enabled modules
+
+---
+
+# Feature Flags
+
+```text
+get_enabled_features()
+```
+
+Returns:
+
+```text
+Data
+
+✓
+
+Airtime
+
+✓
+
+Cable
+
+×
+
+Electricity
+
+✓
+```
+
+---
+
+# Onboarding
+
+```text
+get_onboarding_status()
+```
+
+Returns:
+
+Current step
+
+Completed
+
+Skipped
+
+Version
+
+Next step
+
+---
+
+## One principle I'd follow
+
+**One screen = One RPC.**
+
+If a page normally needs several pieces of information, aim to expose them through a single, well-designed RPC that returns a structured object. That keeps your frontend simple and minimizes database round trips.
+
+The exceptions are:
+
+* Real-time subscriptions (wallet updates, notifications, live orders), where Supabase Realtime is the better tool.
+* Simple CRUD operations (create/update/delete a single record), where standard table operations are often sufficient.
+
+For everything involving dashboards, analytics, summaries, business rules, or AI, RPCs are an excellent fit. They centralize your business logic, improve performance, and make it easier to evolve the platform over time.
+
+
+q:
+Great. How about the terms, privacy, user agreement, playstore requirement, playstore icon, featured image, and others?
+
+a:
+This is where many startups fail. They build the software but forget the **business infrastructure** around it. For Edges, I'd include a complete **Compliance & Publishing Center**.
+
+---
+
+# Legal Center
+
+Every reseller should have access to:
+
+* Terms of Service
+* Privacy Policy
+* Cookie Policy
+* Acceptable Use Policy
+* Refund Policy
+* Data Processing Agreement (future)
+* Copyright Policy
+* DMCA/Intellectual Property Policy
+* KYC Policy
+* Play Store Publishing Agreement
+* Reseller Agreement
+
+These should be versioned so if you update them, users can accept the latest version.
+
+---
+
+# Store Assets Center
+
+This becomes part of the reseller dashboard.
+
+## Required
+
+* App Icon
+* Feature Graphic
+* Splash Screen
+* Screenshots
+* Short Description
+* Full Description
+* Privacy Policy URL
+* Support Email
+
+## Optional
+
+* Promotional Video
+* Website
+* Support Website
+* Contact Phone
+* Marketing Images
+
+Everything is stored and versioned.
+
+---
+
+# App Readiness Checker
+
+Before a reseller can publish:
+
+```text
+✓ App Name
+
+✓ Icon
+
+✓ Feature Graphic
+
+✓ Screenshots
+
+✓ Splash Screen
+
+✓ Privacy Policy
+
+✓ Terms Accepted
+
+✓ Support Email
+
+✓ Package Generated
+
+✓ Version Number
+
+✓ Country Selected
+
+✓ Distribution Plan Paid
+```
+
+If anything is missing, disable the **Publish** button and explain why.
+
+---
+
+# Asset Generator
+
+Most resellers won't know what a **1024×1024 icon** or a **feature graphic** is.
+
+Help them.
+
+Examples:
+
+* Crop logo into an app icon
+* Resize feature graphic
+* Validate screenshots
+* Compress images
+* Check image quality
+
+The system should tell them exactly what's wrong rather than letting Google reject the app.
+
+---
+
+# Policy Generator
+
+Most small businesses don't have a privacy policy.
+
+You could provide a guided wizard:
+
+* Business name
+* Support email
+* Website
+* Countries served
+* Data collected
+* Payment methods
+
+Then generate:
+
+* Privacy Policy
+* Terms of Service
+* Refund Policy
+
+They review and publish them.
+
+**Important:** Make it clear these are templates and recommend legal review for businesses with specific regulatory requirements.
+
+---
+
+# Compliance Dashboard
+
+Show the reseller:
+
+```text
+Privacy Policy
+✓
+
+Terms
+✓
+
+Support Email
+✓
+
+Store Assets
+✓
+
+Identity Verification
+Pending
+
+Google Play Ready
+92%
+```
+
+---
+
+# Play Store Center
+
+Instead of only publishing.
+
+Everything Google-related lives here.
+
+### Store Listing
+
+* App Name
+* Short Description
+* Full Description
+* Keywords
+* Category
+* Contact Email
+* Privacy Policy
+* Website
+* Countries
+* Languages
+
+### Assets
+
+* Icon
+* Feature Graphic
+* Screenshots
+* Splash Screen
+
+### Releases
+
+* Current Version
+* Release Notes
+* Previous Versions
+* Rollout Status
+
+### Publishing
+
+* Local
+* Regional
+* Worldwide
+
+---
+
+# Document Center
+
+A secure place where resellers can access:
+
+* Invoices
+* Receipts
+* Agreements
+* Publishing certificates (if you provide them)
+* Policy documents
+* Business reports
+
+---
+
+# Brand Center
+
+Keep all branding in one place.
+
+* Logo
+* Favicon
+* Colors
+* Fonts
+* Splash Screen
+* Store Banner
+* Marketing Banner
+* Email Logo
+
+One update propagates everywhere possible.
+
+---
+
+# Verification Center
+
+As you grow, you may want:
+
+* Email Verified
+* Phone Verified
+* Business Verified
+* Identity Verified
+* Payment Verified
+
+These can unlock additional features or build trust.
+
+---
+
+# Accessibility
+
+Don't forget this.
+
+Support:
+
+* Dark Mode
+* High Contrast
+* Keyboard Navigation
+* Screen Readers
+* Large Text
+
+These improve usability and align with modern web standards.
+
+---
+
+## One feature I'd definitely build
+
+An **App Publishing Wizard**.
+
+Instead of giving the reseller a long form, guide them through steps:
+
+```text
+Step 1
+Business Details
+
+↓
+
+Step 2
+Brand Assets
+
+↓
+
+Step 3
+Store Description
+
+↓
+
+Step 4
+Privacy Policy
+
+↓
+
+Step 5
+Screenshots
+
+↓
+
+Step 6
+Choose Distribution
+
+↓
+
+Step 7
+Payment
+
+↓
+
+Step 8
+Review
+
+↓
+
+Step 9
+Publish
+```
+
+At the end, show:
+
+> 🎉 **Your app is ready for submission!**
+
+That feels much more approachable than presenting dozens of required fields at once.
+
+---
+
+## The last thing I'd add to your PRD
+
+A dedicated **Product Standards** section that defines expectations for every feature. For example:
+
+* Every form must support autosave where appropriate.
+* Every long-running operation must show progress.
+* Every empty state must explain what to do next.
+* Every destructive action requires confirmation.
+* Every page must work on mobile and desktop.
+* Every feature must be localizable.
+* Every feature must respect the reseller's country and enabled modules.
+* Every premium feature must clearly communicate what is included.
+
+Those standards become the design rules for the whole platform, keeping the experience consistent as Edges grows.
+
+
+q:
+I would be the one to generate all that not the resellers 
+
+a:
+I actually think that's the better approach for your business.
+
+You're not selling a DIY app builder—you're selling a **managed white-label platform**.
+
+That means the reseller shouldn't have to know anything about Google Play requirements.
+
+The workflow becomes much simpler.
+
+```text
+Reseller
+    │
+    ▼
+Uploads:
+• Logo
+• Business Name
+• Brand Colors
+• (Optional) Splash Image
+    │
+    ▼
+Edges Automatically Generates:
+• App Icon
+• Adaptive Icon
+• Play Store Feature Graphic
+• Play Store Screenshots
+• Short Description
+• Full Description
+• Privacy Policy
+• Terms & Conditions
+• Support Page
+• App Metadata
+• Release Notes
+    │
+    ▼
+Reseller Reviews
+    │
+    ▼
+Clicks "Publish"
+```
+
+This is a huge competitive advantage.
+
+Most white-label platforms say:
+
+> "Upload 8 screenshots, a 1024×1024 icon, a feature graphic, a privacy policy..."
+
+Your platform says:
+
+> "Upload your logo. We'll handle the rest."
+
+That's a much better user experience.
+
+---
+
+## I'd create an internal module called **Publishing Engine**
+
+The reseller never sees it.
+
+It automatically generates:
+
+### Branding
+
+* App icon
+* Adaptive icon
+* Splash screen
+* Notification icon
+* Launcher icon
+* Favicon
+
+---
+
+### Store Assets
+
+* Feature graphic
+* Promotional banner
+* Screenshot frames
+* App preview images
+
+---
+
+### Store Listing
+
+* Short description
+* Long description
+* Keywords
+* Release notes
+* Category
+* Contact information
+
+---
+
+### Legal
+
+* Privacy Policy
+* Terms of Service
+* End User License Agreement (if needed)
+* Support page
+
+---
+
+### Publishing
+
+* Country availability
+* Pricing (free app)
+* Store category
+* Content rating questionnaire (with your review)
+* App access information (if Google requests it)
+
+---
+
+## Then your reseller only manages what matters
+
+* Business name
+* Logo
+* Brand colors
+* Storefront customization
+* Pricing
+* Customers
+
+Everything else is generated and managed by Edges.
+
+---
+
+## One thing I would still allow
+
+A **Preview**.
+
+Before publishing, let the reseller see:
+
+* Their Play Store listing
+* Their app icon
+* Their feature graphic
+* Their screenshots
+* Their app description
+
+If they don't like something, they can request changes before submission.
+
+---
+
+### This also protects your Play Console
+
+Since every app is published under **your organization's Play Console**, you should keep control over:
+
+* Store descriptions
+* Screenshots
+* Icons
+* Categories
+* Policy compliance
+* Content ratings
+* Legal documents
+
+That lets you maintain a consistent quality standard and reduces the risk of Google rejecting or suspending apps because of poor or non-compliant submissions.
+
+In other words, the reseller provides their **brand**, and **Edges transforms that brand into a Play Store-ready application**. That's a premium managed service, and it's a much stronger value proposition than asking resellers to assemble all the required assets themselves.
+
+
+q:
+Even if they don't have a logo we make it available 
+
+a:
+Now we're talking about a **premium onboarding experience**.
+
+At this point, you're no longer selling "data reseller accounts." You're selling **"Launch your digital business."**
+
+I would literally make it possible for someone with **nothing** to become a reseller.
+
+Imagine this.
+
+---
+
+## Step 1: Business Name
+
+> What would you like to call your business?
+
+```
+Bianca Data Hub
+```
+
+---
+
+## Step 2: Business Category
+
+```
+✓ Mobile Data
+✓ Airtime
+✓ Digital Services
+```
+
+---
+
+## Step 3: Brand Style
+
+Choose a style.
+
+* Modern
+* Corporate
+* Luxury
+* Minimal
+* Tech
+* Bold
+
+---
+
+## Step 4: Brand Color
+
+Primary
+
+Secondary
+
+Accent
+
+Or
+
+> Surprise me 🎲
+
+---
+
+## Step 5: Logo
+
+Question:
+
+> Do you already have a logo?
+
+```
+○ Yes
+
+● No
+```
+
+If **Yes**
+
+Upload.
+
+If **No**
+
+Edges generates one.
+
+---
+
+## AI Logo Generator
+
+Using the business name and chosen style, Edges generates:
+
+* 4–8 professional logo concepts
+* Matching color palettes
+* Light and dark versions
+* Transparent PNG
+* SVG (if supported by your generation workflow)
+
+The reseller picks the one they like best.
+
+---
+
+## Then Edges automatically creates
+
+From that logo:
+
+* App icon
+* Adaptive icon
+* Splash screen
+* Play Store feature graphic
+* Social media profile images
+* WhatsApp profile image
+* Store banners
+* Email header
+
+One logo powers the entire brand.
+
+---
+
+## Then Edges generates
+
+Business identity.
+
+Example:
+
+Business Name
+
+```
+Bianca Data Hub
+```
+
+Automatically generates:
+
+* Tagline
+* About Us
+* Business description
+* Mission statement
+* Store description
+* App description
+
+---
+
+## Then marketing materials
+
+Automatically.
+
+* Facebook banner
+* Instagram post
+* WhatsApp status image
+* Flyer
+* QR code poster
+* Referral card
+
+Imagine clicking:
+
+> Generate Marketing Kit
+
+Five seconds later everything is ready.
+
+---
+
+## Then legal
+
+Automatically.
+
+Generate:
+
+* Privacy Policy
+* Terms
+* Refund Policy
+* Support Page
+
+Using the reseller's business details.
+
+---
+
+## Then Play Store
+
+Everything is already ready.
+
+Edges simply submits.
+
+---
+
+## Imagine your landing page
+
+> **Launch your own digital business in under 10 minutes.**
+
+No designer.
+
+No developer.
+
+No Play Console.
+
+No logo required.
+
+No coding.
+
+No Google Play experience.
+
+We build everything for you.
+
+That is an incredibly compelling message.
+
+---
+
+## The feature I think would make Edges unforgettable
+
+A **Business Launch Wizard**.
+
+Not "Create Account."
+
+Instead:
+
+> **Let's build your business.**
+
+Progress:
+
+```
+Business Name
+
+↓
+
+Brand Identity
+
+↓
+
+Logo
+
+↓
+
+Storefront
+
+↓
+
+Pricing
+
+↓
+
+Virtual Account
+
+↓
+
+Mobile App
+
+↓
+
+Customers
+
+↓
+
+Launch 🚀
+```
+
+When it finishes:
+
+> 🎉 **Congratulations!**
+>
+> Your business is now live.
+>
+> ✓ Your storefront is ready.
+>
+> ✓ Your branded Android app is ready.
+>
+> ✓ Your virtual account is active.
+>
+> ✓ Your pricing has been configured.
+>
+> ✓ Your marketing kit has been generated.
+>
+> ✓ Your business is ready to start accepting customers.
+
+That changes the user's mindset from **"I signed up for software"** to **"I now own a digital business."** That's a much more powerful experience and, in my view, the kind of positioning that can set Edges apart.
+
+
+q:
+Create full folder structure 
+
+a:
+Based on everything we've discussed, I would organize Edges as a **modular SaaS platform**. The goal is that in 3–5 years, when you've expanded to dozens of countries and added new services, you won't need to restructure the project.
+
+```
+edges/
+│
+├── app/
+│   ├── (marketing)/
+│   │   ├── page.tsx
+│   │   ├── pricing/
+│   │   ├── features/
+│   │   ├── countries/
+│   │   ├── contact/
+│   │   ├── blog/
+│   │   ├── about/
+│   │   ├── legal/
+│   │   │   ├── privacy/
+│   │   │   ├── terms/
+│   │   │   ├── cookies/
+│   │   │   ├── refund/
+│   │   │   └── acceptable-use/
+│   │
+│   ├── (auth)/
+│   │   ├── login/
+│   │   ├── register/
+│   │   ├── forgot-password/
+│   │   ├── verify-email/
+│   │   ├── verify-phone/
+│   │   └── onboarding/
+│   │
+│   ├── (dashboard)/
+│   │   ├── dashboard/
+│   │   ├── analytics/
+│   │   ├── customers/
+│   │   ├── orders/
+│   │   ├── wallet/
+│   │   ├── transactions/
+│   │   ├── withdrawals/
+│   │   ├── virtual-account/
+│   │   ├── pricing/
+│   │   ├── products/
+│   │   ├── storefront/
+│   │   ├── branding/
+│   │   ├── marketing/
+│   │   ├── reports/
+│   │   ├── notifications/
+│   │   ├── announcements/
+│   │   ├── referrals/
+│   │   ├── achievements/
+│   │   ├── business/
+│   │   ├── support/
+│   │   ├── ai/
+│   │   ├── publishing/
+│   │   ├── settings/
+│   │   │   ├── profile/
+│   │   │   ├── business/
+│   │   │   ├── branding/
+│   │   │   ├── language/
+│   │   │   ├── security/
+│   │   │   ├── notifications/
+│   │   │   ├── api/
+│   │   │   └── billing/
+│   │
+│   ├── api/
+│   │
+│   ├── layout.tsx
+│   └── globals.css
+│
+├── components/
+│   ├── ui/
+│   ├── dashboard/
+│   ├── charts/
+│   ├── wallet/
+│   ├── customers/
+│   ├── storefront/
+│   ├── analytics/
+│   ├── onboarding/
+│   ├── branding/
+│   ├── publishing/
+│   ├── ai/
+│   ├── marketing/
+│   ├── notifications/
+│   ├── forms/
+│   └── shared/
+│
+├── actions/
+│   ├── auth/
+│   ├── onboarding/
+│   ├── wallet/
+│   ├── pricing/
+│   ├── customers/
+│   ├── orders/
+│   ├── publishing/
+│   ├── branding/
+│   ├── settings/
+│   ├── ai/
+│   └── notifications/
+│
+├── lib/
+│   ├── supabase/
+│   ├── auth/
+│   ├── ai/
+│   ├── onboarding/
+│   ├── localization/
+│   ├── countries/
+│   ├── branding/
+│   ├── publishing/
+│   ├── analytics/
+│   ├── marketing/
+│   ├── notifications/
+│   ├── utils/
+│   └── validators/
+│
+├── hooks/
+│
+├── providers/
+│
+├── middleware/
+│
+├── types/
+│
+├── constants/
+│
+├── config/
+│   ├── countries/
+│   ├── languages/
+│   ├── regions/
+│   ├── currencies/
+│   ├── telecoms/
+│   ├── themes/
+│   ├── onboarding/
+│   ├── features/
+│   └── publishing/
+│
+├── messages/
+│   ├── en/
+│   ├── fr/
+│   ├── ar/
+│   ├── pt/
+│   └── es/
+│
+├── public/
+│   ├── icons/
+│   ├── illustrations/
+│   ├── images/
+│   ├── logos/
+│   ├── onboarding/
+│   └── countries/
+│
+├── database/
+│   ├── migrations/
+│   ├── rpc/
+│   ├── functions/
+│   ├── triggers/
+│   ├── policies/
+│   ├── views/
+│   └── seeds/
+│
+├── scripts/
+│   ├── branding/
+│   ├── publishing/
+│   ├── assets/
+│   ├── screenshots/
+│   └── playstore/
+│
+├── docs/
+│   ├── PRD.md
+│   ├── Architecture.md
+│   ├── Database.md
+│   ├── API.md
+│   ├── Localization.md
+│   ├── Onboarding.md
+│   ├── Publishing.md
+│   └── AI.md
+│
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── e2e/
+│
+├── .github/
+│   └── workflows/
+│
+├── package.json
+├── next.config.ts
+├── middleware.ts
+└── README.md
+```
+
+## One addition I'd make
+
+Since Edges automatically builds a reseller's entire business, I'd add a dedicated **Business Generation Engine** under `lib/`:
+
+```text
+lib/
+└── business-generator/
+    ├── logo/
+    ├── branding/
+    ├── app/
+    ├── storefront/
+    ├── playstore/
+    ├── legal/
+    ├── marketing/
+    ├── screenshots/
+    ├── descriptions/
+    └── launch/
+```
+
+This becomes the engine that transforms a new reseller into a launch-ready business by generating:
+
+* Brand identity (or using an uploaded logo)
+* App branding
+* Storefront branding
+* Marketing assets
+* Play Store assets
+* Legal documents
+* Business descriptions
+* Launch checklist
+
+That's a unique capability and, in my opinion, one of the strongest differentiators for Edges. It aligns with your vision that a reseller should be able to start with almost nothing—even without a logo—and end up with a professional digital business.
+
+
+q:
+Am using next 16 with proxy and supabase.
+The dashboard and storefront would be dynamic 
+Like edges.com/[country]/[storename]
+And edges.com/[country]/[storename]/dashboard 
+
+a:
+I actually like that architecture much more than using subdomains. It scales well for SEO, localization, and a multi-tenant setup.
+
+For Next.js 16 + Supabase + Proxy, I'd structure the app around **dynamic route segments** instead of separating "dashboard" and "storefront" into different apps.
+
+Something like this:
+
+```text
+app/
+│
+├── [country]/
+│   ├── layout.tsx                  // Load country config
+│   │
+│   ├── [store]/
+│   │   ├── layout.tsx              // Load reseller config
+│   │   │
+│   │   ├── page.tsx                // Public storefront
+│   │   │
+│   │   ├── about/
+│   │   ├── contact/
+│   │   ├── privacy/
+│   │   ├── terms/
+│   │   ├── download/
+│   │   ├── products/
+│   │   ├── pricing/
+│   │   │
+│   │   ├── login/
+│   │   ├── register/
+│   │   │
+│   │   ├── dashboard/
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.tsx
+│   │   │   ├── wallet/
+│   │   │   ├── customers/
+│   │   │   ├── orders/
+│   │   │   ├── analytics/
+│   │   │   ├── storefront/
+│   │   │   ├── branding/
+│   │   │   ├── publishing/
+│   │   │   ├── ai/
+│   │   │   ├── notifications/
+│   │   │   ├── reports/
+│   │   │   └── settings/
+│   │   │
+│   │   └── api/
+│
+├── admin/
+├── auth/
+└── api/
+```
+
+## I would have two layouts
+
+### Country Layout
+
+```
+[country]/layout.tsx
+```
+
+Responsibilities:
+
+* Validate the country.
+* Load:
+
+  * Currency
+  * Language
+  * Operators
+  * Payment methods
+  * Country theme
+* Set the locale.
+
+One database/RPC call.
+
+---
+
+### Store Layout
+
+```
+[country]/[store]/layout.tsx
+```
+
+Load everything about the reseller.
+
+Example:
+
+```
+get_store_context()
+```
+
+Returns:
+
+```json
+{
+  "id": "...",
+  "store_name": "...",
+  "theme": "...",
+  "logo": "...",
+  "country": "Morocco",
+  "language": "fr",
+  "features": [],
+  "playstore": {},
+  "branding": {}
+}
+```
+
+Every page beneath this layout already has the reseller context.
+
+No repeated queries.
+
+---
+
+## Dashboard Layout
+
+```
+dashboard/layout.tsx
+```
+
+This is where you'd:
+
+* Check authentication.
+* Verify the logged-in user owns the store.
+* Load onboarding status.
+* Load notifications.
+* Load feature flags.
+
+Again, ideally through one RPC such as `get_dashboard_context()`.
+
+---
+
+## Middleware / Proxy
+
+The proxy can:
+
+```
+/ma/bianca
+```
+
+↓
+
+Validate:
+
+* Country
+* Store exists
+* Store active
+* Store not suspended
+
+Then continue.
+
+If not:
+
+```
+404
+```
+
+or
+
+```
+Store unavailable
+```
+
+---
+
+## Store Context
+
+I wouldn't query the reseller table on every page.
+
+I'd create one RPC:
+
+```
+get_store_context(
+country,
+store_slug
+)
+```
+
+It returns everything.
+
+Then cache it.
+
+Every page uses it.
+
+---
+
+## Country Configuration
+
+Never hardcode.
+
+```
+config/
+
+countries/
+
+morocco.ts
+
+togo.ts
+
+cameroon.ts
+
+drc.ts
+
+zimbabwe.ts
+```
+
+Each file defines:
+
+* Currency
+* Locale
+* Timezone
+* Payment providers
+* Operators
+* Default language
+* Flag
+* Theme
+
+---
+
+## Storefront
+
+The storefront should be almost completely configuration-driven.
+
+```
+Theme
+
+↓
+
+Sections Enabled
+
+↓
+
+Products Enabled
+
+↓
+
+Brand Colors
+
+↓
+
+Language
+
+↓
+
+Currency
+```
+
+The page simply renders based on that configuration.
+
+---
+
+## Dashboard
+
+Exactly the same.
+
+Everything comes from:
+
+```
+get_dashboard_context()
+```
+
+Which includes:
+
+* Wallet
+* Notifications
+* Business health
+* AI context
+* Onboarding status
+* Branding
+* Feature flags
+
+One call.
+
+---
+
+## AI
+
+Even the AI should use the context already loaded by the dashboard where possible.
+
+Instead of querying:
+
+```
+Wallet
+
+↓
+
+Profit
+
+↓
+
+Customers
+
+↓
+
+Orders
+```
+
+It can use the existing dashboard context and only fetch additional data when the question genuinely requires it.
+
+---
+
+### One suggestion about your URLs
+
+I would use **ISO country codes** rather than full country names. For example:
+
+```
+edges.com/ma/bianca-data
+edges.com/cd/kinshasa-connect
+edges.com/cm/digital-hub
+edges.com/tg/togo-net
+edges.com/zw/zim-connect
+```
+
+This keeps URLs shorter, looks cleaner, and makes it much easier to support localization and routing. Internally, `ma` maps to Morocco, `cd` to the Democratic Republic of the Congo, and so on through your country configuration layer.
+
+
+q:
+Great. Update the MD file
+
+a:
+I've updated the PRD with the latest architectural decisions, including:
+
+* ✅ Next.js 16 App Router architecture
+* ✅ Proxy-based multi-tenant routing
+* ✅ Dynamic routes (`/[country]/[store]` and `/[country]/[store]/dashboard`)
+* ✅ ISO country code URL strategy
+* ✅ Country, Store, and Dashboard layout responsibilities
+* ✅ RPC-first architecture (one RPC per screen where practical)
+* ✅ IP-based localization with saved language preferences
+* ✅ Configuration-driven onboarding
+* ✅ Free branded APK generation
+* ✅ Managed Google Play publishing under the Edges Play Console
+* ✅ Automatic generation of branding, store assets, and legal document templates
+* ✅ The long-term product vision
+
+You can download it here:
+
+**📄 [Edges_PRD_Updated.md](sandbox:/mnt/data/Edges_PRD_Updated.md)**
+
+I also think we're at the stage where we should stop thinking of this as a PRD alone and start producing a **Software Architecture Document (SAD)** alongside it. The PRD answers **what** the platform should do, while the SAD answers **how** it is built—covering routing, database schema, Supabase RPC design, authentication flow, proxy behavior, localization, caching, AI service architecture, GitHub Actions, Play Store publishing pipeline, and deployment. Having both documents will make the project much easier to maintain and extend as Edges grows.
+
+
+q:
+Go ahead with the sad
+
+a:
+Excellent. As the project grows, having a separate Software Architecture Document (SAD) will save a lot of time because it explains **how** the platform is engineered, while the PRD explains **what** it should do.
+
+I've created the first version for you.
+
+**📘 [Download: Edges_Software_Architecture_Document_v1.pdf](sandbox:/mnt/data/Edges_Software_Architecture_Document_v1.pdf)**
+
+## I recommend these core architecture documents going forward
+
+```text
+docs/
+│
+├── 00-PRD.md                    ← Product Requirements
+├── 01-SAD.md                    ← Software Architecture
+├── 02-Database.md               ← Tables, Views, RPCs, RLS
+├── 03-RPC-Catalog.md            ← Every RPC documented
+├── 04-API-Spec.md               ← Server Actions & APIs
+├── 05-Authentication.md
+├── 06-Localization.md
+├── 07-Onboarding.md
+├── 08-AI.md
+├── 09-PlayStore.md
+├── 10-Mobile-App.md
+├── 11-Branding-Engine.md
+├── 12-Business-Generator.md
+├── 13-Deployment.md
+├── 14-GitHub-Actions.md
+├── 15-Security.md
+├── 16-Performance.md
+├── 17-Caching.md
+├── 18-Monitoring.md
+├── 19-Roadmap.md
+└── ADR/
+    ├── 0001-routing.md
+    ├── 0002-rpc-strategy.md
+    ├── 0003-ai-provider.md
+    ├── 0004-localization.md
+    └── ...
+```
+
+### One document I think will become invaluable
+
+Create an **RPC Catalog**.
+
+Since you're building around Supabase RPCs, document every function in one place. For each RPC include:
+
+* Name
+* Purpose
+* Parameters
+* Return type
+* Tables touched
+* RLS considerations
+* Who can call it (Admin, Reseller, Customer)
+* Cache strategy
+* Expected performance
+* Used by which pages/components
+
+For example:
+
+```text
+RPC: get_dashboard_context()
+
+Purpose:
+Returns everything required to render the reseller dashboard.
+
+Used By:
+- Dashboard Layout
+- AI Assistant
+- Notifications
+
+Returns:
+- Wallet
+- Sales
+- Profit
+- Customers
+- Business Health
+- Onboarding Status
+- Feature Flags
+
+Cache:
+60 seconds
+
+Permissions:
+Authenticated reseller only.
+```
+
+With the size of Edges, these documents will become as important as the code itself. They'll help you stay consistent, make onboarding new developers easier, and give AI coding assistants a clear blueprint to work from without having to infer your architecture from the codebase.
+
+
+q:
+Do Egypt do RTL?
+
+a:
+Yes. **Egypt should support RTL (Right-to-Left)** because **Arabic** is one of its official and primary languages.
+
+For Edges, I'd design the localization system with **text direction** as part of each language's configuration, not tied to the country.
+
+For example:
+
+| Language          | Direction |
+| ----------------- | --------- |
+| English (`en`)    | LTR       |
+| French (`fr`)     | LTR       |
+| Portuguese (`pt`) | LTR       |
+| Spanish (`es`)    | LTR       |
+| Arabic (`ar`)     | **RTL**   |
+
+Then your language configuration could conceptually include:
+
+```text
+Arabic
+Code: ar
+Direction: rtl
+```
+
+When a user selects Arabic (whether they're in Egypt, Morocco, or another Arabic-speaking market), your app automatically:
+
+* Uses `dir="rtl"` on the HTML element.
+* Mirrors layouts where appropriate (sidebars, icons, navigation).
+* Right-aligns text where appropriate.
+* Keeps numbers, phone numbers, and many charts readable in their standard formats.
+
+### For your expansion plans
+
+| Country       | Default Language                              | RTL?                 |
+| ------------- | --------------------------------------------- | -------------------- |
+| 🇪🇬 Egypt    | Arabic                                        | ✅ Yes                |
+| 🇲🇦 Morocco  | French (or Arabic, depending on your default) | French: ❌, Arabic: ✅ |
+| 🇨🇩 DR Congo | French                                        | ❌                    |
+| 🇨🇲 Cameroon | French/English                                | ❌                    |
+| 🇹🇬 Togo     | French                                        | ❌                    |
+| 🇿🇼 Zimbabwe | English                                       | ❌                    |
+
+### Recommendation
+
+Instead of storing only the language code, store a language object that includes its direction. That way, when you later add Saudi Arabia, UAE, Qatar, Jordan, or other Arabic-speaking countries, the RTL behavior comes automatically without any country-specific logic.
+
+This makes your localization system much more scalable and aligns well with the configuration-driven architecture you've been planning.
+
+
+q:
+Ok.
+
+a:
+Perfect. Since you're aiming for an international SaaS platform, I'd make **localization a first-class feature** from day one rather than something added later.
+
+Here's a language configuration that will scale well:
+
+```text
+config/
+└── languages/
+    ├── en.ts
+    ├── fr.ts
+    ├── ar.ts
+    ├── pt.ts
+    ├── es.ts
+    └── index.ts
+```
+
+Each language should define:
+
+```text
+Language Code
+Language Name
+Native Name
+Direction (ltr/rtl)
+Date Format
+Time Format
+Currency Format
+Number Format
+First Day of Week
+```
+
+For example:
+
+```text
+English
+code: en
+direction: ltr
+```
+
+```text
+French
+code: fr
+direction: ltr
+```
+
+```text
+Arabic
+code: ar
+direction: rtl
+```
+
+Then create a country configuration:
+
+```text
+config/
+└── countries/
+    ├── ma.ts
+    ├── cd.ts
+    ├── cm.ts
+    ├── tg.ts
+    ├── zw.ts
+    └── eg.ts
+```
+
+Each country can reference one or more supported languages.
+
+For example:
+
+```text
+Egypt
+Default Language: ar
+
+Supported:
+- ar
+- en
+```
+
+```text
+Morocco
+Default Language: fr
+
+Supported:
+- fr
+- ar
+- en
+```
+
+This separation is important because **countries and languages are different concepts**. A reseller in Morocco may prefer French, while another in the same country may choose Arabic or English.
+
+## One more recommendation
+
+I'd also add a **tenant configuration** layer:
+
+```text
+config/
+├── countries/
+├── languages/
+├── regions/
+├── currencies/
+├── telecoms/
+├── payment-methods/
+├── feature-flags/
+├── themes/
+└── tenants/
+```
+
+The `tenants` configuration controls reseller-specific behavior, such as:
+
+* Enabled language(s)
+* Theme
+* Currency
+* Features
+* Branding
+* Payment methods
+* AI availability
+* Storefront template
+
+With that architecture, adding a new country often becomes a matter of configuration rather than rewriting application code. That fits very well with the configuration-driven approach you've been designing for Edges.
+
+
+q:
+The app will be created with everything selected on the form in the web. 
+
+a:
+That's actually the architecture I would recommend.
+
+The **web dashboard becomes the source of truth**, and the mobile app is simply a branded client generated from that configuration.
+
+The flow would look like this:
+
+```text
+Reseller Registration
+        │
+        ▼
+Business Launch Wizard
+        │
+        ▼
+Store Configuration Saved
+        │
+        ▼
+Brand Assets Generated
+        │
+        ▼
+Storefront Created
+        │
+        ▼
+APK Generated
+        │
+        ▼
+(Optional)
+Play Store Published
+```
+
+The form shouldn't just collect information—it should **build a business configuration**.
+
+For example, the reseller chooses:
+
+### Business
+
+* Business name
+* Store slug
+* Country
+* Language
+* Currency
+
+### Branding
+
+* Logo (or generate one)
+* Primary color
+* Secondary color
+* Theme
+
+### Services
+
+* Data
+* Airtime
+* Electricity
+* Cable TV
+* Betting
+* Others (future)
+
+### Storefront
+
+* Homepage template
+* Banner
+* Featured products
+* Welcome message
+
+### Mobile App
+
+* App name
+* Package name (generated)
+* Splash screen
+* App icon
+* Default language
+* Default theme
+
+### Play Store (if selected)
+
+* Distribution (Local / Regional / Worldwide)
+* Contact email
+* Support website (if available)
+
+---
+
+## Store everything in a configuration table
+
+Rather than spreading settings across many tables, have a central configuration document (or JSON column) that represents the reseller's business.
+
+For example:
+
+```json
+{
+  "business": {},
+  "branding": {},
+  "localization": {},
+  "storefront": {},
+  "mobileApp": {},
+  "publishing": {},
+  "features": {}
+}
+```
+
+Your:
+
+* Web storefront
+* Dashboard
+* Mobile app
+* AI assistant
+* Play Store pipeline
+
+can all read from this same configuration.
+
+---
+
+## The app should never be configured manually
+
+Instead, it should fetch its configuration when it starts.
+
+Example:
+
+```text
+App Opens
+      │
+      ▼
+Fetch Tenant Configuration
+      │
+      ▼
+Apply Branding
+      ▼
+Apply Language
+      ▼
+Apply Theme
+      ▼
+Enable Features
+      ▼
+Ready
+```
+
+This means that if the reseller changes:
+
+* Logo
+* Theme
+* Colors
+* Language
+* Welcome message
+
+the app can reflect those changes without requiring a new build, as long as the change doesn't affect native Android resources.
+
+---
+
+## Separate dynamic and build-time settings
+
+Some settings can update instantly:
+
+**Dynamic (no rebuild):**
+
+* Logo displayed in the UI
+* Theme colors
+* Store name
+* Welcome message
+* Language
+* Pricing
+* Enabled services
+* Banners
+
+Some require a new APK and Play Store update:
+
+**Build-time:**
+
+* App name shown on the launcher
+* Package name
+* Launcher icon
+* Adaptive icon
+* Native splash screen
+* Android permissions
+* Firebase configuration (if it changes)
+
+That distinction will save you unnecessary rebuilds.
+
+## I would add one more status page
+
+Create an **App Lifecycle** page that shows:
+
+```text
+Business Setup
+✅ Complete
+
+Storefront
+✅ Live
+
+APK
+✅ Generated
+
+Play Store
+⏳ Pending Review
+
+Current Version
+1.0.0
+
+Last Build
+2 minutes ago
+
+Distribution
+Regional
+```
+
+This gives resellers confidence that everything is progressing and lets them see the state of their business and app in one place. It's a small addition that reinforces the "managed platform" experience you're aiming for.
+
+
+q:
+Should I use expo 56 or 54
+
+a:
+For a **new project**, I'd recommend using the **latest stable Expo SDK**, not an older one.
+
+Assuming the choice is between **SDK 56** and **SDK 54**, I would choose **SDK 56**.
+
+Given everything you've described for Edges:
+
+* Multi-tenant branded apps
+* Dynamic configuration
+* Push notifications
+* EAS builds
+* Play Store publishing
+* Long-term maintenance
+
+it's better to stay on the current SDK unless you have a dependency that specifically requires an older version.
+
+### Why I'd choose the latest SDK
+
+* Better compatibility with newer Android versions and Play Store requirements.
+* Bug fixes and performance improvements.
+* Longer support window.
+* Easier future upgrades (small jumps are easier than skipping several SDK versions).
+
+### When would I choose SDK 54?
+
+Only if:
+
+* A critical library you depend on doesn't yet support the newer SDK.
+* You're continuing an existing production app that's already on SDK 54 and upgrading would introduce unacceptable risk right now.
+
+### For Edges
+
+Since this is a platform you'll maintain for years, I'd start with the **newest stable Expo SDK** and keep it reasonably up to date over time rather than falling behind by multiple SDK releases.
+
+One note: if by "Expo 56" you mean a pre-release or beta SDK rather than the latest stable release, I would avoid using it for production. Stick to the latest **stable** SDK for a business platform like Edges.
+
+
+q:
+Confirm expo 56
+
+a:
+Yes. I confirmed it.
+
+**Expo SDK 56** was officially released on **May 21, 2026**, and is a stable release. It includes: ([Expo][1])
+
+* ✅ React Native **0.85**
+* ✅ React **19.2**
+* ✅ Faster native builds
+* ✅ Improved Expo Router
+* ✅ Better Expo Modules performance
+* ✅ Stable Expo UI
+* ✅ More capable `expo-file-system`
+* ✅ Stable Calendar, Contacts, and Media Library APIs
+* ✅ Type-safe config plugins ([Expo][1])
+
+### For Edges, I'd use SDK 56 if you're starting today.
+
+Your stack would look like:
+
+* **Next.js 16** (Web)
+* **Expo SDK 56** (Mobile)
+* **React Native 0.85**
+* **React 19.2**
+* **Supabase**
+* **EAS Build**
+* **GitHub Actions**
+* **TypeScript**
+* **NativeWind v4** (if you're using Tailwind)
+* **Expo Router** ([Expo][1])
+
+Given everything we've planned—multi-tenant branding, dynamic app configuration, Play Store publishing, push notifications, and AI integration—SDK 56 is a solid foundation.
+
+One thing I'd also recommend for your architecture is to **pin the Expo SDK version** across all generated reseller apps. That way, every APK is built against the same SDK until **you** decide to upgrade the platform. It makes testing, debugging, and Play Store maintenance much more predictable.
+
+[1]: https://expo.dev/changelog/sdk-56?q=expo&utm_source=chatgpt.com "Expo SDK 56 - Expo Changelog"
+
+
+q:
+True. We also forgot ota update and the normal update modal
+
+a:
+Exactly. Those are two different update mechanisms, and **Edges should support both**.
+
+---
+
+# 1. OTA Updates (Expo Updates)
+
+For changes that **don't require native code changes**.
+
+Examples:
+
+* UI improvements
+* Bug fixes
+* Theme changes
+* Storefront improvements
+* Dashboard changes
+* Translation updates
+* AI improvements
+* New pages
+* Business logic
+* Feature flags
+
+User opens the app.
+
+↓
+
+App checks for update.
+
+↓
+
+Downloads in background.
+
+↓
+
+Shows:
+
+> A new version is ready.
+
+↓
+
+Restart app.
+
+Done.
+
+No Play Store required.
+
+---
+
+# 2. Native Updates (Play Store)
+
+Required when changing:
+
+* Expo SDK
+* React Native version
+* Native libraries
+* Permissions
+* Package configuration
+* App icon
+* Splash screen
+* Firebase configuration
+* Android Manifest
+* Native modules
+
+These require:
+
+Build
+
+↓
+
+Play Console
+
+↓
+
+Review
+
+↓
+
+Update
+
+---
+
+# Update Center
+
+I'd build this into your admin.
+
+```text
+Update Center
+
+Current Production
+
+v1.4.2
+
+Latest OTA
+
+v1.4.3
+
+Latest Native
+
+v2.0.0
+
+Deploy OTA
+
+Build APK
+
+Publish Play Store
+```
+
+---
+
+# Reseller Dashboard
+
+Show:
+
+```text
+Mobile App
+
+Current Version
+
+1.4.2
+
+Update Channel
+
+Production
+
+OTA
+
+✓ Enabled
+
+Play Store
+
+✓ Published
+```
+
+---
+
+# User Experience
+
+When an OTA exists:
+
+Small banner.
+
+```text
+A new update is available.
+
+[Update Now]
+
+[Later]
+```
+
+Update happens in seconds.
+
+---
+
+# Native Update
+
+Completely different.
+
+The app checks:
+
+```text
+Current
+
+1.4.2
+
+Latest
+
+2.0.0
+```
+
+If newer:
+
+```text
+Update Available
+
+A new version of your app is available.
+
+What's New
+
+• Faster loading
+
+• Better analytics
+
+• Bug fixes
+
+[Update]
+
+[Later]
+```
+
+Clicking Update opens Google Play.
+
+---
+
+# Force Updates
+
+Sometimes you'll need:
+
+> You must update before continuing.
+
+Reasons:
+
+* Security fixes
+* API changes
+* SDK upgrades
+* Database changes
+
+The app shouldn't continue until updated.
+
+---
+
+# Soft Updates
+
+For normal releases.
+
+User can choose:
+
+Later
+
+Update
+
+---
+
+# Version Management
+
+Admin controls:
+
+```text
+OTA
+
+1.4.3
+
+Production
+
+Rollout
+
+100%
+
+Minimum Version
+
+1.3.0
+```
+
+---
+
+# Channels
+
+Expo already supports update channels.
+
+I'd have:
+
+```text
+Development
+
+↓
+
+Preview
+
+↓
+
+Beta
+
+↓
+
+Production
+```
+
+Your GitHub Actions can publish to the appropriate channel automatically.
+
+---
+
+# Release Notes
+
+Every release should include:
+
+```text
+What's New
+
+✓ Faster dashboard
+
+✓ AI improvements
+
+✓ Bug fixes
+
+✓ Better notifications
+```
+
+---
+
+# Auto Updates
+
+Allow the reseller to choose:
+
+```text
+Update Settings
+
+✓ Download over Wi-Fi only
+
+✓ Install automatically
+
+✓ Notify before restart
+```
+
+---
+
+# Admin Features
+
+You should also have:
+
+* View installed app versions.
+* See how many users are on each version.
+* Trigger OTA deployments.
+* Schedule OTA releases.
+* Roll back an OTA if a bug is found.
+* Force a minimum supported version.
+
+---
+
+## One important consideration for your architecture
+
+Because all reseller apps are generated from the same codebase, I'd use **one Expo update channel per platform environment** (for example: `production`, `preview`, `development`) rather than a separate channel for every reseller. The apps can fetch reseller-specific branding and configuration from your backend at runtime, so you don't need hundreds of OTA channels to keep them customized.
+
+The only time you'd need a new native build is when something truly native changes (SDK upgrade, permissions, app icon, package name, etc.). Everything else can be delivered quickly through OTA updates, giving all eligible reseller apps the improvements without waiting for Play Store review.
+
+
+q:
+I will be using GitHub actions for the expo builds with local
+
+a:
+That's actually an excellent architecture, especially for a multi-tenant platform like Edges.
+
+Your pipeline would look something like this:
+
+```text
+Reseller Completes Setup
+          │
+          ▼
+Configuration Saved (Supabase)
+          │
+          ▼
+GitHub Action Triggered
+          │
+          ▼
+Generate Assets
+(Logos, icons, splash, config)
+          │
+          ▼
+Generate app.config.ts
+          │
+          ▼
+Patch Firebase & Package Name
+          │
+          ▼
+EAS Local Build
+          │
+          ▼
+Sign APK/AAB
+          │
+          ▼
+Upload APK
+          │
+          ├── Free APK
+          │      ↓
+          │   Save download URL
+          │
+          └── Play Store Service
+                 ↓
+            Upload to Play Console
+```
+
+This also fits with what we've discussed previously about your automated build process.
+
+## I would split the GitHub Actions into separate workflows
+
+Instead of one huge workflow, use smaller ones with clear responsibilities.
+
+```text
+.github/workflows/
+
+reseller-created.yml
+generate-assets.yml
+build-apk.yml
+publish-playstore.yml
+deploy-ota.yml
+rollback-ota.yml
+release.yml
+cleanup.yml
+```
+
+Each workflow does one thing well.
+
+---
+
+## Before building
+
+Have a validation stage.
+
+```text
+Validate
+
+✓ Business Name
+
+✓ Country
+
+✓ Language
+
+✓ Theme
+
+✓ Colors
+
+✓ Firebase Config
+
+✓ Package Name
+
+✓ Play Store Plan
+
+✓ Assets
+
+✓ Environment Variables
+```
+
+If validation fails, stop the build before wasting time.
+
+---
+
+## Build Status
+
+The reseller should be able to see progress.
+
+```text
+Queued
+
+↓
+
+Generating Brand
+
+↓
+
+Generating Assets
+
+↓
+
+Building App
+
+↓
+
+Signing
+
+↓
+
+Uploading
+
+↓
+
+Ready
+```
+
+That feels much more professional than showing a spinner.
+
+---
+
+## Build History
+
+Store every build.
+
+```text
+Build #18
+
+Status:
+Success
+
+Version:
+1.0.8
+
+SDK:
+56
+
+Build Time:
+7m 43s
+
+APK
+
+AAB
+
+Logs
+```
+
+This makes troubleshooting much easier.
+
+---
+
+## OTA Integration
+
+When you push a dashboard or JavaScript update, your GitHub Action can:
+
+```text
+Merge
+
+↓
+
+Tests
+
+↓
+
+Publish OTA
+
+↓
+
+Notify Users
+
+↓
+
+Done
+```
+
+No Play Store review needed.
+
+---
+
+## One more module I'd add
+
+A **Build Queue**.
+
+Imagine 200 resellers request app generation at the same time.
+
+Instead of starting 200 builds immediately:
+
+```text
+Queue
+
+↓
+
+Worker 1
+
+Worker 2
+
+Worker 3
+
+↓
+
+Completed
+```
+
+This lets you control concurrency, avoid exhausting GitHub runner capacity, and retry failed builds gracefully.
+
+---
+
+### One suggestion based on your earlier comments
+
+Since you're already using **EAS local builds** inside GitHub Actions, I'd make the build process **configuration-driven**. The workflow shouldn't contain reseller-specific logic. Instead, it should:
+
+1. Read the reseller configuration from Supabase.
+2. Generate all required assets and configuration files.
+3. Build the app.
+4. Upload the artifacts.
+5. Update the build status.
+
+That way, every reseller goes through the exact same pipeline, and adding a new country, language, or branding option doesn't require modifying the GitHub workflow itself—only the configuration. That's a much more maintainable architecture for the long term.
+
+
+q:
+Can it use rpc
+
+a:
+Absolutely. In fact, I'd use **Supabase RPCs** extensively in the GitHub Actions pipeline instead of making multiple queries and updates.
+
+For example, when a reseller clicks **Generate App**, your workflow could look like this:
+
+```text id="pgo8zr"
+Reseller
+
+↓
+
+Generate App
+
+↓
+
+RPC: queue_app_build()
+
+↓
+
+GitHub Action
+
+↓
+
+RPC: get_build_context()
+
+↓
+
+Build APK
+
+↓
+
+RPC: update_build_status()
+
+↓
+
+RPC: complete_build()
+```
+
+No need to query 10 different tables.
+
+---
+
+## RPC Examples
+
+### `queue_app_build()`
+
+Creates a build request.
+
+Returns:
+
+* Build ID
+* Reseller ID
+* Queue position
+
+---
+
+### `get_build_context()`
+
+This is the most important one.
+
+It returns everything needed for the build.
+
+For example:
+
+* Business name
+* Logo URL
+* Theme
+* Country
+* Language
+* Package name
+* App name
+* Splash screen
+* Firebase config
+* Enabled features
+* Play Store plan
+* Version
+* Build number
+
+One RPC.
+
+GitHub downloads one JSON object.
+
+Done.
+
+---
+
+### `update_build_status()`
+
+GitHub calls it after every stage.
+
+Stages:
+
+* Queued
+* Preparing
+* Generating Assets
+* Building
+* Signing
+* Uploading
+* Completed
+* Failed
+
+---
+
+### `complete_build()`
+
+Returns:
+
+* APK URL
+* AAB URL
+* Build duration
+* Version
+* SHA hash
+* Release notes
+
+---
+
+### `publish_playstore()`
+
+Stores:
+
+* Play Store status
+* Review status
+* Published countries
+* Play Store URL
+
+---
+
+## OTA
+
+Exactly the same.
+
+```text id="ofbhv2"
+deploy_ota()
+
+↓
+
+GitHub
+
+↓
+
+Expo
+
+↓
+
+complete_ota()
+```
+
+---
+
+## Even Asset Generation
+
+Imagine:
+
+```text id="tfpqjq"
+generate_brand_assets()
+```
+
+Returns:
+
+* Icon URL
+* Splash URL
+* Feature graphic
+* Screenshot set
+
+GitHub downloads the assets and places them into the build.
+
+---
+
+## Build Queue
+
+Instead of querying:
+
+* pending builds
+* reseller
+* branding
+* features
+* localization
+
+One RPC:
+
+```text id="ysvop2"
+get_next_build()
+```
+
+Returns:
+
+Everything.
+
+Worker builds it.
+
+Then:
+
+```text id="cyl7w5"
+mark_build_running()
+```
+
+Later:
+
+```text id="mcfjlwm"
+mark_build_complete()
+```
+
+---
+
+## Notifications
+
+One RPC:
+
+```text id="yw6vqv"
+notify_build_complete()
+```
+
+This can:
+
+* Save a notification
+* Trigger push
+* Trigger email
+* Update dashboard
+
+All in one database transaction.
+
+---
+
+## The architecture I'd use
+
+```text id="9wl4ql"
+GitHub Actions
+
+↓
+
+RPC Layer
+
+↓
+
+Supabase
+
+↓
+
+Tables
+```
+
+**Not**
+
+```text id="7yjj0s"
+GitHub
+
+↓
+
+resellers
+
+↓
+
+branding
+
+↓
+
+languages
+
+↓
+
+countries
+
+↓
+
+apps
+
+↓
+
+publishing
+
+↓
+
+features
+
+↓
+
+...
+```
+
+That way, your GitHub workflows remain **very thin**. They don't need to know your database schema—they just call well-defined RPCs.
+
+### One implementation detail
+
+I would have GitHub Actions authenticate with a **service role key** stored as a GitHub secret. The RPCs used by GitHub (such as `get_build_context()` or `update_build_status()`) should be intended for trusted backend automation, not for direct calls from the client. This keeps your build pipeline secure while still benefiting from the simplicity of an RPC-first design.
+
+
+q:
+How does rpc reduce dB costs
+
+a:
+This is a great question because there's a common misconception about RPCs.
+
+**RPCs do not automatically reduce your database costs.** What they reduce is:
+
+* Network round trips
+* Latency
+* Backend processing
+* Amount of data transferred
+* Complexity in your application
+
+Whether they reduce your database cost depends on **how they're written**.
+
+## Without an RPC
+
+Imagine your dashboard loads:
+
+* Wallet
+* Profit
+* Customers
+* Orders
+* Notifications
+* Store configuration
+* Onboarding
+* AI context
+
+Your app might make **8 separate requests**.
+
+Each request has:
+
+* Authentication
+* RLS checks
+* Query planning
+* Network overhead
+* JSON serialization
+
+Even if each query is fast, you're repeating that overhead eight times.
+
+---
+
+## With an RPC
+
+You make **one request**:
+
+```
+get_dashboard_context()
+```
+
+Internally, PostgreSQL gathers all the required information and returns a single JSON object.
+
+You still read the necessary data, but you've eliminated multiple client-server round trips and can optimize the queries together.
+
+---
+
+## Where the savings really come from
+
+### ✅ Less network traffic
+
+Instead of 8 HTTP requests:
+
+```
+Client
+ ↓
+Supabase
+```
+
+You send one.
+
+---
+
+### ✅ Less JSON
+
+Instead of returning lots of separate responses:
+
+```
+Wallet
+
+Customers
+
+Orders
+
+...
+```
+
+You return one structured object.
+
+---
+
+### ✅ Better caching
+
+If your dashboard uses one RPC, you can cache that response for 30–60 seconds instead of caching many individual endpoints.
+
+---
+
+### ✅ Better SQL optimization
+
+For example:
+
+Bad:
+
+```
+SELECT wallet ...
+
+SELECT customers ...
+
+SELECT orders ...
+```
+
+Good:
+
+One optimized function that performs the work efficiently and returns exactly what's needed.
+
+---
+
+## Does it reduce Supabase cost?
+
+**Indirectly, yes—but not because "RPCs are cheaper."**
+
+You'll likely save resources because:
+
+* Fewer API requests.
+* Less bandwidth.
+* Less application code executing.
+* Fewer repeated authentication and RLS evaluations from multiple separate requests.
+* Better opportunities for caching.
+
+However, the underlying database still has to read the data.
+
+---
+
+## Example
+
+Suppose your dashboard makes:
+
+* 12 queries every page load.
+* 1,000 users open it daily.
+
+That's roughly:
+
+```
+12,000 queries
+```
+
+If you consolidate them into one well-designed RPC per dashboard load:
+
+```
+1,000 RPC calls
+```
+
+Inside that RPC, PostgreSQL may still perform multiple internal queries, but you've reduced API chatter and centralized the logic.
+
+---
+
+## For Edges
+
+Given your architecture, I'd have RPCs for:
+
+* Dashboard
+* AI context
+* Build context
+* Store context
+* Analytics
+* Customer summary
+* Wallet summary
+* Sales summary
+
+These are all "summary" or "business logic" operations that benefit from being encapsulated.
+
+For simple operations such as:
+
+* Updating a profile
+* Changing a logo
+* Editing a business name
+
+I'd use normal Supabase table updates. An RPC would add unnecessary complexity there.
+
+### My rule of thumb
+
+* **Simple CRUD** → Regular Supabase queries.
+* **Business logic, summaries, analytics, or multi-step operations** → RPCs.
+
+That gives you a clean, maintainable architecture while taking advantage of PostgreSQL's strengths without overusing RPCs.
+
+q:
+Lets say I don't have rpc and I have 100 users using supabase what would be the cost 
+
+a:
+The honest answer is: **you can't calculate it from the number of users alone**.
+
+Supabase doesn't primarily charge by **"100 users."** It charges based on things like:
+
+* Database size
+* Compute usage
+* Network egress
+* Storage
+* Authentication usage (depending on plan)
+* Realtime connections
+* Edge Functions (if used)
+
+So **100 users** could cost almost nothing or quite a lot depending on what they're doing.
+
+### Example 1: Inefficient dashboard
+
+Suppose every dashboard load makes:
+
+* Wallet
+* Customers
+* Orders
+* Notifications
+* Store
+* Analytics
+* AI
+* Settings
+
+= **8 database requests**
+
+If:
+
+* 100 users
+* Each opens the dashboard 20 times/day
+
+That's roughly:
+
+```
+100 × 20 × 8 = 16,000 database requests/day
+```
+
+---
+
+### Example 2: RPC
+
+One RPC:
+
+```
+get_dashboard_context()
+```
+
+Now:
+
+```
+100 × 20 × 1 = 2,000 API requests/day
+```
+
+That's an **87.5% reduction in API calls**.
+
+The database still performs work internally, but you've significantly reduced client-server chatter.
+
+---
+
+### Will your bill be 87.5% lower?
+
+**No.**
+
+Because Supabase doesn't simply bill you per query.
+
+What you gain is:
+
+* Lower latency
+* Less bandwidth
+* Simpler frontend code
+* Fewer HTTP requests
+* Better scalability
+
+The actual cost savings depend on the complexity of the queries and the resources they consume.
+
+---
+
+## For Edges
+
+Let's imagine you eventually have:
+
+* 10,000 resellers
+* 200,000 reseller customers
+
+At that scale, if every screen performs many separate requests, the extra network overhead and repeated work become much more noticeable.
+
+Using well-designed RPCs for dashboard summaries, analytics, AI context, and other business logic will help the platform remain responsive and easier to maintain.
+
+### The main reason to use RPCs
+
+For your project, I wouldn't choose RPCs primarily to reduce your Supabase bill.
+
+I'd choose them because they:
+
+* Keep business logic in one place.
+* Reduce the number of client-server round trips.
+* Simplify the frontend.
+* Make GitHub Actions and AI integration cleaner.
+* Scale better as the platform grows.
+
+If your goal is to **minimize Supabase costs**, there are even bigger wins than RPCs, such as:
+
+* Caching frequently used summary data.
+* Avoiding unnecessary realtime subscriptions.
+* Designing efficient indexes.
+* Using materialized or summary tables for expensive analytics.
+* Returning only the fields you actually need.
+
+Those optimizations often have a larger impact on resource usage than simply replacing many queries with RPCs.

@@ -1,0 +1,115 @@
+Here's a comprehensive prompt for GPT to create the storefront feature based on your project structure:
+
+---
+
+# PROMPT: Storefront Feature for Reseller Platform
+
+## CONTEXT
+
+I'm building a **reseller platform** where entrepreneurs sign up, get their own branded mini-store, and sell airtime/data/electricity/etc. to their customers. We've already built:
+
+### 1. **Backend Infrastructure**
+- `global_base_plans` - All plans from providers (lizzysub, accragh, zendit)
+- `global_reseller_plan_configs` - Per-reseller markup configurations
+- `global_reseller_applications` - Reseller accounts with store_name, store_slug, brand_color, logo_url
+
+### 2. **Reseller Dashboard Features**
+- Plans Management (toggle plans, set markup in local currency)
+- Wallet (funding, withdrawals, transactions)
+- Customers (manage customers)
+- Orders (view order history)
+
+### 3. **Project Structure**
+```
+folder structure file will be provided
+```
+
+---
+
+## TASK: Build the Storefront Feature
+
+### 1. Storefront Overview
+
+Each reseller gets a public-facing store at:
+```
+https://yourdomain.com/[countryCode]/store/[storeName]
+```
+
+**Example:** `https://edges.com/ng/store/akins-airtime`
+
+### 2. Store Configuration (Stored in `global_reseller_applications`)
+
+The reseller can configure their store via the dashboard:
+
+| Setting | Field | Description |
+|---------|-------|-------------|
+| Store Name | `store_name` | Business name (e.g., "Akin's Airtime") |
+| Store Slug | `store_slug` | URL identifier (e.g., "akins-airtime") |
+| Brand Color | `brand_color` | Primary color for store theme |
+| Logo | `logo_url` | Store logo image URL |
+| Phone | `phone` | Contact phone number |
+| Country | `country_code` | Operating country |
+
+### 3. Storefront Display
+
+The storefront should adapt the legacy ui/ux
+
+### 10. Styling Requirements
+
+- Use the **reseller's brand_color** as the primary theme color
+- Responsive design (mobile-first)
+- Clean, modern, trust-worthy design
+- Use CSS variables for theming
+- Support dark/light mode from the store's theme settings
+
+### 11. Country Integration
+
+- Use `getCountryConfig(countryCode)` for currency symbol
+- Display prices in local currency with correct formatting
+- Use country-specific telecoms from config
+
+### 12. Existing Files to Reference
+
+- `src/app/[countryCode]/[storeName]/page.tsx` - Main store page
+- `src/app/[countryCode]/[storeName]/StoreLayoutClient.tsx` - Layout client
+- `src/app/[countryCode]/[storeName]/StoreContent.tsx` - Content component
+- `src/app/[countryCode]/[storeName]/StoreProducts.tsx` - Products component
+- `src/app/[countryCode]/[storeName]/StoreCart.tsx` - Cart component
+- `src/components/reseller/store/StoreBuilder.tsx` - Store builder
+- `src/components/reseller/store/StorePreview.tsx` - Store preview
+
+---
+
+
+---
+
+## DELIVERABLES
+
+Please provide:
+
+1. **Updated types** in `src/types/reseller/storefront.ts`
+2. **Server actions** in `src/actions/reseller/store/`
+3. **Storefront components** in `src/app/[countryCode]/[storeName]/`
+4. **Storefront components** in `src/components/reseller/store/`
+5. **Hooks** in `src/hooks/store/` (useStoreCart, useStoreCheckout, etc.)
+6. **Translations** in `src/messages/{lang}/storefront.json`
+7. **SQL migrations** for new tables (orders, analytics)
+8. **Country config updates** for store settings
+9. **Dashboard store settings** page (optional)
+10. **Store preview** in dashboard (optional)
+
+---
+
+## CONSTRAINTS
+
+1. **Don't modify** `lib/supabase/*` files
+2. **Use existing patterns** from the project
+3. **Use admin client** for database operations (bypass RLS)
+4. **Use server client** only for authentication
+5. **Support multi-language** with translations
+6. **Use existing UI components and styling**
+7. **Implement proper error handling** and loading states
+
+---
+
+**PLEASE PROCEED WITH IMPLEMENTING THE STOREFRONT FEATURE.**

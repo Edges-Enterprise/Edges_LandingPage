@@ -1,0 +1,276 @@
+Introduction
+Dashboard
+Home
+
+Introduction
+
+Welcome to the Lizzysub ! You can use our API to access Lizzysub API endpoints, which can be use to purchase any of our services, and breeds in our database.
+
+We have language bindings in PHP, Ruby, Python, react js and JavaScript! You can use any programming language of your choice to connect to our endpoints.
+
+This Lizzysub API documentation page was created to assits you through the integration proccess.
+
+Thanks.
+
+Authentication
+
+How to Generate (TOKEN)
+
+
+
+The Basic Authentication Is Use To Generate (TOKEN)
+It should be passed as a concatenated string like this username:password
+Please use the following details for authentication
+Username: Your Lizzysub Username
+Password: Your Lizzysub Password
+convert it to base64(username:password) use it to gerenerate token
+
+
+
+
+Enpoint URL
+
+https://lizzysub.com/api/user
+Code Sample
+
+                 $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, "https://lizzysub.com/api/user");
+                curl_setopt($ch, CURLOPT_POST, 1);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                curl_setopt(
+                   $ch, CURLOPT_HTTPHEADER, [
+                        "Authorization: Basic ".base64_encode('username:password'),
+                    ]
+                );
+                $json = curl_exec($ch);
+                curl_close($ch); 
+
+Expected Response
+
+                {
+                    "status": "success",
+                    "AccessToken": "b5b39c2645893a318c432507d00a91270f39bd987e5fcc904dc72276a00c",
+                    "balance": "10,218.50",
+                    "username": "John7492"
+                }
+                
+
+Data Subscription API
+Dashboard
+Home
+
+This section contains the recommended flow for integrating Data Subscription services on the Lizzysub RESTful API.
+
+Available Endpoints
+
+To integrate the Lizzysub Data Subscription Payment RESTful API, the endpoints below applies:
+
+
+
+
+network
+phone
+data_plan
+bypass (boolean)
+request-id (unique)
+Network Plan
+MTN
+1
+GLO
+3
+AIRTEL
+2
+9MOBILE
+4
+Dense padding
+Rows per page:
+
+5
+1–4 of 4
+
+Data Plans
+1
+MTN	COOPERATE GIFTING	1.0GB	₦776.00	1 week
+2
+MTN	COOPERATE GIFTING	2.0GB	₦1,455.00	1 Month
+3
+MTN	COOPERATE GIFTING	3.5GB	₦2,425.00	1 Month
+4
+MTN	COOPERATE GIFTING	7.0GB	₦3,395.00	1 Month
+5
+MTN	GIFTING	10.0GB	₦4,365.00	1 Month
+Dense padding
+Rows per page:
+
+5
+1–5 of 204
+
+PURCHASE PRODUCT
+
+Using a POST method, Data bundle can with the endpoint below:
+
+
+
+
+Enpoint URL
+
+https://lizzysub.com/api/data
+Code Sample
+
+                $paypload = array(
+                    'network' => 1,
+                     'phone' => 07057517841,
+                     'data_plan' => 1,
+                     'bypass' => false,
+                     'request-id' => Data_12345678900);
+                     $ch = curl_init();
+                     curl_setopt($ch, CURLOPT_URL, 'https://lizzysub.com/api/data');
+                     curl_setopt($ch, CURLOPT_POST, 1);
+                     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($paypload));
+                     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                     $headers = [
+                          "Authorization: Token b5b39c2645893a318c432507d00a91270f39bd987e5fcc904dc72276a00c",
+                         'Content-Type: application/json'
+                     ];
+                     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                     $response = curl_exec($ch);
+                     curl_close($ch);
+                
+
+Expected Response
+
+                {
+                    "network": "MTN",
+                    "request-id": "Data_1234567890",
+                    "amount": "100",
+                    "dataplan": "500MB",
+                    "status": "success",
+                    "message": "Yello! You have gifted 500MB to 2347013397088. Share link https://mtnapp.page.link/myMTNNGApp with 2347013397088 to download the new MyMTN app for exciting offers.",
+                    "phone_number": "07013397088",
+                    "oldbal": "110325",
+                    "newbal": 110225,
+                    "system": "API",
+                    "plan_type": "GIFTING",
+                    "wallet_vending": "wallet"
+                }
+
+Airtime Subscription API
+Dashboard
+Home
+
+This section contains the recommended flow for integrating Airtime Subscription services on the Lizzysub RESTful API.
+
+Available Endpoints
+
+To integrate the Lizzysub Airtime Subscription Payment RESTful API, the endpoints below applies:
+
+
+
+
+network
+phone
+plan_type
+amount
+bypass (boolean)
+request-id (unique)
+Network Plan
+MTN
+1
+GLO
+3
+AIRTEL
+2
+9MOBILE
+4
+Dense padding
+Rows per page:
+
+5
+1–4 of 4
+
+PURCHASE PRODUCT
+
+Using a POST method, Airtime purchase can with the endpoint below:
+
+
+
+
+Enpoint URL
+
+https://lizzysub.com/api/topup/
+Code Sample
+
+                $paypload = array(
+                    'network' => 1,
+                     'phone' => 07057517841,
+                     'plan_type' => 'VTU',
+                     'bypass' => false,
+                     'amount' => 100,
+                     'request-id' => Airtime_12345678900);
+                     $ch = curl_init();
+                     curl_setopt($ch, CURLOPT_URL, 'https://lizzysub.com/api/topup');
+                     curl_setopt($ch, CURLOPT_POST, 1);
+                     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($paypload));
+                     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                     $headers = [
+                          "Authorization: Token b5b39c2645893a318c432507d00a91270f39bd987e5fcc904dc72276a00c",
+                         'Content-Type: application/json'
+                     ];
+                     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                     $response = curl_exec($ch);
+                     curl_close($ch);
+                
+
+Expected Response
+
+                {
+                    "network": "MTN",
+                    "request-id": "Airtime_1234567890",
+                    "amount": 100,
+                    "discount": 97,
+                    "status": "success",
+                    "message": "successfully purchase MTN VTU to 07013397088 , ₦100",
+                    "phone_number": "07013397088",
+                    "oldbal": "110225",
+                    "newbal": 110128,
+                    "system": "API",
+                    "plan_type": "VTU",
+                    "wallet_vending": "wallet"
+                }
+
+
+Callback/Webhook API Integration
+Dashboard
+Home
+
+This section contains the recommended flow for integrating Lizzysub Callback/Webhook services when using the Lizzysub RESTful API.
+
+The webhook service enables Lizzysub to send your system an update on certain activities. Such activities will include:
+
+
+
+
+Transaction status update
+
+The is usually sent to a URL you will provide to us via your Lizzysub dashboard. Please see
+
+IMPORTANT NOTES:
+
+To receive the Lizzysub callback requests, the below refers:
+
+
+
+Make sure to update your callback URL on your Lizzysub dashboard when logged in on the website.
+The request data will come as a JSON with three parent keys: “request-id” , “status” and "response" (and maybe more)
+The “request-id” parent key will send u back the unique request-id you sent us earlier.
+The “status” parent key will define if the transaction is success or fail.
+The “response” parent key means the API Response.
+
+Expected Response
+
+                {
+                    "status": "success",
+                    "request-id": "Data_12345678900",
+                    "response" : "Yello! You have gifted 500MB to 2347013397088. Share link https://mtnapp.page.link/myMTNNGApp with 2347013397088 to download the new MyMTN app for exciting offers."
+                }
+                

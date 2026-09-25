@@ -1,0 +1,1314 @@
+# Xixapay API Overview
+
+Welcome to the Xixapay API Documentation
+
+Xixapay is a powerful, secure, and easy-to-use payment platform designed to help businesses in Nigeria seamlessly accept payments from their customers. Whether you're running an e-commerce store, a subscription-based service, or any other business that requires online payments, Xixapay simplifies the process of payment acceptance, reconciliation, and management.
+
+Our API offers developers a comprehensive and flexible set of tools for integrating Xixapay's payment functionalities into your website or mobile app. With support for multiple payment methods, real-time notifications, and robust security features, Xixapay enables you to offer your customers a smooth, hassle-free payment experience while keeping your business operations streamlined and secure
+
+<figure><img src="/files/ctLF7HrR6hFSfzkBpfZl" alt=""><figcaption></figcaption></figure>
+
+What Can You Do with the Xixapay API?
+
+The Xixapay API allows you to perform a variety of actions, including:
+
+* **Accept Payments**: Seamlessly process payments from your customers using multiple payment methods such as credit/debit cards, mobile wallets, bank transfers, and more.
+* **Manage Transactions**: Create payments, view the status of transactions, issue refunds, and track the progress of payments with ease.
+* **Customer Management**: Create and manage customer profiles, track their payment history, and customize payment flows based on customer data.
+* **Receive Real-Time Notifications**: Stay up-to-date on transaction events such as successful payments, failed payments, and refund requests via webhooks.
+* **Generate Reports**: Access detailed reports on transaction history, daily sales, and more to help manage your business efficiently.
+
+Key Features
+
+* **Multi-Payment Method Support**: Xixapay supports a variety of payment methods to cater to different customer preferences, including cards, bank transfers, and mobile wallets.
+* **Secure Payment Gateway**: Xixapay uses cutting-edge encryption and security protocols to ensure your transactions are always safe and protected from fraud.
+* **Customizable Payment Flows**: Our API gives you the flexibility to create custom payment flows, including defining your own order statuses, handling partial payments, and setting up recurring payments for subscription-based businesses.
+* **Easy Integration**: With a simple REST API, integration with your website or mobile app is straightforward. We also provide SDKs and libraries in multiple languages to speed up the development process.
+* **Transparent Pricing**: Xixapay offers clear and predictable pricing with no hidden fees, allowing you to plan and budget effectively.
+
+Why Use the Xixapay API?
+
+Xixapay is more than just a payment processor—it’s a complete payment solution for Nigerian businesses, designed with ease of use, flexibility, and scalability in mind. Here’s why you should consider using the Xixapay API:
+
+* **Reliability**: With 99.9% uptime, Xixapay ensures that your payment gateway is always up and running, so you never miss a transaction.
+* **Security**: We adhere to the highest standards of payment security, including PCI-DSS compliance, to protect your business and customers.
+* **Speed**: Enjoy fast transaction processing times, real-time notifications, and instant access to funds.
+* **Customer Support**: Our support team is available 24/7 to help with any issues or questions you may have during integration or operations
+
+## ***Getting Started with Xixapay API***
+
+To get started with the Xixapay API, you’ll need to:
+
+1. **Create an Account**: Sign up on the Xixapay dashboard and set up your business profile.
+2. **Generate Your API Key**: Once registered, generate your unique API key from the dashboard. This key will authenticate your requests to the API.
+3. **Integrate the API**: Use the Xixapay API documentation to integrate payment functionality into your website or app. You’ll find detailed instructions, code samples, and examples in this documentation to guide you through the process.
+4. **Start Accepting Payments**: Once your integration is complete, you can start accepting payments from your customers securely and efficiently.
+
+## Next Steps
+
+{% content-ref url="/pages/n6W2CRVvhiUAZoLtiIdc" %}
+[Authentication Guide](/authentication/authentication-guide.md)
+{% endcontent-ref %}
+
+{% content-ref url="/pages/i7hcgYvFp3AcCk52STAJ" %}
+[Broken mention](broken://pages/i7hcgYvFp3AcCk52STAJ)
+{% endcontent-ref %}
+
+
+# Authentication Guide
+
+To ensure the security and integrity of your API requests, Xixapay uses **API Key-based authentication**. Every request you make to the Xixapay API must include an API key in the request header to authenticate the request and verify that it comes from an authorized source.
+
+<figure><img src="/files/3LGsNbSJbVcB4bIh0zNd" alt=""><figcaption></figcaption></figure>
+
+In this section, you will learn how to generate your API key, use it in API requests, and securely manage it.<br>
+
+| Base URL      | <https://api.xixapay.com> |
+| ------------- | ------------------------- |
+| Authorization | Beaerer {Secrete\_Key}    |
+| api-key       | {API\_KEY}                |
+
+
+# Error Codes & Troubleshooting
+
+When interacting with the Xixapay API, you may encounter various errors that provide information about issues with your requests. The following table outlines common error codes, their descriptions, potential causes, and suggested solutions.
+
+| **HTTP Status Code**          | **Error Code**          | **Description**                                                                                   | **Example Causes**                                                                                                                                       | **Solution**                                                                                                                                             |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **400 Bad Request**           | `bad_request`           | The request is malformed or missing required parameters.                                          | <p>- Missing required parameters (e.g., <code>amount</code>, <code>currency</code>).<br>- Invalid JSON format in the request body.</p>                   | <p>- Review the request body to ensure all required parameters are included.<br>- Validate the JSON format.</p>                                          |
+| **401 Unauthorized**          | `unauthorized`          | The request is missing authentication credentials or the provided API key is invalid.             | <p>- Missing <code>Authorization</code>header.<br>- Invalid or expired API key.</p>                                                                      | <p>- Ensure the <code>Authorization</code> header is correctly set to <code>Bearer YOUR\_API\_KEY</code>.<br>- Regenerate your API key if necessary.</p> |
+| **403 Forbidden**             | `forbidden`             | The server understood the request but refuses to authorize it.                                    | <p>- Insufficient API key permissions.<br>- IP whitelisting restrictions.<br>- Invalid access rights.</p>                                                | <p>- Check the API key permissions.<br>- If using IP whitelisting, ensure your IP is included.</p>                                                       |
+| **404 Not Found**             | `not_found`             | The requested resource could not be found.                                                        | <p>- Incorrect URL or endpoint.<br>- Resource ID does not exist (e.g., payment, customer).</p>                                                           | <p>- Double-check the API endpoint and resource ID.<br>- Verify that the resource exists.</p>                                                            |
+| **422 Unprocessable Entity**  | `unprocessable_entity`  | The server understands the request but cannot process it due to invalid or missing data.          | <p>- Invalid data (e.g., unsupported payment method).<br>- Missing or incorrect parameter values (e.g., <code>amount</code>, <code>currency</code>).</p> | <p>- Ensure all required fields are correctly formatted and valid.<br>- Check the parameter types and values.</p>                                        |
+| **429 Too Many Requests**     | `too_many_requests`     | Too many requests were made in a short period, exceeding the rate limit.                          | - Making too many API calls in a short time.                                                                                                             | <p>- Implement retry logic with exponential backoff.<br>- Review the API rate limits and adjust the frequency of requests.</p>                           |
+| **500 Internal Server Error** | `internal_server_error` | The server encountered an unexpected condition that prevented it from fulfilling the request.     | - Server-side issues or bugs.                                                                                                                            | <p>- Retry the request after a short wait.<br>- Contact support if the issue persists.</p>                                                               |
+| **502 Bad Gateway**           | `bad_gateway`           | The Xixapay API server received an invalid response from an upstream server.                      | - Temporary issues with third-party payment providers.                                                                                                   | <p>- Retry after a short delay.<br>- Contact support if the issue persists.</p>                                                                          |
+| **503 Service Unavailable**   | `service_unavailable`   | The server is currently unable to handle the request due to temporary overloading or maintenance. | - Temporary server maintenance or overload.                                                                                                              | <p>- Retry the request later.<br>- Check the Xixapay status page for any ongoing maintenance or downtime.</p>                                            |
+
+
+# Customer
+
+The **Customer** resource represents an individual user associated with a specific business. This entity is primarily used for **KYC (Know Your Customer)** verification and identity management. Each customer is linked to a business and includes personal details such as name, contact information, address, government-issued ID data, and proof of utility.
+
+Customer records are created by businesses through the API and include validation checks to prevent duplicates and enforce identity standards (e.g., BVN/NIN formatting). Uploaded documents are stored securely and associated with the customer profile for compliance and verification purposes.
+
+{% content-ref url="/pages/r8a1Kh1qkp5NYKpvRJjZ" %}
+[Create Customer](/service/customer/create-customer.md)
+{% endcontent-ref %}
+
+{% content-ref url="/pages/oREYDqM7YafNtFLe6Nkv" %}
+[Update Customer](/service/customer/update-customer.md)
+{% endcontent-ref %}
+
+
+# Create Customer
+
+* Endpoint
+
+{% hint style="info" %}
+POST: <https://api.xixapay.com/api/customer/create>
+{% endhint %}
+
+#### 📄 Description
+
+Creates a new customer associated with a business and submits their KYC (Know Your Customer) details for verification. This includes personal information, address, ID type and number, and uploads of identification and utility bill documents.
+
+## Request Headers
+
+| Authorization | Beaerer {Secrete\_KEY} |
+| ------------- | ---------------------- |
+| api-key       | {API\_KEY}             |
+| Content-Type  | application/json       |
+
+## Request Body
+
+| Field           | Type   | Required | Description                                  |
+| --------------- | ------ | -------- | -------------------------------------------- |
+| `first_name`    | string | ✅        | Customer's first name                        |
+| `last_name`     | string | ✅        | Customer's last name                         |
+| `email`         | string | ✅        | Valid email address                          |
+| `phone_number`  | string | ✅        | Nigerian phone number (11 digits)            |
+| `address`       | string | ✅        | Residential address                          |
+| `state`         | string | ✅        | State of residence                           |
+| `city`          | string | ✅        | City of residence                            |
+| `postal_code`   | string | ✅        | Postal code                                  |
+| `date_of_birth` | string | ✅        | Must be at least 14 years old (`YYYY-MM-DD`) |
+| `id_type`       | string | ✅        | One of: `bvn`, `nin`                         |
+| `id_number`     | string | ✅        | ID number, validated based on `id_type`      |
+| `id_card`       | file   | ✅        | JPEG, PNG, or PDF file (max: 5MB)            |
+| `utility_bill`  | file   | ✅        | JPEG, PNG, or PDF file (max: 5MB)            |
+| `businessId`    | string | ✅        | The business ID this customer belongs to     |
+
+📥 Example Request (JSON)
+
+```json
+// Some code
+
+{
+  "first_name": "Jane",
+  "last_name": "Doe",
+  "email": "jane@example.com",
+  "phone_number": "08012345678",
+  "address": "10 Market Street",
+  "state": "Lagos",
+  "city": "Ikeja",
+  "postal_code": "100001",
+  "date_of_birth": "2008-05-01",
+  "id_type": "bvn",
+  "id_number": "22123456789",
+  "businessId": "abc123"
+}
+```
+
+{% hint style="info" %}
+🔍 Note: Files like `id_card` and `utility_bill` should be submitted as part of a `multipart/form-data` request.
+{% endhint %}
+
+✅ Successful Response
+
+```json
+{
+  "status": true,
+  "message": "Customer created successfully",
+  "customer": {
+    "customer_name": "Jane Doe",
+    "customer_email": "jane@example.com",
+    "customer_id": "9a4c73d7d8ff9..."
+  }
+}
+
+```
+
+
+# Update Customer
+
+#### Endpoint
+
+> POST  <https://api.xixapay.com/api/customer/update>
+
+#### 📄 Description
+
+Updates a customer's KYC information based on their `customer_id`, `email`, or `phone_number`. If the customer exists but has incomplete KYC data, this endpoint allows the business to complete or modify their details, including updating files (ID or utility bill).
+
+## Request Headers
+
+| Authorization | Beaerer {Secrete\_KEY} |
+| ------------- | ---------------------- |
+| api-key       | {API\_KEY}             |
+| Content-Type  | application/json       |
+
+#### 🧾 Request Body
+
+<table><thead><tr><th width="155">Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody><tr><td><code>first_name</code></td><td>string</td><td>✅</td><td>Customer's first name</td></tr><tr><td><code>last_name</code></td><td>string</td><td>✅</td><td>Customer's last name</td></tr><tr><td><code>email</code></td><td>string</td><td>✅</td><td>Valid email address</td></tr><tr><td><code>phone_number</code></td><td>string</td><td>✅</td><td>Nigerian phone number (11 digits)</td></tr><tr><td><code>address</code></td><td>string</td><td>✅</td><td>Residential address</td></tr><tr><td><code>state</code></td><td>string</td><td>✅</td><td>State of residence</td></tr><tr><td><code>city</code></td><td>string</td><td>✅</td><td>City of residence</td></tr><tr><td><code>postal_code</code></td><td>string</td><td>✅</td><td>Postal code</td></tr><tr><td><code>date_of_birth</code></td><td>string</td><td>✅</td><td>Must be at least 14 years old (<code>YYYY-MM-DD</code>)</td></tr><tr><td><code>id_type</code></td><td>string</td><td>✅</td><td>One of: <code>bvn</code>, <code>nin</code></td></tr><tr><td><code>id_number</code></td><td>string</td><td>✅</td><td>ID number, validated based on <code>id_type</code></td></tr><tr><td><code>id_card</code></td><td>file</td><td>✅</td><td>JPEG, PNG, or PDF file (max: 5MB)</td></tr><tr><td><code>utility_bill</code></td><td>file</td><td>✅</td><td>JPEG, PNG, or PDF file (max: 5MB)</td></tr><tr><td><code>businessId</code></td><td>string</td><td>✅</td><td>The business ID this customer belongs to</td></tr></tbody></table>
+
+```json
+// Some code
+{
+  "first_name": "Jane",
+  "last_name": "Doe",
+  "email": "jane@example.com",
+  "phone_number": "08012345678",
+  "address": "10 Market Street",
+  "state": "Lagos",
+  "city": "Ikeja",
+  "postal_code": "100001",
+  "date_of_birth": "2008-05-01",
+  "id_type": "bvn",
+  "id_number": "22123456789",
+  "businessId": "abc123"
+}
+
+```
+
+> 🔍 Note: Files like `id_card` and `utility_bill` should be submitted as part of a `multipart/form-data` request.
+
+✅ Successful Response
+
+```json
+// Some code
+{
+  "status": true,
+  "message": "Customer created successfully",
+  "customer": {
+    "customer_name": "Jane Doe",
+    "customer_email": "jane@example.com",
+    "customer_id": "9a4c73d7d8ff9..."
+  }
+}
+
+```
+
+
+# Create Virtual Account
+
+{% hint style="info" %}
+Post <https://api.xixapay.com/api/v1/createVirtualAccount>
+{% endhint %}
+
+## Partners Bank Code. <a href="#partners-bank-code" id="partners-bank-code"></a>
+
+<table><thead><tr><th width="180">Bank Code</th><th>Bank Name</th></tr></thead><tbody><tr><td>20867</td><td>Palmpay</td></tr><tr><td>20987</td><td>KOLOMONI MFB</td></tr><tr><td>29007</td><td>Safehaven (Dynamic &#x26; STATIC)</td></tr><tr><td><strong><code>100004</code></strong></td><td>OPAY (Dynamic Account)</td></tr></tbody></table>
+
+## 🔐 <kbd>Request Header</kbd><sup><kbd>**s**<kbd></sup>&#x20;
+
+```json
+{
+  "Authorization": "Bearer YOUR_API_SECRET",
+  "Content-Type": "application/json",
+  "api-key": "YOUR_API_KEY"
+}
+```
+
+## 📦 Request Body
+
+You can provide customer details in **two ways**, depending on whether you already have a `customer_id` (an existing KYC-verified customer):
+
+**✅ Option 1: Using `customer_id` (for existing KYCed customers)**
+
+| Field             | Type        | Required     | Description                                          |
+| ----------------- | ----------- | ------------ | ---------------------------------------------------- |
+| customer\_id      | string      | ✅            | The unique customer identifier                       |
+| bankCode          | array       | ✅            | List of partner bank codes                           |
+| businessId        | string      | ✅            | Your registered business ID                          |
+| accountType       | string      | ✅            | `static` or `dynamic`                                |
+| amount            | number      | ✅ if dynamic | Amount to be paid (for dynamic only)                 |
+| externalReference | string      | No           | externalReference For dynamic account (Not required) |
+| callbackUrl       | string\|url | No           | callbackUrl for dynamic account (Not required)       |
+
+**➡️ Notes:**
+
+🔸 **If `accountType` is `dynamic`, `amount` is required.**\
+🔸 Do **not include** `name`, `email`, `phoneNumber`, `id_type`, or `id_number`.
+
+**Example:**
+
+```json
+{
+  "customer_id": "cus_8ed239dks2s7",
+  "bankCode": ["20867"],
+  "businessId": "xixapay-business-id-123",
+  "accountType": "dynamic",
+  "amount": 1500
+}
+```
+
+***
+
+**✅ Option 2: Using Raw Customer Data (for new or unverified customers)**
+
+| Field       | Type   | Required     | Description                                   |
+| ----------- | ------ | ------------ | --------------------------------------------- |
+| email       | string | ✅            | Customer email address                        |
+| name        | string | ✅            | Customer full name                            |
+| phoneNumber | string | ✅            | Customer phone number                         |
+| bankCode    | array  | ✅            | List of partner bank codes                    |
+| businessId  | string | ✅            | Your registered business ID                   |
+| accountType | string | ✅            | `static` or `dynamic`                         |
+| amount      | number | ✅ if dynamic | Amount to be paid (for dynamic only)          |
+| id\_type    | string | 🔁           | e.g., `nin`, `bvn` – required if **static**   |
+| id\_number  | string | 🔁           | The actual ID number – required if **static** |
+
+**➡️ Notes:**
+
+* `id_type` and `id_number` are only required if `accountType` is set to **`static`**.
+* For **`dynamic`** accounts, they are **optional**.
+
+**Example (Static Account):**
+
+```json
+{
+  "email": "john@example.com",
+  "name": "John Doe",
+  "phoneNumber": "08123456789",
+  "bankCode": ["20867"],
+  "businessId": "xixapay-business-id-123",
+  "accountType": "static",
+  "id_type": "nin",
+  "id_number": "12345678901"
+}
+```
+
+**Example (Dynamic Account without ID):**
+
+```json
+{
+  "email": "jane@example.com",
+  "name": "Jane Doe",
+  "phoneNumber": "08012345678",
+  "bankCode": ["20867"],
+  "businessId": "xixapay-business-id-123",
+  "accountType": "dynamic",
+  "amount": 5000
+}
+```
+
+```json
+// response sample
+{
+    "status": "success",
+    "message": "Customer account created successfully. Bank account(s) processed and ready for use.",
+    "customer": {
+        "customer_id": "fa6aa77cbc60ee04c67f5b7d56394733ed67b924",
+        "customer_name": "a",
+        "customer_email": "ad.com",
+        "customer_phone_number": "07"
+    },
+    "business": {
+        "business_name": "Av",
+        "business_email": "a",
+        "business_phone_number": "07018",
+        "business_Id": null
+    },
+    "bankAccounts": [
+        {
+            "bankCode": "20867",
+            "accountNumber": "6698059290",
+            "accountName": "A(xixapay)",
+            "bankName": "Palmpay",
+            "accountTye": "static"
+            "Reserved_Account_Id": "3a28cfe332ccf8596bd454584"
+        },
+    ],
+}
+```
+
+
+# Update Virtual Account
+
+## **Endpoint**
+
+> `PATCH` [`https://api.xixapay.com/api/v1/updateVirtualAccountStatus`](https://api.xixapay.com/api/v1/updateVirtualAccountStatus)
+
+## 🔐 Request Headers
+
+| Header        | Type   | Description                                  |
+| ------------- | ------ | -------------------------------------------- |
+| Authorization | string | `Bearer {apiSecret}` – Your API secret token |
+| Content-Type  | string | `application/json`                           |
+| api-key       | string | Your API key                                 |
+
+#### ⚠️ Notes:
+
+* ✅ You can **only update the status of&#x20;*****static*****&#x20;virtual accounts**.
+* ❌ *Dynamic* virtual accounts **cannot** have their status changed.
+
+## 📦 Request Body
+
+| Field               | Type   | Required | Description                                              |
+| ------------------- | ------ | -------- | -------------------------------------------------------- |
+| `businessId`        | string | ✅        | Your unique business identifier                          |
+| `accountNumber`     | string | ✅        | The virtual account number to update                     |
+| `status`            | string | ✅        | New status: `"active"` or `"deactivated"`                |
+| `reason` (optional) | string | ❌        | Reason for status change (recommended when deactivating) |
+
+▶️ Example Request: Activate Static Account
+
+```json
+{
+  "businessId": "xixapay_biz_001",
+  "accountNumber": "6020077501",
+  "status": "active"
+}
+```
+
+⛔ Example Request: Deactivate Static Account
+
+```json
+{
+  "businessId": "xixapay_biz_001",
+  "accountNumber": "6020077501",
+  "status": "deactivated",
+  "reason": "User closed business"
+}
+
+```
+
+
+# Card USD / NGN
+
+#### Xixapay Card USD/NGN API
+
+The **Xixapay Card USD/NGN API** allows businesses and developers to seamlessly convert USD to NGN using virtual or physical cards. Designed for speed, reliability, and real-time exchange rates, this API enables secure card-based transactions and settlements across currencies.
+
+**Key Features:**
+
+* Real-time USD to NGN conversion
+* Card-based payment processing
+* Instant rate lookup and transaction execution
+* Secure API authentication using API keys
+
+**Ideal Use Cases:**
+
+* E-commerce checkout in dual currencies
+* Wallet top-ups and international transfers
+* Fintech apps requiring USD/NGN settlement
+
+Start integrating with just a few lines of code and power your cross-border payments with **Xixapay**
+
+
+# ➕💳  Create a Card
+
+> Enpoint POST <https://api.xixapay.com/api/card/create>
+
+🔐 <kbd>Request Header</kbd><sup><kbd>**s**<kbd></sup>
+
+```json
+{
+  "Authorization": "Bearer YOUR_API_SECRET",
+  "Content-Type": "application/json",
+  "api-key": "YOUR_API_KEY"
+}
+```
+
+📦 Request Body<br>
+
+| Field         | Type   | Required | Description                                                  |
+| ------------- | ------ | -------- | ------------------------------------------------------------ |
+| `customer_id` | string | ✅        | Must exist in your `customers` table (`customer_id` column). |
+| `businessId`  | string | ✅        | Your registered business ID (max 255 characters).            |
+| `country`     | string | ✅        | Must be either `"NG"` or `"US"`.                             |
+| `amount`      | number | ✅        | Must meet the minimum amount for the selected country.       |
+
+> 💡 **Minimum Amounts**
+>
+> * `NG`: e.g. ₦0 NGN
+> * `US`: e.g. $3 USD\
+>   *(Enforced dynamically by your backend using country-specific logic.)*
+
+Example
+
+```json
+{
+  "customer_id": "cus_123456",
+  "businessId": "xixapay_7890",
+  "country": "US",
+  "amount": 10.00
+}
+```
+
+✅ Success Response:
+
+```json
+{
+    "status": "success",
+    "message": "NGN card created",
+    "data": {
+        "card_id": "31e8fb3eccdadd381ec5a43995ef11ebfb7ab9a8",
+        "card_number": "507874******9520",
+        "expiry": "08/28",
+        "cvv": "455",
+        "balance": 0,
+        "currency": "NGN"
+    }
+}
+
+```
+
+
+# 🔄💳 Update Card Status
+
+> Endpoint PUT [https://api.xixapay.com/api/card/{id}/status](https://api.xixapay.com/api/card/%7Bid%7D/status)
+
+🔐 <kbd>Request Header</kbd><sup><kbd>**s**<kbd></sup>
+
+```json
+{
+  "Authorization": "Bearer YOUR_API_SECRET",
+  "Content-Type": "application/json",
+  "api-key": "YOUR_API_KEY"
+}
+```
+
+📥 Request Body Parameters:<br>
+
+| Field      | Type   | Required | Description                                                         |
+| ---------- | ------ | -------- | ------------------------------------------------------------------- |
+| `status`   | string | ✅        | The new status to apply. Must be one of: `active`, frozen, blocked. |
+| businessId | string | ✅        | Your registered business ID (max 255 characters)                    |
+
+**🔄 Valid Status Values:**
+
+* `active` – Reactivate the card if it was previously blocked
+* frozen – Temporarily disable the card
+* blocked – Permanently disable the card (irreversible)
+
+Example
+
+```json
+{
+  "status": "blocked",
+  "businessId": "ddddd"
+}
+
+```
+
+✅ Success Response:
+
+```json
+{
+  "status": "success",
+  "message": "Card status updated",
+  "data": {
+    "card_id": "card_abc123",
+    "status": "blocked",
+    "balance": 00.00,
+    "currency": "USD"
+  }
+}
+
+```
+
+
+# 💸💳 Withdraw from Card
+
+> **Endpoint:** `POST` [`https://api.xixapay.com/api/cards/{card_id}/withdraw`](https://api.xixapay.com/api/cards/%7Bcard_id%7D/withdraw)
+
+```json
+{
+  "Authorization": "Bearer YOUR_API_SECRET",
+  "Content-Type": "application/json",
+  "api-key": "YOUR_API_KEY"
+}
+```
+
+| Field      | Type   | Required | Description                                       |
+| ---------- | ------ | -------- | ------------------------------------------------- |
+| `amount`   | number | ✅        | The amount to withdraw from the card.             |
+| businessId | string | ✅        | Your registered business ID (max 255 characters). |
+
+📘 Example Request:
+
+```json
+{
+  "amount": 50.00,
+  "businessId": "000000",
+}
+```
+
+✅ Success Response:
+
+```json
+{
+  "status": "success",
+  "message": "Withdrawal completed and funds transferred.",
+  "transaction_id": "wd_123456789",
+  "data": {
+    "card_id": "card_abc123",
+    "amount": 75.00,
+    "currency": "USD",
+    "remaining_balance": 125.00
+  }
+}
+
+```
+
+
+# 💳💰 Fund Card
+
+> **Endpoint:** `POST` [`https://api.xixapay.com/api/card/{id}/fund`](https://api.xixapay.com/api/card/%7Bid%7D/fund)
+
+🔐 <kbd>Request Header</kbd><sup><kbd>**s**<kbd></sup>
+
+```json
+{
+  "Authorization": "Bearer YOUR_API_SECRET",
+  "Content-Type": "application/json",
+  "api-key": "YOUR_API_KEY"
+}
+```
+
+| Field      | Type   | Required | Description                                       |
+| ---------- | ------ | -------- | ------------------------------------------------- |
+| `amount`   | number | ✅        | The amount to fund the card with.                 |
+| businessId | string | ✅        | Your registered business ID (max 255 characters). |
+
+📘 Example Request:
+
+```json
+{
+  "amount": 100.00,
+  "businessId": "00292930303930303",
+}
+```
+
+✅ Success Response:
+
+```json
+{
+  "status": "success",
+  "message": "Funded USD Card Successfully",
+  "data": {
+    "card_id": "card_abc123",
+    "balance": 300.00,
+    "currency": "USD",
+    "status": "active"
+  }
+}
+```
+
+
+# 🧾💳 Refresh Card Details / Balance
+
+> **Endpoint:** POST [`https://api.xixapay.com/api/card/{card_id}/balance`](https://api.xixapay.com/api/card/%7Bcard_id%7D/balance)
+
+🔐 <kbd>Request Header</kbd><sup><kbd>**s**<kbd></sup>
+
+```json
+{
+  "Authorization": "Bearer YOUR_API_SECRET",
+  "Content-Type": "application/json",
+  "api-key": "YOUR_API_KEY"
+}
+```
+
+| Field      | Type   | Required | Description                                      |
+| ---------- | ------ | -------- | ------------------------------------------------ |
+| businessId | string | ✅        | Your registered business ID (max 255 characters) |
+
+Example
+
+```json
+{
+  "businessId": "ddddd"
+}
+```
+
+✅ Success Response:
+
+```json
+{
+  "status": "success",
+  "message": "Card balance retrieved",
+  "data": {
+    "card_id": "card_abc123",
+    "balance": 150.00,
+    "status": "active",
+    "card_number": "21234567890",
+    "cvv" : "523",
+    "expiry_date": "07/28"
+    "currency" : "USD"
+  }
+}
+
+```
+
+
+# ID Verification
+
+Our ID Verification API allows you to validate user identities using Nigeria’s major national identifiers: **BVN** and **NIN**.
+
+> Enpoint POST <https://api.xixapay.com/api/identity/verify>
+
+🔐 <kbd>Request Header</kbd><sup><kbd>**s**<kbd></sup>
+
+```json
+{
+  "Authorization": "Bearer YOUR_API_SECRET",
+  "Content-Type": "application/json",
+  "api-key": "YOUR_API_KEY"
+}
+```
+
+📦 Request Body<br>
+
+| Field        | Type   | Required | Description                                       |
+| ------------ | ------ | -------- | ------------------------------------------------- |
+| id\_number   | string | ✅        | string,                                           |
+| `businessId` | string | ✅        | Your registered business ID (max 255 characters). |
+| id\_type     | string | ✅        | Must be either `"nin"` or `"bvn"`.                |
+
+Example
+
+```json
+{
+  "businessId": "xixapay_7890",
+  "id_number": "1234567890",
+  "id_type": "bvn"
+}
+```
+
+✅ Success Response:
+
+```json
+{
+    "status": "success",
+    "message": "NIN verification successful",
+    "data": {
+        "verification_type": "nin",
+        "identity_number": "444******@*@*@@",
+        "personal_details": {
+            "first_name": "Godwin",
+            "middle_name": "ADEKUNLE",
+            "last_name": "Godpower",
+            "full_name": null,
+            "date_of_birth": "1910-10-30",
+            "gender": "Male",
+            "nationality": "Nigerian"
+        },
+        "contact_details": {
+            "phone_number": "070***97088",
+            "phone_number2": null,
+            "email": null
+        },
+        "biometric_data": {
+        "photo" : "uufufufufufufufufu"
+          "photo_available": true
+        },
+        "verification_metadata": {
+            "request_id": "6fad7fd9a154eb0d7b7b4beaaf2a06821a1b523f",
+            "timestamp": "2025-05-17T23:42:24.868743Z",
+            "cost_charged": 30
+        }
+    }
+}
+```
+
+
+# Payout (Withdrawal) Integration
+
+This document describes how to integrate **Xixapay Payout API** to transfer funds from your platform to Nigerian bank accounts.\
+\
+🔐 Authentication
+
+All payout requests to Xixapay require **API credentials**.
+
+#### Required Headers
+
+| Header          | Value                         |
+| --------------- | ----------------------------- |
+| `api-key`       | Your Xixapay API Key          |
+| `Authorization` | `Bearer {XIXAPAY_SECRET_KEY}` |
+| `Content-Type`  | `application/json`            |
+
+### 📍 Payout Endpoint
+
+```hurl
+POST https://api.xixapay.com/api/v1/transfer
+```
+
+### 📦 Payout Request Payload (JSON)
+
+```json
+{
+  "businessId": "string",
+  "amount": 0,
+  "bank": "string",
+  "accountNumber": "string",
+  "narration": "string"
+}
+```
+
+#### Field Description
+
+| Field           | Type   | Required | Description                      |
+| --------------- | ------ | -------- | -------------------------------- |
+| `businessId`    | string | ✅        | Xixapay business ID              |
+| `amount`        | number | ✅        | Amount to transfer (NGN)         |
+| `bank`          | string | ✅        | Bank code or bank name           |
+| `accountNumber` | string | ✅        | 10-digit Nigerian account number |
+| `narration`     | string | ❌        | Transfer narration               |
+
+#### Example Payout Request
+
+```json
+{
+  "businessId": "BUS_9f8e7d6c",
+  "amount": 25000,
+  "bank": "058",
+  "accountNumber": "0123456789",
+  "narration": "Wallet withdrawal"
+}
+```
+
+***
+
+### 🏦 Bank Verification (Recommended)
+
+Before initiating a payout, verify bank details.
+
+#### Endpoint
+
+```
+POST https://api.xixapay.com/api/verify/bank
+```
+
+#### Request Body
+
+```json
+{
+  "bank": "058",
+  "accountNumber": "0123456789"
+}
+```
+
+***
+
+#### Verification Response (Example)
+
+```json
+{
+  "status": "success",
+  "AccountName": "JOHN DOE",
+  "BankName": "Guaranty Trust Bank"
+}
+```
+
+> ⚠️ Always verify account details before sending a payout.
+
+***
+
+### ✅ Successful Payout Response
+
+```json
+{
+  "status": "success",
+  "message": "Transfer queued successfully",
+  "reference": "XIXA_98374839"
+}
+```
+
+***
+
+### ❌ Failed Payout Response
+
+```json
+{
+  "status": "failed",
+  "message": "Insufficient wallet balance"
+}
+```
+
+### 🔄 Recommended Payout Flow
+
+1. Fetch supported banks
+2. Verify bank account
+3. Deduct user balance (lock row)
+4. Initiate Xixapay payout
+5. Store provider response
+6. Mark payout as **success** or **failed**
+7. Refund on failure if required
+
+### 🏦 Get Supported Banks
+
+#### Endpoint
+
+```hurl
+GET https://api.xixapay.com/api/get/banks
+```
+
+***
+
+#### Example Response
+
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "bankName": "Access Bank",
+      "bankCode": "044"
+    },
+    {
+      "bankName": "GTBank",
+      "bankCode": "058"
+    }
+  ]
+}
+```
+
+***
+
+### 🔐 Security Best Practices
+
+* Store API keys securely
+* Never expose secret keys on frontend
+* Validate payout amounts server-side
+* Implement idempotency using `reference`
+* Log and monitor failed payouts
+
+***
+
+### 📌 Notes
+
+* All amounts are in **NGN**
+* Account number must be **10 digits**
+* Payouts are  **instant**
+
+***
+
+
+# Virtual / Dynamic Account Webhook
+
+Webhooks are a powerful feature of the Xixapay API that allow your application to receive real-time notifications about events that occur on the Xixapay platform. Instead of polling the API for updates (which can be resource-intensive), you can use webhooks to automatically receive data about important events like successful payments, payment failures, refunds, and more.
+
+In this section, we will walk you through the process of setting up webhooks, handling incoming webhook notifications, and troubleshooting common issues.
+
+## Webhook Notification Format
+
+The webhook will send a **JSON payload** to your endpoint, with the following structure:<br>
+
+```json
+// notificaton json format
+{
+  "notification_status": "payment_successful",
+  "transaction_id": "xxx",
+  "amount_paid": 100,
+  "settlement_amount": 99.5,
+  "settlement_fee": 0.5,
+  "transaction_status": "success",
+  "sender": {
+    "name": "A D E LIMITED",
+    "account_number": "****4290",
+    "bank": "HYDROGEN"
+  },
+  "receiver": {
+    "name": "adex-Abd(xixapay)",
+    "account_number": "667985",
+    "bank": "PalmPay"
+  },
+  "customer": {
+    "name": "adex dev",
+    "email": "adexplug@gmail.com,
+    "phone": null,
+    "customer_id": "xxx"
+  },
+  "description": "Your payment has been successfully processed.",
+  "timestamp": "2024-11-22T13:00:04.256092Z"
+}
+```
+
+## Field Descriptions
+
+| **Field**                 | **Description**                                                                                                      |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `notification_status`     | The status of the notification. In this case, it indicates that the payment was successful.                          |
+| `transaction_id`          | A unique identifier for the transaction. This ID can be used to track the transaction in your system.                |
+| `amount_paid`             | The total amount paid by the customer (e.g., 100 units of the selected currency).                                    |
+| `settlement_amount`       | The amount that will be settled to the receiver, after any fees are deducted (e.g., 99.5 units).                     |
+| `settlement_fee`          | The fee charged by the payment processor or Xixapay for the transaction (e.g., 0.5 units).                           |
+| `transaction_status`      | The status of the transaction. In this case, "success" indicates the transaction was completed successfully.         |
+| `sender.name`             | The name of the sender or the business initiating the payment (e.g., "AGH ONLINE ACADEMY TUTORS LIMITED").           |
+| `sender.account_number`   | The masked account number of the sender (last 4 digits are shown).                                                   |
+| `sender.bank`             | The bank name associated with the sender (e.g., "HYDROGEN").                                                         |
+| `receiver.name`           | The name of the receiver, which could be your business or another entity (e.g., "ALBARKADATASUB-Abd(Paymentpoint)"). |
+| `receiver.account_number` | The account number associated with the receiver (e.g., "6679854996").                                                |
+| `receiver.bank`           | The bank name associated with the receiver (e.g., "PalmPay").                                                        |
+| `customer.name`           | The name of the customer who made the payment (e.g., "Abdulismail").                                                 |
+| `customer.email`          | The email address of the customer (e.g., "<albarkadatasub@gmail.com>").                                              |
+| `customer.phone`          | The phone number of the customer. In this case, it's null, indicating no phone number was provided.                  |
+| `customer.customer_id`    | The unique customer ID assigned by your system (e.g., "xxx").                                                        |
+| `description`             | A brief description of the transaction (e.g., "Your payment has been successfully processed.").                      |
+| `timestamp`               | The timestamp of when the event occurred, formatted in ISO 8601 format (e.g., "2024-11-22T13:00:04.256092Z").        |
+
+## Webhook Signature Verification
+
+To ensure the authenticity and integrity of the webhook data, Xixapay includes a **signature** in the request header for every webhook notification sent. This signature is generated by Xixapay using your **secret security key** and the webhook payload.<br>
+
+**1. Verifying the Webhook Signature**
+
+When you receive a webhook, you need to:
+
+1. Retrieve the payload sent by Xixapay in the request body.
+2. Retrieve the xixapay header, which contains the expected signature for the webhook.
+3. Hash the payload with your **secret security key** using the same hashing algorithm Xixapay uses (usually HMAC-SHA256).
+4. Compare the computed signature with the one sent in the **xixapay** header.
+5. If the signatures match, you can be confident that the webhook is authentic and hasn't been tampered with
+
+**2. Signature Verification in Different Languages**
+
+Here’s how to implement the signature verification in **PHP**, **Python**, and **Node.js**.<br>
+
+{% tabs %}
+{% tab title="PHP" %}
+
+```php
+<?php
+// Retrieve the raw POST body and headers
+$payload = file_get_contents('php://input');
+$signatureHeader = $_SERVER['HTTP_XIXAPAY']; // xixapay signature header
+// Your Xixapay secret security key
+$secretKey = 'your-secret-key'; // Replace with your actual secret key
+// Calculate the expected signature using HMAC-SHA256
+$calculatedSignature = hash_hmac('sha256', $payload, $secretKey);
+// Compare the calculated signature with the one from the xixapay header
+if (hash_equals($calculatedSignature, $signatureHeader)) {
+    // Signature is valid, proceed with handling the webhook
+    echo "Webhook signature is valid!";
+    // Process the payload (decode JSON, handle business logic)
+    $data = json_decode($payload, true);
+    // Example: Process the data (e.g., update database)
+} else {
+    // Signature is invalid, reject the request
+    header('HTTP/1.1 400 Bad Request');
+    echo "Invalid signature!";
+}
+?>
+
+```
+
+{% endtab %}
+
+{% tab title="Python(Django)" %}
+
+```django
+import hmac
+import hashlib
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+
+# Your Xixapay secret security key (set this in your settings)
+SECRET_KEY = ""  # Add your secret key in xixapay
+
+@csrf_exempt
+def webhook(request):
+    if request.method == 'POST':
+        # Get the payload (raw body)
+        payload = request.body
+        
+        # Get the signature from the header (xixapay)
+        signature_header = request.headers.get('xixapay')
+
+        if not signature_header:
+            return JsonResponse({'error': 'No signature header'}, status=400)
+
+        # Calculate the HMAC signature using SHA-256
+        calculated_signature = hmac.new(
+            SECRET_KEY.encode(), payload, hashlib.sha256
+        ).hexdigest()
+
+        # Compare the calculated signature with the one from the xixapay header
+        if hmac.compare_digest(calculated_signature, signature_header):
+            # Signature is valid, process the webhook data
+            data = json.loads(payload)
+            print("Webhook received:", data)
+
+            # Do your processing here (e.g., update database, send email, etc.)
+            return JsonResponse({'status': 'success'}, status=200)
+        else:
+            # Signature mismatch
+            return JsonResponse({'error': 'Invalid signature'}, status=400)
+    else:
+        return JsonResponse({'error': 'Invalid HTTP method'}, status=405)
+
+```
+
+{% endtab %}
+
+{% tab title="Node js" %}
+
+```javascript
+// Some code
+const express = require('express');
+const crypto = require('crypto');
+const bodyParser = require('body-parser');
+
+const app = express();
+const secretKey = 'your-secret-key'; // Replace with your actual secret key
+
+// Middleware to parse incoming JSON payload
+app.use(bodyParser.json());
+
+app.post('/webhook', (req, res) => {
+  // Retrieve the raw POST body and signature header
+  const payload = JSON.stringify(req.body);  // Ensure the body is a JSON string
+  const signatureHeader = req.headers['xixapay']; // xixapay signature header
+
+  // Calculate the HMAC signature using SHA-256
+  const calculatedSignature = crypto.createHmac('sha256', secretKey).update(payload).digest('hex');
+
+  // Compare the calculated signature with the one from the xixapay header
+  if (calculatedSignature === signatureHeader) {
+    // Signature is valid, process the webhook
+    console.log("Webhook signature is valid!");
+    // Example: Process the data (e.g., update database)
+    res.status(200).send('Webhook received');
+  } else {
+    // Signature is invalid, reject the request
+    res.status(400).send('Invalid signature');
+  }
+});
+
+// Start the server
+app.listen(3000, () => {
+  console.log('Server listening on port 3000');
+});
+
+```
+
+{% endtab %}
+{% endtabs %}
+
+
+# Card Webhook Documentation
+
+This document describes the Card Transaction Webhook used to notify your system about card activities such as debits, refunds, failed transactions, and card termination events.
+
+## Webhook Notification Format
+
+The webhook will send a **JSON payload** to your endpoint, with the following structure:
+
+```json
+{
+  "card_id": "CARD_123456",
+  "transaction_id": "TXN_987654",
+  "status": "debit",
+  "amount": -25,
+  "currency": "USD",
+  "merchant_name": "Amazon",
+  "card_balance": 120.50
+}
+
+```
+
+## Field Descriptions
+
+| Field            | Type   | Description                    |
+| ---------------- | ------ | ------------------------------ |
+| `card_id`        | string | Unique card identifier         |
+| `transaction_id` | string | Unique transaction reference   |
+| `status`         | string | Transaction status             |
+| `amount`         | number | Transaction amount             |
+| `currency`       | string | `USD` or `NGN`                 |
+| `card_balance`   | number | Card balance after transaction |
+
+## Webhook Signature Verification
+
+To ensure the authenticity and integrity of the webhook data, Xixapay includes a **signature** in the request header for every webhook notification sent. This signature is generated by Xixapay using your **secret security key** and the webhook payload.<br>
+
+**1. Verifying the Webhook Signature**
+
+When you receive a webhook, you need to:
+
+1. Retrieve the payload sent by Xixapay in the request body.
+2. Retrieve the xixapay header, which contains the expected signature for the webhook.
+3. Hash the payload with your **secret security key** using the same hashing algorithm Xixapay uses (usually HMAC-SHA256).
+4. Compare the computed signature with the one sent in the **xixapay** header.
+5. If the signatures match, you can be confident that the webhook is authentic and hasn't been tampered with
+
+**2. Signature Verification in Different Languages**
+
+Here’s how to implement the signature verification in **PHP**, **Python**, and **Node.js**.
+
+{% tabs %}
+{% tab title="PHP" %}
+
+```php
+<?php
+// Retrieve the raw POST body and headers
+$payload = file_get_contents('php://input');
+$signatureHeader = $_SERVER['HTTP_XIXAPAY']; // xixapay signature header
+// Your Xixapay secret security key
+$secretKey = 'your-secret-key'; // Replace with your actual secret key
+// Calculate the expected signature using HMAC-SHA256
+$calculatedSignature = hash_hmac('sha256', $payload, $secretKey);
+// Compare the calculated signature with the one from the xixapay header
+if (hash_equals($calculatedSignature, $signatureHeader)) {
+    // Signature is valid, proceed with handling the webhook
+    echo "Webhook signature is valid!";
+    // Process the payload (decode JSON, handle business logic)
+    $data = json_decode($payload, true);
+    // Example: Process the data (e.g., update database)
+} else {
+    // Signature is invalid, reject the request
+    header('HTTP/1.1 400 Bad Request');
+    echo "Invalid signature!";
+}
+?>
+
+```
+
+{% endtab %}
+
+{% tab title="Python(Django)" %}
+
+```django
+import hmac
+import hashlib
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+
+# Your Xixapay secret security key (set this in your settings)
+SECRET_KEY = ""  # Add your secret key in xixapay
+
+@csrf_exempt
+def webhook(request):
+    if request.method == 'POST':
+        # Get the payload (raw body)
+        payload = request.body
+        
+        # Get the signature from the header (xixapay)
+        signature_header = request.headers.get('xixapay')
+
+        if not signature_header:
+            return JsonResponse({'error': 'No signature header'}, status=400)
+
+        # Calculate the HMAC signature using SHA-256
+        calculated_signature = hmac.new(
+            SECRET_KEY.encode(), payload, hashlib.sha256
+        ).hexdigest()
+
+        # Compare the calculated signature with the one from the xixapay header
+        if hmac.compare_digest(calculated_signature, signature_header):
+            # Signature is valid, process the webhook data
+            data = json.loads(payload)
+            print("Webhook received:", data)
+
+            # Do your processing here (e.g., update database, send email, etc.)
+            return JsonResponse({'status': 'success'}, status=200)
+        else:
+            # Signature mismatch
+            return JsonResponse({'error': 'Invalid signature'}, status=400)
+    else:
+        return JsonResponse({'error': 'Invalid HTTP method'}, status=405)
+
+```
+
+{% endtab %}
+
+{% tab title="Node js" %}
+
+```javascript
+// Some code
+const express = require('express');
+const crypto = require('crypto');
+const bodyParser = require('body-parser');
+
+const app = express();
+const secretKey = 'your-secret-key'; // Replace with your actual secret key
+
+// Middleware to parse incoming JSON payload
+app.use(bodyParser.json());
+
+app.post('/webhook', (req, res) => {
+  // Retrieve the raw POST body and signature header
+  const payload = JSON.stringify(req.body);  // Ensure the body is a JSON string
+  const signatureHeader = req.headers['xixapay']; // xixapay signature header
+
+  // Calculate the HMAC signature using SHA-256
+  const calculatedSignature = crypto.createHmac('sha256', secretKey).update(payload).digest('hex');
+
+  // Compare the calculated signature with the one from the xixapay header
+  if (calculatedSignature === signatureHeader) {
+    // Signature is valid, process the webhook
+    console.log("Webhook signature is valid!");
+    // Example: Process the data (e.g., update database)
+    res.status(200).send('Webhook received');
+  } else {
+    // Signature is invalid, reject the request
+    res.status(400).send('Invalid signature');
+  }
+});
+
+// Start the server
+app.listen(3000, () => {
+  console.log('Server listening on port 3000');
+});
+
+```
+
+{% endtab %}
+{% endtabs %}

@@ -1,0 +1,450 @@
+NetFillGh Developer API
+Everything you need to sell NetFillGh bundles from your own site, shop, or WhatsApp bot: check your balance, pull live prices, place an order, and get notified the moment it's delivered. No SDK to install, just plain HTTP requests you can make from PHP, Python, JavaScript, or a terminal.
+
+ MTN, Telecel, AirtelTigo
+ Instant Orders
+ REST JSON API
+ 37 Live Bundles
+Getting Started
+Overview
+Authentication
+Response Format
+Endpoints
+1. Balance
+2. Services
+3. Beneficiary Check
+4. Buy Data
+5. Bulk Orders
+6. Order Status
+7. Webhooks
+Reference
+Live Catalogue
+Error Codes
+Full Examples
+Support
+Overview
+Every request goes to the same address. What it does depends on the endpoint you put in the query string, balance, services, buy, or status.
+
+Base URL
+https://netfillgh.com/api/index.php
+First time here? Call balance first, just to confirm your key works and see what you're starting with. Then call services to see what's actually available right now and grab the ID of the bundle you want. Use that ID in buy to place the order.
+Authentication
+Every request needs your API key attached. The easiest way is right in the URL:
+
+https://netfillgh.com/api/index.php?endpoint=balance&api_key=nfk_1bef49308332b415918141a3bd65079f696b4887
+If you're sending a POST request, an Authorization header works just as well, and keeps the key out of your server logs:
+
+Authorization: Bearer nfk_1bef49308332b415918141a3bd65079f696b4887
+Don't have a key yet, or need to see yours again? It's sitting on https://netfillgh.com/api_settings once you're logged in.
+Response Format
+Every response is JSON. Check status first — it is either "success" or "error".
+
+Success
+{
+  "status": "success",
+  "code": 200,
+  "message": "Balance retrieved.",
+  "data": { ... }
+}
+Error
+{
+  "status": "error",
+  "code": 401,
+  "message": "Invalid API key."
+}
+1. Check Balance
+GET
+https://netfillgh.com/api/index.php?endpoint=balance
+Tells you what's in your wallet right now, along with your account name and email. Worth checking before placing an order in bulk, so you're not caught short halfway through.
+
+Parameter	Required	Description
+api_key	Required	Your API key
+Test it here — opens in a new tab
+Example Request
+GET https://netfillgh.com/api/index.php?endpoint=balance&api_key=nfk_1bef49308332b415918141a3bd65079f696b4887
+Example Response
+{
+  "status": "success",
+  "code": 200,
+  "message": "Balance retrieved.",
+  "data": {
+    "name": "Kwame Mensah",
+    "email": "kwame@example.com",
+    "balance": "45.50",
+    "currency": "GH₵"
+  }
+}
+2. Get Services
+GET
+https://netfillgh.com/api/index.php?endpoint=services
+Pulls every bundle that's currently on sale, with fresh prices and a service ID for each one. That ID is what you'll pass to buy, always fetch this first rather than hardcoding IDs, since bundles and prices do change.
+
+Parameter	Required	Description
+api_key	Required	Your API key
+network	Optional	Filter: MTN, Telecel, or AirtelTigo
+Test it here — all bundles 
+Test it here — MTN only
+Get all services
+GET https://netfillgh.com/api/index.php?endpoint=services&api_key=nfk_1bef49308332b415918141a3bd65079f696b4887
+Filter by network
+GET https://netfillgh.com/api/index.php?endpoint=services&api_key=nfk_1bef49308332b415918141a3bd65079f696b4887&network=MTN
+Example Response
+{
+  "status": "success",
+  "code": 200,
+  "message": "37 service(s) found.",
+  "data": [
+    {
+      "service_id": 94,
+      "network": "AirtelTigo",
+      "name": "1GB",
+      "size": "1GB",
+      "validity": "",
+      "price": "4.30",
+      "currency": "GH₵",
+      "notice": null
+    },
+    ...
+  ]
+}
+3. Beneficiary Check
+Before spending an order attempt on a number, ask us whether it's actually ready first. Useful if you're about to send a batch and want to filter out the ones that will just come back unverified anyway.
+
+POST
+https://netfillgh.com/api/index.php?endpoint=beneficiary-check
+Send one number, or up to ten at once. Every number is checked independently, so a batch can come back with a mix of ready and not-ready results.
+
+Single number
+{
+  "network": "MTN",
+  "phone_number": "0244123456"
+}
+Multiple numbers
+{
+  "network": "MTN",
+  "phone_numbers": ["0244123456", "0551234567", "0201234567"]
+}
+Response
+{
+  "status": "success",
+  "data": {
+    "network": "MTN",
+    "results": [
+      {
+        "phone_number": "0244123456",
+        "status": "verified",
+        "can_order": true,
+        "message": ""
+      },
+      {
+        "phone_number": "0551234567",
+        "status": "unverified",
+        "can_order": false,
+        "message": "Number is awaiting network approval."
+      }
+    ]
+  }
+}
+Status	Meaning
+verified	Ready — go ahead and place the order.
+unverified	Not ready yet, awaiting network approval. Don't order yet, check again later.
+invalid	Not a real number, won't become valid by waiting. Fix it before ordering.
+unavailable	Couldn't check right now, temporary. Safe to retry the check shortly.
+This is a courtesy check, not a guarantee, the number gets checked again automatically the moment you actually place the order, so there's no way to accidentally skip verification either way.
+4. Buy Data Bundle
+POST
+https://netfillgh.com/api/index.php?endpoint=buy
+Places the order and takes the money out of your wallet in the same step, but only once the order is actually accepted. If it gets rejected for any reason, you're not charged for it.
+
+Parameter	Type	Required	Description
+api_key	string	Required	Your API key
+service_id	integer	Required	Service ID from the services endpoint
+recipient	string	Required	10-digit Ghana number, e.g. 0244123456
+request_id	string	Optional	Your unique reference to prevent duplicate orders. If you call the same request_id twice, you get back the original order — no double charge.
+Always send a request_id if your system places orders automatically. If your connection drops and your code retries the same request, you'll just get the original order back, not a second charge.
+Example Response
+{
+  "status": "success",
+  "code": 200,
+  "message": "Order placed. Data will be delivered shortly.",
+  "data": {
+    "order_ref": "API_abc123def456",
+    "service": "AirtelTigo 1GB",
+    "size": "1GB",
+    "recipient": "0244123456",
+    "amount_charged": "4.30",
+    "currency": "GH₵",
+    "wallet_balance": "40.50",
+    "status": "pending",
+    "status_url": "https://netfillgh.com/api/index.php?endpoint=status&order_ref=API_abc123def456&api_key=nfk_1bef49308332b415918141a3bd65079f696b4887"
+  }
+}
+Code Examples
+PHP
+Python
+JavaScript
+cURL
+Copy<?php
+$api_key    = 'nfk_1bef49308332b415918141a3bd65079f696b4887';
+$service_id = 94;
+$recipient  = '0244123456';
+$request_id = 'MY-ORDER-' . uniqid();
+
+$ch = curl_init('https://netfillgh.com/api/index.php?endpoint=buy');
+curl_setopt_array($ch, [
+    CURLOPT_POST           => true,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_POSTFIELDS     => http_build_query([
+        'api_key'    => $api_key,
+        'service_id' => $service_id,
+        'recipient'  => $recipient,
+        'request_id' => $request_id,
+    ]),
+    CURLOPT_TIMEOUT => 30,
+]);
+
+$response = json_decode(curl_exec($ch), true);
+curl_close($ch);
+
+if ($response['status'] === 'success') {
+    echo 'Order placed! Ref: ' . $response['data']['order_ref'];
+    echo 'Balance left: ' . $response['data']['wallet_balance'];
+} else {
+    echo 'Error ' . $response['code'] . ': ' . $response['message'];
+}
+5. Bulk Orders
+Same endpoint as a regular order, just with mode set to bulk and a list of rows instead of one recipient. Every row is processed on its own, so one bad number in a batch of twenty never stops the other nineteen from going through.
+
+POST
+https://netfillgh.com/api/index.php?endpoint=buy
+Up to 20 rows per request. Sending more than that in one go gets rejected outright, split larger batches across a few calls instead.
+
+Request
+{
+  "mode": "bulk",
+  "rows": [
+    { "service_id": 94, "recipient": "0244123456" },
+    { "service_id": 94, "recipient": "0551234567", "request_id": "MY-ORDER-002" },
+    { "service_id": 94, "recipient": "0201234567" }
+  ]
+}
+Response
+A mixed result set, exactly one entry per row, in the same order you sent them, each shaped the same way a single order response would be:
+
+{
+  "status": "success",
+  "data": {
+    "mode": "bulk",
+    "total": 3,
+    "accepted": 2,
+    "rejected": 1,
+    "results": [
+      { "ok": true, "order_ref": "API_abc123", "status": "processing", "amount_charged": "5.00", ... },
+      { "ok": false, "code": "BENEFICIARY_UNVERIFIED", "message": "...", "retry_recommended": true, "retry_after_hours": 72 },
+      { "ok": true, "order_ref": "API_def456", "status": "processing", "amount_charged": "5.00", ... }
+    ]
+  }
+}
+Go through results and check each row's own ok field, a bulk request succeeding as a whole just means we processed all the rows, not that every single one went through. Rejected rows follow the exact same retry guidance as a normal single order, retry_recommended and retry_after_hours tell your own code whether and when it's worth trying that row again.
+6. Check Order Status
+GET
+https://netfillgh.com/api/index.php?endpoint=status
+Look up where an order stands using the reference you got back from buy. Useful if you'd rather check in occasionally than wait on a webhook.
+
+Parameter	Required	Description
+api_key	Required	Your API key
+order_ref	Required	Order reference returned by the buy endpoint
+Place one order first and a working test link for it will show up here.
+Example Request
+GET https://netfillgh.com/api/index.php?endpoint=status&order_ref=API_abc123&api_key=nfk_1bef49308332b415918141a3bd65079f696b4887
+Status Values
+Status	Meaning
+pending	Order received, hasn't been sent to the network yet. Not charged.
+processing	Accepted and being delivered. This is also the moment your wallet gets charged.
+completed	Delivered successfully.
+failed	Didn't go through. If it had already reached processing, you're refunded automatically, no charge is ever kept for a failed order.
+7. Webhooks
+Polling status works fine, but if you'd rather not sit there checking, register a URL on your side and we'll POST to it the moment an order's status changes, completed, failed, whatever happened. No polling, no dashboard checking, your own server just gets told.
+
+Add your webhook URL from your account page at https://netfillgh.com/api_settings. A signing secret is generated for you at the same time, you'll need it to verify the payload really came from us.
+What gets sent
+A POST request, JSON body, to your URL, every time one of your orders changes status:
+
+{
+  "event": "order.status_changed",
+  "data": {
+    "order_ref": "API_abc123def456",
+    "status": "completed",
+    "network": "AirtelTigo",
+    "bundle": "AirtelTigo 1GB",
+    "recipient": "0244123456",
+    "amount": "4.30",
+    "provider_order_id": "ORD2912E2"
+  }
+}
+Verifying it's really us
+Every request carries two headers, X-NetFillGh-Timestamp and X-NetFillGh-Signature. Recompute the signature yourself using your secret, and compare. If it doesn't match, or the timestamp is old, throw it away, someone's trying to fake a webhook at you.
+
+Copy<?php
+$secret    = 'YOUR_WEBHOOK_SECRET'; // shown on your account page
+$body      = file_get_contents('php://input');
+$timestamp = $_SERVER['HTTP_X_NETFILLGH_TIMESTAMP'] ?? '';
+$signature = $_SERVER['HTTP_X_NETFILLGH_SIGNATURE'] ?? '';
+
+if (abs(time() - (int)$timestamp) > 300) {
+    http_response_code(401);
+    exit('Timestamp too old.');
+}
+
+$expected = 'sha256=' . hash_hmac('sha256', $timestamp . '.' . $body, $secret);
+if (!hash_equals($expected, $signature)) {
+    http_response_code(401);
+    exit('Invalid signature.');
+}
+
+$payload = json_decode($body, true);
+// Now safe to use $payload['data']['order_ref'], ['status'], etc.
+http_response_code(200);
+echo 'ok';
+Respond with a 2xx status quickly. If your server doesn't answer, or errors out, we'll try two more times before giving up on that particular update, so a brief outage on your end won't mean a missed notification, but a webhook that's down for hours will still miss some. status is always there as a backup if you're ever unsure.
+Live Service Catalogue
+What's actually on sale right now, pulled straight from the same database your customers see. The Service ID is what you'll pass to buy. Prices shown in GH₵.
+
+AirtelTigo
+Service ID	Name	Size	Validity	Price
+94	1GB	1GB		GH₵4.30
+95	2GB	2GB		GH₵8.80
+96	3GB	3GB		GH₵13.00
+97	4GB	4GB		GH₵17.40
+98	5GB	5GB		GH₵23.40
+99	6GB	6GB		GH₵27.40
+100	7GB	7GB		GH₵32.70
+101	8GB	8GB		GH₵35.70
+102	10GB	10GB		GH₵42.10
+103	15GB	15GB		GH₵63.30
+104	20GB	20GB		GH₵82.20
+105	25GB	25GB		GH₵104.40
+106	30GB	30GB		GH₵127.50
+107	35GB	35GB		GH₵147.10
+108	40GB	40GB		GH₵167.60
+109	50GB	50GB		GH₵210.11
+MTN
+Service ID	Name	Size	Validity	Price
+74	1GB	1GB		GH₵4.20
+75	2GB	2GB		GH₵8.60
+76	3GB	3GB		GH₵13.10
+77	4GB	4GB		GH₵17.80
+78	5GB	5GB		GH₵22.80
+79	6GB	6GB		GH₵26.50
+81	8GB	8GB		GH₵35.40
+83	10GB	10GB		GH₵43.00
+84	15GB	15GB		GH₵66.60
+85	20GB	20GB		GH₵85.90
+86	25GB	25GB		GH₵108.20
+87	30GB	30GB		GH₵129.20
+89	40GB	40GB		GH₵171.50
+90	50GB	50GB		GH₵211.41
+Telecel
+Service ID	Name	Size	Validity	Price
+114	10GB	10GB		GH₵48.10
+115	15GB	15GB		GH₵73.50
+116	20GB	20GB		GH₵97.10
+117	25GB	25GB		GH₵122.00
+118	30GB	30GB		GH₵146.00
+119	40GB	40GB		GH₵194.10
+120	50GB	50GB		GH₵243.30
+This table is live, not a snapshot, so it's already showing whatever's true right now. Still worth calling services yourself before a bulk run though, prices and availability can shift between when you looked and when you actually place the order.
+Error Codes
+Code	Meaning	What to do
+200	Success	Request completed. Check data.
+400	Bad request	Missing or invalid parameter. Check the message.
+401	Unauthorized	API key is wrong or missing. Regenerate at https://netfillgh.com/api_settings
+402	Insufficient balance	Top up your wallet before placing orders.
+404	Not found	Service ID or order reference does not exist.
+405	Wrong method	The buy endpoint requires POST, not GET.
+409	Duplicate	This request_id was already used. The original order is returned.
+500	Server error	Temporary issue. Retry once. If it persists, contact support.
+503	API disabled	The administrator has temporarily disabled API access.
+Full Workflow Example
+Here's what a real integration looks like end to end, check the balance is enough, pull the bundle list, place the order, then either wait on a webhook or poll status a few times until it clears. Copy this as a starting point and swap in your own logic.
+
+Copy<?php
+// ── Full NetFillGh API workflow example ───────────────────────────
+define('API_KEY',  'nfk_1bef49308332b415918141a3bd65079f696b4887');
+define('API_BASE', 'https://netfillgh.com/api/index.php');
+
+function apiCall(string $endpoint, array $post = []): array {
+    $url = API_BASE . '?endpoint=' . $endpoint;
+    if (empty($post)) {
+        $url .= '&api_key=' . urlencode(API_KEY);
+    }
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 30,
+    ]);
+    if (!empty($post)) {
+        $post['api_key'] = API_KEY;
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post));
+    }
+    $result = json_decode(curl_exec($ch), true);
+    curl_close($ch);
+    return $result;
+}
+
+// Step 1: Verify balance is enough
+$balance = apiCall('balance');
+echo "Balance: {$balance['data']['currency']}{$balance['data']['balance']}\n";
+
+if ((float)$balance['data']['balance'] < 5.00) {
+    die("Not enough balance. Top up at https://netfillgh.com/pay\n");
+}
+
+// Step 2: Get available services
+$services = apiCall('services', ['endpoint' => 'services']);
+echo "Available bundles: " . count($services['data']) . "\n";
+
+// Find the first MTN bundle
+$mtn_bundle = null;
+foreach ($services['data'] as $s) {
+    if ($s['network'] === 'MTN') {
+        $mtn_bundle = $s;
+        break;
+    }
+}
+if (!$mtn_bundle) die("No MTN bundles found.\n");
+echo "Using: {$mtn_bundle['name']} at {$mtn_bundle['currency']}{$mtn_bundle['price']}\n";
+
+// Step 3: Place order with idempotency key
+$order = apiCall('buy', [
+    'service_id' => $mtn_bundle['service_id'],
+    'recipient'  => '0244123456',
+    'request_id' => 'AUTO-' . date('Ymd-His'),
+]);
+
+if ($order['status'] !== 'success') {
+    die("Order failed: {$order['message']}\n");
+}
+$ref = $order['data']['order_ref'];
+echo "Order placed! Ref: {$ref}\n";
+
+// Step 4: Poll for completion (max 10 times, 5s apart)
+for ($i = 1; $i <= 10; $i++) {
+    sleep(5);
+    $status = apiCall('status', ['order_ref' => $ref]);
+    $s = $status['data']['status'] ?? 'unknown';
+    echo "Attempt {$i}: {$s}\n";
+    if ($s === 'completed') { echo "Delivered!\n"; break; }
+    if ($s === 'failed')    { echo "Failed — contact support with ref {$ref}\n"; break; }
+}
+Support
+Reach us if your API orders are not completing or for help with integration.
+
+ WhatsApp: +233270804597
+
+ Email: support@netfillgh.com
+
+ Manage your key: https://netfillgh.com/api_settings
+
+© 2026 NetFillGh. API documentation — all prices and service

@@ -1,0 +1,6019 @@
+
+
+---
+updatedAt: 2025-06-20T17:55:21.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Introduction
+
+Welcome to Kora!
+
+In this documentation, you’ll find comprehensive information on how to successfully integrate our services with your web and mobile applications. It's developer-friendly and we've filled it with helpful examples, but if you have any questions, you can head over to our [Help Center](https://support.korapay.com) to get more information or better, [contact our Support Team](mailto:support@korapay.com).
+
+Kora offers everything you'll need to create delightful payment experiences for your customers. Whether you're building a simple platform to collect payments from your customers or creating a powerful application to manage your business payments, we will provide you with all the resources needed to achieve your payment goals.
+
+***
+
+> 👍 Perfect time to create an account!
+>
+> For a smooth integration experience, you’ll need your API keys which you can receive by [signing up on the dashboard](https://merchant.korapay.com) or [contacting us](mailto:hello@korapay.com).
+
+***
+
+Let's take a quick look at some of the ways you could use our products:
+
+* [Accept Payments with Pay-ins](https://developers.korapay.com/docs/accept-payments)
+* [Send Money with Payouts](https://developers.korapay.com/docs/send-payments)
+* [Issue Virtual Cards to Customers \[Beta\]](doc:issue-virtual-cards)
+* [Verify Identities of Customers and Businesses](https://developers.korapay.com/docs/verify-customers-businesses)
+* [Retrieve Balance Information with API](https://developers.korapay.com/docs/balance-api)
+* [Get Settled](https://developers.korapay.com/docs/get-settled)
+
+Ready to build? Let's go 🚀
+
+
+
+---
+updatedAt: 2025-02-28T00:11:22.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# API Keys
+
+To enable communication between your application and Korapay, you'll need your API Keys. Kora authenticates every request your application makes with these keys. Generally, every account comes with two sets of API keys - **public** and **secret** API keys for [Test and Live modes](https://developers.korapay.com/docs/test-live-modes).
+
+Your **public keys** are non-sensitive identifiers that can be used on the client-side of your application. By design, public keys cannot modify any part of your account besides initiating transactions for you. Your **secret keys**, on the other hand, are to be kept secret and confidential. They are required for accessing any financial data and can be used to make any API call on your account. Your secret keys should never be shared on any client-side code. Treat them like any other password. And, if for any reason you believe your secret key has been compromised simply reset them by generating new keys. You can generate new API keys from your dashboard.
+
+### Obtaining your API Keys
+
+Your API keys are always available on your dashboard. To find your API keys,
+
+* [Login](https://merchant.korapay.com/auth/login) to your dashboard.
+* Navigate to Settings on the side menu.
+* Go to the API Configuration tab on the Settings page.
+* In the Korapay APIs section, you’d see both your Public and Secret keys, and a button to Generate New API Keys.
+
+> 🚧
+>
+> The API keys in test mode are different from the API keys in Live mode. So you need to always ensure that you do not misuse the keys when you switch between modes.
+
+### Generating new API Keys
+
+You should always keep your API keys safe and protect your account. However, in the event where your API keys have been compromised, you can easily generate new API keys. Simply click the 'Generate New API Keys' button under the API Configuration tab on the Settings page.
+
+![](https://files.readme.io/3487486-Screenshot_2023-02-13_at_7.15.56_PM.png "Screenshot 2023-02-13 at 7.15.56 PM.png")
+
+Once you generate new API keys, the old keys become void - you can no longer use them to make API calls. Make sure to update your application to use the newly generated keys.
+
+
+
+---
+updatedAt: 2025-04-24T08:29:28.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Webhooks
+
+Webhooks provide a way to receive notifications for your transactions in real time. While your transaction is being processed, its status progresses until it is completed. This makes it very important to get the final status for that transaction, and that's where webhooks are very beneficial.
+
+Put simply, a webhook URL is an endpoint on your server that can receive API requests from Korapay’s server. Note that the request is going to be an **HTTP POST request**.
+
+## Setting your Webhook URL
+
+You can specify your webhook URL in the API Configuration tab of the Settings page of your dashboard. Make sure that the webhook URL is unauthenticated and publicly available.
+
+<Image align="center" src="https://files.readme.io/953bbec-Screenshot_2023-02-14_at_10.02.28_AM.png" />
+
+The request to the webhook URL comes with a payload, and this payload contains the details of the transaction for which you are being notified.
+
+## Webhook Notification Request Payload Definitions
+
+| Field            | Data Type | Description                                                                                                     |
+| :--------------- | :-------- | :-------------------------------------------------------------------------------------------------------------- |
+| `event`          | String    | `transfer.success`,  `transfer.failed`,  `charge.success` or `charge.failed`, `refund.success`, `refund.failed` |
+| `data`           | Object    | The object containing transaction details: amount, fee, currency, status, reference                             |
+| `data.amount`    | Number    | Transaction amount                                                                                              |
+| `data.fee`       | Number    | Transaction fee                                                                                                 |
+| `data.currency`  | String    | Transaction currency                                                                                            |
+| `data.status`    | String    | Transaction status. This can be `success` or `failed`.                                                          |
+| `data.reference` | String    | Transaction reference. This reference can be used to query the transaction                                      |
+
+<br />
+
+## Sample Webhook Notification Payloads
+
+```json Single Payout
+/*
+* Applicable Events: "transfer.success", "transfer.failed"
+*/
+{
+  "event": "transfer.success",
+  "data": {
+    "fee": 15,
+    "amount": 150.99,
+    "status": "success",
+    "currency": "NGN",
+    "reference": "Z78EYMAUBQ5"
+  }
+}
+```
+```json Bulk Payout
+/*
+* Applicable Events: "transfer.success", "transfer.failed"
+*/
+{
+  "event": "transfer.success",
+  "data": {
+    "fee": 15,
+    "amount": 150.00,
+    "status": "success",
+    "currency": "NGN",
+    "reference": "Z78EYMAUBQ5",
+    "batch_reference": "batch-payment-20230105"
+  }
+}
+```
+```json Pay-in (NG Virtual Bank Account)
+{
+  "event": "charge.success",
+  "data": {
+    "fee": 150,
+    "amount": 245000,
+    "status": "success",
+    "currency": "NGN",
+    "reference": "KPY-PAY-4uore940",
+    "transaction_date": "2023-01-10 10:00:04",
+    "payment_reference": "KPY-PAY-4uore940",
+    "virtual_bank_account_details": {
+      "payer_bank_account": {
+        "bank_name": "Test Bank",
+        "account_name": "Jane Pearson",
+        "account_number": "0000000000"
+      },
+      "virtual_bank_account": {
+        "bank_name": "Wema Bank",
+        "permanent": true,
+        "account_name": "Fixed Account - Merchant A",
+        "account_number": "0000000000",
+        "account_reference": "91efc933-772c-4725-bc62-eioeioeioew"
+      }
+    }
+  }
+}
+```
+```json Pay-in (Cards, Bank Transfer, Mobile Money)
+/*
+* Applicable Events: "charge.success", "charge.failed"
+*/
+{
+  "event": "charge.success",
+  "data": {
+    "fee": 10,
+    "amount": 1000,
+    "status": "success",
+    "currency": "KES",
+    "reference": "merchant-payment-referece-001",
+    "payment_method": "mobile_money",
+    "payment_reference": "merchant-payment-referece-001"
+  }
+}
+```
+```json Refunds
+/*
+* Applicable Events: "refund.success", "refund.failed" 
+*/
+{
+  "event": "refund.success",
+  "data": {
+    "amount": 100.00,
+    "status": "success",
+    "currency": "NGN",
+    "reference": "RFD-API-001",
+    "payment_reference": "merchant-payment-referece-001",
+    "refund_date": "2023-01-10T10:00:04.000Z",
+    "completion_date": "2023-01-10T11:30:00.000Z"
+  }
+}
+```
+
+<br />
+
+## Verifying a Webhook Request
+
+It is important to verify that requests are coming from Korapay to avoid delivering value based on a counterfeit request. To verify our requests, you need to validate the signature assigned to the request.\
+Valid requests are sent with a header **x-korapay-signature** which is essentially an HMAC SHA256 signature of ONLY the **data** object in response payload signed using your secret key.
+
+```javascript
+const crypto = require(“crypto”);
+const secretKey = sk_live_******
+
+router.post(‘/your_webhook_url’, (req, res, next) => {
+  const hash = crypto.createHmac('sha256', secretKey).update(JSON.stringify(req.body.data)).digest('hex');
+
+   If (hash === req.headers[‘x-korapay-signature’]) {
+     // Continue with the request functionality
+   } else {
+     // Don’t do anything, the request is not from us.
+   }
+});
+```
+```java
+ 
+import javax.crypto.Mac; 
+
+public class WebhookVerification {
+ private static readonly char[] HEX_ARRAY = "0123456789abcdef".ToCharArray();
+
+ private static string bytesToHex(byte[] bytes) {
+   char[] hexChars = new char[bytes.Length * 2];
+   for (int j = 0; j < bytes.Length; j++) {
+     int v = bytes[j] & 0xFF;
+     hexChars[j * 2] = HEX_ARRAY[v >> 4];
+     hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+   }
+
+   return new string (hexChars);
+ }
+
+ public static String generateWebhookSignature (String wehbookData, String korapaySecretKey) throws Exception {
+   Mac sha256HMAC = Mac.getInstance("HmacSHA256");
+   SecretKeySpec secretKey = new SecretKeySpec(korapaySecretKey.getBytes("UTF-8"), "HmacSHA256");
+   sha256HMAC.init(secretKey);
+    
+   return bytesToHex(sha256HMAC.doFinal(wehbookData.getBytes("UTF-8")));
+ }
+}
+```
+```php
+<?php
+  ini_set('serialize_precision','-1');// ensures that the precision for the amount field is maintained for json_encode
+  if ((strtoupper($_SERVER['REQUEST_METHOD']) != 'POST' ) || !array_key_exists('HTTP_X_KORAPAY_SIGNATURE', $_SERVER)) {
+    // invalid request, ignore
+    return http_response_code(200);
+  }
+
+  $requestBody = json_decode(@file_get_contents("php://input"), JSON_UNESCAPED_SLASHES);
+  $webhookSignature = $_SERVER['HTTP_X_KORAPAY_SIGNATURE'];
+  $korapaySecretKey = 'sk_live_******';
+
+  If ($webhookSignature !== hash_hmac('sha256', json_encode($requestBody['data']), $korapaySecretKey)) {
+    // do nothing, request is invalid
+    return http_response_code(200);
+  }
+
+  // continue with the request functionality
+  
+  return http_response_code(200);
+?>
+```
+
+## Responding to a Webhook Request
+
+It is important to respond to the requests with a `200` status code to acknowledge that you have received the requests. Korapay does not pay attention to any request parameters apart from the request status code.
+
+Please note that if any other response code is received, or there’s a timeout while sending the request, we retry the request periodically within 72 hours after which retries stop.
+
+## Resending a Webhook via the Kora Dashboard
+
+For every transaction, Kora sends a webhook notification to the merchant’s configured webhook URL. If the transaction status is Pending/Failed, the ‘Resend Webhook’ button becomes activated on the dashboard, allowing you to manually trigger the webhook notification again.
+
+### Conditions for Resending Webhooks
+
+For Payouts
+
+* When **channel** is `api` and **status** is `successful` or `failed`.
+
+For Pay-ins
+
+* When **channel** is `api` and **status** is `successful` or `failed`.
+* When **channel** is `modal` and **status** is `successful`.
+
+### How to Resend a Webhook Notification on a Transaction
+
+1. On your Kora Dashboard, navigate to the Webhook / Metadata section of the transaction's detail.
+2. Locate the webhook notification for the transaction in question.
+3. If the status is `Pending`/`Failed`, the **Resend Webhook** button will be displayed in the top-right corner.
+4. Click the **Resend Webhook** button to manually trigger a new webhook notification. Be sure that you need to resend the webhook to avoid duplicate transactions on your end.
+5. The webhook request will be reattempted and the updated status can be reviewed in the dashboard.
+
+<Image align="center" src="https://files.readme.io/9dc817528bfc7b112407c63c7d919ece1b4f6d0a75a6e92ee922f6962fe0d4cc-Screenshot_2025-03-11_at_12.05.23_PM.png" />
+
+***
+
+## Best Practices
+
+It is recommended to do the following when receiving webhook notifications from us:
+
+* **Keep track of all notifications received**: It’s important to keep track of all notifications you’ve received. When a new notification is received proceed to check that this has not been processed before giving value. A retry of already processed notifications can happen if we do not get a `200` HTTP Status code from your notification URL, or if there was a request time out.
+* **Acknowledge receipt of notifications with a 200 HTTP status code**: It’s recommended you immediately acknowledge receipt of the notification by returning a `200` HTTP Status code before proceeding to perform other logics, failure to do so might result in a timeout which would trigger a retry of such notification.
+
+
+
+---
+updatedAt: 2025-04-25T09:55:14.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Errors
+
+The possible errors returned from Korapay’s API can be grouped into three main categories - General errors, Payout errors, Pay-in errors, and Refund errors.
+
+# General Errors
+
+**`Internal Server Error`**\
+This response does not indicate any error with your request, so you can requery the transaction to get a final status or you can report this to us.
+
+**`Invalid authorization key`**\
+This response does not indicate any error with your request. Requery the transaction to get the final status.
+
+**`Invalid request data`**\
+This error occurs when the request is sent with invalid data, more details of the error can be found in the data object which is also sent back as a response. Try the request again once the errors returned in the data object is resolved.
+
+***
+
+# Pay-In Errors
+
+**`Charge not found`**\
+This error occurs when the deposit order ID sent in the request does not exist on our system. This can be treated as a failed transaction.
+
+**`Duplicate payment reference`**\
+This error occurs when the reference sent in the request has already been used for a previous transaction.
+
+\*You can see more specific API errors under the guide for each pay-in type.
+
+***
+
+# Payout Errors
+
+## Errors that occur before the Payout is initiated
+
+**`Unable to resolve bank account.`**\
+This error occurs when our system is unable to successfully validate a customer’s bank account to determine if it’s valid or not. This can be treated as a failed withdrawal. There would be no need to query for a final status as the withdrawal would not exist on our system. Querying the withdrawal will return the error “Transaction not found”.
+
+**`Transaction not found`**\
+This error occurs when the withdraw order ID attached to the request does not exist on our system. This can be treated as a failed transaction
+
+**`Invalid account.`**\
+This error occurs when the bank account details provided for a withdrawal is not valid. This can be treated as a failed transaction. There would be no need to query for a final status as the transaction would not exist on our system. Querying the withdrawal will return the error “Transaction not found”.
+
+**`Invalid bank provided.`**\
+This error occurs when the destination bank provided for withdrawal is not supported on our system or the bank code is invalid. This can be treated as a failed transaction. There would be no need to query for a final status as the transaction would not exist on our system. Querying the withdrawal will return the error “Transaction not found”
+
+**`Invalid mobile money operator.`**\
+This error occurs when the mobile money operator provided for mobile money payout is not supported on our system or the operator code is invalid. This can be treated as a failed transaction. There would be no need to query for a final status as the transaction would not exist on our system. Querying the withdrawal will return the error “Transaction not found”
+
+**`Insufficient funds in disbursement wallet`**\
+This error occurs when the funds available in your wallet is not enough to process a withdrawal request. This can be treated as a failed withdrawal. Try the request again with a new order ID once funds have been added to your wallet.
+
+**`Duplicate Transaction Reference. Please use a unique reference`**\
+This error occurs when the reference sent in the request has already been used for a previous transaction.
+
+## Reasons a Payout could fail after it is initiated
+
+After a payout is initiated, it is possible to get any of the following error responses when you query the transaction using the payment reference.
+
+**`Insufficient funds in disbursement wallet`**\
+This means that the funds available in your merchant wallet are not enough to process the transaction. Try the request again with a new order ID once funds have been added to your wallet
+
+**`Dormant account`**\
+This means that the destination bank account details provided has been marked as dormant by the destination bank and is unable to accept payments for that purpose. Try the request again with a new reference and bank details or have the customer reach out to their bank for further assistance.
+
+**`Timeout waiting for response from destination`**\
+This means that the destination bank did not respond on time. Have the customer try again at a later time or with a different bank.
+
+**`Destination bank is not available`**\
+This means that the destination bank could not be contacted. Have the customer try again at a later time or with a different bank.
+
+**`Payout terminated due to suspected fraud`**\
+This means that the transaction was flagged as fraudulent.
+
+**`Do not honor`**\
+This means that the bank declined the transaction for reasons best known to them, or when a restriction has been placed on a customer’s account. Try the request again at a later time with a new reference or have the customer provide a different bank.
+
+If the problem persists, please advise the customer to contact their bank.
+
+**`Payout limit exceeded`**\
+This means that the transaction being attempted will bring the customer's bank balance above the maximum limit set by their bank or that they have exceeded their limit for that day. Try the request again with a new reference or have the customer provide a different bank.
+
+**`Unable to complete this transaction`**\
+This means the transaction could not be completed successfully due to downtime with the payment switch as of when the transaction was attempted. Try the request again with a new reference at a later time.
+
+**`Invalid transaction`**\
+This is an error from the payment switch. Try the request again with a new reference.
+
+**`Payout failed`**\
+This means the transaction could not be completed successfully for some unknown reason. Try the request again with a new reference
+
+***
+
+# Refund Initiation Errors
+
+**`Transaction has not yet been settled`**\
+This means that the transaction you are attempting to refund has not yet been settled to your balance. Until the transaction is settled, funds cannot be reversed. Please attempt the refund again after the expected settlement date.
+
+**`Refund can only be requested on a successful transaction`**\
+This means that the original transactions wasn't processed successfully. You can only request a refund for a transaction that was successfully processed.
+
+**`Transaction not found`**\
+This error occurs when the transaction reference submitted for the refund does not exist on our system. This can be treated as a failed refund.
+
+**`Refund already exists with reference **reference submitted**`**\
+This error occurs when the reference sent in the request has already been used for a previously initiated refund. Please attempt the refund again with a different reference.
+
+**`Refund not supported for this currency, please contact support`**\
+This error occurs when refund is not supported for the transaction currency. Please get in touch with our support team. They'll be able to guide on how to proceed.
+
+**`Refund amount cannot be more than **{currency} {transactionAmountCollected}**`**\
+This means that the refund amount provided exceeds the value of the original successful transaction amount. Please update the refund amount you are trying to process and try again
+
+**`Refund amount cannot be less than **{currency} {minimumRefundAmount}**`**\
+This means that the refund amount specified is below the minimum allowed value for processing. The system enforces a minimum refund amount for the currencies supported as shown [here](https://developers.korapay.com/docs/refunds-api#refund-amount-requirements). Please get in touch with our support team if you need this reviewed
+
+**`A full reversal has already been processed for this transaction`**\
+This means that a reversal equivalent to the original transaction amount has already been successfully initiated. Please verify the details of the reversal(s) on the transaction details page of the dashboard
+
+**`A full refund cannot be initiated for this transaction. Please enter an amount less than or equal to **{currency} {transactionAmountCollected}**`**\
+This error occurs when no refund amount is passed in the request and the system tries to process a full refund but the total remaining refundable amount for the transaction is less than amount collected. To resolve this, please enter the specific amount you wish to refund. This amount must be less or equal to the amount left to be refunded.
+
+**`The maximum refundable amount for this transaction is **{currency} {transactionAmountCollected minus amountAlreadyReversed}**`**\
+This error occurs when the amount requested to be refunded is more than the maximum refundable amount. To resolve this, please enter the specific amount you wish to refund. This amount must be less or equal to the amount left to be refunded.
+
+**`Insufficient funds in disbursement wallet`**\
+This error occurs when the funds available in your wallet is not enough to process a refund request. This can be treated as a failed refund. Try the request again with the same refund reference once funds have been added to your wallet.
+
+
+
+---
+updatedAt: 2026-07-17T09:55:24.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Overview
+
+**Pay-ins** (also called Collections) are in-bound payments or fund transfers that you receive into your merchant account. Kora’s Pay-ins service offers a flexible suite of products that enable you to manage payments efficiently, whether through the dashboard or by integrating Kora’s secure APIs.
+
+You can embed a simple Checkout widget to your website/app with minimal technical expertise or create a custom integration using our robust processing engine. The API allows you to securely accept payments from multiple sources, offering your customers flexibility through various payment methods like cards, bank transfers and mobile money.
+
+To receive Pay-ins, you’ll need:
+
+* A verified Kora merchant account (Create your account [here](https://merchant.korapay.com/auth/signup)).
+* Configured payment methods such as card payments, mobile money, or bank transfers. Kindly reach out to our [Support Team](mailto:support@korapay.com) for inquiries on this configuration.
+
+<Callout icon="💡" theme="default">
+  ###
+
+  Currently, Kora supports the receiving payments via:
+
+  - **Card Payments:** Available in Nigeria (NGN).
+  - **Mobile Money:** Available in Kenya (KES), Ghana (GHS), Cameroon (XAF), Ivory Coast (XOF), Egypt (EGP), Tanzania (TZS).
+  - **Bank Transfers:** Available in Nigeria (NGN).
+  - **Pay with Bank:** Available in Nigeria (NGN).
+  - **EFTs:** Available in South Africa (ZAR).
+  - **Virtual Bank Account:** Available in Nigerian Naira (NGN), Kenya (KES), US Dollar (USD)
+  - **Stablecoins:** Available in Tether (USDT) and USD Coin (USDC).
+</Callout>
+
+***
+
+## Pay-in Channels
+
+Kora offers multiple ways to securely accept payments. These are known as *Channels*, and is shown in your transaction details. They include:
+
+### [**Checkouts**](https://developers.korapay.com/docs/checkouts)
+
+A simple and secure gateway for customers to complete transactions through a variety of payment methods.
+
+### [**Payment Links**](https://developers.korapay.com/docs/payment-links)
+
+No-code, shareable links that allow customers to pay without needing an API integration.
+
+### [Virtual Bank Accounts](https://developers.korapay.com/docs/virtual-bank-accounts)
+
+Designated virtual bank accounts into which customers can safely transfer funds without hassle.
+
+### [API](https://developers.korapay.com/docs/checkout-standard)
+
+Programmatically receive payments via Kora’s secure API, supporting cards, mobile money, virtual bank accounts, and EFTs.
+
+
+
+
+---
+updatedAt: 2025-02-28T00:11:31.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Checkouts
+
+Checkouts are secure, Kora-hosted payment pages that you can easily integrate into your website or applications to seamlessly collect payments from your customers. With Checkouts, you can easily create customizable payment experiences with a smooth and more secure flow for your customers.
+
+![](https://files.readme.io/9e41d76-Screenshot_2021-08-10_at_11.51.03_AM.png "Screenshot 2021-08-10 at 11.51.03 AM.png")
+
+On the merchant dashboard, the Checkouts also comes in the form of [Payment Links](https://developers.korapay.com/docs/payment-links) which include customizable URLs that you can easily share with your customers or embed in buttons on your applications. However, you can choose to integrate the gateway such that when your application calls the APIs, it renders in an iframe or a new page where your customers can enter their payment details to complete their transactions.
+
+***
+
+> 🚧 Heads up!
+>
+> You can only receive **real payments** with Checkouts or Payment Links in [Live mode](https://developers.korapay.com/docs/test-live-modes). At this point, you must have completed the Go-Live requirements.
+
+***
+
+# Checkout Integration Options
+
+There are two options for integrating the Checkout and, as their names imply, their use cases are pretty straightforward.
+
+## [Checkout Standard](https://developers.korapay.com/docs/checkout-standard)
+
+## [Checkout Redirect](https://developers.korapay.com/docs/checkout-redirect)
+
+
+
+---
+updatedAt: 2025-02-28T00:11:31.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Checkout Standard
+
+Checkout Standard provides a simplified and secure flow for collecting payments from customers. It's easy to integrate.
+
+# **Integrating the Checkout Standard**
+
+We'll use examples to show you how to integrate Kora's payment gateway using the Checkout Standard into your product. Feel free to make the necessary adjustments you need to provide a customized experience on your product. In our first example, we'll be using a simple "Pay" button that should load Checkout Standard on a webpage.
+
+Let's get started:
+
+# 1 - Get your API Keys
+
+Obtain your [API Keys](https://developers.korapay.com/docs/api-keys) from your dashboard. *We recommend you integrate using your test keys to avoid changes to your live data or charging real customers while testing.*
+
+# 2 - Add the pay-ins/collections script
+
+Next, you'll need to add the Kora pay-in/collection script to your website or application.
+
+```html Sample Form
+<form>
+    <script src="https://korablobstorage.blob.core.windows.net/modal-bucket/korapay-collections.min.js"></script>
+    <button type="button" onclick="payKorapay()"> Pay </button>
+</form>
+```
+
+```html Pay-in Script
+<script>
+    function payKorapay() {
+        window.Korapay.initialize({
+            key: "pk_live_*********************",
+            reference: "your-unique-reference",
+            amount: 22000, 
+            currency: "NGN",
+            customer: {
+              name: "John Doe",
+              email: "john@doe.com"
+            },
+            notification_url: "https://example.com/webhook"
+        });
+    }
+</script>
+```
+
+> 🚧 Warning!
+>
+> Avoid exposing your secret key on the client-side (or front end) of your application. Requests to the Kora's API should be initiated from your server.
+
+# 3 - Initialize the payment gateway.
+
+Use the `Korapay.initialize` function to pass the relevant transaction details needed to initialize the payment gateway and start accepting payments.
+
+* Set the sample API key with your test mode key obtained from your dashboard. This allows you to test through your Korapay account.
+
+* Indicate the amount and currency.
+
+* Indicate the customer name and email to show on the gateway as the sender of the transaction.
+
+* When you’re ready to accept live payments, replace the test key with your live/production key.
+
+# 4 - Receive confirmation via webhook
+
+When the payment is successful, we will make a POST request to your webhook URL (as set up in your dashboard, or while initializing the transaction using the key: `notification_url`) in this format:
+
+```json Code: Response Format
+{
+   "even"t:  "charge.success" //the notification is only sent for successful charge,
+   "data": {
+     	"reference": "KPY-C-cUBkIH&98n8b",
+     	"currency": "NGN",
+     	"amount": "22000", //amount paid by the customer
+     	"amount_expected": "22000", //amount that the customer is expected to pay
+     	"fee": "25",
+     	"status": "success",
+     	"payment_reference": "your-unique-reference", //unique reference sent by the merchant
+     	"transaction_status": "success" //the status of the charge base on the amount paid by the customer. This can either be `success`, `underpaid` or `overpaid`,
+      "metadata": {
+        "internalRef": "JD-12-67",
+        "age": 15,
+        "fixed": true,
+      }
+   }
+}
+```
+
+***
+
+## **Configuration parameters**
+
+<Table align={["left","left","left"]}>
+  <thead>
+    <tr>
+      <th>
+        Field
+      </th>
+
+      <th>
+        Data Type
+      </th>
+
+      <th>
+        Description
+      </th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td>
+        `key`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - Your public key from Korapay. Use the test public key for test transactions and live public key for live transactions
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `reference`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - Your unique transaction reference. *Must be unique for every transaction*.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `amount`
+      </td>
+
+      <td>
+        Integer
+      </td>
+
+      <td>
+        * \*Required\*\* - Amount to be collected.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `currency`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - Currency of the charge, e.g NGN, KES, GHS. The default is NGN (Nigerian Naira)
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        * \*Required\*\* - JSON object containing customer details
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer.name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required \*\*- field in the customer object. Customer name derived from name enquiry.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer.email`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - Field in the customer object. Customer email address
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `notification_url`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - HTTPS endpoint to send information to on payment termination, success, or failure. This overrides the webhook URL set on your merchant dashboard for this particular transaction
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `narration`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - Information/narration about the transaction
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `channels`
+      </td>
+
+      <td>
+        Array[string]
+      </td>
+
+      <td>
+        * \*Optional\*\* - Methods of payment. E.g, Bank Transfer (bank\_transfer), card (card), Pay with Bank (pay\_with\_bank), Mobile money (mobile\_money). Default is [“bank\_transfer”][“bank_transfer”]. Note that if only one payment method is available, it cannot be changed to another method.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `default_channel`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - Method of payment that should be active by default. E.g Bank Transfer (bank\_transfer), card (card), Pay with Bank (pay\_with\_bank), Mobile money (mobile\_money. The payment method selection page is skipped on the first load.  
+
+        Note that the default channel must also be specified in the `channels` parameter.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `metadata`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        * \*Optional\*\* - It takes a JSON object with a maximum of 5 fields/keys. Empty JSON objects are not allowed.  
+
+        Each field name has a maximum length of 20 characters. Allowed characters: `A-Z`, `a-z`, `0-9`, and `-`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `containerId`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - ID of the HTML element you want the payment gateway to be contained in. Note that this would reset all styling on this element. The payment gateway would be resized to fit the container. If this is not set, the payment gateway fills the available screen size.  
+
+        The recommended size for this container is 400px x 500px (width x height). However, this is not enforced and you can load the checkout in a smaller or larger container.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `onClose`
+      </td>
+
+      <td>
+        [Function]
+      </td>
+
+      <td>
+        * \*Optional\*\* - function to be called when the payment gateway is closed
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `onSuccess`
+      </td>
+
+      <td>
+        [Function]
+      </td>
+
+      <td>
+        * \*Optional\*\* - function to be called when the payment is completed successfully 
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `onFailed`
+      </td>
+
+      <td>
+        [Function]
+      </td>
+
+      <td>
+        * \*Optional\*\* - function to be called when the payment failed
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `onTokenized`
+      </td>
+
+      <td>
+        [Function]
+      </td>
+
+      <td>
+        Optional - function to be called when card tokenization is completed successfully
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `onPending`
+      </td>
+
+      <td>
+        [Function]
+      </td>
+
+      <td>
+        * \*Optional\*\* - sometimes, bank transfers could take some time before they get resolved. In such a case, this function would be called after 20 seconds. This could allow you to manage the experience for your customer by showing a notification or some other information.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `merchant_bears_cost`
+      </td>
+
+      <td>
+        Boolean
+      </td>
+
+      <td>
+        * \*Optional\*\*. This will set who bears the fees of the transaction. If it is set to `true`, the merchant will bear the fee, while if it is set to `false`, the customer will bear the fee. By default, it is set to `true`.
+      </td>
+    </tr>
+  </tbody>
+</Table>
+
+***
+
+## **Interacting with Checkout Standard through the Korapay script**
+
+When using Checkout Standard, the payment gateway is opened in an iframe to ensure security. Some functions are exposed to allow interactions with the application when specific events occur during a transaction. These include:
+
+| Event                 | Field         |
+| :-------------------- | :------------ |
+| Succesful Transaction | `onSuccess`   |
+| Failed Transaction    | `onFailed`    |
+| Payment Modal Closed  | `onClose`     |
+| Card Tokenized        | `onTokenized` |
+| Bank Transfer Pending | `onPending`   |
+
+You can pass functions into these fields while calling `Korapay.initialize` as shown in the script below.
+
+```javascript Code: Script
+<script>
+    function payKorapay() {
+        window.Korapay.initialize({
+            key: "pk_juigfweofyfewby732gwo8923e",
+            reference: "your-unique-reference",
+            amount: 3000, 
+            currency: "NGN",
+            customer: {
+              name: "John Doe",
+              email: "john@doe.com"
+            },
+            onClose: function () {
+              // Handle when modal is closed
+            },
+            onSuccess: function (data) {
+              // Handle when payment is successful
+            },
+            onFailed: function (data) {
+              // Handle when payment fails
+            }
+            ...
+        });
+    }
+</script>
+```
+
+The data returned should have the following fields. Note that no data is returned for the `onPending` function as the transaction is not yet completed:
+
+| Field       | Data Type | Description           |
+| :---------- | :-------- | :-------------------- |
+| `amount`    | String    | Transaction Amount    |
+| `reference` | String    | Transaction Reference |
+| `status`    | String    | Transaction Status    |
+
+To close the modal programmatically, use the `Korapay.close` function.
+
+
+
+---
+updatedAt: 2025-02-28T00:11:33.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Checkout Redirect
+
+Checkout Redirect lets you securely accept payments without having to embed Kora's payment gateway on your website. It's fast, saves development time and comes with an extra advantage - *the redirect functionality*.
+
+With the Checkout Redirect option, you can access the Kora payment gateway by making a request from your server to our [initialize charge endpoint](https://docs.korapay.com/#f192d2e8-aab2-4f5a-98ef-fa0ed7e2d853). We would return a response that includes a Checkout URL that loads the payment gateway where your customers can make secure payments. After payment is completed the customer is returned to any URL specified by you.
+
+Now, let's walk you through integrating Checkout Redirect. 👊🏼
+
+# 1 - Collect Payment Details
+
+Collecting details from your customer is essential to initializing and tracking the transaction. These details are passed to the initialize charge endpoint.
+
+Please find below the request parameters for the endpoint.
+
+<Table align={["left","left","left"]}>
+  <thead>
+    <tr>
+      <th>
+        Parameter
+      </th>
+
+      <th>
+        Data Type
+      </th>
+
+      <th>
+        Description
+      </th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td>
+        `amount`
+      </td>
+
+      <td>
+        Integer
+      </td>
+
+      <td>
+        * \*Required\*\* - The amount to charge the customer.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `redirect_url`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - The URL to redirect your customer when the transaction is complete.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `currency`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - The currency in which the customer should be charged. For example; NGN, KES, GHS, etc.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `reference`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - Your transaction reference. *Must be unique for every transaction*.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `notification_url`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - The webhook URL to be called when the transaction is complete.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `narration`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - This is the transaction description.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `channels`
+      </td>
+
+      <td>
+        Array [String]
+      </td>
+
+      <td>
+        * \*Optional\*\* - Methods of payment eg. Bank Transfer (bank\_transfer), card (card), Pay with Bank (pay\_with\_bank), Mobile money (mobile\_money).  
+
+        If only one payment method is available, the customer cannot change to another payment method.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `default_channel`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - Method of payment that should be active by default. E.g Bank Transfer (bank\_transfer), card (card), Pay with Bank (pay\_with\_bank), Mobile money (mobile\_money). The payment method selection page is skipped on the first load.  
+
+        Note that the default channel must also be specified in the `channels` parameter.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `metadata`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        * \*Optional\*\* - It takes a JSON object with a maximum of 5 fields/keys. Empty JSON objects are not allowed.  
+
+        Each field name has a maximum length of 20 characters. Allowed characters: `A-Z`, `a-z`, `0-9`, and `-`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer`
+      </td>
+
+      <td>
+
+      </td>
+
+      <td>
+        * \*Required\*\* - This is the JSON object containing the targeted customer information.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer.email`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - The email of the customer to be charged.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer.name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - The name of the customer to be charged
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `merchant_bears_cost`
+      </td>
+
+      <td>
+        Boolean
+      </td>
+
+      <td>
+        * \*Optional\*\* - This will set who bears the fees of the transaction. If it is set to `true`, the merchant will bear the fee, while if it is set to `false`, the customer will bear the fee. By default, it is set to `true`.
+      </td>
+    </tr>
+  </tbody>
+</Table>
+
+# 2 - Initialize Transaction
+
+After collecting the necessary payment details for the transaction. Make a POST request to our [initialize charge endpoint](https://docs.korapay.com/#f192d2e8-aab2-4f5a-98ef-fa0ed7e2d853).
+
+```text Endpoint: Initialize Charge
+https://api.korapay.com/merchant/api/v1/charges/initialize
+```
+
+`Authorization: Bearer {SECRET_KEY} REQUIRED`
+
+This endpoint is protected by the secret key authentication mechanism. So when calling it, append your secret key to the authorization headers.
+
+If the API call is successful, Kora returns the following response:
+
+```json Code: Response
+{
+   “status” : true,
+   “message” : “Charge created successfully” ,
+   “data”: {
+           “reference”: “{{your transaction reference}}”,
+           “checkout_url”: "https://checkout.korapay.com/reference/pay"
+     }
+}
+```
+
+You should then redirect your customer to the Checkout URL provided in the response to enable them complete their payment. Once the payment is complete or in the event of a failure, Korapay will redirect your customer to your specified `redirect_url`. The transaction reference will be appended as a query parameter to your `redirect_url` as well.
+
+`https://website_redirect_url/?reference=YOUR_REFERENCE`
+
+In a situation where no`redirect_url` is passed,  the customer receives visual confirmation on the completion of the payment and is NOT redirected out of the current webpage.
+
+# 3 - Verify the Transaction
+
+When the transaction is completed, Kora will redirect your customer to your specified `redirect_url` and send a webhook notification to the `notification_url` that was passed in the API request body.
+
+Notice that along with redirecting the customer to your `redirect_url`, we append the transaction reference as a query parameter.
+
+`https://website_redirect_url/?reference=YOUR_REFERENCE`
+
+Kora redirects the customer to your `redirect_url` when the transaction is complete, when the checkout is closed, or when the payment session ends abruptly. This allows you to take full control of your customers' payment experience by enabling you to reinitialise a new session if the current payment session ended abruptly. A perfect use case for this could be when your customer’s session mistakenly closes the payment page while waiting for confirmation of a bank transfer. The customer would be redirected to your ‘redirect\_url’, so you can query the transaction status and give visual feedback when the transaction is completed rather than reinitialise another transaction.
+
+It is expected that you retrieve the reference from the URL parameters and call our [verify charge endpoint](https://docs.korapay.com/#8a602daa-6e83-4118-9ff3-ba8c09ab6f48) to get the status of the transaction. **Make sure to always call direct endpoints from your server, and not from the client-side (frontend) of your application.**
+
+> 🚧 Heads up!
+>
+> It is very important to confirm the status of the transaction before you give value to the customer.
+
+# 4 - Adding an Event Listener (Optional - for better control)
+
+Before we redirect the customer to your redirect URL, the payment gateway exposes events to the browser. To receive those events, you have to attach an event listener to the browser window as shown in the script below. To ensure security and the fidelity of the messages received, it is important that the appropriate Checkout URL gotten from the [initialize endpoint](https://docs.korapay.com/#f192d2e8-aab2-4f5a-98ef-fa0ed7e2d853) is passed as an argument when attaching an event listener to the browser window.
+
+```javascript Event Listener
+window.addEventListener(type, handleResponse, checkoutURL);
+function handleResponse(event) {
+    if (event.origin === checkoutURL) {
+        // Handle response
+    }
+}
+// ‘type’ represents the transaction event type and could be one of the following: ‘success’, ‘failed’, ‘pending’, ‘close’.
+```
+
+The response `{event.detail}` returned should have the following fields:
+
+| Field            | Data Type | Description                                                      |
+| :--------------- | :-------- | :--------------------------------------------------------------- |
+| `result`         | string    | Event being triggered. Could be `success`, `failed`, or `close`. |
+| `data`           | object    | JSON object containing transaction details                       |
+| `data.amount`    | string    | Transaction Amount                                               |
+| `data.reference` | string    | Transaction Reference                                            |
+| `data.status`    | string    | Transaction Status                                               |
+
+# 5 - Receive confirmation via webhook
+
+When the payment is successful, we make a POST request to your webhook URL (as set up in your dashboard or while initializing the transaction using the key: `notification_url`). This is the format of the response:
+
+```json Webhook Request Payload
+{
+  "event":  "charge.success" // the notification is only sent for successful charge,
+  "data": {
+    "reference": "9965128", // the unique transaction reference
+    "currency": "NGN",
+    "amount": 100000,
+    "fee": 1075,
+    "status": "success",
+    "payment_method": "bank_transfer", // can be bank_transfer, card, pay_with_bank
+    "payment_reference": "9965128" // DEPRECATED the unique transaction reference
+  }
+}
+```
+
+
+
+---
+updatedAt: 2025-02-28T00:11:34.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Payment Links
+
+Don't code? Payment Links are perfect to help you start collecting payments within minutes!
+
+Payment Links are a classic extension of [Checkouts](https://developers.korapay.com/docs/checkouts). They provide an amazing way to receive payments from your customers, as they also support multiple payment methods, and are accessible to your customers anywhere, on any device.
+
+Merchants can setup Payment Links for online sales on social media, service subscriptions, loan repayments, or even donations and fundraising. There’s quite a lot you could do with Payment Links!
+
+Payment Links also allows you to collect useful information from your customers, like the customer's name and email, right before they proceed to make payment. You can also choose not to set a fixed amount on a Payment Link. In such a case, the customer can specify how much they want to pay. However, this amount must not be less than NGN 100 for payments in Nigerian Naira.
+
+## **Creating a Payment Link**
+
+You can create a Payment Link to start receiving payments as quickly as possible. It’s super easy, and no coding experience is required. Follow these steps:
+
+1. [Log in](https://merchant.korapay.com/auth/login) to your dashboard. [Create an account](https://merchant.korapay.com/) if you don’t already have one.
+2. Navigate to Payment Link and click the ‘New Payment Link’ button.
+
+<Image width="smart" src="https://files.readme.io/b3cc122-Screenshot_2023-02-14_at_10.14.24_AM.png" />
+
+3. Fill in the details of your new Payment Link in the form. As you enter some details, you would see a preview of how the Checkout will appear to a customer just before they make payment. (You can enter an expiry date for your Payment Link or leave it blank to have it active for as long as possible.)
+4. Once you’ve completed the form, click ‘Create Payment Link’.
+
+> 📘 While you can create a Payment Link in Test Mode, you can only receive real payments in [Live mode](https://developers.korapay.com/docs/quick-start#test-mode-vs-live-mode). At this point, you must have completed the Go-Live requirements.
+
+***
+
+## **Customizing your Payment Link**
+
+Every Payment Link comes with a customizable URL that you can easily share with your customers or embed in links and buttons on your applications. This URL must always be unique, and cannot be reused in another Payment Link.
+
+
+
+---
+updatedAt: 2025-10-23T12:48:16.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Mobile Money Payments
+
+You can receive business payments from your customers paying with their mobile money wallets. This payment option is currently available in Kenya (KES), Ghana (GHS), Cameroon (XAF), Ivory Coast (XOF), Egypt (EGP) and Tanzania (TZS).
+
+<br />
+
+### Pre-requisites
+
+1. First, create your account and ensure it is activated by completing your go-live requirements.
+2. Ensure you have Mobile Money payments enabled for your account. To get this, please reach out to our team at <support@korapay.com> to enable this payment method on your account.
+
+<br />
+
+### Mobile money networks supported
+
+| Country                     | Supported Networks               |
+| :-------------------------- | :------------------------------- |
+| Kenya                       | M-Pesa, Airtel, Equitel.         |
+| Ghana                       | MTN Momo, Airtel Tigo, Vodafone. |
+| Cameroon                    | MTN, Orange.                     |
+| Côte d'Ivoire (Ivory Coast) | MTN, Orange, Moov, Wave.         |
+| Egypt                       | Vodafone, Orange, Etisalat.      |
+| Tanzania                    | Vodacom, Tigo (Yas), Airtel      |
+
+<br />
+
+***
+
+### [Accepting Mobile Money Payments with Checkouts](https://developers.korapay.com/docs/mobile-money-checkouts)
+
+### [Accepting Mobile Money Payments with API](https://developers.korapay.com/docs/mobile-money-apis)
+
+
+
+
+---
+updatedAt: 2025-12-10T23:25:06.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Accept Mobile Money Payment with Checkout
+
+Checkouts allow you to accept mobile money payments from customers securely. You can either choose to integrate [Checkouts](https://developers.korapay.com/docs/checkouts) or create shareable, customizable [Payment links](https://developers.korapay.com/docs/payment-links) for your business, with very minimal effort. Both ways guarantee a safe and convenient payment experience for customers.
+
+## Get started with accepting Mobile money using Checkout
+
+We have outlined a detailed step-by-step flow on integrating Checkouts on your website here. If you prefer a quick, easy-to-setup one-time payment option on the Checkout, Payment Links are your best bet. You’ll find everything you need to know about Payment Links [here](https://developers.korapay.com/docs/payment-links)
+
+# How does Mobile money work?
+
+Customers can make fast and secure payments through the Pay with Mobile money method in just a few simple steps.
+
+### 1 - Enter a mobile money number
+
+After choosing the ‘Mobile money’ option on the Checkout, the customer must input the mobile money number linked to their wallet into the designated field to proceed.
+
+<Image align="center" border={false} src="https://files.readme.io/9f265c0-mobile_money.png" />
+
+### 2 - OTP confirmation
+
+For transactions that require extra validation, an OTP will be required to validate the transaction.
+
+### 3 - STK Push/Prompt
+
+After a valid mobile money number has been provided or OTP has been provided (for transactions that require them), the wallet provider will dispatch a request for transaction authorization, alongside relevant details, to the provided mobile number via STK prompt.
+
+### 4 - Authorization
+
+To finalize the transaction, the customer must authenticate the transaction by inputting their PIN in the STK prompt sent to their phone by the provider. With a successful authorization check and sufficient balance a successful charge is made on the customer’s account.
+
+### 5 - Verify payment
+
+Once the customer has been charged successfully, the transaction would show on your Korapay dashboard as successful.
+
+***
+
+## Testing Mobile money on the Sandbox environment
+
+To test this payment method (without using real money), a sandbox implementation has also been provided, with appropriate test instructions. Simply switch to [test mode](https://developers.korapay.com/docs/test-live-modes) on your dashboard to use test Checkouts.
+
+
+
+---
+updatedAt: 2026-03-27T10:05:59.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Accept Mobile Money Payment with APIs
+
+Another way to accept payments is by using our Mobile Money APIs. The comprehensive guide below will walk you through the process of successfully accepting mobile money on Kora using our APIs.
+
+## Get started with accepting Mobile money using APIs
+
+For a full and up-to-date list of supported currencies and mobile money providers, please see our [overview page for Mobile Money](https://developers.korapay.com/docs/mobile-money). Here are some [test mobile money numbers](https://developers.korapay.com/docs/testing-your-integration#testing-mobile-money-pay-ins) you can use to simulate different scenarios for mobile money payments as you integrate.
+
+## Authorization models
+
+When initiating a mobile money charge, the auth\_model returned in the response indicates the action required to complete the transaction.
+
+The supported authorization models are:
+
+* `OTP` - This means an OTP has been sent to the customer’s phone. You are expected to collect the OTP from the customer and authorize the transaction using the `authorize` endpoint.
+* `STK_PROMPT` - This means the customer will receive a prompt on their phone and should enter their wallet PIN to authorize the payment.
+* `REDIRECT` - This means the customer will be redirected to complete the transaction on the telco’s page.
+
+If the returned auth model is `OTP`, you should collect the OTP and call the authorize endpoint. Once the OTP is successfully validated, the authorize response body will indicate the next required action.
+
+After OTP validation, the next auth model returned will be either `STK_PROMPT` or `REDIRECT`. You should always check the auth model in the response to determine whether the customer needs to complete an STK prompt or continue the transaction on the telco’s page.
+
+<br />
+
+## Step 1: Collect payment data required to initiate payment
+
+To charge a customer, you will need to collect the necessary payment information from the customer.\
+Here are the request parameters.
+
+<Table align={["left","left","left","left"]}>
+  <thead>
+    <tr>
+      <th>
+        Parameter
+      </th>
+
+      <th>
+        Type
+      </th>
+
+      <th>
+        Required
+      </th>
+
+      <th>
+        Description
+      </th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td>
+        reference
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        True
+      </td>
+
+      <td>
+        A unique reference for the payment. The reference must be at least 8 characters long.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        amount
+      </td>
+
+      <td>
+        Number
+      </td>
+
+      <td>
+        True
+      </td>
+
+      <td>
+        The amount for the charge
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        currency
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        True
+      </td>
+
+      <td>
+        The currency for the charge
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        redirect_url
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        False
+      </td>
+
+      <td>
+        A URL to which we can redirect your customer after their payment is complete
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        customer
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        True
+      </td>
+
+      <td>
+        The information of the customer you want to charge
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        customer.name
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        False
+      </td>
+
+      <td>
+        The name of your customer
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        customer.email
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        True
+      </td>
+
+      <td>
+        The email of your customer
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        mobile_money
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        True
+      </td>
+
+      <td>
+        Object holding the mobile money wallet details
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        mobile_money.number
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        True
+      </td>
+
+      <td>
+        The mobile number of the customer to be charged e.g 254700000000
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        notification_url
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        False
+      </td>
+
+      <td>
+        The webhook URL to be called when the transaction is complete.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        merchant_bears_cost
+      </td>
+
+      <td>
+        Boolean
+      </td>
+
+      <td>
+        False
+      </td>
+
+      <td>
+        This sets who bear the fees of the transaction. If it is set to true, the merchant will bear the fee. If it is set to false, the customer will bear the fee. By default, it is false.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        description
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        False
+      </td>
+
+      <td>
+        Information/narration about the transaction
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        metadata
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        False
+      </td>
+
+      <td>
+        It takes a JSON object with a maximum of 5 fields/keys. Empty JSON objects are not allowed.
+
+        Each field name has a maximum length of 20 characters. Allowed characters: **A-Z**, **a-z**, **0-9**, and **-**.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+
+      </td>
+
+      <td>
+
+      </td>
+
+      <td>
+
+      </td>
+
+      <td>
+
+      </td>
+    </tr>
+  </tbody>
+</Table>
+
+After collecting the necessary mobile money payment information from your customer, prepare your data object to look like the example shown below.
+
+```json
+{
+    "amount": 701,
+    "currency": "GHS",
+    "reference": "idkMain27105551011",
+    "description": "Payment for a emilokan",
+    "notification_url": "https://webhook.site/1c209942-1a66-4cdf-a7ab-78d9cc684ad2",
+    "redirect_url": "https://webhook.site",
+    "customer": {
+        "name": "John Doe",
+        "email": "John@yahoo.com"
+    },
+    "merchant_bears_cost": true,
+    "mobile_money": {
+      "number": "254700000000"
+    }
+}
+
+```
+
+To charge the number make a `POST` request with the payload to our charge mobile money endpoint. Ensure to include the relevant country currency.
+
+Endpoint - POST  <https://api.korapay.com/merchant/api/v1/charges/mobile-money>
+
+If the request is successful, you should receive a message with either `OTP`,`STK_PROMPT` or `REDIRECT` as the auth model.
+
+Sample `OTP` Auth Response:
+
+```json
+{
+    "status": true,
+    "code": "AA001",
+    "message": "Authorization required",
+    "data": {
+        "amount": 701,
+        "amount_expected": 701,
+        "currency": "GHS",
+        "fee": 1.87,
+        "vat": 0.13,
+        "auth_model": "OTP",
+        "transaction_reference": "KPY-PAY-rYF4c5ZWioeb",
+        "payment_reference": "idkMain27105551021",
+        "status": "processing",
+        "narration": "Payment for a emilokan",
+        "message": "Token generated and sent out successfully",
+        "mobile_money": {
+            "number": "+254700000000"
+        },
+        "customer": {
+            "name": "John Doe",
+            "email": "John@yahoo.com"
+        }
+    }
+}
+
+```
+
+Sample `STK_PROMPT` Auth Response:
+
+```json
+{  
+    "status": true,  
+    "code": "AA001",  
+    "message": "Authorization required",  
+    "data": {  
+        "amount": 10,  
+        "amount_expected": 10,  
+        "currency": "KES",  
+        "fee": 0.25,  
+        "vat": 0.04,  
+        "auth_model": "STK_PROMPT",  
+        "transaction_reference": "KPY-PAY-rYF4c5ZWioeb",  
+        "payment_reference": "KPY-PAY-79lsPQSqHXSz",  
+        "status": "processing",  
+        "narration": "Live Test Link",  
+        "message": "You will receive a pin prompt on your mobile number +25470000000 for GHS 10. Kindly enter your wallet PIN to authorize the payment",  
+        "mobile_money": {  
+            "number": "254700000000"  
+        },  
+        "customer": {  
+            "name": "John Doe",  
+            "email": "John@yahoo.com"
+        }  
+    }  
+}
+```
+
+## Step 2: Authorize mobile money transaction
+
+The next step is based on the auth model returned in the previous response after initiating the charge. There are 2 ways of authorizing a transaction `OTP` and `STK_PROMPT`.
+
+### Authorizing an OTP transaction
+
+After making the request to charge the number, if the status of the transaction is processing  and auth\_model is `OTP`, this means an OTP has been sent to the wallet owner's phone. You would need to collect the OTP in order to authorize the transaction.
+
+Collect the OTP sent to the customer’s phone and make a request to our authorize endpoint with the OTP and the transaction reference.
+
+Endpoint - <https://api.korapay.com/merchant/api/v1/charges/mobile-money/authorize>
+
+```curl Authorize OTP transaction
+curl --location 'https://api.korapay.com/merchant/api/v1/charges/mobile-money/authorize' \
+--header 'Content-Type: application/json' \
+--header 'Authorization: Bearer YOUR_KORAPAY_SECRET_KEY' \
+--data '{
+    "reference": "KPY-PAY-rYF4c5ZWioeb",
+    "token": "123456"
+}'
+-X POST
+```
+
+If the OTP verification is successful, an STK prompt will be sent to the wallet owner's phone for him to enter his PIN.
+
+Sample response
+
+```json Valid OTP
+{
+    "status": true,
+    "message": "Authorization required",
+    "data": {
+        "amount": "10.00",
+        "amount_expected": "10.00",
+        "currency": "GHS",
+        "fee": 1.75,
+        "vat": 0.12,
+        "auth_model": "STK_PROMPT",
+        "transaction_reference": "KPY-PAY-rYF4c5ZWioeb",
+        "payment_reference": "KPY-PAY-rYF4c5ZWioeb",
+        "status": "processing",
+        "message": "You will receive a prompt on mobile number. Kindly enter your wallet PIN to authorize the payment",
+        "mobile_money": {
+            "number": "+254700000000"
+        }
+    }
+}
+```
+```json Invalid OTP
+{
+    "status": true,
+    "message": "Authorization required",
+    "data": {
+        "amount": "10.00",
+        "amount_expected": "10.00",
+        "currency": "GHS",
+        "fee": 1.75,
+        "vat": 0.12,
+        "auth_model": "OTP",
+        "transaction_reference": "KPY-PAY-rYF4c5ZWioeb",
+        "payment_reference": "KPY-PAY-rYF4c5ZWioeb",
+        "status": "processing",
+        "message": "The OTP you provided is invalid",
+        "mobile_money": {
+            "number": "+254700000000"
+        },
+        "attempts_left": 2
+    }
+}
+```
+
+<br />
+
+### Authorizing an STK transaction
+
+After making the charge request, if the status of the transaction is processing and auth\_model is `STK_PROMPT`, this means an STK\_PROMPT has been sent to the wallet owner's phone.
+
+```curl
+{
+"status": true,
+"code": "AA001",
+"message": "Authorization required",
+"data": {
+"amount": 10,
+"amount_expected": 10,
+"currency": "KES",
+"fee": 0.25,
+"vat": 0.04,
+"auth_model": "STK_PROMPT",
+"transaction_reference": "KPY-PAY-rYF4c5ZWioeb",
+"payment_reference": "KPY-PAY-79lsPQSqHXSz",
+"status": "processing",
+"narration": "Live Test Link",
+"message": "You will receive a prompt on your mobile number +254700000000. Kindly enter your wallet PIN to authorize the payment",
+"mobile_money": {
+"number": "254700000000"
+},
+"customer": {
+"name": "John Doe",
+"email": "John@yahoo.com"
+}
+}
+}
+```
+
+<br />
+
+### Authorizing a REDIRECT transaction
+
+After making the charge request, if the transaction status is `processing` and the auth\_model is `REDIRECT`, the customer should be redirected to complete the transaction on the telco’s page.
+
+After the customer completes the authorization, you should verify the transaction using the transaction reference. You should also set up your webhook to receive payment updates.
+
+```curl
+{
+"status": true,
+"code": "AA001",
+"message": "Authorization required",
+"data": {
+"amount": 10,
+"amount_expected": 10,
+"currency": "KES",
+"fee": 0.25,
+"vat": 0.04,
+"auth_model": "REDIRECT",
+"transaction_reference": "KPY-PAY-rYF4c5ZWioeb",
+"payment_reference": "KPY-PAY-79lsPQSqHXSz",
+"status": "processing",
+"narration": "Live Test Link",
+"message": "You will be redirected to complete this transaction on the telco's page",
+"authorization": {
+"redirect_url": "https://test.com/pay/1nq8l9s0u2"
+},
+"mobile_money": {
+"number": "254700000000"
+},
+"customer": {
+"name": "John Doe",
+"email": "John@yahoo.com"
+}
+}
+}
+```
+
+<br />
+
+## Step 3: Verify Payment
+
+The final step after receiving payment is to ensure that the payment was successful by making a verification request to our verification charge endpoint. The reference here should be your transaction reference.
+
+Here's a sample request and response for verifying a mobile money payment:
+
+```curl
+curl https://api.korapay.com/merchant/api/v1/charges/:reference
+-H "Authorization: Bearer YOUR_KORAPAY_SECRET_KEY"
+-X GET
+```
+
+Sample response for a successful transaction:
+
+```json Successful Payment Response
+{
+  "status": true,
+  "message": "Charge retrieved successfully",
+  "data": {
+    "reference": "KPY-PAY-rYF4c5ZWioeb",
+    "status": "success",
+    "amount": "10.00",
+    "amount_paid": 0,
+    "fee": 0.29,
+    "currency": "GHS",
+    "description": "Payment for a emilokan",
+    "mobile_money": {
+      "number": "+254700000000"
+    },
+    "customer": {
+      "name": "John Doe",
+      "email": "John@yahoo.com"
+    }
+  }
+}
+
+```
+```json Failed Payment Response
+{
+  "status": true,
+  "message": "Charge retrieved successfully",
+  "data": {
+    "reference": "KPY-PAY-rYF4c5ZWioeb",
+    "status": "failed",
+    "amount": "2000.00",
+    "amount_paid": 0,
+    "fee": "180.00",
+    "currency": "GHS",
+    "description": "Mobile money payment for a book",
+    "payment_attempts": [
+      {
+        "reference": "KPY-CM-unEr27sJ616S",
+        "status": "failed",
+        "channel": "mobile_money",
+        "message": "The OTP you provided is invalid"
+      }
+    ],
+    "mobile_money": {
+      "number": "+25470000000"
+    }
+  }
+}
+
+```
+
+## Step 4: Setup Webhook
+
+You can set your application to receive a confirmation via webhooks when a mobile money payment is successful. Please visit [Webhooks](https://developers.korapay.com/docs/webhooks) to see more information about the webhook request body and how to verify and handle the webhook request.
+
+### Error Responses
+
+```json Invalid OTP
+{ 
+  "status": false,
+  "message": "The OTP you provided is invalid",
+  "data": null
+}
+```
+```json Payment Completed
+{
+    "status": false,
+    "message": "Payment has already been completed"
+    "data": {}
+}
+
+```
+
+
+
+---
+updatedAt: 2025-02-28T00:12:21.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Pay-ins History API
+
+The Pay-ins History API lets you fetch all pay-in transactions that have been made to your Kora account without having to get them from the dashboard. Use the following endpoint to fetch your transactions:
+
+`{{baseurl}}/merchant/api/v1/pay-ins`
+
+The parameters for this request include:
+
+| Field            | Data Type | Description                                                                                                                  |
+| :--------------- | :-------- | :--------------------------------------------------------------------------------------------------------------------------- |
+| `currency`       | String    | **Optional** - transaction currency e.g. `NGN`, `KES`, etc.                                                                  |
+| `date_from`      | String    | **Optional** - fetch transactions from this date. Use format `YYYY-MM-DD-HH-MM-SS`.                                          |
+| `date_to`        | String    | **Optional** - fetch transactions up to this date. Use format `YYYY-MM-DD-HH-MM-SS`.                                         |
+| `limit`          | Number    | **Optional** - If not passed, we send a limit of `10`.                                                                       |
+| `starting_after` | String    | **Optional** - used for pagination, must be used separately with `ending_before`, it expects the pointer from the response.  |
+| `ending_before`  | String    | **Optional** - used for pagination, must be used separately with `starting_after`, it expects the pointer from the response. |
+
+***
+
+An example of the response to this request would look like this:
+
+```json Sample Response
+{
+  "has_more": true,
+    "data": {
+      "pointer": "cus_7087",
+      "reference": "KPY-PAY-gL3oDeoAlWYz",
+      "status": "success",
+      "amount": "5000.00",
+      "amount_paid": "5000.00",
+      "amount_expected": "5000.00",
+      "fee": "26.88",
+      "currency": "NGN",
+      "description": "Test",
+      "payment_method": "bank_transfer",
+      "message": "Successful",
+      "date_created": "2023-09-28 12:24:29",
+      "date_completed": "2023-09-28 12:25:10"
+    }
+}
+```
+
+
+
+---
+updatedAt: 2026-06-04T11:42:30.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Overview
+
+Payouts, also sometimes called Disbursements, are outbound fund transfers from your merchant account to any bank account.
+
+You can easily create and manage your payouts directly from your dashboard or through Kora’s Payout API. The API enables you to send payments via a simple, secure process that requires only the bank information of the recipients.
+
+**To make a payout, all you need is**
+
+1. Of course, your Kora account (Create an account [here](https://merchant.korapay.com/)), and
+2. To ensure that your available balance is sufficiently funded. See how to do that [here](https://developers.korapay.com/docs/get-balance#funding-your-balance).
+3. The recipient's details.
+
+<Callout icon="📘" theme="info">
+  Currently, Kora’s Payout API supports Payouts to:
+
+  * Nigerian (NGN) bank accounts
+  * Kenyan (KES) bank accounts
+  * South African (ZAR) bank accounts
+  * Kenyan (KES) mobile money accounts
+  * Ghanaian (GHS) mobile money accounts
+  * Ivorian (XOF) Mobile Money accounts
+  * Cameroonian (XAF) Mobile Money accounts
+  * Egyptian (EGP) Mobile Money accounts
+  * US Dollar (USD) bank accounts
+  * British Pound (GBP) bank account
+  * Tanzanian Shilling (TZS) Mobile money accounts
+</Callout>
+
+Payouts on Kora are secure, and many merchants also prefer them for the following reasons:
+
+* Detailed records — Your complete payout history is always readily available, and you receive notifications when your payments are updated. You can also download your transaction history for your accounting purposes.
+
+* Reduced risk — Kora’s risk and compliance controls help protect you against fraud.
+
+* Flexible integration — Integrating the Payout API is super simple and straightforward.
+
+***
+
+# **Methods of Payouts**
+
+There are two ways you can make payouts from your account. These are also called 'Channel' in the transaction details on your dashboard.
+
+### [Payout API](https://developers.korapay.com/docs/payout-via-api)
+
+Make single or multiple payouts programmatically from within your application.
+
+### [Withdrawals](https://developers.korapay.com/docs/withdrawals)
+
+Make single withdrawals to your accounts. No integration is needed.
+
+### [Bulk Payouts via API](https://developers.korapay.com/docs/bulk-payouts-via-api)
+
+Transfer money to multiple customer accounts at once. Saves time! Great for payroll, and vendor payments.
+
+
+
+
+---
+updatedAt: 2026-06-07T20:22:38.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Payout API
+
+Payouts on Kora are done using our RESTful APIs, enabling a smooth, solid integration.
+
+If a payout request is triggered, Kora will directly disburse from your positive balance, and notify your application via an API callback when the transfer has been completed.
+
+Furthermore, you can always get the status of a single payout at any time via API or monitor the transaction status on the dashboard, where you can also see the payment details with a reference number for the transaction.
+
+***
+
+## **Use Case**
+
+Let's consider a typical case where your service uses a company eWallet to pay customers, employees, etc.
+
+On your website when a customer requests a payout to their bank account. Your website’s back-end asks Kora to process this payout. Kora processes the payment to the customer’s bank account, then notifies your website’s back-end when the payout has been completed. *Easy peasy!*
+
+Let's take a quick look at how you'll use the Kora API to implement the workflow for this use case. First, we'll look at your high-level workflow. Then we'll explain how to implement the workflow in detail. We'll use a sample code to bring the workflow to life.
+
+### **Workflow - Payout to customer’s bank account**
+
+This is what the workflow would look like from a birds-eye view.
+
+***
+
+*Stage 1 - Requesting a Payout*
+
+![](https://files.readme.io/6834ec2-disb_1.png "disb 1.png")
+
+1. On your website, a payout request is made by a customer.
+2. Your website back-end asks Kora to process the payout.
+
+***
+
+*Stage 2 - Processing the Payout*
+
+![](https://files.readme.io/336e072-disb_2.png "disb 2.png")
+
+1. Kora processes the payout.
+2. The customer's bank account is credited with funds from the merchant’s eWallet.
+3. Your Kora dashboard or application is notified that the money was credited to the bank account
+
+***
+
+# Implementing the Payout Workflow
+
+Now, let’s dive deeper into how this workflow would be implemented end-to-end.
+
+Step 1 - Use [List banks](https://docs.korapay.com/?version=latest#82cbd8bc-00a2-4ed4-8c64-a10654e31ea6) API to get valid bank codes, or use [List MMO](https://docs.korapay.com/?version=latest#9a13d891-2fc9-4bce-864c-5d7919eb845f) API to get valid mobile money operator slugs.
+
+Step 2 - [Verify](https://docs.korapay.com/?version=latest#05b2fb87-ee57-4a2c-b07b-bb050b6b58e7) the destination bank account - Optional
+
+Step 3 - Request [payout](https://docs.korapay.com/?version=latest#9e0b5372-ba48-49f6-ae90-c5d66903bed0)
+
+Step 4 - Receive confirmation via webhook when the payout is completed
+
+Step 5 - [Query](https://docs.korapay.com/?version=latest#ce2440eb-4576-4106-ba6f-bda9e8f4e06a) the transaction to get the status of the transaction.
+
+> 📘 Before you start:
+>
+> Make sure to check out [Quick Start](https://developers.korapay.com/docs/quick-start) learn more about [Test and Live Modes](https://developers.korapay.com/docs/quick-start#test-mode-vs-live-mode), as well as API keys and how to use them.
+
+***
+
+# **1 - Find bank codes from[ List Banks](https://docs.korapay.com/?version=latest#82cbd8bc-00a2-4ed4-8c64-a10654e31ea6) or mobile money operators slug from [List MMO](https://docs.korapay.com/?version=latest#9a13d891-2fc9-4bce-864c-5d7919eb845f)**
+
+For a successful payout, you need to input the destination bank of the transaction in the bank field. This means you need to get details of the direct bank for that beneficiary (e.g, Access Bank, ABSA or Wema Bank, etc).
+
+In this example, you'll find the different bank types that allow transfers in the currencies that we support.
+
+**Request Banks Type**
+
+Request for a list of all available bank codes for transfers in Nigeria, Kenya and South Africa.
+
+```json Nigeria
+{{baseurl}}/merchant/api/v1/misc/banks?countryCode=NG
+```
+```json Kenya
+{{baseurl}}/merchant/api/v1/misc/banks?countryCode=KE
+```
+```json South Africa
+{{baseurl}}/merchant/api/v1/misc/banks?countryCode=ZA
+```
+
+**Banks Type response**
+
+This is an example response to the request for bank type
+
+```json Nigeria
+{
+  "status": true,
+  "message": "success",
+  "data": [
+    {
+      "name": " Bank name", // e.g Access Bank Nigeria
+      "slug": " Bank slug", // e.g access
+      "code": " Bank code", // e.g 044
+      "country": "NG"
+    },
+  ]
+}
+```
+```json Kenya
+{
+  "status": true,
+  "message": "success",
+  "data": [
+    {
+      "name": "ABC Bank", // e.g ABC Bank Kenya
+      "slug": " Bank slug", // e.g abc-bank-ke
+      "code": " Bank code", // e.g 0035
+      "country": "KE"
+    },
+  ]
+}
+```
+```json South Africa
+{
+  "status": true,
+  "message": "success",
+  "data": [
+    {
+      "name": "Bank Name", // e.g ABSA
+      "slug": " Bank slug", // e.g absa-za
+      "code": " Bank code", // e.g 632005
+      "country": "ZA"
+    },
+  ]
+}
+```
+
+***
+
+For a successful mobile money payout, you need to input the mobile money operator slug of the transaction in the `mobile_money.operator` field. This means you need to get details of the beneficiary's mobile money operator. For example, Safaricom (Mpesa) or Airtel.
+
+In this example, you'll find the different mobile money operator types that allow transfers in the currencies supported on Kora.
+
+**Request Mobile Operator Type (Kenya)**
+
+Request for a list of all available mobile operators enabled for transfers in Kenya and their payout limits.
+
+```json Request
+{{baseurl}}/merchant/api/v1/misc/mobile-money?countryCode=KE
+```
+
+Here's an example response to the request for mobile money type:
+
+```json Response
+{
+  "status": true,
+  "message": "success",
+  "data": [
+    {
+      "name": " Mobile money operator name", // e.g Safaricom
+      "slug": " Mobile money operator slug", // e.g safaricom-ke
+      "code": " Mobile Money code", // e.g 0001
+      "country": "KE",
+      "min":  10,
+      "max": 70000
+    },
+  ]
+}
+```
+
+***
+
+**Request Mobile Operator Type (Ghana)**
+
+Request for a list of all available mobile operators enabled for transfers in Ghana and their payout limits.
+
+```json Request
+{{baseurl}}/merchant/api/v1/misc/mobile-money?countryCode=GH
+```
+
+Here's an example of the response to a request for mobile money type:
+
+```json Response
+{
+  "status": true,
+  "message": "success",
+  "data": [
+    {
+      "name": " Mobile money operator name", // e.g MTN
+      "slug": " Mobile money operator slug", // e.g mtn-gh
+      "code": " Mobile Money code", // e.g 0004
+      "country": "GH",
+      “min”:  10,
+      “max”: 100000
+    },
+  ]
+}
+```
+
+# **2 - Verify the destination bank account - Optional**
+
+### Bank account verification for Nigerian and Kenyan Banks
+
+Use Bank Account Resolve API to resolve the bank accounts (Kenya and Nigeria) before you request the payout. See the Verification request and response below.
+
+**Bank Account Resolve request**
+
+This resolves the bank account:
+
+```Text Request
+{{baseurl}}/merchant/api/v1/misc/banks/resolve
+```
+
+**Request body**
+
+The following parameters should be included in the request body.
+
+| Field      | Data Type | Description                                   |
+| :--------- | :-------- | :-------------------------------------------- |
+| `bank`     | String    | **Required** - bank code of account number    |
+| `account`  | String    | **Required** - account number to be resolved  |
+| `currency` | String    | **Required** - country currency. E.g, KE, NG. |
+
+**Bank Account Resolve response**
+
+Here’s how the response should look like.
+
+```json
+{
+  "status": true,
+  "message": "Request Completed",
+  "data": {
+    "bank_name": "United Bank for Africa",
+    "bank_code": "033",
+    "account_number": "2158634852",
+    "account_name": "EBUKA CIROMA OLADEMJI"
+  }
+}
+```
+
+### Mobile Money account verification for Ghanaian mobile money networks
+
+Use the Mobile Money Account Resolve API to resolve the mobile money account before you request the payout. See the request and response below.
+
+**Mobile Money Account Resolve request**
+
+```json Request
+{{baseurl}}/merchant/api/v1/misc/mobile-money/resolve
+```
+
+**Request body**
+
+The following parameters should be included in the request body.
+
+| Field             | Data Type | Description                                   |
+| :---------------- | :-------- | :-------------------------------------------- |
+| `mobileMoneyCode` | String    | **Required** - code for mobile money operator |
+| `phoneNumber`     | String    | **Required** - phone number to be resolved    |
+| `currency`        | String    | **Required** - country currency. E.g, GH.     |
+
+**Response**
+
+Here’s how the response should look like.
+
+```json
+{
+  "status": true,
+  "message": "Request Completed",
+  "data": {
+    "mobile_money_operator": "MTN GH",
+    "mobile_money_code": "0004",
+    "phone_number": "233722222222",
+    "account_name": "EBUKA CIROMA OLADEMJI"
+  }
+}
+```
+
+***
+
+# **3 - Check availability of Bank or Mobile Money network (MMN) - Optional**
+
+Use the Availability API to confirm a bank or Mobile Money network availability before you request the payout. See the request and response below.
+
+<Callout icon="ℹ️" theme="info">
+  Please note that this service is currently only available for South African payouts.
+</Callout>
+
+**Bank or Mobile Money Availability**
+
+```json Request
+{{baseurl}}/merchant/api/v1/payouts/availability
+```
+
+**Request Body**
+
+| Field      | Data Type | Description                                                      |
+| :--------- | :-------- | :--------------------------------------------------------------- |
+| `type`     | String    | **Required** - payment method e.g `bank_account`, `mobile_money` |
+| `currency` | String    | **Required** - country currency. E.g, ZAR.                       |
+
+**Response**
+
+Here's an example of what a response would look like:
+
+```json Response
+{
+  "status": true,
+  "message": "Request Completed",
+  "data":{
+		"name": "ABSA",
+		"slug": "absa-za",
+		"code": "632005",
+		"country": "ZA",
+    "status": "delayed"
+	},
+  {
+		"name": "African Bank",
+		"slug": "african-bank-za",
+		"code": "430000",
+  	"country": "ZA",
+		"status": "delayed"
+	}
+}
+
+```
+
+**Availability statuses and meaning**
+
+* If the response returned is `Available`, your payout request will be processed instantly.
+* If the response returned is `Delayed`, your payout request will not be processed instantly due to delay from the Bank or Mobile Money network but it will be processed at a later time.
+* If the response returned is `Unavailable`,  your payout request will not be processed within the period the request is made due to a possible downtime from the Bank or Mobile Money network.
+
+***
+
+# **4a - Request Payout**
+
+For this, you'll use the [Payout API](https://docs.korapay.com/#9e0b5372-ba48-49f6-ae90-c5d66903bed0)
+
+`{{baseurl}}/merchant/api/v1/transactions/disburse`
+
+**Payout Request**
+
+You need to find the required field for each payout request.
+
+<Table align={["left","left","left"]}>
+  <thead>
+    <tr>
+      <th>
+        Field
+      </th>
+
+      <th>
+        Data Type
+      </th>
+
+      <th>
+        Description
+      </th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td>
+        `reference`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - unique transaction reference **(must be at least 5 characters long)**.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        **Required**
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.type`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - can be `bank_account` or `mobile_money`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.amount`
+      </td>
+
+      <td>
+        Number
+      </td>
+
+      <td>
+        **Required** - transaction amount in two decimal places.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.currency`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - transaction currency e.g. NGN, KES, GHS, XOF, XAF, EGP, ZAR or USD
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.narration`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - transaction narration or description
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.mobile_money`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        **Required** - if destination type is _`mobile_money`_
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.mobile_money.operator`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if destination.type is `mobile_money`, the mobile money operator slug, e.g., `safaricom-ke`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.mobile_money.mobile_number`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if destination.type is `mobile_money`, the mobile number attached to the mobile money account.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        **Required** - if destination type is _`bank_account`_
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_country`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is USD or GBP and type is bank_account  — The country of the destination bank, see list of all supported destination bank countries [here](https://developers.korapay.com/docs/payout-utilities#get-supported-bank-countries-by-currency-code-1).
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.bank`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - This is the recipient bank code, if _currency_ is NOT `USD` or `GBP`. Some bank codes that you can use to simulate successful transactions in Test mode are 044, 033, 058 (i.e.for  Access Bank, UBA and GTCO respectively). See the bank details for other test scenarios [here](https://developers.korapay.com/docs/testing-your-integration#test-bank-accounts-for-payouts)
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.account`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - recipient account number
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.customer`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        **Required**
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.customer.name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - Customer Name
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.customer.email`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - Customer Email
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.bank_name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.beneficiary_type`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`. It can either be:
+
+        * Individual (`individual`), or
+        * Corporate (`corporate`).
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.first_name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.last_name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.business_name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`, and `beneficiary_type` is `corporate`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.account_type`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`. It can either be Savings (`savings`) or Checking (`checking`).
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.account_number_type`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`. It can either be Account number (`account_number`) or IBAN (`iban`).
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.payment_method`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`.
+
+        * For USD
+          * Local: `AbaRouting`
+          * International: `BicSwift`
+        * For GBP:
+          * Local: `SortCode`
+          * International: `IBAN`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.routing_number`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`
+
+        * For USD
+          * Local: Routing number
+          * International: Swift code
+        * For GBP:
+          * Local:  Sort code
+          * International: Swift code
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        destination.bank_account.intermediary_routing_number
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`, and `payment_method` is `BicSwift`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.address_information`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.address_information.country`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.address_information.city`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.address_information.state`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.address_information.zip_code`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.address_information.street`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.address_information.full_address`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.supporting_documents`
+      </td>
+
+      <td>
+        Array
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.supporting_documents[0].title`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`. This is the name of the document (e.g invoice, receipt, etc)
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.supporting_documents[0].file_reference`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if currency is `USD` or `GBP`. This can be gotten from the reference [here](https://developers.korapay.com/docs/supporting-documents)
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.purpose_of_payment`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        Optional Used with USD, GBP Non African Currencies. See list of countries requiring payment purposes [here](https://developers.korapay.com/docs/payout-utilities#get-payment-purposes-by-country-code-3)
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `metadata`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        _Optional_ - It takes a JSON object with a maximum of 5 fields/keys. Empty JSON objects are not allowed.
+
+        Each field name has a maximum length of 20 characters. Allowed characters: `A-Z`, `a-z`, `0-9`, `-`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `notification_url`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        Optional - valid url where webhook notifications for this transaction will be delivered. If not provided, notifications are sent to your default webhook url
+      </td>
+    </tr>
+  </tbody>
+</Table>
+
+<br />
+
+# **4b. Request Payout (For remittance merchants)**
+
+In the case of remittance, use the following Payout API endpoint
+
+`{{baseurl}}/api/v1/transactions/disburse/remittance`
+
+**Payout Remittance Request**
+
+These are the parameters for the request (you'll need to find the required field for each payout request):
+
+<Table align={["left","left","left"]}>
+  <thead>
+    <tr>
+      <th>
+        Field
+      </th>
+
+      <th>
+        Data Type
+      </th>
+
+      <th>
+        Description
+      </th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td>
+        `reference`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - unique transaction reference.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        **Required** - this is the payout destination.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.type`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - can be `bank_account` or `mobile_money`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.amount`
+      </td>
+
+      <td>
+        Number
+      </td>
+
+      <td>
+        **Required** - transaction amount in two decimal places.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.currency`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - transaction currency e.g. NGN, KES, GHS, XOF, XAF or USD
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.narration`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - transaction narration or description.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        **Required** - if `destination.type` is `bank_account`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.bank`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - recipient bank code. Some bank codes that you can use to simulate successful transactions in test mode are `044`, `033`, `058` (i.e. for Access Bank, UBA and GTCO respectively). See the bank details for other test scenarios [here](https://developers.korapay.com/docs/testing-your-integration)
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.account`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - recipient account number.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.bank_account.account_name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if `currency` is `ZAR`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.mobile_money`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        **Required** - if `destination.type` is `mobile_money`
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.mobile_money.operator`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if `destination.type` is `mobile_money`.
+
+        This is the mobile money operator slug. E.g, `safaricom-ke`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.mobile_money.mobile_number`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - if `destination.type` is `mobile_money`.
+
+        This is the mobile number attached to the mobile money account.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.customer`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        **Required** - this is the customer object.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.customer.name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - the customer's full name.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `destination.customer.email`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - the customer's email.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        **Required** - the remittance data object.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data.sender_name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Required** - the full name of the sender.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data.sender_phone_number`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - the phone number of the sender.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data.sender_dob`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - the date of birth of the sender in the format `YYYY-MM-DD`, e.g. `1990-05-15`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data.sender_country_iso`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - the 2-digit country ISO code of sender, e.g. `NG` for Nigeria.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data.sender_nationality`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - the nationality of the sender, e.g. `Nigerian`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data.sender_id_type`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - the identification type of the sender, e.g. `passport`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data.sender_id_number`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - the identification type number of the sender, e.g. `A12345678`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data.sender_service_provider_name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - the name of the provider, e.g. `ABC Bank`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data.remittance_purpose`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - the purpose of the remittance, e.g. `Family Support`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data.sender_recipient_relationship`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - the relationship between the sender and the recipient, e.g, `Sibling`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `remittance_data.sender_occupation`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        _Optional_ - the occupation of the sender, e.g. `Software Engineer`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `metadata`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        _Optional_ - It takes a JSON object with a maximum of 5 fields/keys. Empty JSON objects are not allowed.
+
+        Each field name has a maximum length of 20 characters. Allowed characters: `A-Z,` `a-z`, `0-9`, `-`.
+      </td>
+    </tr>
+  </tbody>
+</Table>
+
+Here's an example of how the request would look like:
+
+```json Sample Request (Remittance)
+{
+   "reference": "KPY-D-t74azVrw9oPLtv9",
+   "destination": {
+        "type": "mobile_money",
+        "amount": 100,
+        "currency": "GHS",
+        "narration": "Test Transfer Payment backend",
+        "mobile_money": {
+            "operator": "MTN",
+            "mobile_number": "233244300001"
+        },
+        "customer": {
+            "name": "Sally",
+            "email": "sally@example.com"
+        }
+    },
+   "remittance_data": {
+        "sender_name": "Sally Okunola",
+        "sender_phone_number": "086778899001",
+        "sender_dob": "1990-01-31",
+        "sender_country_iso": "NG",
+        "sender_nationality": "Nigerian",
+        "sender_id_type": "Passport",
+        "sender_id_number": "A12345678",
+        "sender_service_provider_name": "ABC Bank",
+        "remittance_purpose": "Family Support",
+        "sender_recipient_relationship": "Brother",
+        "source_of_funds": "Salary",
+        "sender_occupation": "Software Engineer"
+   }
+}
+```
+
+<br />
+
+**Payout Response**
+
+Here’s how the response for your payout (regular/remittance) request should look like:
+
+```json Sample Response (Regular)
+{
+  "status": true,
+  "message": "transfer initiated successfully",
+  "data": {
+    "amount": "100.00",
+    "fee": "2.50",
+    "currency": "NGN",
+    "status": "processing",
+    "reference": "KPY-D-t74azVrw9oPLtv9",
+    "narration": "Test Transfer Payment",
+    "message": "Payout processing",
+    "customer": {
+      "name": "John Doe",
+      "email": "johndoe@sample.com",
+      "phone": null
+    },
+    "metadata": {
+      "internalRef": "JD-12-67",
+      "age": 15,
+      "fixed": true,
+    }
+  }
+}
+```
+```json Sample Response (Remittance)
+{
+  "status": true,
+  "message": "Remittance transfer initiated successfully.",
+  "data": {
+	"amount": "100.00",
+	"fee": "2.50",
+	"currency": "NGN",
+	"status": "processing",
+	"reference": "KPY-D-t74azVrw9oPLtv9",
+	"narration": "Test Transfer Payment",
+               "message": "Payout processing",
+	"customer": {
+  	      "name": "John Doe",
+  	      "email": "johndoe@korapay.com",
+  	      "phone": null
+	}
+  }
+}
+```
+
+<br />
+
+<br />
+
+<Callout icon="🚧" theme="warn">
+  **Note:** For payouts in XAF and XOF, you are ONLY allowed to pay out amounts in multiples of 5s and 10s. This means that amounts like XAF 101 or XAF 98 will not be accepted unless they are either rounded up (110 or 100) or down (100 or 95) in order to be processed successfully.
+</Callout>
+
+***
+
+### **Encrypting your request payload (optional)**
+
+If you wish to encrypt the payload for your requests, you can do so by following these steps:
+
+1. Stringify the payload generated from the previous step.
+2. Encrypt using AES-256 algorithm. Your encryption key can be found under the [API configuration tab](https://merchant.korapay.com/dashboard/settings/api-integrations) in the **Settings** page of your dashboard.
+3. Send the generated encrypted string in your request body as `encrypted_data` as shown below. `{“encrypted_data”: “your-generated-encrypted-string”}`
+
+<br />
+
+You can find some sample code snippets below showing a function that handles AES-256 encryption.
+
+```javascript
+// Javascript
+const crypto = require("crypto");
+
+function encryptAES256(encryptionKey, paymentData) {  
+  const iv = crypto.randomBytes(16);
+
+  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey, iv);
+  const encrypted = cipher.update(paymentData);
+
+  const ivToHex = iv.toString('hex');
+  const encryptedToHex = Buffer.concat([encrypted, cipher.final()]).toString('hex');
+  
+  return `${ivToHex}:${encryptedToHex}:${cipher.getAuthTag().toString('hex')}`;
+}
+```
+```php
+// PHP
+function encryptAES256($encryptionKey, $paymentData) {
+     $method = "aes-256-gcm";
+    $iv = openssl_random_pseudo_bytes(16);
+    $tag = "";
+    $cipherText = openssl_encrypt($paymentData, $method, $encryptionKey, OPENSSL_RAW_DATA, $iv, $tag, "", 16);
+    return bin2hex($iv).':'.bin2hex($cipherText).':'.bin2hex($tag);
+}
+```
+```python
+#Python
+# run pip install pycryptodome to use the GCM Mode
+import json
+from Crypto.Cipher import AES
+from Crypto import Random
+import base64
+from binascii import hexlify as hexa
+
+def encryptAES256(encryptionKey, paymentData):
+     try:
+         iv = Random.get_random_bytes(16)
+         encObj = AES.new(encryptionKey.encode("utf8"), AES.MODE_GCM, iv)
+         cipherText,authTag = encObj.encrypt_and_digest(paymentData.encode("utf8"))
+         iv64 = base64.b64encode(iv).decode('ascii')
+         ivToHex = hexa(iv).decode()
+         cipherTextToHex = hexa(cipherText).decode()
+         authTagToHex = hexa(authTag).decode()
+         result = ivToHex + ":" + cipherTextToHex + ":" + authTagToHex
+         return result
+     except Exception as e:
+         print(e)
+```
+```java
+// Java
+import java.security.SecureRandom;
+import java.util.Base64;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+
+public class Encryption {
+    private static final char[] HEX_ARRAY = "0123456789abcdef".toCharArray();
+
+    private static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
+    private static byte[] encryptDataWithAes(byte[] plainText, byte[] aesKey, byte[] aesIv) throws Exception {
+            GCMParameterSpec gcmSpec = new GCMParameterSpec(128, aesIv);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            SecretKeySpec   secretKeySpec = new SecretKeySpec(aesKey, "AES");
+            cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, gcmSpec);
+            byte[] cipherText = cipher.doFinal(plainText);
+
+            return cipherText;
+   }
+
+    public static String encryptPayload(String payload, String key) throws Exception {
+            SecureRandom r = new SecureRandom();
+
+            byte[] ivBytes = new byte[16];
+            r.nextBytes(ivBytes);
+
+            byte[] keyBytes   = key.getBytes(StandardCharsets.UTF_8);
+            byte[] inputBytes = payload.getBytes(StandardCharsets.UTF_8);
+            byte[] encryptedBytes = encryptDataWithAes(inputBytes, keyBytes, ivBytes);
+            
+            byte[] cipherTextBytes = Arrays.copyOfRange(encryptedBytes, 0, payload.length());
+            byte[] authTagBytes = Arrays.copyOfRange(encryptedBytes, payload.length(), encryptedBytes.length);
+        
+            String ivHex = bytesToHex(ivBytes);
+            String encryptedHex = bytesToHex(cipherTextBytes);
+            String authTagHex = bytesToHex(authTagBytes);
+                        
+            String result = new StringBuilder()
+                    .append(ivHex)
+                    .append(":")
+                    .append(encryptedHex)
+                    .append(":")
+                    .append(authTagHex)
+                    .toString();
+            return result;
+    }
+}
+```
+```csharp
+// C#
+using System;
+using System.Security.Cryptography;
+using System.Text;
+using Org.BouncyCastle.Crypto.Modes;
+using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Crypto.Engines;
+
+	public static class Encryption
+	{
+		private static readonly char[] HEX_ARRAY = "0123456789abcdef".ToCharArray();
+		private static string BytesToHex(byte[] bytes)
+		{
+			char[] hexChars = new char[bytes.Length * 2];
+			for (int j = 0; j < bytes.Length; j++)
+			{
+				int v = bytes[j] & 0xFF;
+				hexChars[j * 2] = HEX_ARRAY[v >> 4];
+				hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+			}
+
+			return new string (hexChars);
+		}
+
+		private static byte[] EncryptDataWithAes(byte[] plainText, byte[] aesKey, byte[] aesIv)
+		{
+			var cipher = new GcmBlockCipher(new AesEngine());
+			var keyParam = new KeyParameter(aesKey);
+			var ivParam = new ParametersWithIV(keyParam, aesIv);
+			cipher.Init(true, ivParam);
+			byte[] cipherText = new byte[cipher.GetOutputSize(plainText.Length)];
+			int len = cipher.ProcessBytes(plainText, 0, plainText.Length, cipherText, 0);
+			cipher.DoFinal(cipherText, len);
+			return cipherText;
+		}
+
+		public static string EncryptPayload(string payload, string encryptionKey)
+		{
+			using RandomNumberGenerator r = RandomNumberGenerator.Create();
+			byte[] ivBytes = new byte[16];
+			r.GetBytes(ivBytes);
+			byte[] keyBytes = Encoding.UTF8.GetBytes(encryptionKey);
+			byte[] inputBytes = Encoding.UTF8.GetBytes(payload);
+			byte[] encryptedBytes = EncryptDataWithAes(inputBytes, keyBytes, ivBytes);
+			byte[] cipherTextBytes = encryptedBytes[..payload.Length];
+			byte[] authTagBytes = encryptedBytes[payload.Length..];
+			string ivHex = BytesToHex(ivBytes);
+			string encryptedHex = BytesToHex(cipherTextBytes);
+			string authTagHex = BytesToHex(authTagBytes);
+			string result = $"{ivHex}:{encryptedHex}:{authTagHex}";
+			return result;
+		}
+	}
+```
+
+***
+
+### **Handling Unexpected Request Errors**
+
+When you initiate a payout, **DO NOT** treat request errors such as 502 Bad Gateway, 504 Gateway Timeout, 503 Service Unavailable, 500 Internal Server Error, etc, as failed payout. If you receive any of the errors or any other unexpected error, we strongly recommend that you verify the payout using the [Payout Verification API](https://docs.korapay.com/?version=latest#ce2440eb-4576-4106-ba6f-bda9e8f4e06a) before giving value or completing the transaction.
+
+Whenever an unexpected request error occurs, it’s possible that the payout may have been accepted and processed by Kora. Following this recommendation will prevent the possibility of a financial loss.
+
+You can find a list of possible payout errors and how to treat them [here](https://developers.korapay.com/docs/errors#payout-errors).
+
+<Callout icon="🚧" theme="warn">
+  Verifying the payout before completing the transaction and providing value to the customer is strongly recommended. **Please note that Kora will not be liable for any loss resulting from these errors.**
+</Callout>
+
+***
+
+# **Payout History API**
+
+The Payout History API allows you to fetch all the payout transactions made from your Kora account without having to get them from the dashboard. Use the endpoint below to fetch your payout history. (*NOTE: It accepts your secret key as the authorization header*)
+
+`{{baseurl}}/merchant/api/v1/payouts`
+
+The parameters for this request query include:
+
+| Field            | Data Type | Description                                                                                                                  |
+| :--------------- | :-------- | :--------------------------------------------------------------------------------------------------------------------------- |
+| `currency`       | String    | **Optional** - transaction currency e.g. `NGN`, `KES`, `GHS`, `ZAR`,  etc.                                                   |
+| `date_from`      | String    | **Optional** - fetch transactions from this date. Use format `YYYY-MM-DD-HH-MM-SS`.                                          |
+| `date_to`        | String    | **Optional** - fetch transactions up to this date. Use format `YYYY-MM-DD-HH-MM-SS`.                                         |
+| `limit`          | Number    | **Optional** - If not passed, we send a limit of `10`.                                                                       |
+| `starting_after` | String    | **Optional** - used for pagination, must be used separately with `ending_before`, it expects the pointer from the response.  |
+| `ending_before`  | String    | **Optional** - used for pagination, must be used separately with `starting_after`, it expects the pointer from the response. |
+
+***
+
+Here's an example of how the response could look like:
+
+```json Sample Response
+{
+  "has_more": true,
+  "data": {
+    "pointer": "cus_16FC",
+    "reference": "555780645",
+    "status": "success",
+    "amount": "1500.00",
+    "fee": "40.31",
+    "currency": "NGN",
+    "narration": "Transfer from Young and free",
+    "trace_id": "14530184957",
+    "message": "Payout successful",
+    "customer_name": "John Doe",
+    "customer_email": "johndoe@sample.com",
+    "date_created": "2023-09-07 07:16:04",
+    "date_completed": "2023-09-07 07:18:17"
+  }
+}
+```
+
+# **Receive confirmation via webhook**
+
+You can set your application to receive a confirmation via webhooks when the payout is completed. Please visit [Webhooks](https://developers.korapay.com/docs/webhooks) to see more information about the webhook request body and how to verify and handle the webhook request.
+
+
+
+---
+updatedAt: 2026-02-02T10:20:37.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Creating and Managing Beneficiaries
+
+Creating beneficiaries is an effective way to enhance your payout process and ensure a smooth payout experience for your customers. We have created an API for you to create and manage recipients’ and their account details securely.
+
+You can easily:
+
+* **Create:** Add a new beneficiary's bank details.
+* **Retrieve:** Get the details of a single beneficiary.
+* **Fetch history:** View all the beneficiaries you have saved.
+
+<br />
+
+## Creating a beneficiary
+
+To create a beneficiary, make a POST request to the Create Beneficiary endpoint:
+
+`{{baseurl}}/api/v1/payouts/beneficiaries`
+
+<br />
+
+The request body should have the following parameters:
+
+| Field                                      | Data Type | Required? | Description                                                                                                                                   |
+| :----------------------------------------- | :-------- | :-------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reference`                                | String    | True      | This is the unique reference used to identify the payout.                                                                                     |
+| `destination.type`                         | String    | True      | This is the type of destination to which the payout is to be made (e.g., `bank_account`).                                                     |
+| `destination.currency`                     | String    | True      | This is the currency of the beneficiary account (e.g., `USD`).                                                                                |
+| `destination.customer.name`                | String    | True      | This the full name of the beneficiary/customer.                                                                                               |
+| `destination.customer.email`               | String    | True      | This is the email of the beneficiary/customer.                                                                                                |
+| `bank_account.account`                     | String    | True      | This is the bank account number.                                                                                                              |
+| `bank_account.account_name`                | String    | True      | This is the name on the bank account.                                                                                                         |
+| `bank_account.bank_name`                   | String    | True      | This is the name of the bank.                                                                                                                 |
+| `bank_account.beneficiary_type`            | String    | True      | This is the type of the beneficiary. It can either be `individual` or `business`.                                                             |
+| `bank_account.first_name`                  | String    | True      | This is the beneficiary's *first name*.                                                                                                       |
+| `bank_account.last_name`                   | String    | True      | This is the beneficiary's *last name*.                                                                                                        |
+| `bank_account.account_type`                | String    | True      | This is the account type - `savings` or `checking`.                                                                                           |
+| `bank_account.account_number_type`         | String    | True      | This is the format of the account number - `account_number` (for regular account numbers) or `iban` (for international bank account numbers). |
+| `address_information.country`              | String    | True      | This is the country code for the beneficiary's address. E.g, `US`.                                                                            |
+| `address_information.state`                | String    | True      | This is the state or region for the beneficiary's address.                                                                                    |
+| `address_information.city`                 | String    | True      | This is the city of residence for the beneficiary.                                                                                            |
+| `address_information.zip_code`             | String    | True      | This is the postal or ZIP code for the beneficiary's address.                                                                                 |
+| `address_information.street`               | String    | True      | This is the street name for the beneficiary's address.                                                                                        |
+| `address_information.full_address`         | String    | True      | This is the complete address line for the beneficiary, in one string.                                                                         |
+| `bank_account.payment_method`              | String    | True      | This is the payment method - `AbaRouting` or `BicSwift`.                                                                                      |
+| `bank_account.routing_number`              | String    | True      | This is the routing number used for US bank transfers.                                                                                        |
+| `bank_account.intermediary_routing_number` | String    | True      | This is required if `.payment_method` is `BicSwift` (SWIFT routing).                                                                          |
+
+The request body could look like this:
+
+```json Sample Request
+{
+    "reference": "sample-reference-from-merchant",
+    "destination": {
+        "type": "bank_account",
+        "currency": "USD",
+        "customer": {
+            "name": "Jane Doe",
+            "email": "jane.doe@example.com"
+        },
+        "bank_account": {
+            "account": "1234567890",
+            "account_name": "Demo Account Name",
+            "bank_name": "MID-CENTRAL NATIONAL BANK",
+            "beneficiary_type": "individual", // individual  or  corporate
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "account_type": "savings", //  savings or checking
+            "account_number_type": "account_number", //account_number or iban
+            "address_information": {
+                "country": "US",
+                "state": "California",
+                "city": "Los Angeles",
+                "zip_code": "90001",
+                "street": "123 Main St",
+                "full_address": "123 Main St, Los Angeles, CA 90001"
+            },
+            "payment_method": "AbaRouting", //  AbaRouting or BicSwift
+            "routing_number": "091271660"
+        }
+    }
+}
+```
+
+<br />
+
+Here's an example of a response to this request:
+
+```json Sample Response
+{
+    "status": true,
+    "message": "Payout Bank account beneficiary created successfully",
+    "data": {
+        "reference": "sample-reference-from-merchant",
+        "destination": {
+            "type": "bank_account",
+            "currency": "USD",
+            "customer": {
+                "name": "Jane Doe",
+                "email": "jane.doe@example.com"
+            },
+            "bank_account": {
+                "bank": "091271660",
+                "account": "1234567890",
+                "account_name": "Demo Account Name",
+                "bank_name": "MID-CENTRAL NATIONAL BANK",
+                "beneficiary_type": "individual",
+                "first_name": "Jane",
+                "last_name": "Doe",
+                "business_name": null,
+                "account_type": "savings",
+                "account_number_type": "account_number",
+                "currency": "USD",
+                "routing_number": "091271660",
+                "payment_method": "AbaRouting",
+                "address_information": {
+                    "country": "US",
+                    "state": "California",
+                    "city": "Los Angeles",
+                    "zip_code": "90001",
+                    "street": "123 Main St",
+                    "full_address": "123 Main St, Los Angeles, CA 90001"
+                }
+            }
+        }
+    }
+}
+}
+```
+
+***
+
+## Retrieving a saved beneficiary
+
+You can retrieve a saved beneficiary to make a payout to by using the beneficiary reference. To do this, make a GET request to the Query endpoint:
+
+`{{baseurl}}/api/v1/payouts/beneficiaries/:reference`
+
+<br />
+
+The required parameter(s) for this request include:
+
+| Field       | Data Type | Required | Description                                    |
+| :---------- | :-------- | :------- | :--------------------------------------------- |
+| `reference` | String    | True     | This is the reference of the saved beneficiary |
+
+Here's how the response to the request could look like:
+
+```json Sample Response
+{
+    "status": true,
+    "message": "Payout beneficiary retrieved successfully",
+    "data": {
+        "reference": "sample-reference-from-merchant",
+        "destination": {
+            "type": "bank_account",
+            "currency": "USD",
+            "customer": {
+                "name": "John Doe",
+                "email": "john.doe@example.com"
+            },
+            "bank_account": {
+                "bank": "083006102",
+                "account": "1234567000",
+                "account_name": "Test Account Name",
+                "bank_name": "JP MORGAN CHASE BANK, NA",
+                "beneficiary_type": "individual",
+                "first_name": "John",
+                "last_name": "Doe",
+                "business_name": null,
+                "account_type": "savings",
+                "account_number_type": "account_number",
+                "intermediary_routing_number": null,
+                "currency": "USD",
+                "routing_number": "083006102",
+                "payment_method": "AbaRouting",
+                "address_information": {
+                    "country": "US",
+                    "state": "California",
+                    "city": "Los Angeles",
+                    "zip_code": "90001",
+                    "street": "123 Main St",
+                    "full_address": "123 Main St, Los Angeles, CA 90001"
+                }
+            }
+        }
+    }
+}
+```
+
+***
+
+## Fetching beneficiaries' history
+
+You can retrieve the history of all saved beneficiaries for a period using the beneficiary History API. To do this, make a GET request to the Beneficiary history endpoint with the desired period:
+
+`{{baseurl}}/api/v1/payouts/beneficiaries`
+
+This request should have the following parameters:
+
+| Field   | Data Type | Required | Description                                                                       |
+| :------ | :-------- | :------- | :-------------------------------------------------------------------------------- |
+| `limit` | Number    | False    | This is the number of logs to return (Default value: `10` , Maximum Value: `50`). |
+| `page`  | Number    | False    | This is the page number of the requested page (Default value: `1`).               |
+
+<br />
+
+The response to this request would look like this:
+
+```json Sample response
+{
+    "status": true,
+    "message": "Payout beneficiaries retrieved successfully",
+    "data": {
+        "data": [
+            {
+                "reference": "sample-reference-from-merchant",
+                "destination": {
+                    "type": "bank_account",
+                    "currency": "USD",
+                    "customer": {
+                        "name": "John Doe",
+                        "email": "john.doe@example.com"
+                    },
+                    "bank_account": {
+                        "bank": "00956",
+                        "account": "99999999993",
+                        "account_name": "Ghaju",
+                        "bank_name": "JP Morgan",
+                        "beneficiary_type": "individual",
+                        "first_name": "John",
+                        "last_name": "Doe",
+                        "business_name": null,
+                        "account_type": "savings",
+                        "account_number_type": "account_number",
+                        "intermediary_routing_number": null,
+                        "currency": "USD",
+                        "routing_number": "00956",
+                        "payment_method": "AbaRouting",
+                        "address_information": {
+                            "country": "US",
+                            "state": "California",
+                            "city": "Los Angeles",
+                            "zip_code": "90001",
+                            "street": "123 Main St",
+                            "full_address": "123 Main St, Los Angeles, CA 90001"
+                        }
+                    }
+                }
+            }
+        ],
+        "meta": {
+            "total": 4,
+            "page": 1,
+            "limit": 10,
+            "totalPages": 1
+        }
+    }
+}
+```
+
+<br />
+
+
+
+
+---
+updatedAt: 2025-09-09T09:53:02.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Withdrawals
+
+Making withdrawals from your dashboard is simple and straightforward. Businesses can withdraw funds to their bank accounts, directly from their Korapay Balance.
+
+### Withdrawing from your Balance
+
+![3024](https://files.readme.io/3d66d40-Screenshot_2023-02-14_at_11.19.15_PM.png "Screenshot 2023-02-14 at 11.19.15 PM.png")
+
+To make a withdrawal from your balance,
+
+* Go to the Balances page of your dashboard,
+* In the Balance Detail box, click on the ‘Withdraw’ button.
+* Enter the amount you want to withdraw,
+* Select any of your saved bank accounts (or your settlement bank account) receiving the withdrawal.
+* Click on 'Proceed' to complete the transaction. You would be required to enter a one-time PIN sent to your email to authorize the withdrawal.
+
+<Callout icon="🚧" theme="warn">
+  Ensure that you always have enough funds in your balance to successfully complete your payouts. By default, Korapay prevents you from making transfers with this method if your NGN balance, for example, is less than N100.00 (One Hundred Naira). The minimum amount you can withdraw in a single attempt is N100.00 (One Hundred Naira).
+</Callout>
+
+
+
+
+---
+updatedAt: 2025-02-28T00:12:25.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Bulk Payouts via API
+
+Similar to making a single payout to a bank account via API, you can also use our API to make payouts to multiple bank accounts.
+
+When you initiate a bulk payout request, the disbursement is made from your balance. We send a webhook notification after each individual payout in the batch is completed. In addition, we send an email notification when the bulk payout is initiated, and another when it is complete.
+
+> 📘
+>
+> Currently, Kora’s Bulk Payout API supports Payouts to:
+>
+> * Nigerian (NGN) bank accounts
+> * Kenyan (KES) Mobile money accounts
+> * South African (ZAR) bank accounts
+> * Ghanaian (GHS) Mobile Money accounts
+
+> ☝️
+>
+> Before initiating a bulk payout, always ensure that there are sufficient funds in your balance to cover it.
+
+Similar to a payout to a single bank account, you can also retrieve the status of each payout in a batch using our verify API or through the dashboard.
+
+***
+
+The endpoint to call when **initiating a bulk payout** is:
+
+`{{baseurl}}/api/v1/transactions/disburse/bulk`
+
+The request body should include:
+
+<Table align={["left","left","left"]}>
+  <thead>
+    <tr>
+      <th>
+        Field
+      </th>
+
+      <th>
+        Data Type
+      </th>
+
+      <th>
+        Description
+      </th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td>
+        batch\_reference
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - A unique reference for the bulk payout. This reference should have a length between 5 and 50 characters.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        description
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        **Optional**
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        merchant\_bears\_cost
+      </td>
+
+      <td>
+        Boolean
+      </td>
+
+      <td>
+        * \*Optional\*\* - This will set who bears the fees of the transactions. If it is set to `true`, the merchant will bear the fee, while if it is set to `false`, the customer will bear the fee. By default, it is `false`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        currency
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - This is the currency of the transactions. E.g. `NGN`, `KES`, `GHS`, `ZAR`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payouts
+      </td>
+
+      <td>
+        Array [Object]
+      </td>
+
+      <td>
+        * \*Required\*\* - This captures all the payouts in the batch. A minimum of 2 and a maximum of 50 payouts are allowed in a batch.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payout
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        * \*Required\*\* - This will capture how each object in the array of payouts will look like.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payout.reference
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - A unique reference passed for the individual payout. This reference should have a length between 5 and 50 characters.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payout.amount
+      </td>
+
+      <td>
+        Number
+      </td>
+
+      <td>
+        * \*Required\*\* - This is the transaction amount in two decimal places.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payout.type
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - This value accepted is `bank_account`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payout.narration
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - This is the transaction's narration.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payout.bank\_account
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        * \*Required\*\* - This captures the details of the receiving bank account for the payout
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payout.bank\_account.bank\_code
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - This is the recipient's bank code. Some bank codes that you can use to simulate successful transactions in *test mode* are `044`, `033`, `058` (i.e. for  Access Bank, UBA and GTCO respectively).  
+
+        See the bank details for other test scenarios [here](https://developers.korapay.com/docs/testing-your-integration).
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payout.bank\_account.account\_number
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - This is recipient's account number.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payout.customer
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        * \*Required\*\* - This captures the details of the customer.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payout.customer.name
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - This is the name of the customer.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        payout.customer.email
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - This is the email of the customer.
+      </td>
+    </tr>
+  </tbody>
+</Table>
+
+Here’s how the response for your payout request should look like:
+
+```json Bulk Payout Response
+{
+    "status": true,
+    "message": "Bulk Transfer initiated successfully",
+    "data": {
+       "status": "pending",
+       "total_chargeable_amount": 1000,
+       "merchant_bears_cost": false,
+       "reference": "Batch-Reference-01",
+       "currency": "NGN",
+       "description": "test bulk transfer",
+       "createdAt": "2023-04-10TI7:38:42.521Z",
+    }
+}
+```
+
+## Fetch Bulk Payout
+
+You can fetch an initiated bulk payout with the following endpoint. It also returns the status of the bulk payout which could be `pending`, `failed`, or `complete` .
+
+`{{baseurl}}/api/v1/transactions/bulk/:batch_reference`
+
+The response to this could look like:
+
+```json Sample Response
+{
+    "status": true,
+    "message": "Bulk transaction retrieved successfully",
+    "data": {
+        "amount": "3500.00",
+        "currency": "NGN",
+        "reference": "batch_reference",
+        "status": "complete",
+        "description": "test bulk transfer",
+        "failedTransactions": 1,
+        "successfulTransactions": 1,
+        "pendingTransactions": 0,
+        "processingTransactions": 0
+    }
+}
+```
+
+***
+
+## Fetch all Payouts in the Batch
+
+You can also fetch all the payouts in a batch with the following endpoint. It returns an array of payouts.
+
+`{{baseurl}}/api/v1/transactions/bulk/:batch_reference/payouts`
+
+An example of a response could look like this:
+
+```json Sample Response
+{
+    "status": true,
+    "message": "Payouts retrieved successfully",
+    "data": {
+        "data": [
+            {
+                "reference": "001_Reference",
+                "amount": 1000,
+                "currency": "NGN",
+                "narration": "Test transfer to F4B Developers",
+                "status": "success",
+                "batch_reference": "Test_Bulk_reference",
+                "type": "bank_account",
+                "customer": {
+                    "name": "Test User 1",
+                    "email": "test1@test.com"
+                },
+                "bank_account": {
+                    "bank_code": "044",
+                    "account_number": "0000000000"
+                }
+            },
+            {
+                "reference": "002_Reference",
+                "amount": 1200,
+                "currency": "NGN",
+                "narration": "Test transfer to F4B Developers",
+                "status": "success",
+                "batch_reference": "Test_Bulk_reference",
+                "type": "bank_account",
+                "customer": {
+                    "name": "Test User 2",
+                    "email": "test2@test.com"
+                },
+                "bank_account": {
+                    "bank_code": "044",
+                    "account_number": "0000000000"
+                }
+            },
+            {
+                "reference": "003_Reference",
+                "amount": 1300,
+                "currency": "NGN",
+                "narration": "Test transfer to F4B Developers",
+                "status": "success",
+                "batch_reference": "Test_Bulk_reference_S",
+                "type": "bank_account",
+                "customer": {
+                    "name": "Test User 3",
+                    "email": "test3@test.com"
+                },
+                "bank_account": {
+                    "bank_code": "044",
+                    "account_number": "0000000000"
+                }
+            },
+        ],
+        "paging": {
+            "total_items": 3,
+            "page_size": 10,
+            "current": 1,
+            "count": 3
+        },
+      }
+}
+```
+
+***
+
+## Fetch Payout Transaction
+
+You can fetch a single payout in a batch by their reference with the following endpoint.
+
+`{{baseurl}}/api/v1/transactions/:reference`
+
+**If the payout was successful**, you would get a response that could look like this:
+
+```json Sample Response for Successful Payout
+{
+    "status": true,
+    "message": "Transaction retrieved successfully",
+    "data": {
+        "reference": "001_payout_reference",
+        "batch_reference": "batch_reference",
+        "status": "success",
+        "amount": 1000,
+        "fee": 15.31,
+        "currency": "NGN",
+        "narration": "Test transfer to Test User",
+        "trace_id": "521853970021533363527535291465",
+        "message": "Payout successful",
+        "customer": {
+            "email": "testuser@test.com",
+            "name": "Test User"
+        },
+        "metadata": null
+    }
+}
+```
+
+And **if the payout failed**, you would get a response that could look like this:
+
+```json Sample Response for Failed Payout
+{
+    "status": true,
+    "message": "Transaction retrieved successfully",
+    "data": {
+        "reference": "001_payout_reference",
+        "batch_reference": "batch_reference",
+        "status": "failed",
+        "amount": 1000.00,
+        "fee": 15.31,
+        "currency": "NGN",
+        "narration": "Test transfer to Test user",
+        "message": "Invalid Bank Account",
+        "customer": {
+            "email": "testuser@test.com",
+            "name": "Test User"
+        },
+        "metadata": null
+    }
+}
+```
+
+
+
+
+---
+updatedAt: 2026-06-11T14:39:29.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Overview
+
+Our Currency Conversion product enables you to convert funds between various currencies using up-to-date exchange rates. The suite of APIs supports fetching the latest exchange rates, converting currency amounts, and retrieving historical conversion transactions.
+
+Currently, Kora supports the following currency exchange:
+
+| NGN         | USD         | KES         | GHS         | ZAR         | XAF         | XOF         | TZS         | EGP         | EUR         | GBP         | CNY         |
+| :---------- | :---------- | :---------- | :---------- | :---------- | :---------- | :---------- | :---------- | :---------- | :---------- | :---------- | :---------- |
+| `NGN`↔`USD` | `USD`↔`NGN` | `KES`↔`NGN` | `GHS`↔`NGN` | `ZAR`↔`NGN` |             |             | `TZS`↔`NGN` | `EGP`↔`NGN` | `EUR`↔`NGN` | `GBP`↔`NGN` | `CNY`↔`NGN` |
+| `NGN`↔`KES` | `USD`↔`KES` | `KES`↔`USD` | `GHS`↔`USD` | `ZAR`↔`USD` | `XAF`↔`USD` | `XOF`↔`USD` | `TZS`↔`USD` | `EGP`↔`USD` | `EUR`↔`USD` | `GBP`↔`USD` | `CNY`↔`USD` |
+| `NGN`↔`GHS` | `USD`↔`GHS` | `KES`↔`GHS` | `GHS`↔`KES` | `ZAR`↔`KES` |             |             |             |             |             |             |             |
+|             |             |             |             |             |             |             |             |             |             |             |             |
+| `NGN`↔`ZAR` | `USD`↔`ZAR` | `KES`↔`ZAR` | `GHS`↔`ZAR` | `ZAR`↔`GHS` |             |             |             |             |             |             |             |
+|             | `USD`↔`XAF` |             |             |             |             |             |             |             |             |             |             |
+|             | `USD`↔`XOF` |             |             |             |             |             |             |             |             |             |             |
+| `NGN`↔`TZS` | `USD`↔`TZS` |             |             |             |             |             |             |             |             |             |             |
+| `NGN`↔`EGP` | `USD`↔`EGP` |             |             |             |             |             |             |             |             |             |             |
+| `NGN`↔`EUR` | `USD`↔`EUR` |             |             |             |             |             |             |             |             |             |             |
+| `NGN`↔`GBP` | `USD`↔`GBP` |             |             |             |             |             |             |             |             |             |             |
+| `NGN`↔`CNY` | `USD`↔`CNY` |             |             |             |             |             |             |             |             |             |             |
+
+***
+
+### Prerequisites
+
+Here are the prerequisite steps to start using the Currency conversion API;
+
+1. Create a Kora account [here](https://merchant.korapay.com/auth/signup), (if you do not already have one).
+2. Ensure that your account is activated and Live Mode is turned on.
+3. Verify that your account has the USD Currency enabled (request access from <support@korapay.com>).
+4. Verify that your account is activated for the Currency conversion product (request access from <support@korapay.com>).
+5. Ensure your available balance of the currency you want to convert from is sufficiently funded, see how to fund your balance [here](docs:get-balance#funding-your-balance).
+
+***
+
+### Important Links
+
+Here are some important links to get you started on Currency conversion on Kora:
+
+#### Getting Started
+
+* [Exchange rate API ](https://developers.korapay.com/docs/exchange-rate-api)
+* [Currency conversion API](https://developers.korapay.com/docs/currency-conversion-api)
+* [Managing Conversions on the Kora dashboard](https://developers.korapay.com/docs/conversion-kora-dashboard)
+* [Testing Conversions on the Sandbox Environment](https://developers.korapay.com/docs/testing-conversions-sandbox-environment)
+
+<br />
+
+### Get support for Currency conversion product
+
+If you have any questions or concerns about currency conversion, you may email our support team at <support@korapay.com>.
+
+
+
+
+---
+updatedAt: 2026-02-02T12:28:07.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Exchange Rate API
+
+You can use the exchange rate API to get the latest rate for any currency pair. It can be used on its own or before starting a currency conversion. However, fetching the exchange rate is a prerequisite to initiating a currency conversion transaction.
+
+To get the latest exchange rate for a currency pair,  make a POST request to the exchange rate endpoint;
+
+`{{baseurl}}/api/v1/conversions/rates`
+
+The request body should have the following parameters:
+
+| Field           | Data Type | Description                                                                                                                                              |
+| :-------------- | :-------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `from_currency` | String    | The currency from which the user is converting. For example, if you wanted to convert Nigerian Naira to US Dollar, the `from_currency` will be NGN.      |
+| `to_currency`   | String    | The currency to which the user wants to convert funds. For example, if you wanted to convert Nigerian Naira to US Dollar, the `to_currency` will be USD. |
+| `amount`        | Number    | The amount to be converted (referring to the `from_currency`).                                                                                           |
+| `reference`     | String    | A string to reference this user. This can be a customer ID, a session ID, or similar, and can be used to reconcile the conversion.                       |
+
+Here's an example of a request:
+
+```json Sample Request
+{
+    "amount": 10,
+    "from_currency": "USD",
+    "to_currency": "NGN",
+    "reference": "1ccdb7da-e732-4610-a17f-5abfb7617d99"
+}
+```
+
+And here's a response to the request.
+
+```json Sample Response
+{
+  "status": true,
+  "message": "Conversion rate retrieved successfully",
+  "data": {
+    "from_currency": "USD",
+    "to_currency": "NGN",
+    "from_amount": 10,
+    "to_amount": 14400,
+    "rate": 1440,
+    "reference": "1ccdb7da-e732-4610-a17f-5abfb7617d99",
+    "expiry_in_seconds": 25,
+    "expiry_date": "2025-01-01T15:58:18.264Z"
+  }
+}
+```
+
+
+
+---
+updatedAt: 2025-03-07T14:52:24.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Currency Conversion API
+
+## Initiate Currency Conversion
+
+Before initiating a conversion, you need to first [get the exchange rate for the currency pair](https://developers.korapay.com/docs/exchange-rate-api) you want to convert. Once you have the exchange rate for the currency pair, you can start the conversion by making a POST request to the Initiate Currency Conversion endpoint;
+
+`{{baseurl}}/api/v1/conversions/`
+
+The request body should have the following parameters:
+
+| Field            | Data Type | Description                                                                                                                                              |
+| :--------------- | :-------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rate_reference` | String    | A string to reference the rate that was gotten for the amount.                                                                                           |
+| `amount`         | Number    | The amount to be converted.                                                                                                                              |
+| `from_currency`  | String    | The currency from which the user is converting. For example, if you wanted to convert Nigerian Naira to US Dollar, the `from_currency` will be NGN.      |
+| `to_currency`    | String    | The currency to which the user wants to convert funds. For example, if you wanted to convert Nigerian Naira to US Dollar, the `to_currency` will be USD. |
+| `customer_name`  | String    | The name of customer initiating the conversion.                                                                                                          |
+| `customer_email` | String    | The email of the customer initiating the conversion.                                                                                                     |
+| `narration`      | String    | The description of the transaction.                                                                                                                      |
+
+Here's an example of a response to the request:
+
+```json Sample Response
+{
+  "status": true,
+  "message": "Conversion processed successfully",
+  "data": {
+    "converted_amount": "14400.00",
+    "source_amount": "10.00",
+    "destination_currency": "NGN",
+    "exchange_rate": "1440.00",
+    "reference": "1ccdb7da-e732-4610-a17f-5abfb7617d90",
+    "source_currency": "USD",
+    "status": "success"
+  }
+}
+```
+
+An email notification will also be sent to you immediately the currency conversion is completed.
+
+> 🚧
+>
+> Always ensure that you have sufficient funds in your available balance for the currency you want to convert from.
+
+***
+
+## Retrieving Currency Conversion Transaction
+
+You can retrieve a conversion transaction to get the status and the details of that transaction using its reference.
+
+To do this, make a GET request to the Retrieve Conversion Transaction endpoint;
+
+`{{baseurl}}/api/v1/conversions/:reference`
+
+The request should have the following parameters:
+
+| Field       | Data Type | Description                                      |
+| :---------- | :-------- | :----------------------------------------------- |
+| `reference` | String    | **Required** - the reference of the transaction. |
+
+Here's an example of the response to the request to retrieve a conversion transaction:
+
+```json Sample Response
+{
+  "status": true,
+  "code": "AA000",
+  "message": "Conversion retrieved successfully",
+  "data": {
+    "source_currency": "NGN",
+    "destination_currency": "USD",
+    "exchange_rate": "1870.00",
+    "source_amount": "4000.00",
+    "converted_amount": "2.14",
+    "status": "success",
+    "reference": "2ccdb7da-e732-4610-a17f-5abfb7617d90",
+    "channel": "api",
+    "customer_name": "John",
+    "customer_email": "jdoe@gmail.com",
+    "narration": "sample narration",
+    "transaction_date": "2025-02-26 13:36:57"
+  }
+}
+```
+
+***
+
+## Fetching Conversion Transaction History
+
+You can retrieve the history of your currency conversion transactions within a given period using the Conversion History endpoint.
+
+To do this, make a GET request to the Conversion history endpoint with the desired period;
+
+`{{baseurl}}/api/v1/conversions`
+
+The request body should have the following parameters:
+
+| Field   | Data Type | Description                                                                            |
+| :------ | :-------- | :------------------------------------------------------------------------------------- |
+| `date`  | String    | **Required**- The specific date or date range (start date and end date)                |
+| `limit` | String    | **Required**- The number of logs to return (Default value: `20` ,Maximum Value: `100`) |
+| `page`  | String    | **Required**- The page number of the requested page (Default value: `1`)               |
+
+Here's an example of a response to the request to fetch conversions history:
+
+```json Sample Response
+{
+  "status": true,
+  "message": "Conversion transactions retrieved successfully",
+  "data": {
+    "history": [
+      {
+        "source_currency": "NGN",
+        "destination_currency": "USD",
+        "exchange_rate": "1870.00",
+        "source_amount": "4000.00",
+        "converted_amount": "2.14",
+        "status": "success",
+        "reference": "2ccdb7da-e732-4610-a17f-5abfb7617d90",
+        "channel": "api",
+        "customer_name": "John",
+        "customer_email": "jdoe@gmail.com",
+        "narration": "sample narration",
+        "transaction_date": "2025-02-26 13:36:57",
+        "account": {
+          "name": "Demo Merchant",
+          "email": "demo@korapay.com"
+        }
+      },
+      {
+        "source_currency": "USD",
+        "destination_currency": "NGN",
+        "exchange_rate": "1440.00",
+        "source_amount": "10.00",
+        "converted_amount": "14400.00",
+        "status": "success",
+        "reference": "1ccdb7da-e732-4610-a17f-5abfb7617d90",
+        "channel": "api",
+        "customer_name": "John",
+        "customer_email": "jdoe@gmail.com",
+        "narration": "sample narration",
+        "transaction_date": "2025-02-26 13:33:20",
+        "account": {
+          "name": "Demo Merchant",
+          "email": "demo@korapay.com"
+        }
+      }
+    ]
+  }
+}
+```
+
+
+
+
+---
+updatedAt: 2025-03-24T15:13:01.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Dynamic Currency Conversion
+
+Dynamic Currency Conversion (DCC) is a real-time conversion service that allows your customers to pay in their local currency while you get settled in your preferred currency. This offers a seamless and familiar checkout experience for your customers.
+
+Here's how Dynamic Currency Conversion works:
+
+* **Kora converts transaction amount:** Our system automatically converts the transaction amount to the customer's local currency using the real-time exchange rate.
+* **Customer makes payment:** The customer sees the total amount in their local currency and proceeds to make the payment.
+* **Transaction processed:** The payment is processed as usual, with the settlement amount converted back to your preferred settlement currency.
+
+<br />
+
+## Getting Started with Dynamic Currency Conversions
+
+To get started with DCC, follow these steps:
+
+1. First, you need access to the Currency Conversions service. See [here](https://developers.korapay.com/docs/convert-currency#prerequisite).
+2. Once you have access to Currency Conversions,
+
+   1. Go to **Settings** > **Settlements**
+   2. Select the currency for which you want to set this conversions setting (Swap Settlements), and check the "*Allow this merchant to settle payments in another currency*" checkbox.
+   3. **Save changes** to enable your preference to take effect.
+
+   <Image align="center" src="https://files.readme.io/2b992bf30e0e63954575acfd16b9e9a7587044f6e47e6fa75f74828a30311bcf-Screenshot_2025-03-24_at_3.52.19_PM.png" />
+3. Initiate a DCC transaction and include the following additional parameters in your payment request:
+   1. `payment_currency`: The currency that the customer pays in (their local currency).
+   2. `settlement_currency`: The currency in which you want to receive settlement.
+      <br />
+
+Here's an example of a request initiating a DCC transaction:
+
+```json Sample Request
+{
+    "amount": 10000,
+    "currency": "USD",
+    "payment_currency": "NGN",
+    "settlement_currency": "USD",
+    "reference": "your-transaction-reference-001",
+    "narration": "Payment for product Y",
+    "channels": "card",
+    "default_channel": "card",
+    "customer": {
+        "name": "John Doe",
+        "email": "john@email.com"
+    },
+    "notification_url": "https://webhook.site/8d321d8d-397f-4bab-bf4d-7e9ae3afbd50",
+    "metadata":{
+        "key0": "test0"
+    }
+}
+```
+
+<br />
+
+The responses to this request would look like this:
+
+```json Sample Response
+{
+    "status": true,
+    "message": "Charge created successfully",
+    "customer": {
+        "reference": "your-transaction-reference-001",
+        "checkout_url": "https://checkout.korapay.com/KPY-PI-202501231hXn08399/pay"
+    }
+}
+```
+
+<br />
+
+Some important things to note:
+
+* The `currency` field should indicate the currency of the  amount sent for collection.
+* Both `payment_currency` and `settlement_currency` must be supported by Kora.
+* The exchange rate can be marked up in the settlement settings on the dashboard.
+
+<br />
+
+If you have any questions or feedback on currency conversions, kindly email our support team at <support@korapay.com>.
+
+
+
+
+---
+updatedAt: 2025-03-11T11:22:31.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Overview
+
+For every payment you receive from your customers, Kora settles you to make the funds available for use or withdrawal. Settlements make up the final phase of any payment collection. Once you’re settled, you can either choose to withdraw the funds from your account or make payouts as you wish. A list of all your settlements (both pending and settled) and their scheduled dates can be seen in the [Settlements page](https://merchant.korapay.com/dashboard/settlements) on your dashboard.
+
+![3024](https://files.readme.io/5f0ca94-Screenshot_2023-02-14_at_11.41.31_PM.png "Screenshot 2023-02-14 at 11.41.31 PM.png")
+
+On the Settlements page, you can also see the accumulation of the unsettled transactions for the day that will be ready to be settled at the end of your current settlement cycle
+
+While a single pay-in can be settled individually, it is possible for a settlement to cover a batch of pay-ins that have occurred within a specified period (see [settlement mode](https://developers.korapay.com/docs/local-settlements#settlement-modeschedule)) to improve the efficiency of timing and availability. In any case, you can always see the transactions that make up a settlement on the Settlements Detail page.
+
+![2476](https://files.readme.io/36c5d51-Screenshot_2023-02-14_at_11.43.48_PM.png "Screenshot 2023-02-14 at 11.43.48 PM.png")
+
+***
+
+# **Receive settlements the way you want it**
+
+By default, all settlements are paid into your Kora balance. However, you can choose to receive these settlements in your bank account.
+
+## [Settlements](https://developers.korapay.com/docs/local-settlements)
+
+Receive settlements in your local currency (Nigerian Naira) and bank account - Nigerian Merchants only. [Learn more](https://korahq.atlassian.net/l/c/joosEsQB)
+
+
+
+
+
+---
+updatedAt: 2025-02-28T00:13:10.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Settlements
+
+Local settlements are available to all merchants transacting with the local currency (Nigerian Naira) on Korapay. As a prerequisite, you would need to provide a verified Nigerian bank account to activate your Korapay account and receive local settlements (Normally, the registered bank account associated with your Korapay account is used as your settlement bank account). You can see your settlement bank account at the bottom of the Settlements tab in your Settings.
+
+![2498](https://files.readme.io/fbb93a5-Screenshot_2023-02-14_at_11.45.27_PM.png "Screenshot 2023-02-14 at 11.45.27 PM.png")
+
+## **Settlement Mode/Schedule**
+
+Depending on the type of collection, the mode (or schedule) of a settlement may differ. The modes include instant settlements, same-day settlements, and next-day settlements. If a collection type is set to instant settlement, you would be settled immediately after the transaction is complete. However, if the collection is set to same-day or next-day settlement, the funds will be available for settlement 12 hours or 24 hours respectively, after the transaction is complete. By default, bank transfers are settled instantly, while card payments are settled on the next day. This timing only applies to local settlements.
+
+## **Settlement Destination**
+
+The destination of a settlement is the account into which the settlement is made. By default, your settlement destination is your Korapay Balance which is tied to your Korapay Reserved Bank account. You can also set your verified Nigerian bank account as your settlement destination.
+
+Note that instant settlements to any other account apart from your Korapay Reserved account may attract the regular payout fee.
+
+![3024](https://files.readme.io/4ae9a58-Screenshot_2023-02-14_at_11.46.19_PM.png "Screenshot 2023-02-14 at 11.46.19 PM.png")
+
+
+
+
+---
+updatedAt: 2026-07-24T13:40:53.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Split Payments
+
+Split Payments let you distribute funds from a single transaction into multiple bank accounts. This helps merchants manage VAT, revenue sharing and operational flows more easily. You can configure splits on the Dashboard or per transaction via the API.
+
+***
+
+### Get Started
+
+Before you can Split Payments, there are a few setup steps you must complete on the Dashboard:
+
+* Get access to split payments by making a request <support@korapay.com>.
+* Add recipient bank accounts on your Dashboard. Some accounts may require admin approval before they can be used.
+* Create a split rule. A split reference is automatically generated. (Note: A split rule remains inactive until at least one bank account is attached)
+
+***
+
+### Key Concepts
+
+There are two types of splits:
+
+* **Fixed amount:** A predetermined, absolute amount is sent to a recipient.
+* **Percentage amount:** A percentage of the transaction amount is sent to a recipient.
+
+***
+
+### Split Methods
+
+There are two ways to apply  splits:
+
+* Fixed Rule Split – Defined once on the Dashboard and reused via its reference.
+* Dynamic Rule Split – Defined inline with each transaction API request.
+
+<br />
+
+1. ### Initiate Payment with Split
+   To initiate a charge with splits, include one of the following fields in your charge request:
+
+| Field            | Type   | Description                                                                               |
+| :--------------- | :----- | :---------------------------------------------------------------------------------------- |
+| split\_reference | String | Use a rule created on the Dashboard. Applies that rule to the transaction.                |
+| split\_config    | Object | Define a per-transaction split directly in the API request. Includes type and recipients. |
+
+For more information on how to initiate a charge, check [here](https://documenter.getpostman.com/view/303979/SVzxXeSM?version=latest#949d18c3-b1f5-4022-8ec2-feb7784297b9).
+
+<Callout icon="📘" theme="info">
+  Note:
+
+  * A Dashboard rule applies to all incoming transactions by default.
+  * If you send a split_reference or split_config in your API request, the API configuration will override the Dashboard rule for that transaction.
+</Callout>
+
+<br />
+
+### Fixed rule split
+
+```json
+{
+    "amount": 400000,
+    "redirect_url": "https://korapay.com",
+    "currency": "NGN",
+    "reference": "reference-12345",
+    "narration": "Payment for product A",
+    "channels": [
+        "card"
+    ],
+    "default_channel": "card",
+    "customer": {
+        "name": "John Doe",
+        "email": "john@email.com"
+    },
+    "notification_url": "https://korapay.com",
+    "split_reference": "KPY-SAS-123456789"
+}
+
+```
+
+### Dynamic rule split
+
+```json
+{
+    "amount": 400000,
+    "redirect_url": "https://korapay.com",
+    "currency": "NGN",
+    "reference": "reference-12345",
+    "narration": "Payment for product A",
+    "channels": [
+        "card"
+    ],
+    "default_channel": "card",
+    "customer": {
+        "name": "John Doe",
+        "email": "john@email.com"
+    },
+    "notification_url": "https://korapay.com",
+    "split_configuration": {
+        "split_type": "percentage", //percentage or flat
+        "split_accounts": [
+            {
+                "value": "30",
+                "split_account_reference" : "KPY-SPA-12345"
+            },
+            {
+                "value": "25",
+                "split_account_reference" : "KPY-SPA-56789"
+            }
+        ]
+    }
+}
+
+```
+
+For more information on using this product kindly check our [FAQ’s](https://developers.korapay.com/v2.9.7/docs/split-payment-faqs#/)
+
+<br />
+
+Accept Mobile Money Payment with Checkout
+Checkouts allow you to accept mobile money payments from customers securely. You can either choose to integrate Checkouts or create shareable, customizable Payment links for your business, with very minimal effort. Both ways guarantee a safe and convenient payment experience for customers.
+
+Get started with accepting Mobile money using Checkout
+We have outlined a detailed step-by-step flow on integrating Checkouts on your website here. If you prefer a quick, easy-to-setup one-time payment option on the Checkout, Payment Links are your best bet. You’ll find everything you need to know about Payment Links here
+
+How does Mobile money work?
+Customers can make fast and secure payments through the Pay with Mobile money method in just a few simple steps.
+
+1 - Enter a mobile money number
+After choosing the ‘Mobile money’ option on the Checkout, the customer must input the mobile money number linked to their wallet into the designated field to proceed.
+
+
+2 - OTP confirmation
+For transactions that require extra validation, an OTP will be required to validate the transaction.
+
+3 - STK Push/Prompt
+After a valid mobile money number has been provided or OTP has been provided (for transactions that require them), the wallet provider will dispatch a request for transaction authorization, alongside relevant details, to the provided mobile number via STK prompt.
+
+4 - Authorization
+To finalize the transaction, the customer must authenticate the transaction by inputting their PIN in the STK prompt sent to their phone by the provider. With a successful authorization check and sufficient balance a successful charge is made on the customer’s account.
+
+5 - Verify payment
+Once the customer has been charged successfully, the transaction would show on your Korapay dashboard as successful.
+
+Testing Mobile money on the Sandbox environment
+To test this payment method (without using real money), a sandbox implementation has also been provided, with appropriate test instructions. Simply switch to test mode on your dashboard to use test Checkouts.
+
+
+
+---
+updatedAt: 2025-02-28T00:11:31.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Checkouts
+
+Checkouts are secure, Kora-hosted payment pages that you can easily integrate into your website or applications to seamlessly collect payments from your customers. With Checkouts, you can easily create customizable payment experiences with a smooth and more secure flow for your customers.
+
+![](https://files.readme.io/9e41d76-Screenshot_2021-08-10_at_11.51.03_AM.png "Screenshot 2021-08-10 at 11.51.03 AM.png")
+
+On the merchant dashboard, the Checkouts also comes in the form of [Payment Links](https://developers.korapay.com/docs/payment-links) which include customizable URLs that you can easily share with your customers or embed in buttons on your applications. However, you can choose to integrate the gateway such that when your application calls the APIs, it renders in an iframe or a new page where your customers can enter their payment details to complete their transactions.
+
+***
+
+> 🚧 Heads up!
+>
+> You can only receive **real payments** with Checkouts or Payment Links in [Live mode](https://developers.korapay.com/docs/test-live-modes). At this point, you must have completed the Go-Live requirements.
+
+***
+
+# Checkout Integration Options
+
+There are two options for integrating the Checkout and, as their names imply, their use cases are pretty straightforward.
+
+## [Checkout Standard](https://developers.korapay.com/docs/checkout-standard)
+
+## [Checkout Redirect](https://developers.korapay.com/docs/checkout-redirect)
+
+
+
+---
+updatedAt: 2025-02-28T00:11:31.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Checkout Standard
+
+Checkout Standard provides a simplified and secure flow for collecting payments from customers. It's easy to integrate.
+
+# **Integrating the Checkout Standard**
+
+We'll use examples to show you how to integrate Kora's payment gateway using the Checkout Standard into your product. Feel free to make the necessary adjustments you need to provide a customized experience on your product. In our first example, we'll be using a simple "Pay" button that should load Checkout Standard on a webpage.
+
+Let's get started:
+
+# 1 - Get your API Keys
+
+Obtain your [API Keys](https://developers.korapay.com/docs/api-keys) from your dashboard. *We recommend you integrate using your test keys to avoid changes to your live data or charging real customers while testing.*
+
+# 2 - Add the pay-ins/collections script
+
+Next, you'll need to add the Kora pay-in/collection script to your website or application.
+
+```html Sample Form
+<form>
+    <script src="https://korablobstorage.blob.core.windows.net/modal-bucket/korapay-collections.min.js"></script>
+    <button type="button" onclick="payKorapay()"> Pay </button>
+</form>
+```
+
+```html Pay-in Script
+<script>
+    function payKorapay() {
+        window.Korapay.initialize({
+            key: "pk_live_*********************",
+            reference: "your-unique-reference",
+            amount: 22000, 
+            currency: "NGN",
+            customer: {
+              name: "John Doe",
+              email: "john@doe.com"
+            },
+            notification_url: "https://example.com/webhook"
+        });
+    }
+</script>
+```
+
+> 🚧 Warning!
+>
+> Avoid exposing your secret key on the client-side (or front end) of your application. Requests to the Kora's API should be initiated from your server.
+
+# 3 - Initialize the payment gateway.
+
+Use the `Korapay.initialize` function to pass the relevant transaction details needed to initialize the payment gateway and start accepting payments.
+
+* Set the sample API key with your test mode key obtained from your dashboard. This allows you to test through your Korapay account.
+
+* Indicate the amount and currency.
+
+* Indicate the customer name and email to show on the gateway as the sender of the transaction.
+
+* When you’re ready to accept live payments, replace the test key with your live/production key.
+
+# 4 - Receive confirmation via webhook
+
+When the payment is successful, we will make a POST request to your webhook URL (as set up in your dashboard, or while initializing the transaction using the key: `notification_url`) in this format:
+
+```json Code: Response Format
+{
+   "even"t:  "charge.success" //the notification is only sent for successful charge,
+   "data": {
+     	"reference": "KPY-C-cUBkIH&98n8b",
+     	"currency": "NGN",
+     	"amount": "22000", //amount paid by the customer
+     	"amount_expected": "22000", //amount that the customer is expected to pay
+     	"fee": "25",
+     	"status": "success",
+     	"payment_reference": "your-unique-reference", //unique reference sent by the merchant
+     	"transaction_status": "success" //the status of the charge base on the amount paid by the customer. This can either be `success`, `underpaid` or `overpaid`,
+      "metadata": {
+        "internalRef": "JD-12-67",
+        "age": 15,
+        "fixed": true,
+      }
+   }
+}
+```
+
+***
+
+## **Configuration parameters**
+
+<Table align={["left","left","left"]}>
+  <thead>
+    <tr>
+      <th>
+        Field
+      </th>
+
+      <th>
+        Data Type
+      </th>
+
+      <th>
+        Description
+      </th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td>
+        `key`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - Your public key from Korapay. Use the test public key for test transactions and live public key for live transactions
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `reference`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - Your unique transaction reference. *Must be unique for every transaction*.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `amount`
+      </td>
+
+      <td>
+        Integer
+      </td>
+
+      <td>
+        * \*Required\*\* - Amount to be collected.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `currency`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - Currency of the charge, e.g NGN, KES, GHS. The default is NGN (Nigerian Naira)
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        * \*Required\*\* - JSON object containing customer details
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer.name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required \*\*- field in the customer object. Customer name derived from name enquiry.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer.email`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - Field in the customer object. Customer email address
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `notification_url`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - HTTPS endpoint to send information to on payment termination, success, or failure. This overrides the webhook URL set on your merchant dashboard for this particular transaction
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `narration`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - Information/narration about the transaction
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `channels`
+      </td>
+
+      <td>
+        Array[string]
+      </td>
+
+      <td>
+        * \*Optional\*\* - Methods of payment. E.g, Bank Transfer (bank\_transfer), card (card), Pay with Bank (pay\_with\_bank), Mobile money (mobile\_money). Default is [“bank\_transfer”][“bank_transfer”]. Note that if only one payment method is available, it cannot be changed to another method.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `default_channel`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - Method of payment that should be active by default. E.g Bank Transfer (bank\_transfer), card (card), Pay with Bank (pay\_with\_bank), Mobile money (mobile\_money. The payment method selection page is skipped on the first load.  
+
+        Note that the default channel must also be specified in the `channels` parameter.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `metadata`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        * \*Optional\*\* - It takes a JSON object with a maximum of 5 fields/keys. Empty JSON objects are not allowed.  
+
+        Each field name has a maximum length of 20 characters. Allowed characters: `A-Z`, `a-z`, `0-9`, and `-`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `containerId`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - ID of the HTML element you want the payment gateway to be contained in. Note that this would reset all styling on this element. The payment gateway would be resized to fit the container. If this is not set, the payment gateway fills the available screen size.  
+
+        The recommended size for this container is 400px x 500px (width x height). However, this is not enforced and you can load the checkout in a smaller or larger container.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `onClose`
+      </td>
+
+      <td>
+        [Function]
+      </td>
+
+      <td>
+        * \*Optional\*\* - function to be called when the payment gateway is closed
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `onSuccess`
+      </td>
+
+      <td>
+        [Function]
+      </td>
+
+      <td>
+        * \*Optional\*\* - function to be called when the payment is completed successfully 
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `onFailed`
+      </td>
+
+      <td>
+        [Function]
+      </td>
+
+      <td>
+        * \*Optional\*\* - function to be called when the payment failed
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `onTokenized`
+      </td>
+
+      <td>
+        [Function]
+      </td>
+
+      <td>
+        Optional - function to be called when card tokenization is completed successfully
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `onPending`
+      </td>
+
+      <td>
+        [Function]
+      </td>
+
+      <td>
+        * \*Optional\*\* - sometimes, bank transfers could take some time before they get resolved. In such a case, this function would be called after 20 seconds. This could allow you to manage the experience for your customer by showing a notification or some other information.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `merchant_bears_cost`
+      </td>
+
+      <td>
+        Boolean
+      </td>
+
+      <td>
+        * \*Optional\*\*. This will set who bears the fees of the transaction. If it is set to `true`, the merchant will bear the fee, while if it is set to `false`, the customer will bear the fee. By default, it is set to `true`.
+      </td>
+    </tr>
+  </tbody>
+</Table>
+
+***
+
+## **Interacting with Checkout Standard through the Korapay script**
+
+When using Checkout Standard, the payment gateway is opened in an iframe to ensure security. Some functions are exposed to allow interactions with the application when specific events occur during a transaction. These include:
+
+| Event                 | Field         |
+| :-------------------- | :------------ |
+| Succesful Transaction | `onSuccess`   |
+| Failed Transaction    | `onFailed`    |
+| Payment Modal Closed  | `onClose`     |
+| Card Tokenized        | `onTokenized` |
+| Bank Transfer Pending | `onPending`   |
+
+You can pass functions into these fields while calling `Korapay.initialize` as shown in the script below.
+
+```javascript Code: Script
+<script>
+    function payKorapay() {
+        window.Korapay.initialize({
+            key: "pk_juigfweofyfewby732gwo8923e",
+            reference: "your-unique-reference",
+            amount: 3000, 
+            currency: "NGN",
+            customer: {
+              name: "John Doe",
+              email: "john@doe.com"
+            },
+            onClose: function () {
+              // Handle when modal is closed
+            },
+            onSuccess: function (data) {
+              // Handle when payment is successful
+            },
+            onFailed: function (data) {
+              // Handle when payment fails
+            }
+            ...
+        });
+    }
+</script>
+```
+
+The data returned should have the following fields. Note that no data is returned for the `onPending` function as the transaction is not yet completed:
+
+| Field       | Data Type | Description           |
+| :---------- | :-------- | :-------------------- |
+| `amount`    | String    | Transaction Amount    |
+| `reference` | String    | Transaction Reference |
+| `status`    | String    | Transaction Status    |
+
+To close the modal programmatically, use the `Korapay.close` function.
+
+
+
+---
+updatedAt: 2025-02-28T00:11:33.000Z
+---
+
+Fetch the complete documentation index at: https://developers.korapay.com/llms.txt. Use this file to discover all available pages before exploring further.
+
+# Checkout Redirect
+
+Checkout Redirect lets you securely accept payments without having to embed Kora's payment gateway on your website. It's fast, saves development time and comes with an extra advantage - *the redirect functionality*.
+
+With the Checkout Redirect option, you can access the Kora payment gateway by making a request from your server to our [initialize charge endpoint](https://docs.korapay.com/#f192d2e8-aab2-4f5a-98ef-fa0ed7e2d853). We would return a response that includes a Checkout URL that loads the payment gateway where your customers can make secure payments. After payment is completed the customer is returned to any URL specified by you.
+
+Now, let's walk you through integrating Checkout Redirect. 👊🏼
+
+# 1 - Collect Payment Details
+
+Collecting details from your customer is essential to initializing and tracking the transaction. These details are passed to the initialize charge endpoint.
+
+Please find below the request parameters for the endpoint.
+
+<Table align={["left","left","left"]}>
+  <thead>
+    <tr>
+      <th>
+        Parameter
+      </th>
+
+      <th>
+        Data Type
+      </th>
+
+      <th>
+        Description
+      </th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td>
+        `amount`
+      </td>
+
+      <td>
+        Integer
+      </td>
+
+      <td>
+        * \*Required\*\* - The amount to charge the customer.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `redirect_url`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - The URL to redirect your customer when the transaction is complete.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `currency`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - The currency in which the customer should be charged. For example; NGN, KES, GHS, etc.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `reference`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - Your transaction reference. *Must be unique for every transaction*.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `notification_url`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - The webhook URL to be called when the transaction is complete.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `narration`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - This is the transaction description.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `channels`
+      </td>
+
+      <td>
+        Array [String]
+      </td>
+
+      <td>
+        * \*Optional\*\* - Methods of payment eg. Bank Transfer (bank\_transfer), card (card), Pay with Bank (pay\_with\_bank), Mobile money (mobile\_money).  
+
+        If only one payment method is available, the customer cannot change to another payment method.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `default_channel`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - Method of payment that should be active by default. E.g Bank Transfer (bank\_transfer), card (card), Pay with Bank (pay\_with\_bank), Mobile money (mobile\_money). The payment method selection page is skipped on the first load.  
+
+        Note that the default channel must also be specified in the `channels` parameter.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `metadata`
+      </td>
+
+      <td>
+        Object
+      </td>
+
+      <td>
+        * \*Optional\*\* - It takes a JSON object with a maximum of 5 fields/keys. Empty JSON objects are not allowed.  
+
+        Each field name has a maximum length of 20 characters. Allowed characters: `A-Z`, `a-z`, `0-9`, and `-`.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer`
+      </td>
+
+      <td>
+
+      </td>
+
+      <td>
+        * \*Required\*\* - This is the JSON object containing the targeted customer information.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer.email`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Required\*\* - The email of the customer to be charged.
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `customer.name`
+      </td>
+
+      <td>
+        String
+      </td>
+
+      <td>
+        * \*Optional\*\* - The name of the customer to be charged
+      </td>
+    </tr>
+
+    <tr>
+      <td>
+        `merchant_bears_cost`
+      </td>
+
+      <td>
+        Boolean
+      </td>
+
+      <td>
+        * \*Optional\*\* - This will set who bears the fees of the transaction. If it is set to `true`, the merchant will bear the fee, while if it is set to `false`, the customer will bear the fee. By default, it is set to `true`.
+      </td>
+    </tr>
+  </tbody>
+</Table>
+
+# 2 - Initialize Transaction
+
+After collecting the necessary payment details for the transaction. Make a POST request to our [initialize charge endpoint](https://docs.korapay.com/#f192d2e8-aab2-4f5a-98ef-fa0ed7e2d853).
+
+```text Endpoint: Initialize Charge
+https://api.korapay.com/merchant/api/v1/charges/initialize
+```
+
+`Authorization: Bearer {SECRET_KEY} REQUIRED`
+
+This endpoint is protected by the secret key authentication mechanism. So when calling it, append your secret key to the authorization headers.
+
+If the API call is successful, Kora returns the following response:
+
+```json Code: Response
+{
+   “status” : true,
+   “message” : “Charge created successfully” ,
+   “data”: {
+           “reference”: “{{your transaction reference}}”,
+           “checkout_url”: "https://checkout.korapay.com/reference/pay"
+     }
+}
+```
+
+You should then redirect your customer to the Checkout URL provided in the response to enable them complete their payment. Once the payment is complete or in the event of a failure, Korapay will redirect your customer to your specified `redirect_url`. The transaction reference will be appended as a query parameter to your `redirect_url` as well.
+
+`https://website_redirect_url/?reference=YOUR_REFERENCE`
+
+In a situation where no`redirect_url` is passed,  the customer receives visual confirmation on the completion of the payment and is NOT redirected out of the current webpage.
+
+# 3 - Verify the Transaction
+
+When the transaction is completed, Kora will redirect your customer to your specified `redirect_url` and send a webhook notification to the `notification_url` that was passed in the API request body.
+
+Notice that along with redirecting the customer to your `redirect_url`, we append the transaction reference as a query parameter.
+
+`https://website_redirect_url/?reference=YOUR_REFERENCE`
+
+Kora redirects the customer to your `redirect_url` when the transaction is complete, when the checkout is closed, or when the payment session ends abruptly. This allows you to take full control of your customers' payment experience by enabling you to reinitialise a new session if the current payment session ended abruptly. A perfect use case for this could be when your customer’s session mistakenly closes the payment page while waiting for confirmation of a bank transfer. The customer would be redirected to your ‘redirect\_url’, so you can query the transaction status and give visual feedback when the transaction is completed rather than reinitialise another transaction.
+
+It is expected that you retrieve the reference from the URL parameters and call our [verify charge endpoint](https://docs.korapay.com/#8a602daa-6e83-4118-9ff3-ba8c09ab6f48) to get the status of the transaction. **Make sure to always call direct endpoints from your server, and not from the client-side (frontend) of your application.**
+
+> 🚧 Heads up!
+>
+> It is very important to confirm the status of the transaction before you give value to the customer.
+
+# 4 - Adding an Event Listener (Optional - for better control)
+
+Before we redirect the customer to your redirect URL, the payment gateway exposes events to the browser. To receive those events, you have to attach an event listener to the browser window as shown in the script below. To ensure security and the fidelity of the messages received, it is important that the appropriate Checkout URL gotten from the [initialize endpoint](https://docs.korapay.com/#f192d2e8-aab2-4f5a-98ef-fa0ed7e2d853) is passed as an argument when attaching an event listener to the browser window.
+
+```javascript Event Listener
+window.addEventListener(type, handleResponse, checkoutURL);
+function handleResponse(event) {
+    if (event.origin === checkoutURL) {
+        // Handle response
+    }
+}
+// ‘type’ represents the transaction event type and could be one of the following: ‘success’, ‘failed’, ‘pending’, ‘close’.
+```
+
+The response `{event.detail}` returned should have the following fields:
+
+| Field            | Data Type | Description                                                      |
+| :--------------- | :-------- | :--------------------------------------------------------------- |
+| `result`         | string    | Event being triggered. Could be `success`, `failed`, or `close`. |
+| `data`           | object    | JSON object containing transaction details                       |
+| `data.amount`    | string    | Transaction Amount                                               |
+| `data.reference` | string    | Transaction Reference                                            |
+| `data.status`    | string    | Transaction Status                                               |
+
+# 5 - Receive confirmation via webhook
+
+When the payment is successful, we make a POST request to your webhook URL (as set up in your dashboard or while initializing the transaction using the key: `notification_url`). This is the format of the response:
+
+```json Webhook Request Payload
+{
+  "event":  "charge.success" // the notification is only sent for successful charge,
+  "data": {
+    "reference": "9965128", // the unique transaction reference
+    "currency": "NGN",
+    "amount": 100000,
+    "fee": 1075,
+    "status": "success",
+    "payment_method": "bank_transfer", // can be bank_transfer, card, pay_with_bank
+    "payment_reference": "9965128" // DEPRECATED the unique transaction reference
+  }
+}
+```
+
+i have NGN, GHS, KES, ZAR, XAF, XOF on kora

@@ -1,0 +1,3148 @@
+Zendit API (1.0.13)
+Download OpenAPI specification:Download
+
+Zendit Support: support@zendit.io
+URL: https://developers.zendit.io
+Overview
+Our cloud-based Prepaid as a Service platform is now even more accessible with our reliable and efficient REST API. Our API provides seamless access to catalogs, balance information, and transactions for our:
+
+International Mobile Top Up Products
+International Mobile Bundles
+Digital Gift Cards
+Utility Payments
+eSIM
+Our platform is built with industry-standard security protocols and is designed to integrate seamlessly with your existing systems. We are committed to providing top-notch support, so please don't hesitate to reach out to our experienced zendit support team with any questions or support needs.
+
+Zendit University
+As a supplement to this API guide, head over to Zendit University to understand the features of the system, how transaction flows work and how to get details from the catalog for your integration.
+
+Environments
+Testing and development before going live with your product or service is crucial. That’s why we provide easy access to both our test bed and production environments through our gateway.
+
+When you register for zendit, you’ll be provided with a test mode API key to use for simulated transactions. These transactions will not transfer real value, but will deduct from your test bed wallet. No credit card is required for this environment, and you can manage your wallet balance through our administration console.
+
+When you’re ready to switch to production mode and start processing real transactions, you’ll need to fund your prepay wallet with real value. This will allow you to process transactions using your production key.
+
+For more information on using our testbed environment to simulate different responses, refer to our comprehensive test mode environment documentation.
+
+Please don’t hesitate to contact our support team if you have any questions or need assistance.
+
+API Security
+When you sign up for our platform, you’ll be given access to your test mode key for testing your integration with our API. To send requests to an API endpoint, please use the Authentication header and include your API key as follows:
+
+Authorization: Bearer YOUR_API_KEY
+This will authenticate your requests and allow our API to process them securely. If you’re ready to switch to production mode and start processing real transactions, you’ll need to use your production key instead.
+
+For more information about our security, refer to our security guide.
+
+Transactions
+Transparency and visibility are most important when it comes to processing transactions. That’s why we process transactions asynchronously and provide detailed status updates throughout the process.
+
+When you send a transaction through our platform, we first validate the parameters of the transaction and then return the transaction ID in the response, along with any error messages if the transaction cannot be processed. From there, the transaction enters the zendit ecosystem and begins to move through our system.
+
+To check on the status of your transaction, you can periodically poll the transaction using the transaction ID. Our system provides detailed updates on the transaction’s status as it moves through the system, including updates on receipt, wallet authorization, offer fulfillment, and completion.
+
+Once the transaction is complete, you’ll receive a final status update that reports whether it was successful or encountered any errors during processing. Additionally, each transaction contains a history log that shows all status updates throughout the transaction process, providing you with a comprehensive view of the transaction’s journey through our platform.
+
+To understand more about how to work with transactions, refer to our transaction guide.
+
+Transaction ID
+Providing our users with maximum flexibility when it comes to tracking their transactions is important. That’s why we don’t automatically generate transaction IDs – instead, you can supply any alphanumeric string of your choosing (such as an autonumber or a GUID) to track your transaction in our system.
+
+To ensure that your transaction is processed correctly, you must supply the ID you will use to track the transaction status with each transaction request. Please note that transaction IDs are unique per zendit account and environment, so you can use the same transaction ID in both your test environment and production environment (once per environment).
+
+If you’re using an autonumber scheme and have test and production environments, there’s no need to worry about collisions of IDs between the two environments. We understand the importance of keeping your test and production environments separate, and our system is designed to handle this seamlessly.
+
+Queue and Retry
+We strive to ensure that your transactions are processed reliably and efficiently. While most transactions are processed in real time, occasional recoverable errors can occur when a product provider in the ecosystem encounters an issue.
+
+To address this, our API automatically sets a 15-minute timeout on the transaction and then retries it. If there is an extended problem with a product provider, the system will continue to retry the transaction every 15 minutes until it either completes successfully or fails after 24 hours.
+
+If you would prefer not to use the queue and retry feature, you may turn the feature off in the client console on the API settings page.
+
+For more information refer to the Queue and Retry guide.
+
+Digital Gift Card and Utility Payment Required Felds
+Digital Gift Cards and Utility Payments based on the brand requirements may require more information than just the recipient’s phone number. For the specific requirements of a Digital Gift Card or Utility Payment offer the list of fields required will be provided in the catalog. You can find all the possible fields that a these offers may require on the required fields page.
+
+Error Messages
+For a detailed list of possible error statuses, please see Error Message Guide.
+
+Transaction Log Structure
+zendit Transactions contain a log of activity as the transaction progresses through the system. You can find this on any transaction under the “log” structure. The log will give more detail about the transaction from when it was submitted, when it was authorized against the wallet, when it was submitted for fulfillment and any errors that were encountered while processing will be noted at the stage where the transaction failed.
+
+Searching using createdAt date on transactions
+When using the createdAt date on the transaction search endpoints (/topup/purchases, /transactions and /voucher/purchases) dates use the RFC 3339 format in UTC Timezone (e.g. 2023-02-15T03:15:22Z)
+
+When searching with createdAt there are a few prefixes you can add to the time in order to search around the timestamp supplied. The search formats are as follows:
+
+Format	Description	Example
+No prefix	Search for an exact date/time	2023-02-15T03:15:22Z will search for transactions that match February 15, 2023 at 3:15 and 22 seconds in UTC timezone
+lt	Search for a date/time that is earlier than the supplied value	lt2023-02-15T03:15:22Z will search for transactions that are before February 15, 2023 at 3:15 and 22 seconds in UTC timezone
+lte	Search for a date/time that is equal to the supplied value and earlier	lte2023-02-15T03:15:22Z will search for transactions that are equal February 15, 2023 at 3:15 and 22 seconds in UTC timezone and transactions that are earlier
+gt	Search for a date/time that is later than the supplied value	gt2023-02-15T03:15:22Z will search for transactions that are after February 15, 2023 at 3:15 and 22 seconds in UTC timezone
+gte	Search for a date/time that is equal to the supplied value and later	gte2023-02-15T03:15:22Z will search for transactions that are equal to February 15, 2023 at 3:15 and 22 seconds in UTC timezone and transactions that are later
+Regions
+Catalog methods support filtering/searching products by region. Regions are string values and supported with the following values:
+
+Global (includes global esim)
+Africa
+Asia
+Caribbean
+Central America
+Eastern Europe
+Western Europe
+North America
+Oceania
+South America
+South Asia
+Southeast Asia
+Middle East and North Africa
+Try out the API
+Swagger pages for the api can be found at https://api.zendit.io/swagger/index.html
+
+MSISDN (Phone Number) Lookup
+Phone number lookup is currently in beta with select clients. The beta group is closed to new participants. For testing in the test mode environment, the following phone number patterns may be used to get simulated results:
+
+Phone Number Pattern	Country Result	Carrier Result
++502 3XXX XXXX	GT	Claro
++502 5XXX XXXX	GT	Tigo
++1 5XX XXX XXXX	US	Verizon
++1 6XX XXX XXXX	US	T-Mobile
+Using any number sequence to fill in the X in these numbers will yield these results in the test mode environment. All other phone numbers will yield a phone number not found error. For the production environment, all valid phone numbers will work.
+
+Note that for US phone numbers and some destinations that use MVNOs (e.g. Boost, Mint) the carrier result will return the network the device is assigned to (e.g. T-Mobile in the case of Mint Mobile) and will not return the name of the MVNO. This is a limitation of the service.
+
+Clients who aren't included in the beta will receive an error on the endpoints of LOOKUP_NOT_ENABLED when calling the endpoint.
+
+Reports
+Transaction reports can be generated from the API. Transaction reports are generated asynchronously and are first called with the POST request to generate the report with a start datetime and end datetime. The report generates a CSV file of transactions that are either in DONE or FAILED status. Transactions that have not completed will not be included in the report since their final status is not known until they complete.
+
+For the time period, the start datetime includes transactions that are at the start datetime or later. For the end datetime, transactions included in the report will be earlier than the set time. As an example, to produce a report for 1 day, set the start datetime to "2024-02-01T00:00:00Z" and the end datetime to "2024-02-02T00:00:00Z" and it will include all transactions starting from midnight on February 1, 2024 and completing before February 2, 2024. Transactions still in flight on February 1, 2024 but not completing until February 2, 2024 will appear on a report for 1 day for February 2, 2024.
+
+When selecting a time period, consider the length of time between the start and end time and your transaction volume as a guide to how long a report may take to generate. The longer the period and number of transactions completed within this period will require more time to generate the report.
+
+After sending a generate report, you will receive an acknoledgement of the request including a system generated report Id to track the status. You may poll the status endpoint (polling interval should be at least 1 second between poll requests) to check on the progress of the report. When the report status has responded with Ready, the file is ready to download.
+
+Downloading the report you may use the reportId and filename included in the status response. You may also use the downloadUrl which has the fully formed API call to download the report. Downloading the report must include your API Key since report downloads are not on a public URL.
+
+In the case of failure, the failure reason will be returned in the error structure and the report will have a FAILED status. You can check the log structure in the report to find out more information as to why the report generation failed.
+
+Account
+Check your account balance. For wallet inforatmion see the zendit wallet guide.
+
+Get current balance of wallet
+Authorizations:
+ApiKey
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+get
+/balance
+Request samples
+Curl
+
+Copy
+curl -X GET -H "Authorization: [[apiKey]]" "https://https://api.zendit.io/v1//v1/balance"
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+{
+"availableBalance": 0,
+"currency": "string",
+"currencyDivisor": 0
+}
+Brands
+Brand information, logos, redemption instructions and Terms & Conditions for Digital Gift Cards and Utility Payments.
+
+Get list of available brands (entire list or filtered by destination country)
+Authorizations:
+ApiKey
+query Parameters
+_limit
+required
+number
+Number of items to return (Minimum 1, Maximum 1,024)
+
+_offset
+required
+number
+Number of items to skip – use with limit for pagination
+
+country	
+string
+2 letter ISO code for destination country (optional)
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+get
+/brands
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"limit": 0,
+"list": [
+{}
+],
+"offset": 0,
+"total": 0
+}
+Get details for a specific brand
+Authorizations:
+ApiKey
+path Parameters
+brand
+required
+string
+Name of brand for query
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Item not found
+
+500
+Internal Server Error
+
+
+get
+/brands/{brand}
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"brand": "string",
+"brandName": "string",
+"brandBigImage": "string",
+"brandColor": "string",
+"brandGiftImage": "string",
+"brandInfoPdf": "string",
+"brandLogo": "string",
+"brandLogoExtension": "string",
+"description": "string",
+"inputMasks": [
+{}
+],
+"redemptionInstructions": [
+{}
+],
+"requiredFieldsLabels": [
+{}
+]
+}
+Get redemption instructions and terms & conditions
+Authorizations:
+ApiKey
+path Parameters
+brand
+required
+string
+Name of brand for query
+
+query Parameters
+country
+required
+string
+2 Letter ISO code for destination country of product
+
+deliveryType
+required
+string
+Delivery type for product (matches deliveryType on transaction)
+
+language	
+string
+2 letter ISO code for language requested (en is delivered as default or when requested language is not available for product)
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Item not found
+
+500
+Internal Server Error
+
+
+get
+/brands/{brand}/redemptionInstructions
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+{
+"country": "string",
+"deliveryType": "string",
+"language": "string",
+"redemptionInstructions": "string",
+"terms": "string",
+"redemptionVideo": "string"
+}
+eSIM
+eSIM Catalog and Transaction Operations. For more information about eSIM products see the eSIM Guide. For catalog operations refer to the zendit catalog guide. For transactions refer to the zendit transaction guide. For webhooks refer to the zendit webhook guide.
+
+eSIM Purchase Webhook
+Request Body schema: application/json
+eSIM purchase result
+
+brand	
+string
+Brand of eSIM
+
+brandName	
+string
+Brand name for eSIM
+
+confirmation	
+object (dto.ESimConfirmation)
+Confirmation of a completed eSIM transaction
+
+cost	
+integer
+Total cost of the eSIM to Partner inclusive of fees
+
+costBase	
+number
+Catalog cost to the partner exclusive of fees
+
+costCurrency	
+string
+Currency of cost to eSIM Partner
+
+costCurrencyDivisor	
+integer
+Divisor for display of cost
+
+costFee	
+number
+Fee amount charged for offer included in the total cost
+
+country	
+string
+Destination country for eSIM offer (blank when eSIM offer is regional)
+
+createdAt	
+string
+Date/time transaction was created
+
+dataGB	
+number
+GB of data included in eSIM (0 when data is unlimited)
+
+dataSpeeds	
+Array of strings (dataSpeed)
+Items Enum: "2G" "3G" "4G" "5G"
+Data speeds available for eSIM
+
+dataUnlimited	
+boolean
+Flag indicating whether data is unlimited on the eSIM
+
+durationDays	
+integer
+Duration of the eSIM offer in days
+
+error	
+object (dto.Error)
+Error information encountered while processing transaction
+
+log	
+Array of objects (dto.TransactionLogItem)
+Trace log for fulfillment of transaction
+
+notes	
+string
+Notes included about the eSIM offer
+
+offerId	
+string
+Catalog ID of the offer (used for purchases)
+
+price	
+integer
+Total price for customer for eSIM inclusive of fees (when using the zendit pricing module)
+
+priceBase	
+number
+Base price from the pricing module exclusive of fees
+
+priceCurrency	
+string
+Currency of price charged to customer for eSIM (when using the zendit pricing module)
+
+priceCurrencyDivisor	
+integer
+Divisor for display of price
+
+priceFee	
+number
+Fee amount charged to customer when using the pricing module
+
+priceType	
+string (priceType)
+Enum: "FIXED" "RANGE"
+Price type for the eSIM (Fixed or Range)
+
+productType	
+string (productType)
+Enum: "TOPUP" "VOUCHER" "ESIM" "RECHARGE_SANDBOX" "RECHARGE_WITH_CREDIT_CARD"
+Product type for eSIM
+
+regions	
+Array of strings (regions)
+Items Enum: "Global" "Africa" "Asia" "Caribbean" "Central America" "Eastern Europe" "Western Europe" "North America" "Oceania" "South America" "South Asia" "Southeast Asia" "Middle East and North Africa"
+Regions for the eSIM
+
+roaming	
+Array of objects (dto.ESimRoaming)
+Roaming information for regional eSIM products (empty array for NO ROAM eSIM offers)
+
+shortNotes	
+string
+Short notes for eSIM offer
+
+smsNumber	
+integer
+Included SMS messages with eSIM (0 when unlimited or not included, check smsUnlimited flag)
+
+smsUnlimited	
+boolean
+Flag whether SMS messaging is unlimited for offer
+
+status	
+string (transactionStatus)
+Enum: "DONE" "FAILED" "PENDING" "ACCEPTED" "AUTHORIZED" "IN_PROGRESS"
+Status of transaction
+
+subTypes	
+Array of strings
+Subtypes for the eSIM offer
+
+transactionId	
+string
+Transaction Id provided by partner
+
+updatedAt	
+string
+Date/Time of last update to transaction
+
+value	
+object (dto.PurchaseValue)
+Value and type of price used for purchase of ranged products
+
+voiceMinutes	
+integer
+Voice minutes included in eSIM offer (0 when unlimited or not included, check voiceUnlimited Flag)
+
+voiceUnlimited	
+boolean
+Flag whether voice minutes are unlimited for the offer
+
+refund	
+object
+Status of a refund for the transaction when a refund is provided for the item
+
+Responses
+200
+Webhook processed successfully
+
+500
+Internal Server Error
+
+Request samples
+Payload
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"brand": "string",
+"brandName": "string",
+"confirmation": {
+"activationCode": "string",
+"externalReferenceId": "string",
+"iccid": "string",
+"redemptionInstructions": "string",
+"smdpAddress": "string"
+},
+"cost": 0,
+"costBase": 0,
+"costCurrency": "string",
+"costCurrencyDivisor": 0,
+"costFee": 0,
+"country": "string",
+"createdAt": "string",
+"dataGB": 0,
+"dataSpeeds": [
+"2G"
+],
+"dataUnlimited": true,
+"durationDays": 0,
+"error": {
+"code": "string",
+"description": "string",
+"message": "string"
+},
+"log": [
+{}
+],
+"notes": "string",
+"offerId": "string",
+"price": 0,
+"priceBase": 0,
+"priceCurrency": "string",
+"priceCurrencyDivisor": 0,
+"priceFee": 0,
+"priceType": "FIXED",
+"productType": "TOPUP",
+"regions": [
+"Global"
+],
+"roaming": [
+{}
+],
+"shortNotes": "string",
+"smsNumber": 0,
+"smsUnlimited": true,
+"status": "DONE",
+"subTypes": [
+"string"
+],
+"transactionId": "string",
+"updatedAt": "string",
+"value": {
+"type": "PRICE",
+"value": 0
+},
+"voiceMinutes": 0,
+"voiceUnlimited": true,
+"refund": {
+"status": "string"
+}
+}
+Get list of eSIM offers
+Authorizations:
+ApiKey
+query Parameters
+_limit
+required
+number
+Number of items to return (Minimum 1, Maximum 1,024)
+
+_offset
+required
+number
+Number of items to skip – use with limit for pagination
+
+brand	
+string
+Brand (Carrier for MTU) to filter
+
+country	
+string
+2 letter ISO code for the destination country to filter
+
+regions	
+string (regions)
+Enum: "Global" "Africa" "Asia" "Caribbean" "Central America" "Eastern Europe" "Western Europe" "North America" "Oceania" "South America" "South Asia" "Southeast Asia" "Middle East and North Africa"
+String for the name of the region to filter
+
+subType	
+string
+Offer subtype to filter
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+get
+/esim/offers
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/esim/offers?_limit=&_offset=&brand=&country=®ions=&subType="
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"limit": 0,
+"list": [
+{}
+],
+"offset": 0,
+"total": 0
+}
+Get an eSIM offer by the offer ID
+Authorizations:
+ApiKey
+path Parameters
+offerId
+required
+string
+Catalog Id to find
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Item not found
+
+500
+Internal Server Error
+
+
+get
+/esim/offers/{offerId}
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/esim/offers/{offerId}"
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"brand": "string",
+"brandName": "string",
+"cost": {
+"currency": "string",
+"currencyDivisor": 0,
+"discount": 0,
+"fee": 0,
+"feePct": 0,
+"fixed": 0,
+"fx": 0,
+"max": 0,
+"min": 0
+},
+"country": "string",
+"createdAt": "string",
+"dataGB": 0,
+"dataSpeeds": [
+"2G"
+],
+"dataUnlimited": true,
+"durationDays": 0,
+"enabled": true,
+"notes": "string",
+"offerId": "string",
+"price": {
+"currency": "string",
+"currencyDivisor": 0,
+"fee": 0,
+"fixed": 0,
+"fx": 0,
+"increment": 0,
+"margin": 0,
+"max": 0,
+"min": 0,
+"suggestedFixed": 0,
+"suggestedFx": 0
+},
+"priceType": "FIXED",
+"productType": "TOPUP",
+"regions": [
+"Global"
+],
+"roaming": [
+{}
+],
+"shortNotes": "string",
+"smsNumber": 0,
+"smsUnlimited": true,
+"subTypes": [
+"string"
+],
+"updatedAt": "string",
+"voiceMinutes": 0,
+"voiceUnlimited": true
+}
+Get list of eSim transactions
+Authorizations:
+ApiKey
+query Parameters
+_limit
+required
+number
+Number of items to retrieve (Minimum 1, Masimum 1,024)
+
+_offset
+required
+integer
+Number of items to skip – use with limit for pagination
+
+createdAt	
+string
+Data filter – see Overview section for filtering by date
+
+status	
+string (transactionStatus)
+Enum: "DONE" "FAILED" "PENDING" "ACCEPTED" "AUTHORIZED" "IN_PROGRESS"
+Status to filter
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+get
+/esim/purchases
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/esim/purchases?_limit=&_offset=&createdAt=&status="
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"limit": 0,
+"list": [
+{}
+],
+"offset": 0,
+"total": 0
+}
+Purchase an eSIM offer for a new eSIM or add an offer to an existing eSIM
+Authorizations:
+ApiKey
+Request Body schema: application/json
+iccid	
+string
+ICCID to apply plan (omit to issue a new eSIM)
+
+offerId
+required
+string
+Catalog ID of the offer (used for purchases)
+
+transactionId
+required
+string
+Transaction Id provided by partner
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+post
+/esim/purchases
+Request samples
+PayloadCurl
+Content type
+application/json
+
+Copy
+{
+"iccid": "string",
+"offerId": "string",
+"transactionId": "string"
+}
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+{
+"status": "string",
+"transactionId": "string"
+}
+Get eSim transaction by id
+Authorizations:
+ApiKey
+path Parameters
+transactionId
+required
+string
+Transaction ID to find
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+get
+/esim/purchases/{transactionId}
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/esim/purchases/{transactionId}"
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"brand": "string",
+"brandName": "string",
+"confirmation": {
+"activationCode": "string",
+"externalReferenceId": "string",
+"iccid": "string",
+"redemptionInstructions": "string",
+"smdpAddress": "string"
+},
+"cost": 0,
+"costBase": 0,
+"costCurrency": "string",
+"costCurrencyDivisor": 0,
+"costFee": 0,
+"country": "string",
+"createdAt": "string",
+"dataGB": 0,
+"dataSpeeds": [
+"2G"
+],
+"dataUnlimited": true,
+"durationDays": 0,
+"error": {
+"code": "string",
+"description": "string",
+"message": "string"
+},
+"log": [
+{}
+],
+"notes": "string",
+"offerId": "string",
+"price": 0,
+"priceBase": 0,
+"priceCurrency": "string",
+"priceCurrencyDivisor": 0,
+"priceFee": 0,
+"priceType": "FIXED",
+"productType": "TOPUP",
+"regions": [
+"Global"
+],
+"roaming": [
+{}
+],
+"shortNotes": "string",
+"smsNumber": 0,
+"smsUnlimited": true,
+"status": "DONE",
+"subTypes": [
+"string"
+],
+"transactionId": "string",
+"updatedAt": "string",
+"value": {
+"type": "PRICE",
+"value": 0
+},
+"voiceMinutes": 0,
+"voiceUnlimited": true,
+"refund": {
+"status": "string"
+}
+}
+Get eSim QR code by transaction id
+Authorizations:
+ApiKey
+path Parameters
+transactionId
+required
+string
+Transaction ID to find
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+get
+/esim/purchases/{transactionId}/qrcode
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/esim/purchases/{transactionId}/qrcode"
+Response samples
+200400401403404500
+Content type
+
+image/png
+image/png
+No sample
+Retrieve usage of active and queued plans on an eSIM.
+Authorizations:
+ApiKey
+path Parameters
+iccId
+required
+string
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+get
+/esim/{iccId}/plans
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/esim/{iccId}/plans" 
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"list": [
+{}
+],
+"firstInstalledAt": "2019-08-24T14:15:22Z",
+"total": 0
+}
+Check status of transaction refund
+Authorizations:
+ApiKey
+path Parameters
+transactionId
+required
+string
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+get
+/esim/purchases/{transactionId}/refund
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"amount": 0,
+"createdAt": "string",
+"currency": "string",
+"currencyDivisor": 0,
+"error": {
+"code": "string",
+"description": "string",
+"message": "string"
+},
+"log": [
+{}
+],
+"productType": "TOPUP",
+"refundedTransactionId": "string",
+"status": "DONE",
+"type": "DEBIT",
+"updatedAt": "string"
+}
+Initiate a transaction refund
+Authorizations:
+ApiKey
+path Parameters
+transactionId
+required
+string
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+post
+/esim/purchases/{transactionId}/refund
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+{
+"status": "DONE"
+}
+Mobile Top Up
+Mobile Top Up, Mobile Bundle, and Mobile Data Catalog and Transaction Operations For catalog operations refer to the zendit catalog guide. For transactions refer to the zendit transaction guide. For webhooks refer to the zendit webhook guide.
+
+Mobile Top Up Purchase Webhook
+Request Body schema: application/json
+Mobile Top Up, Mobile Bundle, and Mobile Data purchase result
+
+brand	
+string
+Brand of TopUp (Carrier)
+
+brandName	
+string
+Name of brand for Carrier
+
+confirmation	
+object (dto.Confirmation)
+Confirmation information for the topup
+
+cost	
+integer
+Zendit price for partner inclusive of fees
+
+costBase	
+integer
+Base cost of transaction exclusive of fees
+
+costCurrency	
+string
+3 letter ISO code for currency of cost
+
+costCurrencyDivisor	
+integer
+Divisor for display of cost
+
+costFee	
+integer
+Fee added to the cost of the transaction
+
+country	
+string
+Destination country for Topup
+
+createdAt	
+string
+Date/time transaction was created
+
+dataGB	
+number
+Amount of data included in offer for Bundles and Data plans (0 when data is unlimited)
+
+dataUnlimited	
+boolean
+Flag for bundles and data plans with unlimited data
+
+durationDays	
+integer
+Duration of the bundle or data plan offer in days
+
+error	
+object (dto.Error)
+Error information encountered while processing transaction
+
+log	
+Array of objects (dto.TransactionLogItem)
+Trace log for fulfillment of transaction
+
+notes	
+string
+Notes included about the Topup offer
+
+offerId	
+string
+Catalog ID of the offer (used for purchases)
+
+price	
+integer
+Price to customer for Topup (when using the zendit pricing module)
+
+priceBase	
+integer
+Base price to the customer exclusive of any added fees
+
+priceFee	
+integer
+Fee added to the customer price from the catalog pricing module
+
+priceCurrency	
+string
+Currency of price charged to customer for Topup (when using the zendit pricing module)
+
+priceType	
+string (priceType)
+Enum: "FIXED" "RANGE"
+Price type for the Topup (Fixed or Range)
+
+priceCurrencyDivisor	
+integer
+Divisor for display of price
+
+productType	
+string (productType)
+Enum: "TOPUP" "VOUCHER" "ESIM" "RECHARGE_SANDBOX" "RECHARGE_WITH_CREDIT_CARD"
+Product type for Topup
+
+recipientPhoneNumber	
+string
+Recipient of the topup
+
+regions	
+Array of strings (regions)
+Items Enum: "Global" "Africa" "Asia" "Caribbean" "Central America" "Eastern Europe" "Western Europe" "North America" "Oceania" "South America" "South Asia" "Southeast Asia" "Middle East and North Africa"
+Regions for the Topup
+
+send	
+integer
+Value sent to the recipient
+
+sendCurrency	
+string
+Currency of the value sent
+
+sendCurrencyDivisor	
+integer
+Divisor for display of send
+
+sender	
+object (dto.TopupSender)
+Sender information for the topup
+
+shortNotes	
+string
+Short notes for Topup offer
+
+smsNumber	
+integer
+Included SMS messages with Topup (0 when unlimited or not included, check smsUnlimited flag)
+
+smsUnlimited	
+boolean
+Flag whether SMS messaging is unlimited for offer
+
+status	
+string (transactionStatus)
+Enum: "DONE" "FAILED" "PENDING" "ACCEPTED" "AUTHORIZED" "IN_PROGRESS"
+Status of transaction
+
+subTypes	
+Array of strings (topupSubtypes)
+Items Enum: "Mobile Top Up" "Mobile Bundle" "Mobile Data"
+Subtypes for the Topup offer
+
+transactionId	
+string
+Transaction Id provided by partner
+
+updatedAt	
+string
+Date/Time of last update to transaction
+
+value	
+object (dto.PurchaseValue)
+Value and type of price used for purchase of ranged products
+
+voiceMinutes	
+integer
+Voice minutes included with Topup (0 when unlimited or not included, check voiceUnlimited Flag)
+
+voiceUnlimited	
+boolean
+Flag whether voice minutes are unlimited for the offer
+
+Responses
+200
+Webhook processed successfully
+
+500
+Internal Server Error
+
+Request samples
+Payload
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"brand": "string",
+"brandName": "string",
+"confirmation": {
+"confirmationNumber": "string",
+"externalReferenceId": "string",
+"transactionTime": "string"
+},
+"cost": 0,
+"costBase": 0,
+"costCurrency": "string",
+"costCurrencyDivisor": 0,
+"costFee": 0,
+"country": "string",
+"createdAt": "string",
+"dataGB": 0,
+"dataUnlimited": true,
+"durationDays": 0,
+"error": {
+"code": "string",
+"description": "string",
+"message": "string"
+},
+"log": [
+{}
+],
+"notes": "string",
+"offerId": "string",
+"price": 0,
+"priceBase": 0,
+"priceFee": 0,
+"priceCurrency": "string",
+"priceType": "FIXED",
+"priceCurrencyDivisor": 0,
+"productType": "TOPUP",
+"recipientPhoneNumber": "string",
+"regions": [
+"Global"
+],
+"send": 0,
+"sendCurrency": "string",
+"sendCurrencyDivisor": 0,
+"sender": {
+"country": "string",
+"phoneNumber": "string"
+},
+"shortNotes": "string",
+"smsNumber": 0,
+"smsUnlimited": true,
+"status": "DONE",
+"subTypes": [
+"Mobile Top Up"
+],
+"transactionId": "string",
+"updatedAt": "string",
+"value": {
+"type": "PRICE",
+"value": 0
+},
+"voiceMinutes": 0,
+"voiceUnlimited": true
+}
+Get list of topup offers
+Authorizations:
+ApiKey
+query Parameters
+_limit
+required
+number
+Number of items to return (Minimum 1, Maximum 1,024)
+
+_offset
+required
+number
+Number of items to skip – use with limit for pagination
+
+brand	
+string
+Brand (Carrier for MTU) to filter
+
+country	
+string
+2 letter ISO code for the destination country to filter
+
+regions	
+string (regions)
+Enum: "Global" "Africa" "Asia" "Caribbean" "Central America" "Eastern Europe" "Western Europe" "North America" "Oceania" "South America" "South Asia" "Southeast Asia" "Middle East and North Africa"
+String for the name of the region to filter
+
+subType	
+string (topupSubtypes)
+Enum: "Mobile Top Up" "Mobile Bundle" "Mobile Data"
+Offer subtype to filter
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+get
+/topups/offers
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/topups/offers?_limit=&_offset=&brand=&country=®ions=&subType="        
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"limit": 0,
+"list": [
+{}
+],
+"offset": 0,
+"total": 0
+}
+Get a topup offer by the offer ID
+Authorizations:
+ApiKey
+path Parameters
+offerId
+required
+string
+Catalog Id to find
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Item not found
+
+500
+Internal Server Error
+
+
+get
+/topups/offers/{offerId}
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/topups/offers/{offerId}"        
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"brand": "string",
+"brandName": "string",
+"cost": {
+"currency": "string",
+"currencyDivisor": 0,
+"discount": 0,
+"fee": 0,
+"feePct": 0,
+"fixed": 0,
+"fx": 0,
+"max": 0,
+"min": 0
+},
+"country": "string",
+"createdAt": "string",
+"dataGB": 0,
+"dataUnlimited": true,
+"durationDays": 0,
+"enabled": true,
+"notes": "string",
+"offerId": "string",
+"price": {
+"currency": "string",
+"currencyDivisor": 0,
+"fee": 0,
+"fixed": 0,
+"fx": 0,
+"increment": 0,
+"margin": 0,
+"max": 0,
+"min": 0,
+"suggestedFixed": 0,
+"suggestedFx": 0
+},
+"priceType": "string",
+"productType": "TOPUP",
+"regions": [
+"Global"
+],
+"send": {
+"currency": "string",
+"currencyDivisor": 0,
+"fixed": 0,
+"fx": 0,
+"max": 0,
+"min": 0
+},
+"shortNotes": "string",
+"smsNumber": 0,
+"smsUnlimited": true,
+"subTypes": [
+"Mobile Top Up"
+],
+"updatedAt": "string",
+"voiceMinutes": 0,
+"voiceUnlimited": true
+}
+Get list of topup transactions
+Authorizations:
+ApiKey
+query Parameters
+_limit
+required
+integer
+Number of items to return (Minimum 1, Maximum 1,024)
+
+_offset
+required
+integer
+Number of items to skip – use with limit for pagination
+
+createdAt	
+string
+Data filter – see Overview section for filtering by date
+
+status	
+string (transactionStatus)
+Enum: "DONE" "FAILED" "PENDING" "ACCEPTED" "AUTHORIZED" "IN_PROGRESS"
+Status to filter
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+get
+/topups/purchases
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/topups/purchases?_limit=&_offset=&createdAt=&status="
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"limit": 0,
+"list": [
+{}
+],
+"offset": 0,
+"total": 0
+}
+Create transaction for purchase
+Authorizations:
+ApiKey
+Request Body schema: application/json
+offerId
+required
+string
+Catalog ID of the offer
+
+recipientPhoneNumber
+required
+string
+Recipient of the topup in e.164 format
+
+sender	
+object (dto.TopupSender)
+Optional sender information
+
+transactionId
+required
+string
+Transaction Id provided by partner
+
+value	
+object (dto.PurchaseValue)
+Purchase amount and type required for RANGE offers/omitted for FIXED offers
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+post
+/topups/purchases
+Request samples
+PayloadCurl
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"offerId": "string",
+"recipientPhoneNumber": "string",
+"sender": {
+"country": "string",
+"phoneNumber": "string"
+},
+"transactionId": "string",
+"value": {
+"type": "PRICE",
+"value": 0
+}
+}
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+{
+"status": "string",
+"transactionId": "string"
+}
+Get topup transaction by id
+Authorizations:
+ApiKey
+path Parameters
+transactionId
+required
+string
+Transaction Id to find
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+get
+/topups/purchases/{transactionId}
+Request samples
+Curl
+
+Copy
+curl -X POST\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+-H "Content-Type: application/json"\
+"https://api.zendit.io/v1/topups/purchases"      
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"brand": "string",
+"brandName": "string",
+"confirmation": {
+"confirmationNumber": "string",
+"externalReferenceId": "string",
+"transactionTime": "string"
+},
+"cost": 0,
+"costBase": 0,
+"costCurrency": "string",
+"costCurrencyDivisor": 0,
+"costFee": 0,
+"country": "string",
+"createdAt": "string",
+"dataGB": 0,
+"dataUnlimited": true,
+"durationDays": 0,
+"error": {
+"code": "string",
+"description": "string",
+"message": "string"
+},
+"log": [
+{}
+],
+"notes": "string",
+"offerId": "string",
+"price": 0,
+"priceBase": 0,
+"priceFee": 0,
+"priceCurrency": "string",
+"priceType": "FIXED",
+"priceCurrencyDivisor": 0,
+"productType": "TOPUP",
+"recipientPhoneNumber": "string",
+"regions": [
+"Global"
+],
+"send": 0,
+"sendCurrency": "string",
+"sendCurrencyDivisor": 0,
+"sender": {
+"country": "string",
+"phoneNumber": "string"
+},
+"shortNotes": "string",
+"smsNumber": 0,
+"smsUnlimited": true,
+"status": "DONE",
+"subTypes": [
+"Mobile Top Up"
+],
+"transactionId": "string",
+"updatedAt": "string",
+"value": {
+"type": "PRICE",
+"value": 0
+},
+"voiceMinutes": 0,
+"voiceUnlimited": true
+}
+Voucher
+Digital Gift Card and Prepaid Utilities Catalog and Transaction Operations For receipt details on transactions, refer to the Gift Card & Utility Payments Guide For catalog operations refer to the zendit catalog guide. For transactions refer to the zendit transaction guide. For webhooks refer to the zendit webhook guide.
+
+Voucher Purchase Webhook
+Request Body schema: application/json
+Digital Gift Card and Utility purchase result
+
+brand	
+string
+Brand of Gift Card or Utility
+
+brandName	
+any
+Display name of brand for Gift Card or Utility
+
+confirmation	
+object (dto.Confirmation)
+Confirmation information for the gift or utility
+
+cost	
+integer
+Zendit price for partner
+
+costBase	
+integer
+Zendit price for offer exclusive of fees
+
+costFee	
+integer
+Zendit fee for the offer
+
+costCurrency	
+string
+3 letter ISO code for currency of cost
+
+costCurrencyDivisor	
+integer
+Divisor for display of cost
+
+country	
+string
+Destination country for Gift Card or Utility
+
+createdAt	
+string
+Date/time transaction was created
+
+error	
+object (dto.Error)
+Error information encountered while processing transaction
+
+fields	
+Array of objects (dto.VoucherField)
+Required fields for transaction
+
+log	
+Array of objects (dto.TransactionLogItem)
+Trace log for fulfillment of transaction
+
+notes	
+string
+Notes included about the gift card or utility offer
+
+offerId	
+string
+Catalog ID of the offer
+
+price	
+integer
+Price to customer for gift card or utility (when using the zendit pricing module)
+
+priceBase	
+integer
+Price to customer exclusive of optional fee in pricing module
+
+priceFee	
+integer
+Optioanl fee set in catalog pricing module to charge customer
+
+priceCurrency	
+string
+Currency of price charged to customer for gift card or utility (when using the zendit pricing module)
+
+priceCurrencyDivisor	
+integer
+Divisor for display of price
+
+priceType	
+string (priceType)
+Enum: "FIXED" "RANGE"
+Price type for the gift card or utility (Fixed or Range)
+
+productType	
+string (productType)
+Enum: "TOPUP" "VOUCHER" "ESIM" "RECHARGE_SANDBOX" "RECHARGE_WITH_CREDIT_CARD"
+Product type for gift card or utility
+
+receipt	
+object (dto.VoucherReceipt)
+Receipt for the gift card or utility
+
+regions	
+Array of strings (regions)
+Items Enum: "Global" "Africa" "Asia" "Caribbean" "Central America" "Eastern Europe" "Western Europe" "North America" "Oceania" "South America" "South Asia" "Southeast Asia" "Middle East and North Africa"
+Regions for the gift card or utility
+
+send	
+integer
+Value sent to the recipient
+
+sendCurrency	
+string
+Currency of the value sent
+
+sendCurrencyDivisor	
+integer
+Divisor for display of send
+
+shortNotes	
+string
+Short notes for gift card or utility offer
+
+status	
+string (transactionStatus)
+Enum: "DONE" "FAILED" "PENDING" "ACCEPTED" "AUTHORIZED" "IN_PROGRESS"
+Status of transaction
+
+subTypes	
+Array of strings
+Subtypes for the gift card or utility offer
+
+transactionId	
+string
+Transaction Id provided by partner
+
+updatedAt	
+string
+Date/Time of last update to transaction
+
+value	
+object (dto.PurchaseValue)
+Value and type of price used for purchase of ranged products
+
+Responses
+200
+Webhook processed successfully
+
+500
+Internal Server Error
+
+Request samples
+Payload
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"brand": "string",
+"brandName": null,
+"confirmation": {
+"confirmationNumber": "string",
+"externalReferenceId": "string",
+"transactionTime": "string"
+},
+"cost": 0,
+"costBase": 0,
+"costFee": 0,
+"costCurrency": "string",
+"costCurrencyDivisor": 0,
+"country": "string",
+"createdAt": "string",
+"error": {
+"code": "string",
+"description": "string",
+"message": "string"
+},
+"fields": [
+{}
+],
+"log": [
+{}
+],
+"notes": "string",
+"offerId": "string",
+"price": 0,
+"priceBase": 0,
+"priceFee": 0,
+"priceCurrency": "string",
+"priceCurrencyDivisor": 0,
+"priceType": "FIXED",
+"productType": "TOPUP",
+"receipt": {
+"deliveryType": "string",
+"confirmationNumber": "string",
+"currency": "string",
+"currencyDivisor": 0,
+"epin": "string",
+"voucherId": "string",
+"redemptionUrl": "string",
+"accountId": "string",
+"expiresAt": "string",
+"instructions": "string",
+"notes": "string",
+"recipientCustomerServiceNumber": "string",
+"send": 0,
+"senderCustomerServiceNumber": "string",
+"terms": "string"
+},
+"regions": [
+"Global"
+],
+"send": 0,
+"sendCurrency": "string",
+"sendCurrencyDivisor": 0,
+"shortNotes": "string",
+"status": "DONE",
+"subTypes": [
+"string"
+],
+"transactionId": "string",
+"updatedAt": "string",
+"value": {
+"type": "PRICE",
+"value": 0
+}
+}
+Get list of voucher offers
+Authorizations:
+ApiKey
+query Parameters
+_limit
+required
+number
+Number of items to return (Minimum 1, Maximum 1,024)
+
+_offset
+required
+number
+Number of items to skip – use with limit for pagination
+
+brand	
+string
+Brand (Carrier for MTU) to filter
+
+country	
+string
+2 letter ISO code for the destination country to filter
+
+regions	
+string (regions)
+Enum: "Global" "Africa" "Asia" "Caribbean" "Central America" "Eastern Europe" "Western Europe" "North America" "Oceania" "South America" "South Asia" "Southeast Asia" "Middle East and North Africa"
+String for the name of the region to filter
+
+subType	
+string
+Offer subtype to filter
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+get
+/vouchers/offers
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/vouchers/offers?_limit=&_offset=&brand=&country=&subType="     
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"limit": 0,
+"list": [
+{}
+],
+"offset": 0,
+"total": 0
+}
+Get a voucher offer by the offer ID
+Authorizations:
+ApiKey
+path Parameters
+offerId
+required
+string
+Catalog Id to find
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Item not found
+
+500
+Internal Server Error
+
+
+get
+/vouchers/offers/{offerId}
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/vouchers/offers/{offerId}"
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"brand": "string",
+"brandName": "string",
+"cost": {
+"currency": "string",
+"currencyDivisor": 0,
+"discount": 0,
+"fee": 0,
+"feePct": 0,
+"fixed": 0,
+"fx": 0,
+"max": 0,
+"min": 0
+},
+"country": "string",
+"createdAt": "string",
+"enabled": true,
+"notes": "string",
+"offerId": "string",
+"price": {
+"currency": "string",
+"currencyDivisor": 0,
+"fee": 0,
+"fixed": 0,
+"fx": 0,
+"increment": 0,
+"margin": 0,
+"max": 0,
+"min": 0,
+"suggestedFixed": 0,
+"suggestedFx": 0
+},
+"priceType": "string",
+"productType": "TOPUP",
+"regions": [
+"Global"
+],
+"requiredFields": [
+"string"
+],
+"send": {
+"currency": "string",
+"currencyDivisor": 0,
+"fixed": 0,
+"fx": 0,
+"max": 0,
+"min": 0
+},
+"shortNotes": "string",
+"subTypes": [
+"string"
+],
+"updatedAt": "string"
+}
+Get list of transactions
+Authorizations:
+ApiKey
+query Parameters
+_limit
+required
+number
+Number of items to return (Minimum 1, Maximum 1,024)
+
+_offset
+required
+number
+Number of items to skip – use with limit for pagination
+
+createdAt	
+string
+Data filter – see Overview section for filtering by date
+
+status	
+string (transactionStatus)
+Enum: "DONE" "FAILED" "PENDING" "ACCEPTED" "AUTHORIZED" "IN_PROGRESS"
+Status to filter
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+get
+/vouchers/purchases
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/vouchers/purchases?_limit=&_offset=&createdAt=&status="      
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"limit": 0,
+"list": [
+{}
+],
+"offset": 0,
+"total": 0
+}
+Create transaction for purchase
+Authorizations:
+ApiKey
+Request Body schema: application/json
+fields
+required
+Array of objects (dto.VoucherField)
+Fields required for offer
+
+offerId
+required
+string
+Catalog ID of the offer
+
+transactionId
+required
+string
+Transaction Id provided by partner
+
+value	
+object (dto.PurchaseValue)
+Purchase amount and type required for RANGE offers/omitted for FIXED offers
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+post
+/vouchers/purchases
+Request samples
+PayloadCurl
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"fields": [
+{}
+],
+"offerId": "string",
+"transactionId": "string",
+"value": {
+"type": "PRICE",
+"value": 0
+}
+}
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+{
+"status": "string",
+"transactionId": "string"
+}
+Get purchase transaction by id
+Authorizations:
+ApiKey
+path Parameters
+transactionId
+required
+string
+Transaction Id to find
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+get
+/vouchers/purchases/{transactionId}
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/vouchers/purchases/{transactionId}"
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"brand": "string",
+"brandName": null,
+"confirmation": {
+"confirmationNumber": "string",
+"externalReferenceId": "string",
+"transactionTime": "string"
+},
+"cost": 0,
+"costBase": 0,
+"costFee": 0,
+"costCurrency": "string",
+"costCurrencyDivisor": 0,
+"country": "string",
+"createdAt": "string",
+"error": {
+"code": "string",
+"description": "string",
+"message": "string"
+},
+"fields": [
+{}
+],
+"log": [
+{}
+],
+"notes": "string",
+"offerId": "string",
+"price": 0,
+"priceBase": 0,
+"priceFee": 0,
+"priceCurrency": "string",
+"priceCurrencyDivisor": 0,
+"priceType": "FIXED",
+"productType": "TOPUP",
+"receipt": {
+"deliveryType": "string",
+"confirmationNumber": "string",
+"currency": "string",
+"currencyDivisor": 0,
+"epin": "string",
+"voucherId": "string",
+"redemptionUrl": "string",
+"accountId": "string",
+"expiresAt": "string",
+"instructions": "string",
+"notes": "string",
+"recipientCustomerServiceNumber": "string",
+"send": 0,
+"senderCustomerServiceNumber": "string",
+"terms": "string"
+},
+"regions": [
+"Global"
+],
+"send": 0,
+"sendCurrency": "string",
+"sendCurrencyDivisor": 0,
+"shortNotes": "string",
+"status": "DONE",
+"subTypes": [
+"string"
+],
+"transactionId": "string",
+"updatedAt": "string",
+"value": {
+"type": "PRICE",
+"value": 0
+}
+}
+Transaction Status
+Status of Zendit Transactions For transactions refer to the zendit transaction guide.
+
+Transaction ShieldWall Webhook
+Request Body schema: application/json
+Transaction info for verification
+
+amount	
+integer
+Value of the transaction in Cost
+
+createdAt	
+string
+Date/Time the transaction was created
+
+currency	
+string
+3 letter ISO code for currency of the amount
+
+currencyDivisor	
+integer
+Divisor for currency display and send
+
+error	
+object (dto.Error)
+Error information for transaction
+
+log	
+Array of objects (dto.TransactionLogItem)
+Trace log for fulfillment of transaction
+
+productType	
+string (productType)
+Enum: "TOPUP" "VOUCHER" "ESIM" "RECHARGE_SANDBOX" "RECHARGE_WITH_CREDIT_CARD"
+Product type for transaction
+
+status	
+string (transactionStatus)
+Enum: "DONE" "FAILED" "PENDING" "ACCEPTED" "AUTHORIZED" "IN_PROGRESS"
+Status of transaction
+
+transactionId	
+string
+Transaction Id provided by partner
+
+type	
+string (transactionType)
+Enum: "DEBIT" "CREDIT"
+Type of transaction (Credit or Debit)
+
+updatedAt	
+string
+Date/Time of last update to transaction
+
+Responses
+200
+Return a 200 for recognized transactions.
+
+404
+Return a 404 to block unrecognized transactions.
+
+Request samples
+Payload
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"amount": 0,
+"createdAt": "string",
+"currency": "string",
+"currencyDivisor": 0,
+"error": {
+"code": "string",
+"description": "string",
+"message": "string"
+},
+"log": [
+{}
+],
+"productType": "TOPUP",
+"status": "DONE",
+"transactionId": "string",
+"type": "DEBIT",
+"updatedAt": "string"
+}
+Get list of transactions
+Authorizations:
+ApiKey
+query Parameters
+_limit
+required
+number
+Number of items to return (Minimum 1, Maximum 1,024)
+
+_offset
+required
+number
+Number of items to skip – use with limit for pagination
+
+createdAt	
+string
+Data filter – see Overview section for filtering by date
+
+productType	
+string (productType)
+Enum: "TOPUP" "VOUCHER" "ESIM" "RECHARGE_SANDBOX" "RECHARGE_WITH_CREDIT_CARD"
+Product type to filter
+
+status	
+string (transactionStatus)
+Enum: "DONE" "FAILED" "PENDING" "ACCEPTED" "AUTHORIZED" "IN_PROGRESS"
+Status to filter
+
+type	
+string (transactionType)
+Enum: "DEBIT" "CREDIT"
+Type of transaction to filter
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+get
+/transactions
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/transactions?_limit=&_offset=&createdAt=&productType=&status=&type="
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"limit": 0,
+"list": [
+{}
+],
+"offset": 0,
+"total": 0
+}
+Get transaction by id
+Authorizations:
+ApiKey
+path Parameters
+transactionId
+required
+string
+Transaction Id to find
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+get
+/transactions/{transactionId}
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/transactions/{transactionId}"
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"amount": 0,
+"createdAt": "string",
+"currency": "string",
+"currencyDivisor": 0,
+"error": {
+"code": "string",
+"description": "string",
+"message": "string"
+},
+"log": [
+{}
+],
+"productType": "TOPUP",
+"status": "DONE",
+"transactionId": "string",
+"type": "DEBIT",
+"updatedAt": "string"
+}
+Tools
+Tools for Zendit API Tools currently includes the Phone Number Lookup tool that is currently in beta for select clients.
+
+BETA Lookup an MSISDN.
+Authorizations:
+ApiKey
+path Parameters
+msisdn
+required
+string
+MSISDN (phone number) to lookup in e.164 format
+
+Responses
+200
+OK
+
+400
+Not Found – MSISDN not found or lookup not enabled
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+get
+/tools/phonenumberlookup/{msisdn}
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/tools/{msisdn}"
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+{
+"brand": "string",
+"country": "string",
+"mobileCountryCode": "string",
+"mobileNetworkCode": "string",
+"msisdn": "string"
+}
+Reports
+Transacion detail reports that can be downloaded in CSV format for a specified start datetime and ending at a specified end datetime
+
+Generate a transaction report
+Authorizations:
+ApiKey
+Request Body schema: application/json
+endLt
+required
+string
+End date for the report. Transactions returned will have a finish date less than this value (e.g. 2024-02-01T00:00:00Z would return all transactions less than the date/time specified.)
+
+startGte
+required
+string
+Start date for the report. Transactions returned will start at the date/time specified including the date/time that is specified and will return transactions with a finished date that is greater than or equal to sthe start date time.
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+post
+/reports/transactions
+Request samples
+PayloadCurl
+Content type
+application/json
+
+Copy
+{
+"endLt": "string",
+"startGte": "string"
+}
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"createdAt": "string",
+"error": {
+"code": "string",
+"description": "string",
+"message": "string"
+},
+"file": {
+"downloadUrl": "string",
+"name": "string"
+},
+"log": [
+{}
+],
+"period": {
+"endLt": "string",
+"startGte": "string"
+},
+"reportId": "string",
+"status": "REQUESTED",
+"updatedAt": "string"
+}
+Get the status of a requested report
+Authorizations:
+ApiKey
+path Parameters
+reportId
+required
+string
+Report Id to check status
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+get
+/reports/transactions/{reportId}
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/json"\
+"https://api.zendit.io/v1/reports/transactions/{reportId}"
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"createdAt": "string",
+"error": {
+"code": "string",
+"description": "string",
+"message": "string"
+},
+"file": {
+"downloadUrl": "string",
+"name": "string"
+},
+"log": [
+{}
+],
+"period": {
+"endLt": "string",
+"startGte": "string"
+},
+"reportId": "string",
+"status": "REQUESTED",
+"updatedAt": "string"
+}
+Download a Report
+Authorizations:
+ApiKey
+path Parameters
+reportId
+required
+string
+Report Id to check status
+
+file
+required
+string
+File name to download
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+get
+/reports/transactions/{reportId}/{file}
+Request samples
+Curl
+
+Copy
+curl -X GET\
+-H "Authorization: Bearer [[accessToken]]"\
+-H "Accept: application/octet-stream"\
+"https://api.zendit.io/v1/reports/transactions/{reportId}/{file}"
+Response samples
+400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"errorCode": "string",
+"fields": {
+"property1": "string",
+"property2": "string"
+},
+"message": "string"
+}
+Promotions
+Upcoming and active promotions for Mobile Top Up, Mobile Bundle and Mobile Data Plans.
+
+Get a list of carrier promotions for Mobile Topup, Mobile Bundle, and Mobile Data products
+Authorizations:
+ApiKey
+query Parameters
+_limit
+required
+integer
+Maximum number of promos to retrieve
+
+_offset
+required
+string
+Number of promos to skip for pagination
+
+brand	
+string
+Brand to retrieve promos for
+
+country	
+string
+Comma separated list of 2 letter ISO codes for countries to retreive
+
+language	
+string
+2 letter ISO code for language to retrieve, English is returned by default or when specified language is unavailable
+
+region	
+string (regions)
+Enum: "Global" "Africa" "Asia" "Caribbean" "Central America" "Eastern Europe" "Western Europe" "North America" "Oceania" "South America" "South Asia" "Southeast Asia" "Middle East and North Africa"
+String for the name of the region to filter (case sensitive)
+
+status	
+string (promoStatus)
+Enum: "active" "expired" "pending"
+Status of the promo
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+500
+Internal Server Error
+
+
+get
+/promos
+Response samples
+200400401403500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"limit": 0,
+"list": [
+{}
+],
+"offset": 0,
+"total": 0
+}
+Get a promo by ID
+Authorizations:
+ApiKey
+path Parameters
+promoId
+required
+string
+Promo to retrieve by ID
+
+Responses
+200
+OK
+
+400
+Bad Request
+
+401
+Unauthorized – API Token Missing or Unrecognized
+
+403
+Forbidden – IP Not Allowed
+
+404
+Not Found – Transaction not found
+
+500
+Internal Server Error
+
+
+get
+/promos/{promoId}
+Response samples
+200400401403404500
+Content type
+application/json
+
+Copy
+Expand allCollapse all
+{
+"brand": {
+"brand": "string",
+"brandName": "string"
+},
+"country": "string",
+"createdAt": "string",
+"description": {
+"description": "string",
+"language": "string",
+"terms": "string"
+},
+"endAt": "string",
+"id": "string",
+"maxValue": 0,
+"minValue": 0,
+"regions": "Global",
+"startAt": "string",
+"status": "active",
+"updatedAt": "string",
+"offerIds": [
+"string"
+],
+"smsBonusNumber": 0,
+"smsMultiplier": 0,
+"valueBonus": 0,
+"valueMultiplier": 0,
+"voiceBonusMinutes": 0,
+"voiceMultiplier": 0,
+"dataBonusGB": 0,
+"dataMultiplier": 0
+}
+Home
+About Us
+Blog
+Contact Us
+zendit
+© 2026 zendit. All rights reserved
+Privacy Policy
+California Cons
