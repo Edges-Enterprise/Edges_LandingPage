@@ -314,22 +314,55 @@ don't resolve in this repo or on any other machine.
 `functions` array and `fetched_at`, commit, and hand off via the
 standard patch process like any other repo file.
 
-**Flag for whoever picks up Task 4's `1.d` (purchase/fulfillment)**: this
-manifest surfaced two functions — `purchase-airtime` (v22) and
-`purchase-data` (v24) — that aren't mentioned anywhere in Task 4's
-existing "Reality check" (finding #6), which only discusses
-`lizzysub-proxy` and `airtime_proxy`. Both were created 2026-05-18 and
-last updated 2026-07-10 — i.e. they predate Task 4 being opened
-(2026-09-19) and predate this manifest being added, so this isn't new
-infrastructure, it's pre-existing infrastructure the original
-investigation didn't surface. Neither function's source has been read
-yet as of this entry — don't assume what they do or where they fit
-(they could be the actual live purchase path callers hit instead of
-`purchasePlan.ts`, a redundant/earlier attempt, or something unrelated)
-until a session actually reads them. This should be one of the first
-things checked when resuming `1.d.i.zi.x`, before drafting any new
-`global_*` RPCs, since it may change the shape of what "new backend
-work" here actually means.
+**Resolved (2026-09-24, follow-up session): `purchase-airtime`/
+`purchase-data` are a separate system, unrelated to `1.d`'s scope.**
+The flag above was raised before `1.d.i.zi.x` was actually closed
+(that RPC work — commits `95c4111`/`be329ea` — happened independently
+and already predates this flag; no reconciliation was needed there).
+Traced every caller of these two functions in both repos afterward, as
+a pure follow-up. Function source itself isn't committed anywhere (no
+`supabase/functions/` dir in either repo, and the manifest's
+`entrypoint_path`s are local-machine/dashboard paths), so this is
+caller-side inference only:
+
+- `Edges_LandingPage/src/app/actions/reseller/orders/purchasePlan.ts`
+  (the legacy reseller storefront action `1.d` replaces) calls
+  `lizzysub-proxy`/`airtime_proxy` directly. It does **not** call
+  `purchase-airtime`/`purchase-data`. Confirmed unrelated to the code
+  path `1.d` rebuilds.
+- `Edges_LandingPage/src/app/api/v1/purchase/{airtime,data}/route.ts` —
+  a separate public developer API (API-key auth via `apiMiddleware`,
+  not session auth) — calls them, reading `reseller_base_plans` and
+  reading/writing an `api_users.*` schema (`wallets`, `transactions`,
+  `webhooks`, a `deduct_api_user_wallet` RPC, etc.). **`api_users` does
+  not exist anywhere in `supabase/schema.sql`** — the dump only defines
+  `auth`, `public`, and `storage` schemas; zero matches for `api_users`
+  case-insensitively. Either that schema lives outside what gets
+  dumped (unconfirmed) or this whole v1 API surface is non-functional
+  against the live DB. Hardcoded to ₦, no country param regardless.
+- `reseller-app/hooks/usePurchaseVTU.ts` — the mobile app's own
+  storefront-customer purchase flow — also calls them, via
+  `EXPO_PUBLIC_BIMBO_SUPABASE_URL` (same project: `delete-account`,
+  which the mobile app also calls through this URL, is confirmed in the
+  manifest as living in `jjyyfaxcwanrmiipzkoj`). Its payload
+  (`storeSlug`, `planId`/`network`, `phoneNumber`, `transactionPin`,
+  `userId`) has zero overlap with the v1 API's payload
+  (`userId`, `userType: "api_user"`, `requestId`, no `storeSlug`/PIN) —
+  same two edge functions, two structurally different, unrelated
+  callers; whatever's inside them branches on payload shape. The mobile
+  app has zero multi-country awareness (no `countryCode`, no
+  `zendit`/`lizzysub` anywhere in that repo) — single-tenant-per-build,
+  Nigeria-only, store identity baked in via `storeSlug`/
+  `reseller-config.json` at build time.
+
+**Net:** not `1.d`'s problem, doesn't block or inform `1.d.ii`'s
+provider-dispatch work. `usePurchaseVTU.ts` is a live, working example
+of a reseller-storefront *customer* purchase flow (wallet debit + PIN +
+provider call) and may be worth a skim for shape/patterns despite being
+Nigeria-only and hitting functions this task won't use. The `api_users`
+schema gap is unrelated to Task 4 and is flagged here only so it isn't
+rediscovered from scratch — not this pointer's problem to fix unless a
+future task explicitly touches the v1 developer API.
 
 ## Handoff process for DB migrations & edge functions (Ubuntu environment)
 
@@ -2115,6 +2148,7 @@ single atomic `x` either.
 | 2026-09-21 | Pointer-execution session | Confirmed `StoreContent.tsx` (branch `3.a`) still untouched (208 lines, old cart version) — wrote `useCustomerAuth.ts` (`1.b.iii.zi`, commit `e805e41`) as a standalone hook rather than inline. Caught and preserved an easy-to-miss legacy behavior: the storefront's own login form doubles as an owner-login shortcut, now checking `user_metadata.store_slug` (confirmed present on reseller accounts via `submitApplication.ts`) instead of legacy's `store_name`, redirecting to the country-prefixed dashboard route. Explicitly deferred `1.b.iii.zo` (can't verify against `StoreContent.tsx`'s auth-state shape until `3.a` exists) rather than treating it as done or as the pointer. Moved to branch `1.c`: wrote `getGlobalCustomerWallet.ts` (`1.c.i`, commit `d2a5f4d`), and this time verified `zo` properly with an explicit field-by-field cross-check against `schema.sql`'s actual column lists, not just a `tsc` pass (which doesn't validate Supabase column names at all in this codebase). Flagged a real gap for `1.c.ii`: legacy's virtual-account-creation existing-check needs an `auth_user_id` column that `global_customer_virtual_accounts` doesn't have. `1.b` and `1.c.i` are now fully closed. Advanced the pointer to `1.c.ii.zi.x` — the virtual-account creation action, which must resolve the flagged column gap as part of the same step, not defer it further. |
 | 2026-09-21 | Pointer-execution session | Confirmed both `createGlobalCustomerVirtualAccount.ts` patches from the prior session applied cleanly (`c860fc9`, `3400740`). Started `1.c.iii`: confirmed `global_transactions` genuinely has no `customer_id` column and, following legacy's actual precedent (a dedicated `reseller_customer_transactions` table, not a shared one), drafted `supabase/migrations/20260921_customer_transactions_schema.sql` adding `global_customer_transactions`. Separately flagged (not fixed, not blocking today) that `global_customer_virtual_accounts`'s `UNIQUE (reseller_id, customer_id)` constraint would need loosening before a customer could ever hold more than one virtual account — a real divergence from legacy's array-based design, currently masked because only one bank code is ever requested. Renumbered the remaining `1.c` work: `iii` is now the schema step just delivered, the actual funding action moves to `1.c.iv`. Advanced the pointer to `1.c.iii.zo.x` — applying this migration directly in Ubuntu, same pattern as `1.a.ii.zo.x`. |
 | 2026-09-21 | Pointer-execution session | User applied the `global_customer_transactions` migration in Ubuntu and pushed a refreshed `schema.sql` directly (`f14d676`). Diffed before/after: confirmed only the intended table/indexes/FKs landed. `1.c.iii` is now fully closed. Wrote and delivered `fundGlobalCustomerWallet.ts` (`1.c.iv.zi`), mirroring `fundWallet.ts`'s korapay/flutterwave pattern, deliberately erroring out for xixapay-gateway resellers (config-driven, not hardcoded) since those countries already fund via the persistent virtual account instead. Found and deliberately did not repeat a real pre-existing bug: `handleSuccessfulDeposit.ts` updates two columns (`completed_at`, `provider_reference`) that don't exist on `global_transactions` at all — almost certainly means reseller Flutterwave deposits silently fail to ever be marked completed; flagged as an independent bug outside this task's scope, not fixed here. Verified `1.c.iv.zi` with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Flagged the real remaining gap plainly rather than calling `1.c` done: nothing yet marks a customer deposit `completed` or credits `global_customer_wallets` on webhook callback — none of the three gateway webhook routes have any concept of a customer-scoped transaction yet. Advanced the pointer to `1.c.v.zi.x` — the customer deposit completion handler plus webhook-route wiring, explicitly called out as likely needing its own further split once someone is actually in those four route files. |
+| 2026-09-24 (follow-up) | Status-check / reference session | Pulled latest before doing anything else — confirmed the prior same-day patch (`ed9b84f`) had landed, and that it already sits on top of independent `1.d.i.zi.x` RPC work (`95c4111`/`be329ea`) and the pointer advance to `1.d.ii` (`63b0fab`), none of which conflicts with this session's docs-only change. Resolved the `purchase-airtime`/`purchase-data` flag left by the prior entry: traced both functions through every caller in both repos (legacy `purchasePlan.ts` doesn't call them at all; a separate public v1 developer API does, against an `api_users` schema confirmed absent from `schema.sql`; the mobile `reseller-app`'s own customer purchase hook also calls them, with a non-overlapping payload shape, implying internal branching). Full trace with citations replaces the earlier flag in the "Edge functions manifest" section above. Net conclusion: unrelated to `1.d`'s scope, doesn't block `1.d.ii`. No application code written; active pointer unchanged (`1.d.ii`).
 | 2026-09-24 | Status-check / reference session | Reconfirmed project standing per the session bootstrap rule (both repos re-cloned, latest branch `handover/supabase-dump` confirmed on both — no drift from the last log entry). User pasted a Management-API function-list dump (fetched via PAT, not from this session). Added `supabase/edge-functions.json` as a new checked-in reference manifest (metadata only — no source, no secrets) and documented it in a new "Edge functions manifest" section above, including its update process (normal patch handoff, not the schema.sql direct-push exception, since it doesn't require live DB access to produce). **Flagged, not yet investigated**: the manifest surfaced `purchase-airtime` (v22) and `purchase-data` (v24), functions absent from Task 4's existing "Reality check" (finding #6), predating both Task 4's opening and this manifest. Left as an open flag for the `1.d.i.zi.x` session to check before drafting new RPCs — did not read either function's source or draw conclusions about what they do. Active pointer unchanged (`1.d.i.zi.x`); no code written this session.
 | 2026-09-21 | Pointer-execution session | Read all four webhook routes before writing anything, per the previous session's own instruction — found a much messier picture than assumed: four mutually-inconsistent completion implementations (korapay inline, flutterwave inline with a dead `handleSuccessfulDeposit` import, xixapay inline with a different no-pending-row model, and a fourth `[countryCode]/payment/route.ts` calling a legacy RPC that's likely orphaned/not live). Confirmed `handleSuccessfulDeposit.ts` is genuinely dead code (imported, never called) and removed the dead import while already editing that file. Found a real, likely-live bug separate from Task 4: three of the four routes update `completed_at`/`provider_reference` columns that don't exist on `global_transactions` at all — reseller deposits via any of them may never actually get marked completed; flagged clearly, not fixed (out of scope, pre-existing, reseller-side). Scoped this atomic step to the korapay/flutterwave completion path only, since that's what `fundGlobalCustomerWallet.ts` (1.c.iv) actually produces (an initiate-then-webhook-matches-by-reference model) — xixapay virtual-account transfers have no pre-existing pending row to match at all and need a different lookup (by receiving account number), split out as `1.c.vi` rather than bolted on here. Delivered `handleSuccessfulCustomerDeposit.ts` plus wiring into `korapay/route.ts` and `flutterwave/route.ts` (each now falls back to `global_customer_transactions` before 404ing), deliberately not repeating the `completed_at`/`provider_reference` bug. Verified with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Advanced the pointer to `1.c.vi.zi.x` — xixapay customer virtual-account webhook attribution. |
 | 2026-09-21 | Pointer-execution session | User clarified the first-deposit bonus product rule directly: reseller-only, app-initiated only, never for customers. Implemented the xixapay customer virtual-account attribution branch in `xixapay/route.ts`: falls back to matching the webhook's receiving account number against `global_customer_virtual_accounts` when no pending row exists in `global_transactions` (confirmed via `fundWallet.ts` that a pending row for xixapay only ever exists for reseller-initiated top-ups, never for a raw transfer into any persistent virtual account), inserting a new completed `global_customer_transactions` row directly with its own idempotency check by reference (no pre-existing pending row to guard duplicates with here, unlike every other branch in this file). Confirmed the `receiver.account_number` field name by finding it already used elsewhere in the same file rather than guessing at xixapay's payload shape. Also fixed the existing reseller-side first-deposit bonus check, which had no source gating at all, to require `source === "app"`, per the user's stated rule — a real, direct behavior change on existing reseller code, made because it was explicitly requested. Verified with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Branch `1.c` (wallet & virtual account actions) is now fully closed. Advanced the pointer to `1.d.i.zi.x` — branch `1.d`, the purchase action, flagged as likely to need the same careful multi-step treatment as `1.c` rather than fitting one atomic step. |
