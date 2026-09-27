@@ -1222,7 +1222,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `1.d.ii`** (see below).
+**Status: OPEN. Active pointer: `1.d.ii.zi.x`** (see below).
 
 ### Context
 
@@ -2029,19 +2029,122 @@ own bootstrap step had already checked out as HEAD before any work
 started. Not concurrent; the Ubuntu clone was simply behind the remote on
 already-existing history. No reconciliation was needed.)
 
-### Next atomic step — active pointer `1.d.ii`
+### Findings from this session (1.d.ii investigation — DONE, 2026-09-27)
 
-Provider-dispatch layer: the purchase action needs to call the right
-upstream provider (lizzysub / zendit / accragh) per country. **Before
-writing anything**, read the flagged finding above about
-`src/lib/providers/` — it looks like a ready-made dispatch layer but has
-zero callers anywhere in the repo, and its `lizzysub.ts` implementation
-calls a fictional endpoint that doesn't match the real, live Lizzysub
-integration confirmed in `purchasePlan.ts` (Supabase Edge Functions
-`lizzysub-proxy`/`airtime_proxy`, numeric `NETWORK_MAP`, not a direct
-`api.lizzysub.com` REST call). Confirm `zendit.ts` and `accragh.ts` against
-their real upstream APIs too before assuming any of `src/lib/providers/`
-is usable as-is — don't build on top of it without that check first.
+Read the actual source of all four candidate edge functions
+(`lizzysub-proxy`, `airtime_proxy`, `purchase-data`, `purchase-airtime`)
+via the Management API's function-body endpoint (the listing endpoint
+used for `edge-functions.json` doesn't include source — this needed a
+separate call per function, returned as a Deno `eszip` binary bundle
+with the real TypeScript embedded in its sourcemap). This resolved
+several things at once:
+
+- **`lizzysub-proxy`/`airtime_proxy` are exactly as thin as
+  `purchasePlan.ts` implied**: bare pass-through proxies to
+  `https://lizzysub.com/api/data` and `/api/topup`, no DB access at
+  all, just CORS + auth-token injection.
+- **Security issue, found in passing, not this task's to fix but worth
+  flagging loudly**: both hardcode the live Lizzysub API token as a
+  plaintext string literal in the deployed source (`const
+  LIZZYSUB_TOKEN = "..."`), rather than reading it from an environment
+  variable. Not reproducing the value here — treat it as compromised
+  simply by virtue of having been readable via the Management API by
+  anyone with a read-only Edge Functions token, and rotate it with
+  Lizzysub plus move it to `Deno.env.get("LIZZYSUB_TOKEN")` the same
+  way `purchase-data`/`purchase-airtime` (below) already correctly do
+  it. Unrelated to Task 4's scope — flagged so it isn't lost, not
+  actioned here.
+- **`purchase-data`/`purchase-airtime` are a real, live, working
+  reference implementation of almost exactly what `1.d` needs to
+  build** — confirmed (per the previous session's trace) they're
+  called by `reseller-app`'s `usePurchaseVTU.ts`, i.e. this is the
+  actual mobile customer-purchase flow running in production today,
+  just against the **legacy** schema (`resellers`/`reseller_customers`/
+  `reseller_customer_wallets`/`reseller_base_plans`/
+  `reseller_plan_configs`), not `global_*`. Full flow, in order:
+  1. Resolve caller identity: check `resellers` by `auth_user_id` first
+     (reseller self-purchase), fall back to `reseller_customers`
+     (customer purchase).
+  2. Resolve the numeric `planId` sent by the client against
+     `reseller_base_plans.plan_id` (a numeric field, distinct from the
+     row's own uuid `id`) + `is_active`.
+  3. Resolve `reseller_plan_configs` (`markup_type`/`markup_value`/
+     `enabled`) by `reseller_id` + the base plan's uuid `id`.
+  4. Compute `finalPrice` (percentage or flat markup over the base
+     plan's `amount`, which is the wholesale cost).
+  5. Check the **reseller's own balance** covers the wholesale cost via
+     `get_reseller_balance` RPC — this happens even for a customer
+     purchase, because the reseller's balance is what actually funds
+     the wholesale cost; the customer's wallet only covers the
+     marked-up retail price on top of that.
+  6. If a customer is buying: also check `reseller_customer_wallets`
+     covers the marked-up `finalPrice`.
+  7. Verify the transaction PIN — from `resellers.transaction_pin` if
+     the caller is the reseller, from `reseller_customers.transaction_pin`
+     if a customer. This is the exact same per-identity-type PIN
+     branching already flagged as a legacy behavior to preserve in the
+     Task 4 storefront-rebuild brief — now confirmed live in the
+     mobile purchase path too, not just the web storefront's design.
+  8. Map the plan's network name to Lizzysub's numeric ID
+     (`NETWORK_MAP`: MTN=1, AIRTEL=2, GLO=3, 9MOBILE=4) and call the
+     matching Lizzysub endpoint directly (not through
+     `lizzysub-proxy`/`airtime_proxy` — this function inlines its own
+     fetch call with the token from `Deno.env.get`).
+  9. On provider failure: log a `failed` order via `create_purchase_order`
+     RPC, return the error (with one specific user-facing message
+     substitution for an "Insufficient Account/Wallet" Lizzysub error,
+     presumably because that's Lizzysub's own upstream balance running
+     low, not the customer's).
+  10. On success: **two different deduction paths** depending on who's
+      buying — `process_purchase_deductions` RPC (customer purchase:
+      atomically debits the customer wallet by `finalPrice` *and* the
+      reseller wallet by the wholesale cost) vs. `deduct_reseller_cost`
+      RPC (reseller self-purchase: only the reseller's own wallet moves,
+      by the wholesale cost, zero profit recorded).
+  11. Create the completed order via `create_purchase_order`, then
+      write a `reseller_customer_transactions` row (customer case only)
+      and a `reseller_transactions` row (always), both with a `metadata`
+      blob carrying the full Lizzysub response for auditability.
+  12. `purchase-airtime` is the same shape with `p_plan_id: null` and a
+      raw amount instead of a specific plan — no other structural
+      difference worth calling out separately.
+- **Directly validates `1.d.i`'s already-delivered RPCs** — compared
+  the RPC names this reference calls against
+  `20260922_global_purchase_rpcs.sql` (the previous session's `1.d.i`
+  migration) and they match one-to-one: `get_reseller_balance` →
+  `get_global_reseller_balance`, `deduct_reseller_cost` →
+  `deduct_global_reseller_cost`, `process_purchase_deductions` →
+  `process_global_purchase_deductions`, `create_purchase_order` →
+  `create_global_purchase_order`. That session built this shape
+  independently, without having read this edge function — strong
+  confirmation `1.d.i` doesn't need revisiting.
+- **Confirms and sharpens the `1.d.ii` blocker already flagged**:
+  `src/lib/providers/lizzysub.ts` needs a real rewrite before it's
+  usable — it currently calls a fictional generic REST endpoint instead
+  of the two real Lizzysub endpoints (`/api/data`, `/api/topup`) with
+  the real numeric `NETWORK_MAP`. `accragh.ts`/`zendit.ts` remain
+  entirely unverified either way — per the person's own instruction,
+  new edge functions for those two are being built separately, so
+  those two provider files should probably be rewritten (or newly
+  written) once that work exists to confirm against, not guessed at now.
+
+### Next atomic step — active pointer `1.d.ii.zi.x`
+
+Rewrite `src/lib/providers/lizzysub.ts`'s `purchaseData`/`purchaseAirtime`
+methods (interface from `provider.types.ts` stays the same) to match
+the real integration confirmed above: the two real endpoints, the real
+`NETWORK_MAP`, and reading the token from an environment variable
+(`LIZZYSUB_TOKEN`, matching `purchase-data`/`purchase-airtime`'s already
+-correct pattern — do not hardcode it, and do not reuse whatever the
+exposed legacy token value was, since it should be rotated). Leave
+`accragh.ts`/`zendit.ts` alone for now — explicitly deferred until the
+person's own new edge functions for those exist to confirm against,
+per their instruction. Once `lizzysub.ts` is fixed and verified
+(`1.d.ii.zo.x`), the actual `purchasePlan`-equivalent action for `1.d`
+(branch `1.d.iii`, not yet reached) can be built with confidence against
+`getServiceProviderByCountry(countryCode)`, using this session's fully
+traced 12-step flow above as its structural template, substituting
+`global_*` tables/RPCs for the legacy ones throughout.
 
 ### Next atomic step (superseded, kept for reference) — was `1.d.i.zi.x`
 
@@ -2154,3 +2257,4 @@ single atomic `x` either.
 | 2026-09-21 | Pointer-execution session | User clarified the first-deposit bonus product rule directly: reseller-only, app-initiated only, never for customers. Implemented the xixapay customer virtual-account attribution branch in `xixapay/route.ts`: falls back to matching the webhook's receiving account number against `global_customer_virtual_accounts` when no pending row exists in `global_transactions` (confirmed via `fundWallet.ts` that a pending row for xixapay only ever exists for reseller-initiated top-ups, never for a raw transfer into any persistent virtual account), inserting a new completed `global_customer_transactions` row directly with its own idempotency check by reference (no pre-existing pending row to guard duplicates with here, unlike every other branch in this file). Confirmed the `receiver.account_number` field name by finding it already used elsewhere in the same file rather than guessing at xixapay's payload shape. Also fixed the existing reseller-side first-deposit bonus check, which had no source gating at all, to require `source === "app"`, per the user's stated rule — a real, direct behavior change on existing reseller code, made because it was explicitly requested. Verified with a full-project `tsc --noEmit` (0 errors) plus a schema cross-check. Branch `1.c` (wallet & virtual account actions) is now fully closed. Advanced the pointer to `1.d.i.zi.x` — branch `1.d`, the purchase action, flagged as likely to need the same careful multi-step treatment as `1.c` rather than fitting one atomic step. |
 | 2026-09-22 | Pointer-execution session | Re-read `purchasePlan.ts` and all four legacy RPC bodies directly in `schema.sql` before writing anything, per the pickup brief. Delivered `supabase/migrations/20260922_global_purchase_rpcs.sql` — `get_global_reseller_balance`/`deduct_global_reseller_cost`/`process_global_purchase_deductions`/`create_global_purchase_order`, mirroring legacy logic against `global_wallets`/`global_customer_wallets`/`global_orders`. Resolved two real schema deviations directly rather than guessing: `global_wallets` has no `total_sales`/`total_profit` (confirmed `get_global_reseller_dashboard_stats` computes those live from `global_orders` instead, so the new deduction RPC only touches `balance`); `global_orders` requires `customer_id`/`customer_name`/`plan_name` that `reseller_orders` never had, so `create_global_purchase_order`'s signature is correspondingly wider — flagged as something `1.d.iii` (the purchase action itself) needs to supply, especially the reseller-self-purchase placeholder for `customer_name`. Also found and flagged (not fixed, out of scope for `1.d.i`): `src/lib/providers/` (a `ServiceProvider` abstraction with `lizzysub`/`accragh`/`zendit` implementations) already exists but has zero callers anywhere in the repo, and its `lizzysub.ts` calls a fictional REST endpoint that doesn't match the real, live Lizzysub integration (Supabase Edge Functions, numeric `NETWORK_MAP`) — flagged so `1.d.ii` doesn't get built on top of it without first confirming `zendit`/`accragh` against their real upstream APIs too. Verified with a full-project `tsc --noEmit` (0 errors, SQL-only change) plus a manual field-by-field cross-check against `schema.sql`. Advanced the pointer to `1.d.i.zo.x` — applying this migration directly in Ubuntu, same pattern as `1.a.ii.zo.x`/`1.c.iii.zo.x`. |
 | 2026-09-23 | Pointer-execution session (cont.) | User applied `20260922_global_purchase_rpcs.sql` directly via `psql` in Ubuntu — all four `CREATE FUNCTION` statements succeeded. Caught a real issue before the schema snapshot: the most recent existing dump (`~/supabase-dumps/2026-09-20_060331/`) predated the migration by three days, so it was flagged as stale and not used — a fresh `pg_dump` was taken instead (`~/supabase-dumps/2026-09-23_135321/`), grep-confirmed to contain all four new function names before copying over `supabase/schema.sql` and pushing directly (schema snapshot exception, not a patch). Re-confirmed post-push that the committed `schema.sql` has all four functions with the exact signatures from the migration. Separately, corrected a false alarm raised earlier in the same session: commits that appeared in the `git pull` before `git am` (`fundGlobalCustomerWallet.ts`, webhook wiring, xixapay fix) looked like a concurrent session at a glance, but all predate `394539e`, the commit this session's own bootstrap had already checked out as HEAD before starting — not concurrent, just a stale local Ubuntu clone catching up on already-existing history. No reconciliation needed. Branch `1.d.i` (global purchase RPCs) is now fully closed. Advanced the pointer to `1.d.ii` — provider-dispatch layer — with the `src/lib/providers/` finding from the prior entry carried forward as the first thing to check before writing anything there. |
+| 2026-09-27 | Pointer-execution session | Read the actual source of `lizzysub-proxy`, `airtime_proxy`, `purchase-data`, and `purchase-airtime` via the Management API's function-body endpoint (Deno eszip binary, source recoverable from its embedded sourcemap). Confirmed `purchase-data`/`purchase-airtime` are a real, live, working reference implementation of the exact wallet+PIN+markup+fulfillment flow `1.d` needs, just on legacy tables - fully traced and documented as a 12-step flow. Cross-checked the previous session's `1.d.i` RPCs (`20260922_global_purchase_rpcs.sql`) against the RPC names this reference calls and confirmed a one-to-one match, validating that work without needing to revisit it. Found and flagged (not fixed, unrelated to Task 4) a real security issue: `lizzysub-proxy`/`airtime_proxy` hardcode the live Lizzysub API token in plaintext, unlike `purchase-data`/`purchase-airtime`, which correctly read it from an environment variable - did not reproduce the exposed token value anywhere in this repo. Sharpened the `1.d.ii` blocker: `src/lib/providers/lizzysub.ts` needs rewriting to match the two real endpoints and the real numeric `NETWORK_MAP` confirmed above, rather than the fictional generic REST shape it currently has. Per the person's explicit instruction, left `accragh.ts`/`zendit.ts` untouched - new edge functions for those are being built separately and those provider files should be confirmed against that work once it exists, not guessed at now. Advanced the pointer to `1.d.ii.zi.x`: rewrite `lizzysub.ts` only. |
