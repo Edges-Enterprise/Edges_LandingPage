@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict gGQzJsKSY0Lkapci1aNXsZJB9ggchzsmISeiucNLrOMsmfYof6Q6BRuDbCfIR5n
+\restrict 7GhTfYLb0Pxcf4OKd8CtHGOrdwBDNm0DUQipktQHjpWimhZopP9HD3YzAc7ByvG
 
 -- Dumped from database version 15.8
 -- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
@@ -5002,7 +5002,8 @@ CREATE TABLE public.global_reseller_applications (
     original_email text NOT NULL,
     auth_email text,
     notification_icon_url text,
-    bvn text
+    bvn text,
+    transaction_pin text
 );
 
 
@@ -5097,7 +5098,7 @@ CREATE TABLE public.global_transactions (
     created_at timestamp with time zone DEFAULT now(),
     payment_gateway text,
     CONSTRAINT global_transactions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text]))),
-    CONSTRAINT global_transactions_type_check CHECK ((type = ANY (ARRAY['credit'::text, 'debit'::text])))
+    CONSTRAINT global_transactions_type_check CHECK ((type = ANY (ARRAY['credit'::text, 'debit'::text, 'purchase'::text, 'refund'::text])))
 );
 
 
@@ -11137,5 +11138,5 @@ ALTER TABLE storage.vector_indexes ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict gGQzJsKSY0Lkapci1aNXsZJB9ggchzsmISeiucNLrOMsmfYof6Q6BRuDbCfIR5n
+\unrestrict 7GhTfYLb0Pxcf4OKd8CtHGOrdwBDNm0DUQipktQHjpWimhZopP9HD3YzAc7ByvG
 
