@@ -1222,7 +1222,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `1.d.ii.zi.x`** (see below).
+**Status: OPEN. Active pointer: `1.d.iv.zi.x`** (see below).
 
 ### Context
 
@@ -2128,23 +2128,133 @@ several things at once:
   those two provider files should probably be rewritten (or newly
   written) once that work exists to confirm against, not guessed at now.
 
-### Next atomic step — active pointer `1.d.ii.zi.x`
+### Plan changed — direction from the person (2026-10-03)
 
-Rewrite `src/lib/providers/lizzysub.ts`'s `purchaseData`/`purchaseAirtime`
-methods (interface from `provider.types.ts` stays the same) to match
-the real integration confirmed above: the two real endpoints, the real
-`NETWORK_MAP`, and reading the token from an environment variable
-(`LIZZYSUB_TOKEN`, matching `purchase-data`/`purchase-airtime`'s already
--correct pattern — do not hardcode it, and do not reuse whatever the
-exposed legacy token value was, since it should be rotated). Leave
-`accragh.ts`/`zendit.ts` alone for now — explicitly deferred until the
-person's own new edge functions for those exist to confirm against,
-per their instruction. Once `lizzysub.ts` is fixed and verified
-(`1.d.ii.zo.x`), the actual `purchasePlan`-equivalent action for `1.d`
-(branch `1.d.iii`, not yet reached) can be built with confidence against
-`getServiceProviderByCountry(countryCode)`, using this session's fully
-traced 12-step flow above as its structural template, substituting
-`global_*` tables/RPCs for the legacy ones throughout.
+Rather than fixing `src/lib/providers/lizzysub.ts` for a Next.js-side
+purchase action to call, the person directed building **dedicated
+Supabase edge functions** instead — `global-purchase-data` and
+`global-purchase-airtime` — mirroring `purchase-data`/`purchase-airtime`'s
+proven architecture directly, with real API documentation supplied for
+all three providers (Lizzysub, AccraGH/NetFillGh, Zendit). This
+supersedes the `lizzysub.ts`-rewrite plan above.
+**`src/lib/providers/*.ts` remains untouched, unused, unverified dead
+code** — it is not what the live purchase path uses, now or going
+forward. Don't build anything else on top of it without re-confirming
+this is still true.
+
+### Findings + delivery from this session (1.d.iii — PARTIAL, 2026-10-03)
+
+**Tooling note**: edge functions are Deno, not Node — `tsc` can't check
+them, and adding Deno-flavored files under `supabase/functions/` would
+otherwise get swept into the main Next.js `tsc` run (its `include` is
+unscoped `**/*.ts`) and break the build, the same class of bug Task 3
+already had to fix once. Added `"supabase/functions"` to `tsconfig.json`'s
+`exclude` as a prerequisite. Verified every new file with `deno check`
+instead (installed via `npm install deno` — works fine on this sandbox
+unlike the Supabase CLI's arm64 binary issue from earlier sessions;
+`deno check` resolves `npm:` specifiers like `@supabase/supabase-js`
+straight from the repo's own already-installed `node_modules`, no
+separate Deno-specific install needed).
+
+**Critical finding from reading the provider docs carefully**: the
+three providers are **not equivalent in timing model**, and treating
+them as if they were would risk debiting a wallet for an order that
+later fails.
+- **Lizzysub**: synchronous — the purchase response is the final
+  result, exactly like the proven legacy pattern.
+- **AccraGH (NetFillGh)**: asynchronous — orders go
+  `pending → processing → completed/failed`, and per NetFillGh's own
+  docs, the wallet charge on *their* side only happens at
+  `processing`, not at the initial accepted response. A `success`
+  response from the purchase call is acceptance, not confirmation.
+- **Zendit**: also asynchronous — the purchase call returns a
+  `transactionId` to poll or receive a webhook for, not a final
+  result. **No webhook signature-verification scheme is documented
+  anywhere in Zendit's own API docs** — flagged as an open question for
+  whoever builds the Zendit webhook handler, not resolved this session.
+
+Built `_shared/providers.ts` with this distinction as a first-class
+`result.final: boolean` field callers must respect — `final: false`
+means "accepted, not yet confirmed," and the orchestrator below
+deliberately does **not** deduct any wallet balance in that case, only
+records a `pending` order + `pending` ledger entries.
+
+**Schema gaps found and closed, both additive**
+(`supabase/migrations/20261003_purchase_schema_additions.sql`):
+- `global_reseller_applications` had no `transaction_pin` column at
+  all (unlike legacy's `resellers.transaction_pin`), which would have
+  made reseller self-purchase impossible to mirror faithfully. Added,
+  nullable, same as legacy.
+- `global_transactions`'s `type` check only allowed `credit`/`debit`;
+  legacy's `reseller_transactions.type` includes `purchase`, used for
+  every sale's reseller-side ledger entry. Widened additively to add
+  `purchase`/`refund` — existing rows/consumers keyed on
+  `credit`/`debit` are unaffected. (`global_customer_transactions`
+  already allowed `purchase` from `1.c.iii`'s migration — no change
+  needed there.)
+
+**Delivered** (full field-by-field schema cross-check done against
+`schema.sql` for every table referenced, same standard as every prior
+session — all match):
+- `supabase/functions/_shared/providers.ts` — the three real provider
+  integrations (Lizzysub's two endpoints + numeric `NETWORK_MAP`
+  confirmed against the live edge functions; AccraGH's single `/buy`
+  endpoint including its documented 409-duplicate-`request_id` handling;
+  Zendit's `/topups/purchases`, FIXED-offer-only — `value` is omitted,
+  which Zendit's docs say is only valid for FIXED offers, matching
+  `global_base_plans`' single `base_price` column rather than a
+  min/max range; flagged if a RANGE-type offer is ever catalogued).
+- `supabase/functions/_shared/countryDialCodes.ts` — a duplicated
+  `phoneCode` map mirroring `src/config/countries/*.ts`, needed because
+  edge functions (Deno) can't import the Next.js app's path-aliased TS
+  config directly. **No automated sync between the two** — a country
+  added/changed in `src/config/countries` needs updating here too,
+  manually.
+- `supabase/functions/_shared/purchaseOrchestrator.ts` — the full
+  `global_*` equivalent of the proven 12-step flow traced in the
+  previous session's findings: identity resolution, base-plan +
+  reseller-markup-config lookup, dual balance checks, per-identity-type
+  PIN verification, provider dispatch, then branches on
+  `providerResult.final` — confirmed completion (deduct for real, same
+  RPCs as `1.d.i`: `process_global_purchase_deductions`/
+  `deduct_global_reseller_cost`/`create_global_purchase_order`) vs.
+  pending acceptance (record pending order + pending
+  `global_customer_transactions` row, no wallet movement).
+- `supabase/functions/global-purchase-data/index.ts` and
+  `supabase/functions/global-purchase-airtime/index.ts` — thin
+  entrypoints calling the shared orchestrator with `category: "data"`/
+  `"airtime"`.
+
+**Not delivered, explicitly incomplete** — don't mistake "pending" for
+"done":
+- **No webhook handler exists for AccraGH or Zendit.** A `pending`
+  order created by these two functions today will sit pending
+  indefinitely — there is nothing yet that completes it, credits/debits
+  anything, or notifies the customer. This is real, necessary follow-up
+  work, not optional polish, same framing as `1.c.v`'s original
+  deposit-completion gap.
+- **New env vars needed, not yet confirmed set anywhere**:
+  `ACCRAGH_API_KEY`, `ZENDIT_API_KEY` (edge function secrets, separate
+  from `LIZZYSUB_TOKEN` which the edge functions already have).
+- **Deployment**: these are new edge functions, not part of the Next.js
+  app — a `git push` of this patch does **not** deploy them. They need
+  `supabase functions deploy global-purchase-data` /
+  `global-purchase-airtime` (or the Management API's deploy endpoint)
+  run separately, same category of manual step as applying a DB
+  migration directly.
+
+### Next atomic step — active pointer `1.d.iv.zi.x`
+
+Webhook handlers for AccraGH and Zendit purchase completion — the
+piece that actually finishes a `pending` order from `1.d.iii` above by
+crediting/debiting wallets and marking the order/transactions
+`completed` or `failed`, mirroring how `1.c.v` closed the equivalent
+gap for deposit webhooks. Read AccraGH's documented webhook payload and
+signature scheme (HMAC, confirmed present in its docs) before writing
+anything; for Zendit, confirm whether a signature scheme actually
+exists (not found in the docs provided this session) before trusting
+any inbound Zendit webhook at all — don't assume it's safe to skip
+verification just because it wasn't documented in what was read.
 
 ### Next atomic step (superseded, kept for reference) — was `1.d.i.zi.x`
 
@@ -2258,3 +2368,4 @@ single atomic `x` either.
 | 2026-09-22 | Pointer-execution session | Re-read `purchasePlan.ts` and all four legacy RPC bodies directly in `schema.sql` before writing anything, per the pickup brief. Delivered `supabase/migrations/20260922_global_purchase_rpcs.sql` — `get_global_reseller_balance`/`deduct_global_reseller_cost`/`process_global_purchase_deductions`/`create_global_purchase_order`, mirroring legacy logic against `global_wallets`/`global_customer_wallets`/`global_orders`. Resolved two real schema deviations directly rather than guessing: `global_wallets` has no `total_sales`/`total_profit` (confirmed `get_global_reseller_dashboard_stats` computes those live from `global_orders` instead, so the new deduction RPC only touches `balance`); `global_orders` requires `customer_id`/`customer_name`/`plan_name` that `reseller_orders` never had, so `create_global_purchase_order`'s signature is correspondingly wider — flagged as something `1.d.iii` (the purchase action itself) needs to supply, especially the reseller-self-purchase placeholder for `customer_name`. Also found and flagged (not fixed, out of scope for `1.d.i`): `src/lib/providers/` (a `ServiceProvider` abstraction with `lizzysub`/`accragh`/`zendit` implementations) already exists but has zero callers anywhere in the repo, and its `lizzysub.ts` calls a fictional REST endpoint that doesn't match the real, live Lizzysub integration (Supabase Edge Functions, numeric `NETWORK_MAP`) — flagged so `1.d.ii` doesn't get built on top of it without first confirming `zendit`/`accragh` against their real upstream APIs too. Verified with a full-project `tsc --noEmit` (0 errors, SQL-only change) plus a manual field-by-field cross-check against `schema.sql`. Advanced the pointer to `1.d.i.zo.x` — applying this migration directly in Ubuntu, same pattern as `1.a.ii.zo.x`/`1.c.iii.zo.x`. |
 | 2026-09-23 | Pointer-execution session (cont.) | User applied `20260922_global_purchase_rpcs.sql` directly via `psql` in Ubuntu — all four `CREATE FUNCTION` statements succeeded. Caught a real issue before the schema snapshot: the most recent existing dump (`~/supabase-dumps/2026-09-20_060331/`) predated the migration by three days, so it was flagged as stale and not used — a fresh `pg_dump` was taken instead (`~/supabase-dumps/2026-09-23_135321/`), grep-confirmed to contain all four new function names before copying over `supabase/schema.sql` and pushing directly (schema snapshot exception, not a patch). Re-confirmed post-push that the committed `schema.sql` has all four functions with the exact signatures from the migration. Separately, corrected a false alarm raised earlier in the same session: commits that appeared in the `git pull` before `git am` (`fundGlobalCustomerWallet.ts`, webhook wiring, xixapay fix) looked like a concurrent session at a glance, but all predate `394539e`, the commit this session's own bootstrap had already checked out as HEAD before starting — not concurrent, just a stale local Ubuntu clone catching up on already-existing history. No reconciliation needed. Branch `1.d.i` (global purchase RPCs) is now fully closed. Advanced the pointer to `1.d.ii` — provider-dispatch layer — with the `src/lib/providers/` finding from the prior entry carried forward as the first thing to check before writing anything there. |
 | 2026-09-27 | Pointer-execution session | Read the actual source of `lizzysub-proxy`, `airtime_proxy`, `purchase-data`, and `purchase-airtime` via the Management API's function-body endpoint (Deno eszip binary, source recoverable from its embedded sourcemap). Confirmed `purchase-data`/`purchase-airtime` are a real, live, working reference implementation of the exact wallet+PIN+markup+fulfillment flow `1.d` needs, just on legacy tables - fully traced and documented as a 12-step flow. Cross-checked the previous session's `1.d.i` RPCs (`20260922_global_purchase_rpcs.sql`) against the RPC names this reference calls and confirmed a one-to-one match, validating that work without needing to revisit it. Found and flagged (not fixed, unrelated to Task 4) a real security issue: `lizzysub-proxy`/`airtime_proxy` hardcode the live Lizzysub API token in plaintext, unlike `purchase-data`/`purchase-airtime`, which correctly read it from an environment variable - did not reproduce the exposed token value anywhere in this repo. Sharpened the `1.d.ii` blocker: `src/lib/providers/lizzysub.ts` needs rewriting to match the two real endpoints and the real numeric `NETWORK_MAP` confirmed above, rather than the fictional generic REST shape it currently has. Per the person's explicit instruction, left `accragh.ts`/`zendit.ts` untouched - new edge functions for those are being built separately and those provider files should be confirmed against that work once it exists, not guessed at now. Advanced the pointer to `1.d.ii.zi.x`: rewrite `lizzysub.ts` only. |
+| 2026-10-03 | Pointer-execution session | Person directed a change in approach: build dedicated `global-purchase-data`/`global-purchase-airtime` edge functions mirroring `purchase-data`/`purchase-airtime`'s proven architecture directly, rather than fixing `src/lib/providers/lizzysub.ts` for Next.js-side use - `src/lib/providers/*.ts` remains untouched, unused dead code. Read real API documentation supplied for all three providers. Found a critical timing-model mismatch: Lizzysub is synchronous, AccraGH and Zendit are both asynchronous (AccraGH's own docs confirm the wallet charge happens at a later `processing` stage, not the initial accepted response; Zendit returns only a `transactionId` to poll/await a webhook for). Built `_shared/providers.ts` with an explicit `final: boolean` result field so the orchestrator never deducts a wallet for an order that isn't actually confirmed yet. Closed two schema gaps additively (reseller `transaction_pin`, widened `global_transactions.type` to include `purchase`/`refund`). Delivered the full shared orchestrator (`_shared/purchaseOrchestrator.ts`) plus both thin entrypoints, verified with `deno check` (installed via npm, works cleanly on this sandbox) and a full schema cross-check - all fields match. Added `supabase/functions` to `tsconfig.json`'s exclude first, since the main Next.js `tsc` run would otherwise try to check Deno-flavored files and break. Explicitly left two things undone and flagged clearly: no webhook handler exists yet for AccraGH or Zendit, so a `pending` order from either provider will sit pending indefinitely until one is built; and these are edge functions, not part of the Next.js app, so this patch landing does not deploy them - that needs a separate `supabase functions deploy` step, plus `ACCRAGH_API_KEY`/`ZENDIT_API_KEY` env vars confirmed set. Advanced the pointer to `1.d.iv.zi.x`: the two webhook handlers, flagging that Zendit's webhook has no documented signature-verification scheme at all - don't assume it's safe to skip verification just because it wasn't found in the docs provided. |
