@@ -416,32 +416,61 @@ echo "Migration applied: <migration-file>.sql"
   fresh `pg_dump` (per the Task 1 process) immediately before applying
   a migration, so there's a known-good restore point if it goes wrong.
 
-### Deploying an edge function
+### Deploying an edge function — CONFIRMED WORKING (2026-10-04)
 
 Edge functions are deployed through the **Supabase CLI**, not `psql` —
-this needs a Supabase access token/login, separate from the DB
-password above. As of this session, no sandbox has that access token
-configured, so this is an **open item**, not a ready-to-run command
-(mirrors the "no GitHub push access" gap for code patches). Whoever
-picks this up next should:
+needs a Supabase access token, separate from the DB password above.
+Interactive `supabase login` opens a browser flow that doesn't work
+well in the headless Ubuntu/proot shell — **use the token-env-var method
+instead**, confirmed working:
 
-1. Confirm whether the Supabase CLI is installed in the Ubuntu
-   environment (`supabase --version`); if not,
-   `npm install -g supabase` (Ubuntu has `npm` via `apt-get install
-   -y nodejs npm` if needed).
-1. Get a Supabase access token (dashboard → Account → Access Tokens) and
-   run `supabase login` once, interactively, in the Ubuntu environment
-   — **do not** put the token in a patch, a chat, or a committed file.
-2. Link the project once: `supabase link --project-ref jjyyfaxcwanrmiipzkoj`
-   (project ref taken from the DB user `postgres.jjyyfaxcwanrmiipzkoj`
-   resolved in Task 1 below).
-3. Deploy with `supabase functions deploy <function-name>` from
-   `~/ubuntu-repos/Edges_LandingPage` (or wherever the function source
-   lives in the repo).
+```bash
+npm install -g supabase          # one-time; ~4 min, installs to a global npm prefix
+supabase --version               # sanity check
 
-Update this section with the actual working command once someone has
-run it successfully, the same way Task 1's dump command below was
-filled in after a real run confirmed it worked.
+# Get a token from the dashboard (Account → Access Tokens → Generate
+# new token) and export it directly in the terminal — never put the
+# token in a patch, a chat, or a committed file.
+export SUPABASE_ACCESS_TOKEN='<your-access-token>'
+
+supabase projects list           # confirms the token works; lists both
+                                  # Edges projects (cenhzollmgcbipxfkljr
+                                  # = "Edges", jjyyfaxcwanrmiipzkoj =
+                                  # "Edges_network" — the one every
+                                  # other part of this doc targets)
+
+cd ~/ubuntu-repos/Edges_LandingPage
+supabase link --project-ref jjyyfaxcwanrmiipzkoj
+                                  # did NOT prompt for the DB password
+                                  # this run, unlike psql — don't assume
+                                  # it never will
+
+supabase functions deploy <function-name>
+                                  # repeat per function; automatically
+                                  # bundles anything the function
+                                  # imports from supabase/functions/_shared/
+```
+
+A `WARNING: Docker is not running` line is expected and harmless — the
+CLI falls back to remote bundling. The `Deployed Functions on project
+<ref>: <name>` line is the actual success confirmation; check for that,
+not the absence of errors.
+
+**Setting a new secret** (edge function env var, e.g. a new provider's
+API key) is a separate command, same auth:
+
+```bash
+supabase secrets set SOME_KEY='<real-value>' --project-ref jjyyfaxcwanrmiipzkoj
+supabase secrets list --project-ref jjyyfaxcwanrmiipzkoj   # confirm by
+                                  # name — lists digests, never the real
+                                  # values, safe to paste that output
+                                  # anywhere including chat
+```
+
+First real use of all of this: deploying `global-purchase-data`/
+`global-purchase-airtime` and setting `ACCRAGH_API_KEY`/`ZENDIT_API_KEY`
+for Task 4's `1.d.iii` (see below) — both succeeded first try with the
+sequence above.
 
 ## Two working environments, same repos (standing rule)
 
@@ -2225,23 +2254,27 @@ session — all match):
   entrypoints calling the shared orchestrator with `category: "data"`/
   `"airtime"`.
 
-**Not delivered, explicitly incomplete** — don't mistake "pending" for
-"done":
+**Follow-up manual steps — DONE, 2026-10-04**: migration
+(`20261003_purchase_schema_additions.sql`) applied directly via `psql`,
+fresh `pg_dump` taken and `schema.sql` re-synced/pushed (commit
+`4214155`); both edge functions deployed (`supabase functions deploy
+global-purchase-data` / `global-purchase-airtime`, confirmed via the
+"Deployed Functions on project jjyyfaxcwanrmiipzkoj" line for each);
+`ACCRAGH_API_KEY`/`ZENDIT_API_KEY` set via `supabase secrets set` and
+confirmed present in `supabase secrets list` output. First real use of
+the Supabase CLI from any sandbox session — see "Deploying an edge
+function" above, now filled in with the proven working command sequence
+(token-env-var method, not interactive `supabase login`, since the
+latter doesn't work well headless).
+
+**Still not delivered, explicitly incomplete** — don't mistake "the
+other three items are done" for "this branch is done":
 - **No webhook handler exists for AccraGH or Zendit.** A `pending`
   order created by these two functions today will sit pending
   indefinitely — there is nothing yet that completes it, credits/debits
   anything, or notifies the customer. This is real, necessary follow-up
   work, not optional polish, same framing as `1.c.v`'s original
-  deposit-completion gap.
-- **New env vars needed, not yet confirmed set anywhere**:
-  `ACCRAGH_API_KEY`, `ZENDIT_API_KEY` (edge function secrets, separate
-  from `LIZZYSUB_TOKEN` which the edge functions already have).
-- **Deployment**: these are new edge functions, not part of the Next.js
-  app — a `git push` of this patch does **not** deploy them. They need
-  `supabase functions deploy global-purchase-data` /
-  `global-purchase-airtime` (or the Management API's deploy endpoint)
-  run separately, same category of manual step as applying a DB
-  migration directly.
+  deposit-completion gap. This is the active pointer, `1.d.iv.zi.x`.
 
 ### Next atomic step — active pointer `1.d.iv.zi.x`
 
@@ -2369,3 +2402,4 @@ single atomic `x` either.
 | 2026-09-23 | Pointer-execution session (cont.) | User applied `20260922_global_purchase_rpcs.sql` directly via `psql` in Ubuntu — all four `CREATE FUNCTION` statements succeeded. Caught a real issue before the schema snapshot: the most recent existing dump (`~/supabase-dumps/2026-09-20_060331/`) predated the migration by three days, so it was flagged as stale and not used — a fresh `pg_dump` was taken instead (`~/supabase-dumps/2026-09-23_135321/`), grep-confirmed to contain all four new function names before copying over `supabase/schema.sql` and pushing directly (schema snapshot exception, not a patch). Re-confirmed post-push that the committed `schema.sql` has all four functions with the exact signatures from the migration. Separately, corrected a false alarm raised earlier in the same session: commits that appeared in the `git pull` before `git am` (`fundGlobalCustomerWallet.ts`, webhook wiring, xixapay fix) looked like a concurrent session at a glance, but all predate `394539e`, the commit this session's own bootstrap had already checked out as HEAD before starting — not concurrent, just a stale local Ubuntu clone catching up on already-existing history. No reconciliation needed. Branch `1.d.i` (global purchase RPCs) is now fully closed. Advanced the pointer to `1.d.ii` — provider-dispatch layer — with the `src/lib/providers/` finding from the prior entry carried forward as the first thing to check before writing anything there. |
 | 2026-09-27 | Pointer-execution session | Read the actual source of `lizzysub-proxy`, `airtime_proxy`, `purchase-data`, and `purchase-airtime` via the Management API's function-body endpoint (Deno eszip binary, source recoverable from its embedded sourcemap). Confirmed `purchase-data`/`purchase-airtime` are a real, live, working reference implementation of the exact wallet+PIN+markup+fulfillment flow `1.d` needs, just on legacy tables - fully traced and documented as a 12-step flow. Cross-checked the previous session's `1.d.i` RPCs (`20260922_global_purchase_rpcs.sql`) against the RPC names this reference calls and confirmed a one-to-one match, validating that work without needing to revisit it. Found and flagged (not fixed, unrelated to Task 4) a real security issue: `lizzysub-proxy`/`airtime_proxy` hardcode the live Lizzysub API token in plaintext, unlike `purchase-data`/`purchase-airtime`, which correctly read it from an environment variable - did not reproduce the exposed token value anywhere in this repo. Sharpened the `1.d.ii` blocker: `src/lib/providers/lizzysub.ts` needs rewriting to match the two real endpoints and the real numeric `NETWORK_MAP` confirmed above, rather than the fictional generic REST shape it currently has. Per the person's explicit instruction, left `accragh.ts`/`zendit.ts` untouched - new edge functions for those are being built separately and those provider files should be confirmed against that work once it exists, not guessed at now. Advanced the pointer to `1.d.ii.zi.x`: rewrite `lizzysub.ts` only. |
 | 2026-10-03 | Pointer-execution session | Person directed a change in approach: build dedicated `global-purchase-data`/`global-purchase-airtime` edge functions mirroring `purchase-data`/`purchase-airtime`'s proven architecture directly, rather than fixing `src/lib/providers/lizzysub.ts` for Next.js-side use - `src/lib/providers/*.ts` remains untouched, unused dead code. Read real API documentation supplied for all three providers. Found a critical timing-model mismatch: Lizzysub is synchronous, AccraGH and Zendit are both asynchronous (AccraGH's own docs confirm the wallet charge happens at a later `processing` stage, not the initial accepted response; Zendit returns only a `transactionId` to poll/await a webhook for). Built `_shared/providers.ts` with an explicit `final: boolean` result field so the orchestrator never deducts a wallet for an order that isn't actually confirmed yet. Closed two schema gaps additively (reseller `transaction_pin`, widened `global_transactions.type` to include `purchase`/`refund`). Delivered the full shared orchestrator (`_shared/purchaseOrchestrator.ts`) plus both thin entrypoints, verified with `deno check` (installed via npm, works cleanly on this sandbox) and a full schema cross-check - all fields match. Added `supabase/functions` to `tsconfig.json`'s exclude first, since the main Next.js `tsc` run would otherwise try to check Deno-flavored files and break. Explicitly left two things undone and flagged clearly: no webhook handler exists yet for AccraGH or Zendit, so a `pending` order from either provider will sit pending indefinitely until one is built; and these are edge functions, not part of the Next.js app, so this patch landing does not deploy them - that needs a separate `supabase functions deploy` step, plus `ACCRAGH_API_KEY`/`ZENDIT_API_KEY` env vars confirmed set. Advanced the pointer to `1.d.iv.zi.x`: the two webhook handlers, flagging that Zendit's webhook has no documented signature-verification scheme at all - don't assume it's safe to skip verification just because it wasn't found in the docs provided. |
+| 2026-10-04 | Pointer-execution session (manual-steps handoff) | Applied the three manual follow-up steps flagged incomplete in the 2026-10-03 entry, all confirmed working on the first try: (1) `20261003_purchase_schema_additions.sql` applied directly via `psql`; fresh `pg_dump` taken (`~/supabase-dumps/2026-10-04_063726/`), grep-confirmed both changes present (`transaction_pin`, widened `global_transactions_type_check`) before copying over `schema.sql` and pushing (commit `4214155`). (2) Supabase CLI installed and used for the first time from any sandbox/Ubuntu session — authenticated via `SUPABASE_ACCESS_TOKEN` env var rather than interactive `supabase login`, which doesn't suit a headless proot shell; `supabase link --project-ref jjyyfaxcwanrmiipzkoj` then `supabase functions deploy` for both `global-purchase-data` and `global-purchase-airtime`, each confirmed via the "Deployed Functions on project..." success line (the "Docker is not running" warning alongside it is expected/harmless — CLI falls back to remote bundling). (3) `ACCRAGH_API_KEY`/`ZENDIT_API_KEY` set via `supabase secrets set`, confirmed present via `supabase secrets list` (digest-only output, safe to review — also surfaced, in passing, that `LIZZYSUB_API_KEY` and `LIZZYSUB_TOKEN` carry the same digest, i.e. the same value under two names; not actioned, not this task's concern). Filled in the previously-unverified "Deploying an edge function" section in this doc with the actual proven command sequence, since it had been an open item since 2026-09-08. All three of `1.d.iii`'s outstanding manual-deployment items are now done — the webhook-handler gap (`1.d.iv.zi.x`) remains the only thing left open on this branch, unchanged from the prior entry. |
