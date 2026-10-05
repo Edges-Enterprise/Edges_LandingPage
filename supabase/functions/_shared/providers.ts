@@ -26,9 +26,10 @@
 // not yet confirmed" — the caller should record a PENDING order/
 // transaction and NOT move any wallet balance yet. Completing a
 // pending AccraGH/Zendit purchase (crediting/debiting on final
-// confirmation) requires a webhook handler for that provider, which
-// does not exist yet as of this commit — see HANDOVER.md Task 4,
-// branch 1.d.iv (not started).
+// confirmation) requires a webhook handler for that provider.
+// AccraGH: handled by the accragh-webhook edge function (branch
+// 1.d.iv.zi). Zendit: no handler yet (branch 1.d.iv.zo) - until one
+// exists, a pending Zendit order stays pending. See HANDOVER.md Task 4.
 
 export type PurchaseCategory = "data" | "airtime";
 

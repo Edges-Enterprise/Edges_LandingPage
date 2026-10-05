@@ -235,9 +235,11 @@ export async function processPurchase(
   // (accragh/zendit - see providers.ts). Record a pending order and a
   // pending ledger entry on both sides, but do NOT move any wallet
   // balance - that only happens once a webhook confirms completion.
-  // No webhook handler exists for either provider yet (branch 1.d.iv,
-  // not started) - until one does, these orders will sit pending
-  // indefinitely. Flagged clearly rather than silently treated as done.
+  // AccraGH orders are finished by the accragh-webhook edge function via
+  // the settle_global_pending_purchase SQL function (matching on
+  // global_orders.transaction_reference = the provider's order_ref).
+  // Zendit has no handler yet (branch 1.d.iv.zo) - those orders sit
+  // pending until one exists.
   if (!providerResult.final) {
     const { data: pendingOrderId } = await supabaseAdmin.rpc(
       "create_global_purchase_order",
