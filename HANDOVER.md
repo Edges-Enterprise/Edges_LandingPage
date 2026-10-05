@@ -456,6 +456,12 @@ CLI falls back to remote bundling. The `Deployed Functions on project
 <ref>: <name>` line is the actual success confirmation; check for that,
 not the absence of errors.
 
+**Functions called by an external service (webhooks) must be deployed
+with `--no-verify-jwt`** — e.g. `supabase functions deploy accragh-webhook
+--no-verify-jwt` — because the sender has no Supabase JWT; such a
+function must authenticate the request itself (HMAC signature). The
+app-called purchase functions keep the default JWT check.
+
 **Setting a new secret** (edge function env var, e.g. a new provider's
 API key) is a separate command, same auth:
 
@@ -1251,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `1.d.iv.zi.x`** (see below).
+**Status: OPEN. Active pointer: `1.d.iv.zo.x`** (see below).
 
 ### Context
 
@@ -1530,6 +1536,14 @@ worth correcting or adding before locking in an architecture:
            each provider's actual API shape first)
       iii. Not yet decomposed — the purchase action itself (mirrors
            purchasePlan.ts's PIN-check/deduct/fulfill/record sequence)
+           — DONE as edge functions, see findings below
+      iv.  Webhook completion of PENDING async-provider orders (added
+           after 1.d.iii found accragh/zendit are asynchronous)
+           zi. AccraGH (NetFillGh) webhook handler — code DONE
+               2026-10-05, see findings below; its manual deploy
+               steps are listed there and are NOT yet confirmed done
+           zo. Zendit webhook handler — ACTIVE POINTER, blocked on
+               Zendit's webhook/status docs (see "Next atomic step")
 
 2. Multi-country adaptations (smaller than originally scoped — finding #7)
    a. Currency formatter using config.currency/currencySymbol —
@@ -2276,18 +2290,159 @@ other three items are done" for "this branch is done":
   work, not optional polish, same framing as `1.c.v`'s original
   deposit-completion gap. This is the active pointer, `1.d.iv.zi.x`.
 
-### Next atomic step — active pointer `1.d.iv.zi.x`
+### Findings + delivery from this session (1.d.iv.zi — AccraGH webhook, code DONE 2026-10-05)
 
-Webhook handlers for AccraGH and Zendit purchase completion — the
-piece that actually finishes a `pending` order from `1.d.iii` above by
-crediting/debiting wallets and marking the order/transactions
-`completed` or `failed`, mirroring how `1.c.v` closed the equivalent
-gap for deposit webhooks. Read AccraGH's documented webhook payload and
-signature scheme (HMAC, confirmed present in its docs) before writing
-anything; for Zendit, confirm whether a signature scheme actually
-exists (not found in the docs provided this session) before trusting
-any inbound Zendit webhook at all — don't assume it's safe to skip
-verification just because it wasn't documented in what was read.
+Worked from NetFillGh's own API docs (section 7, "Webhooks", supplied by
+the person). Split `1.d.iv` as `zi` = AccraGH, `zo` = Zendit, done one
+after the other at the person's request, not together.
+
+**Design.** The pending order written by `purchaseOrchestrator.ts`
+(step 11) stores the provider's `order_ref` in
+`global_orders.transaction_reference` with `payment_method = 'accragh'`,
+so that pair is the webhook's lookup key. Money movement lives in ONE
+SQL function, not in TypeScript, because the debit, the order flip and
+the ledger rows must be all-or-nothing and a webhook can be redelivered
+or arrive concurrently with itself:
+- `supabase/migrations/20261005_settle_pending_purchase.sql` —
+  `settle_global_pending_purchase(ref, payment_method, outcome,
+  provider_payload)`. Locks the order row `FOR UPDATE` and re-checks
+  status under the lock. `completed`: debits via the existing `1.d.i`
+  RPCs (`process_global_purchase_deductions` for a customer buyer,
+  `deduct_global_reseller_cost` for a reseller self-purchase; cost
+  price is `amount - profit`, which holds for both because the
+  orchestrator stores `amount = cost, profit = 0` for self-purchase),
+  flips the order and the pending `global_customer_transactions` row to
+  `completed` with real before/after balances, and inserts the
+  reseller-side `global_transactions` ledger row. `failed`: closes the
+  order and customer row as `failed`, no wallet movement (none ever
+  happened). Returns a `code`: `SETTLED`, `ALREADY_SETTLED`,
+  `INVALID_STATE`, `ORDER_NOT_FOUND`, `AMBIGUOUS_REFERENCE`,
+  `DEDUCTION_FAILED`, `INVALID_OUTCOME`. Also adds an index on
+  `global_orders.transaction_reference`. `EXECUTE` is revoked from
+  `PUBLIC`/`anon`/`authenticated` and granted to `service_role` only.
+- `supabase/functions/_shared/accraghWebhook.ts` — signature check per
+  NetFillGh's docs: header `X-NetFillGh-Signature` = `sha256=` +
+  hex(HMAC-SHA256(secret, `"<X-NetFillGh-Timestamp>.<raw body>"`)),
+  reject if the timestamp is more than 300 s off. Constant-time compare
+  via `crypto.subtle.verify`. **The secret is the per-account webhook
+  signing secret from netfillgh.com/api_settings — not the API key.**
+- `supabase/functions/accragh-webhook/index.ts` — verifies, then maps
+  status: `pending`/`processing` are acknowledged and ignored (we only
+  move our wallets on a final result); `completed`/`failed` call the
+  SQL function. HTTP codes are chosen so NetFillGh (which retries twice
+  on non-2xx) retries only when a retry can help: 200 for
+  `SETTLED`/`ALREADY_SETTLED`/`INVALID_STATE`/`AMBIGUOUS_REFERENCE`;
+  503 for `ORDER_NOT_FOUND` (race with order creation, or an order
+  placed on that account by something else); 500 for `DEDUCTION_FAILED`
+  and unexpected errors; 401 bad signature; fails closed with 500 if the
+  secret is unset.
+- Comments in `providers.ts` / `purchaseOrchestrator.ts` that said no
+  webhook handler existed were corrected (comment-only change).
+
+**Verification actually run** (not just `tsc`): `npx tsc --noEmit -p
+tsconfig.json` — 0 errors. `deno check` on the new function and both
+existing purchase functions — clean. `deno test` on the signature
+verifier — 6/6 (valid, tampered body, wrong secret, swapped timestamp,
+±300 s window edges, malformed headers; expected signatures generated
+independently with Node `crypto`). The handler was run for real and the
+non-DB paths exercised (405, 401 x3, 200 ignore x2, 400 x2, 500
+fail-closed). The SQL was run on a local Postgres 16 built from the
+**real** `CREATE TABLE` definitions in `schema.sql` plus the real `1.d.i`
+migration (this replaces the manual column cross-check and is stronger:
+a wrong or NOT NULL column fails outright): customer sale
+(2000/5200 balances, ledger row, real before/after on the customer
+row), redelivery is a no-op, `failed` moves no money and a later
+`completed` returns `INVALID_STATE`, reseller self-purchase,
+customer-can't-afford and reseller-can't-afford (the RAISE is caught)
+both leave the order `pending` and change nothing, unknown reference,
+wrong provider, ambiguous reference, bad outcome, privileges (anon and
+authenticated cannot execute; service_role can), and a real concurrent
+double-delivery (second session blocks on the row lock, returns
+`ALREADY_SETTLED`, wallets debited exactly once).
+
+**Follow-up manual steps — NOT YET DONE (the person runs these; log them
+here when confirmed).** Order matters:
+1. Apply the code patch (`git pull --rebase`, `git am`, `git push`).
+2. In Ubuntu, apply the migration **first**:
+   `psql ... -v ON_ERROR_STOP=1 -f supabase/migrations/20261005_settle_pending_purchase.sql`
+   then take a fresh `pg_dump`, grep it for `settle_global_pending_purchase`,
+   copy over `supabase/schema.sql` and push directly (schema-snapshot rule).
+3. Deploy the function — **`--no-verify-jwt` is required**, NetFillGh
+   sends no Supabase JWT: `supabase functions deploy accragh-webhook --no-verify-jwt`
+4. Register the webhook URL at netfillgh.com/api_settings:
+   `https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/accragh-webhook`.
+   NetFillGh generates the signing secret when the URL is saved.
+5. `supabase secrets set ACCRAGH_WEBHOOK_SECRET='<that secret>' --project-ref jjyyfaxcwanrmiipzkoj`
+   (until set, the function returns 500 and NetFillGh retries — safe).
+6. Smoke test with the cheapest bundle to a number you control, through
+   the store flow; the order should go `pending` → `completed` and the
+   wallets/ledger should move once.
+7. `supabase/edge-functions.json` is a point-in-time manifest and is now
+   stale (no `accragh-webhook` entry); refresh it per its own section
+   when convenient.
+
+**Flagged, not fixed (outside this atomic step):**
+- **Real bug in the already-deployed `1.d.iii` orchestrator.**
+  `global_transactions.description` is `NOT NULL` with no default, and
+  `purchaseOrchestrator.ts` inserts into `global_transactions` (step 15,
+  the reseller ledger row on every Lizzysub sale, and the
+  deduction-failed marker in step 12) without a `description`. Those
+  inserts violate the constraint, and their results are never checked,
+  so they fail silently: Lizzysub sales complete and debit wallets but
+  likely leave no reseller ledger row. The `1.d.iii` "all fields match"
+  cross-check missed it because it checked column names, not NOT NULL.
+  Fix is small (add `description`, check the insert error) but belongs
+  in its own step. The new SQL function does not have this problem
+  (tested against the real definitions).
+- **Please verify EXECUTE grants on the `1.d.i` RPCs.** `schema.sql` is
+  dumped with `--no-privileges`, so grants are invisible from the repo.
+  Supabase grants `EXECUTE` on new `public` functions to
+  `anon`/`authenticated` by default. If that default was never revoked,
+  `deduct_global_reseller_cost`, `process_global_purchase_deductions`
+  and `create_global_purchase_order` (all `SECURITY DEFINER`, all
+  money-related) are callable by anyone holding the public anon key via
+  `/rest/v1/rpc/...`. Check in Ubuntu:
+  `SELECT proname, proacl FROM pg_proc WHERE proname IN ('deduct_global_reseller_cost','process_global_purchase_deductions','create_global_purchase_order','get_global_reseller_balance');`
+  — if `proacl` is NULL or lists `anon`/`authenticated`, a follow-up
+  `REVOKE ALL ... FROM PUBLIC, anon, authenticated; GRANT EXECUTE ... TO service_role;`
+  migration is needed (same pattern as the new function). The same
+  question applies to the older legacy money RPCs; not investigated.
+- **Stuck-order reconciliation is manual.** If NetFillGh says delivered
+  but a wallet no longer covers the debit (`DEDUCTION_FAILED`), nothing
+  is changed and the order stays `pending` (logged via `console.error`).
+  Find stragglers with:
+  `SELECT id, reseller_id, customer_id, amount, transaction_reference, created_at FROM global_orders WHERE payment_method='accragh' AND status='pending' AND created_at < now() - interval '1 hour' ORDER BY created_at;`
+  and check each `order_ref` with NetFillGh's `status` endpoint. An
+  automated poller using that endpoint is a possible future step, not built.
+- **The webhook is account-wide.** Every order on the NetFillGh account
+  triggers it, including ones not placed through this system; those get
+  503 until NetFillGh stops retrying. Harmless, but expect some
+  `no order yet` warnings in the function logs.
+- **Rotate the NetFillGh API key.** The docs page pasted into the
+  session displayed a live API key. It was not written to any file, but
+  treat it as exposed: regenerate at netfillgh.com/api_settings and
+  re-set `ACCRAGH_API_KEY` via `supabase secrets set`.
+
+### Next atomic step — active pointer `1.d.iv.zo.x`
+
+Zendit webhook handler, same goal as `1.d.iv.zi` above: finish a
+`pending` Zendit order (payment_method `zendit`) by calling the
+already-built, provider-agnostic `settle_global_pending_purchase` — the
+SQL side needs no change, so this is a signature/authenticity question
+plus a thin edge function. **Blocked on Zendit's own webhook and
+transaction-status docs, which are not in either repo.** Read them
+before writing anything. The open question carried forward from
+`1.d.iii`: no webhook signature scheme was found in the Zendit docs
+supplied then. If Zendit genuinely has none, do not just accept
+unauthenticated POSTs on an endpoint that moves money — decide with the
+person between (a) treat the webhook only as a trigger and confirm the
+real status by calling Zendit's transaction-status endpoint with our own
+credentials before settling, or (b) a shared secret / allowlist if Zendit
+supports one. Also note `providers.ts` stores Zendit's `transactionId`
+as `providerReference`, and that is what ends up in
+`global_orders.transaction_reference`; confirm the webhook payload
+carries the same identifier. AccraGH's manual deploy steps above are
+independent of this and can be done in either order.
 
 ### Next atomic step (superseded, kept for reference) — was `1.d.i.zi.x`
 
@@ -2359,6 +2514,13 @@ single atomic `x` either.
   (this session's commit, see Log below). Delivered via the normal
   Standing handoff process, **plus** a direct `psql` command block for
   the user to run in Ubuntu (same pattern as `1.a.ii.zi.x`) — see below.
+- `1.d.iv.zi.x` — `supabase/migrations/20261005_settle_pending_purchase.sql`,
+  `supabase/functions/_shared/accraghWebhook.ts` (+ `.test.ts`) and
+  `supabase/functions/accragh-webhook/index.ts` (this session's commits,
+  see Log below). Delivered via the normal Standing handoff process,
+  **plus** the direct `psql` migration, `supabase functions deploy
+  --no-verify-jwt`, webhook-URL registration and secret steps listed
+  under "Follow-up manual steps — NOT YET DONE" above.
 
 ---
 
@@ -2403,3 +2565,4 @@ single atomic `x` either.
 | 2026-09-27 | Pointer-execution session | Read the actual source of `lizzysub-proxy`, `airtime_proxy`, `purchase-data`, and `purchase-airtime` via the Management API's function-body endpoint (Deno eszip binary, source recoverable from its embedded sourcemap). Confirmed `purchase-data`/`purchase-airtime` are a real, live, working reference implementation of the exact wallet+PIN+markup+fulfillment flow `1.d` needs, just on legacy tables - fully traced and documented as a 12-step flow. Cross-checked the previous session's `1.d.i` RPCs (`20260922_global_purchase_rpcs.sql`) against the RPC names this reference calls and confirmed a one-to-one match, validating that work without needing to revisit it. Found and flagged (not fixed, unrelated to Task 4) a real security issue: `lizzysub-proxy`/`airtime_proxy` hardcode the live Lizzysub API token in plaintext, unlike `purchase-data`/`purchase-airtime`, which correctly read it from an environment variable - did not reproduce the exposed token value anywhere in this repo. Sharpened the `1.d.ii` blocker: `src/lib/providers/lizzysub.ts` needs rewriting to match the two real endpoints and the real numeric `NETWORK_MAP` confirmed above, rather than the fictional generic REST shape it currently has. Per the person's explicit instruction, left `accragh.ts`/`zendit.ts` untouched - new edge functions for those are being built separately and those provider files should be confirmed against that work once it exists, not guessed at now. Advanced the pointer to `1.d.ii.zi.x`: rewrite `lizzysub.ts` only. |
 | 2026-10-03 | Pointer-execution session | Person directed a change in approach: build dedicated `global-purchase-data`/`global-purchase-airtime` edge functions mirroring `purchase-data`/`purchase-airtime`'s proven architecture directly, rather than fixing `src/lib/providers/lizzysub.ts` for Next.js-side use - `src/lib/providers/*.ts` remains untouched, unused dead code. Read real API documentation supplied for all three providers. Found a critical timing-model mismatch: Lizzysub is synchronous, AccraGH and Zendit are both asynchronous (AccraGH's own docs confirm the wallet charge happens at a later `processing` stage, not the initial accepted response; Zendit returns only a `transactionId` to poll/await a webhook for). Built `_shared/providers.ts` with an explicit `final: boolean` result field so the orchestrator never deducts a wallet for an order that isn't actually confirmed yet. Closed two schema gaps additively (reseller `transaction_pin`, widened `global_transactions.type` to include `purchase`/`refund`). Delivered the full shared orchestrator (`_shared/purchaseOrchestrator.ts`) plus both thin entrypoints, verified with `deno check` (installed via npm, works cleanly on this sandbox) and a full schema cross-check - all fields match. Added `supabase/functions` to `tsconfig.json`'s exclude first, since the main Next.js `tsc` run would otherwise try to check Deno-flavored files and break. Explicitly left two things undone and flagged clearly: no webhook handler exists yet for AccraGH or Zendit, so a `pending` order from either provider will sit pending indefinitely until one is built; and these are edge functions, not part of the Next.js app, so this patch landing does not deploy them - that needs a separate `supabase functions deploy` step, plus `ACCRAGH_API_KEY`/`ZENDIT_API_KEY` env vars confirmed set. Advanced the pointer to `1.d.iv.zi.x`: the two webhook handlers, flagging that Zendit's webhook has no documented signature-verification scheme at all - don't assume it's safe to skip verification just because it wasn't found in the docs provided. |
 | 2026-10-04 | Pointer-execution session (manual-steps handoff) | Applied the three manual follow-up steps flagged incomplete in the 2026-10-03 entry, all confirmed working on the first try: (1) `20261003_purchase_schema_additions.sql` applied directly via `psql`; fresh `pg_dump` taken (`~/supabase-dumps/2026-10-04_063726/`), grep-confirmed both changes present (`transaction_pin`, widened `global_transactions_type_check`) before copying over `schema.sql` and pushing (commit `4214155`). (2) Supabase CLI installed and used for the first time from any sandbox/Ubuntu session — authenticated via `SUPABASE_ACCESS_TOKEN` env var rather than interactive `supabase login`, which doesn't suit a headless proot shell; `supabase link --project-ref jjyyfaxcwanrmiipzkoj` then `supabase functions deploy` for both `global-purchase-data` and `global-purchase-airtime`, each confirmed via the "Deployed Functions on project..." success line (the "Docker is not running" warning alongside it is expected/harmless — CLI falls back to remote bundling). (3) `ACCRAGH_API_KEY`/`ZENDIT_API_KEY` set via `supabase secrets set`, confirmed present via `supabase secrets list` (digest-only output, safe to review — also surfaced, in passing, that `LIZZYSUB_API_KEY` and `LIZZYSUB_TOKEN` carry the same digest, i.e. the same value under two names; not actioned, not this task's concern). Filled in the previously-unverified "Deploying an edge function" section in this doc with the actual proven command sequence, since it had been an open item since 2026-09-08. All three of `1.d.iii`'s outstanding manual-deployment items are now done — the webhook-handler gap (`1.d.iv.zi.x`) remains the only thing left open on this branch, unchanged from the prior entry. |
+| 2026-10-05 | Pointer-execution session | Bootstrapped both repos (latest branch `handover/supabase-dump`: `Edges_LandingPage` @ `85b9063`, `reseller-app` @ `467a680`). Found `TASK-4-PICKUP-BRIEF.md` stale (it still names `1.d.i.zi.x`; HANDOVER.md's `1.d.iv.zi.x` is correct — brief left untouched, flagged). At the person's request did `1.d.iv` one provider at a time: AccraGH first, Zendit next. Built the AccraGH webhook from NetFillGh's own docs: atomic `settle_global_pending_purchase` SQL function (row-locked, idempotent, `service_role`-only), HMAC signature verifier, and the `accragh-webhook` edge function. Tested beyond `tsc`: SQL run on a local Postgres 16 built from the real `schema.sql` table definitions (9 scenarios incl. a real concurrent double-delivery), 6 verifier unit tests, `deno check`, and the live handler for every non-DB path. Found and flagged, not fixed: `global_transactions.description` NOT NULL violated (silently) by the deployed orchestrator's ledger inserts; unverified `EXECUTE` grants on the `1.d.i` money RPCs; manual stuck-order reconciliation; webhook is account-wide; NetFillGh API key was exposed in pasted docs (not written to any file). Manual deploy steps handed off and recorded as NOT YET DONE. Advanced the pointer to `1.d.iv.zo.x` (Zendit), blocked on Zendit's webhook/status docs. |
