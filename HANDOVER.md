@@ -2451,7 +2451,7 @@ verified; step 6, the live smoke test, is OPEN):
   callers in either repo are the edge functions in `purchaseOrchestrator.ts`
   (service-role key); nothing in app code calls them as anon/authenticated,
   and `settle_global_pending_purchase` calls them internally as the function
-  owner, so it is unaffected. **NOT FIXED — awaiting the person's go-ahead.**
+  owner, so it is unaffected. **NOT FIXED — deferred by the person on 2026-10-06 to the project-completion stage (see that section below); originally recommended as a step before Zendit.**
   Recommended as its own atomic step BEFORE Zendit: revoke migration
   (`REVOKE ALL ... FROM PUBLIC, anon, authenticated; GRANT EXECUTE ... TO
   service_role;` on those four), tested on the local Postgres, then applied
@@ -2592,6 +2592,74 @@ single atomic `x` either.
 
 ---
 
+## Project-completion stage — deferred items (decided by the person)
+
+These are deliberately NOT being worked now; the person's decision
+(2026-10-06) is that they get done **when the project is completed**,
+the same convention as the database-password rotation. Surface this
+whole section at project wrap-up, or whenever the person asks. Do not
+action any of it unprompted mid-task. Do mention an item if the task
+in hand directly depends on it or would touch the same code. Each
+entry's full detail lives where the finding was recorded (Task 4,
+`1.d.iv.zi` findings), referenced below.
+
+**Already deferred earlier (text stays in Task 1 / Task 2 — listed here
+only so this section is the single wrap-up checklist):**
+- Rotate the Supabase database password (decision of 2026-09-09; do not
+  re-flag or rotate unprompted before then).
+- Chained straight after it: Task 2's `reseller_applications`
+  table/columns that don't exist (`getApplicationDraft.ts` /
+  `saveApplicationDraft.ts`; dead code) — implement or delete.
+
+**Added 2026-10-06 (from the `1.d.iv.zi` session):**
+1. **Revoke migration for the four open `1.d.i` money RPCs**
+   (`create_global_purchase_order`, `deduct_global_reseller_cost`,
+   `get_global_reseller_balance`, `process_global_purchase_deductions`):
+   `REVOKE ALL ... FROM PUBLIC, anon, authenticated; GRANT EXECUTE ... TO
+   service_role;`, tested locally first, applied via `psql`, `proacl`
+   re-checked, schema snapshot refreshed. Confirmed safe: only the edge
+   functions in `purchaseOrchestrator.ts` call them (service-role key).
+   Also run the same read-only `proacl` query against the older legacy
+   money RPCs (not investigated; changing those is a separate, riskier
+   decision). **Known accepted risk until then:** the four functions are
+   callable with the public anon key (see the CONFIRMED finding in the
+   `1.d.iv.zi` findings). Assistant's note, not the person's decision:
+   this should be closed before real customer money flows through the
+   global platform — i.e. no later than storefront wiring (branch `3.a`)
+   going live — whatever the person's completion date is.
+2. **Fix the `purchaseOrchestrator.ts` ledger inserts:**
+   `global_transactions.description` is `NOT NULL`; steps 12 and 15 omit
+   it and never check the insert error, so Lizzysub sales likely leave no
+   reseller ledger row. Add `description` and check/log the error.
+   (Currently not triggered in practice: nothing in the app calls the
+   `global-purchase-*` functions yet.)
+3. **Rotate the NetFillGh API key** (it appeared in docs pasted into a
+   chat) and re-set `ACCRAGH_API_KEY`; optionally rotate
+   `ACCRAGH_WEBHOOK_SECRET` too (also pasted once) — change both sides
+   together, then run the stuck-order query.
+4. **Secrets hygiene:** check whether the mobile app reads
+   `EXPO_PUBLIC_PAYSTACK_SECRET_KEY` / `EXPO_PUBLIC_LIZZYSUB_*` /
+   `EXPO_PUBLIC_EBENK_TOKEN` / `EXPO_PUBLIC_UJAYDATA_API_KEY` (Expo
+   inlines `EXPO_PUBLIC_*` into the shipped bundle; several have the same
+   digest as their server-side twins) — if so rotate and move server-side.
+   Remove the stray secret literally named `edgesenterprise@outlook.com`
+   (`supabase secrets unset`). The hardcoded Lizzysub token in
+   `lizzysub-proxy` / `airtime_proxy` (Task 4 `1.d` findings) belongs in
+   the same pass.
+5. **Refresh `supabase/edge-functions.json`** (no `accragh-webhook` entry).
+6. **AccraGH smoke test** (live purchase, or the simulated signed-webhook
+   test against a throwaway reseller/customer). Needs the storefront
+   wiring (branch `3.a`) and the merge to `main` for a live run; the
+   simulated test can be done any time.
+
+**Not scheduled, mentioned for completeness:** an automated poller for
+stuck pending orders using NetFillGh's `status` endpoint (manual query
+documented in the `1.d.iv.zi` findings); the Zendit handler
+(`1.d.iv.zo.x`) is NOT part of this section — it remains the active
+pointer, blocked on Zendit's docs.
+
+---
+
 ## Log
 
 | Date | Session | Notes |
@@ -2636,3 +2704,4 @@ single atomic `x` either.
 | 2026-10-05 | Pointer-execution session | Bootstrapped both repos (latest branch `handover/supabase-dump`: `Edges_LandingPage` @ `85b9063`, `reseller-app` @ `467a680`). Found `TASK-4-PICKUP-BRIEF.md` stale (it still names `1.d.i.zi.x`; HANDOVER.md's `1.d.iv.zi.x` is correct — brief left untouched, flagged). At the person's request did `1.d.iv` one provider at a time: AccraGH first, Zendit next. Built the AccraGH webhook from NetFillGh's own docs: atomic `settle_global_pending_purchase` SQL function (row-locked, idempotent, `service_role`-only), HMAC signature verifier, and the `accragh-webhook` edge function. Tested beyond `tsc`: SQL run on a local Postgres 16 built from the real `schema.sql` table definitions (9 scenarios incl. a real concurrent double-delivery), 6 verifier unit tests, `deno check`, and the live handler for every non-DB path. Found and flagged, not fixed: `global_transactions.description` NOT NULL violated (silently) by the deployed orchestrator's ledger inserts; unverified `EXECUTE` grants on the `1.d.i` money RPCs; manual stuck-order reconciliation; webhook is account-wide; NetFillGh API key was exposed in pasted docs (not written to any file). Manual deploy steps handed off and recorded as NOT YET DONE. Advanced the pointer to `1.d.iv.zo.x` (Zendit), blocked on Zendit's webhook/status docs. |
 | 2026-10-06 | Pointer-execution session (continued) | Confirmed `1.d.iv.zi` manual steps with evidence: both patches and the `f083a6f` schema snapshot landed on `handover/supabase-dump` (content identical to tested versions; `public` schema diff = the new function + index only); migration applied; `settle_global_pending_purchase` `proacl` is `postgres`+`service_role` only; `accragh-webhook` ACTIVE v3 with JWT verification off; URL registered at NetFillGh; `ACCRAGH_WEBHOOK_SECRET` set (digest verified against the typed value); live endpoint check GET 405 / unsigned POST 401. **Live smoke test NOT run** (person unavailable) — recorded as open item 6. `proacl` query CONFIRMED the four `1.d.i` money RPCs are executable by `anon`/`authenticated` (recorded above, fix proposed, not yet approved/applied). Also recorded secrets-list observations (`EXPO_PUBLIC_*` duplicates of secret keys; stray secret named like an email). Pointer unchanged: `1.d.iv.zo.x` (Zendit, blocked on docs); the grants-revoke step is proposed ahead of it pending the person's decision. |
 | 2026-10-06 | Pointer-execution session (correction) | Found the NetFillGh webhook URL had been registered as `telcos.govt.hu/webhooks/netfillgh` (the NG-only Next.js site; no route for it on `main` or the branch), not the edge function — the earlier log entry and step 4 wrongly recorded it as the function URL (assumed, not verified). Person re-registered `https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/accragh-webhook`; the signing secret did not change, so `ACCRAGH_WEBHOOK_SECRET` stays valid. Corrected step 4 above. Also recorded: nothing in the app calls the new purchase functions yet, and the branch (283 commits ahead of `main`, clean fast-forward) is unmerged, so the smoke test cannot run via the storefront; simulated-webhook alternative noted. Pointer unchanged (`1.d.iv.zo.x`); revoke-grants step still awaiting the person's go-ahead. |
+| 2026-10-06 | Status-check / planning session | Person reviewed all deferred items across Tasks 1–4 and directed that this session's open items be deferred to the project-completion stage, to be done when the project is completed (same convention as the DB-password rotation). Added the new "Project-completion stage — deferred items" section above as the single wrap-up checklist (revoke migration for the four open money RPCs, orchestrator `description` fix, NetFillGh key rotation, secrets hygiene incl. `EXPO_PUBLIC_*` and the plaintext Lizzysub token, `edge-functions.json` refresh, AccraGH smoke test), and updated the revoke finding to say deferred. The assistant's own note that item 1 should be closed before real customer money flows through the global platform is recorded as a note, not a decision. Pointer unchanged: `1.d.iv.zo.x` (Zendit), blocked on docs. |
