@@ -2374,9 +2374,25 @@ verified; step 6, the live smoke test, is OPEN):
    diff is Supabase's own `storage`-schema function updates).
 3. DONE — `accragh-webhook` deployed with `--no-verify-jwt`
    (`supabase functions list`: ACTIVE, version 3, updated 2026-10-05 13:32 UTC).
-4. DONE — webhook URL registered at netfillgh.com/api_settings
-   (`https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/accragh-webhook`),
-   confirmed by the person (that is how the signing secret was generated).
+4. DONE 2026-10-06 (after a correction) — webhook URL at
+   netfillgh.com/api_settings is now
+   `https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/accragh-webhook`.
+   **Correction:** the earlier version of this step wrongly recorded the URL as
+   already pointing at the function. It had actually been registered as
+   `telcos.govt.hu/webhooks/netfillgh` (the Next.js site), which nothing in
+   `main` or `handover/supabase-dump` handles — NetFillGh's webhooks were going
+   to a non-existent route and would never have reached the function. The person
+   re-registered the function URL; saving it did NOT change the signing secret
+   (person-verified against the stored digest), so no secret update was needed.
+   Design note: the webhook deliberately does not depend on the Next.js site, the
+   merge to `main`, or multi-country support — `telcos.govt.hu` is still NG-only
+   because this branch is a work in progress and is not yet merged to `main`,
+   where the page deployment lives. Do not route NetFillGh webhooks through the
+   site (a forwarding route would add a hop, tie this to the merge, and must
+   preserve the raw body and headers exactly or the HMAC breaks). Caveat: the
+   NetFillGh webhook is account-wide, so if any other system of the person's
+   uses the same NetFillGh account, switching the URL affects it (none exists in
+   either repo).
 5. DONE — `ACCRAGH_WEBHOOK_SECRET` set and present in `supabase secrets list`;
    its digest was checked against the value the person typed (match, so no
    stray whitespace/quotes). The secret value is deliberately NOT recorded here.
@@ -2385,7 +2401,16 @@ verified; step 6, the live smoke test, is OPEN):
    function is reachable, JWT verification is off, and the runtime sees the secret
    (an unset secret would have returned 500).
 6. **OPEN — live smoke test not yet run** (person could not do it on
-   2026-10-06). Cheapest bundle to a number the person controls, via the
+   2026-10-06). NOTE: it cannot go through the storefront yet — nothing in the
+   app on `main` or the branch calls `global-purchase-data`/`-airtime`; that
+   wiring (branch `3.a`, `StoreContent.tsx`) is separate later work, and the
+   branch is 283 commits ahead of `main` (clean fast-forward, whole global
+   platform), unmerged. Until then the realistic option is a simulated test:
+   sign a fake `order.status_changed` with the real secret and POST it to the
+   live function against a throwaway test reseller/customer and a hand-made
+   `pending` order (proves deployment/secret/DB/idempotency, not NetFillGh's
+   real payload format). A live NetFillGh purchase costs real money (cheapest
+   bundle ~GH₵4.20) and is the only test of their real webhook format. Cheapest bundle to a number the person controls, via the
    store flow; expect order `pending` → `completed`, wallets/ledger moved
    exactly once, no `rejected` lines in the function logs. Until this passes,
    the settlement logic is verified only against a local Postgres built from
@@ -2610,3 +2635,4 @@ single atomic `x` either.
 | 2026-10-04 | Pointer-execution session (manual-steps handoff) | Applied the three manual follow-up steps flagged incomplete in the 2026-10-03 entry, all confirmed working on the first try: (1) `20261003_purchase_schema_additions.sql` applied directly via `psql`; fresh `pg_dump` taken (`~/supabase-dumps/2026-10-04_063726/`), grep-confirmed both changes present (`transaction_pin`, widened `global_transactions_type_check`) before copying over `schema.sql` and pushing (commit `4214155`). (2) Supabase CLI installed and used for the first time from any sandbox/Ubuntu session — authenticated via `SUPABASE_ACCESS_TOKEN` env var rather than interactive `supabase login`, which doesn't suit a headless proot shell; `supabase link --project-ref jjyyfaxcwanrmiipzkoj` then `supabase functions deploy` for both `global-purchase-data` and `global-purchase-airtime`, each confirmed via the "Deployed Functions on project..." success line (the "Docker is not running" warning alongside it is expected/harmless — CLI falls back to remote bundling). (3) `ACCRAGH_API_KEY`/`ZENDIT_API_KEY` set via `supabase secrets set`, confirmed present via `supabase secrets list` (digest-only output, safe to review — also surfaced, in passing, that `LIZZYSUB_API_KEY` and `LIZZYSUB_TOKEN` carry the same digest, i.e. the same value under two names; not actioned, not this task's concern). Filled in the previously-unverified "Deploying an edge function" section in this doc with the actual proven command sequence, since it had been an open item since 2026-09-08. All three of `1.d.iii`'s outstanding manual-deployment items are now done — the webhook-handler gap (`1.d.iv.zi.x`) remains the only thing left open on this branch, unchanged from the prior entry. |
 | 2026-10-05 | Pointer-execution session | Bootstrapped both repos (latest branch `handover/supabase-dump`: `Edges_LandingPage` @ `85b9063`, `reseller-app` @ `467a680`). Found `TASK-4-PICKUP-BRIEF.md` stale (it still names `1.d.i.zi.x`; HANDOVER.md's `1.d.iv.zi.x` is correct — brief left untouched, flagged). At the person's request did `1.d.iv` one provider at a time: AccraGH first, Zendit next. Built the AccraGH webhook from NetFillGh's own docs: atomic `settle_global_pending_purchase` SQL function (row-locked, idempotent, `service_role`-only), HMAC signature verifier, and the `accragh-webhook` edge function. Tested beyond `tsc`: SQL run on a local Postgres 16 built from the real `schema.sql` table definitions (9 scenarios incl. a real concurrent double-delivery), 6 verifier unit tests, `deno check`, and the live handler for every non-DB path. Found and flagged, not fixed: `global_transactions.description` NOT NULL violated (silently) by the deployed orchestrator's ledger inserts; unverified `EXECUTE` grants on the `1.d.i` money RPCs; manual stuck-order reconciliation; webhook is account-wide; NetFillGh API key was exposed in pasted docs (not written to any file). Manual deploy steps handed off and recorded as NOT YET DONE. Advanced the pointer to `1.d.iv.zo.x` (Zendit), blocked on Zendit's webhook/status docs. |
 | 2026-10-06 | Pointer-execution session (continued) | Confirmed `1.d.iv.zi` manual steps with evidence: both patches and the `f083a6f` schema snapshot landed on `handover/supabase-dump` (content identical to tested versions; `public` schema diff = the new function + index only); migration applied; `settle_global_pending_purchase` `proacl` is `postgres`+`service_role` only; `accragh-webhook` ACTIVE v3 with JWT verification off; URL registered at NetFillGh; `ACCRAGH_WEBHOOK_SECRET` set (digest verified against the typed value); live endpoint check GET 405 / unsigned POST 401. **Live smoke test NOT run** (person unavailable) — recorded as open item 6. `proacl` query CONFIRMED the four `1.d.i` money RPCs are executable by `anon`/`authenticated` (recorded above, fix proposed, not yet approved/applied). Also recorded secrets-list observations (`EXPO_PUBLIC_*` duplicates of secret keys; stray secret named like an email). Pointer unchanged: `1.d.iv.zo.x` (Zendit, blocked on docs); the grants-revoke step is proposed ahead of it pending the person's decision. |
+| 2026-10-06 | Pointer-execution session (correction) | Found the NetFillGh webhook URL had been registered as `telcos.govt.hu/webhooks/netfillgh` (the NG-only Next.js site; no route for it on `main` or the branch), not the edge function — the earlier log entry and step 4 wrongly recorded it as the function URL (assumed, not verified). Person re-registered `https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/accragh-webhook`; the signing secret did not change, so `ACCRAGH_WEBHOOK_SECRET` stays valid. Corrected step 4 above. Also recorded: nothing in the app calls the new purchase functions yet, and the branch (283 commits ahead of `main`, clean fast-forward) is unmerged, so the smoke test cannot run via the storefront; simulated-webhook alternative noted. Pointer unchanged (`1.d.iv.zo.x`); revoke-grants step still awaiting the person's go-ahead. |
