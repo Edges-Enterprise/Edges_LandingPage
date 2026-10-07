@@ -28,8 +28,8 @@
 // pending AccraGH/Zendit purchase (crediting/debiting on final
 // confirmation) requires a webhook handler for that provider.
 // AccraGH: handled by the accragh-webhook edge function (branch
-// 1.d.iv.zi). Zendit: no handler yet (branch 1.d.iv.zo) - until one
-// exists, a pending Zendit order stays pending. See HANDOVER.md Task 4.
+// 1.d.iv.zi). Zendit: handled by the zendit-webhook edge function
+// (branch 1.d.iv.zo). See HANDOVER.md Task 4.
 
 export type PurchaseCategory = "data" | "airtime";
 
@@ -250,12 +250,13 @@ async function purchaseZendit(
     };
   }
 
-  // Zendit's initial response is just an accepted transactionId -
-  // DONE/FAILED only arrive later via polling /topups/purchases/{id}
-  // or a webhook. No signature-verification scheme is documented
-  // anywhere in Zendit's own docs for that webhook - flagged as an
-  // open question for whoever builds the Zendit webhook handler, not
-  // resolved here.
+  // Zendit's initial response is just an accepted transactionId (the one
+  // we supplied) - DONE/FAILED only arrive later via polling
+  // /topups/purchases/{id} or a webhook. Zendit's webhooks carry no
+  // payload signature, only a console-configured secret header; the
+  // zendit-webhook function therefore authenticates that header AND
+  // re-confirms the status with Zendit's API before settling (see
+  // _shared/zenditWebhook.ts).
   return {
     ok: true,
     final: false,

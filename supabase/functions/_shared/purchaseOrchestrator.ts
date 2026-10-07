@@ -238,8 +238,9 @@ export async function processPurchase(
   // AccraGH orders are finished by the accragh-webhook edge function via
   // the settle_global_pending_purchase SQL function (matching on
   // global_orders.transaction_reference = the provider's order_ref).
-  // Zendit has no handler yet (branch 1.d.iv.zo) - those orders sit
-  // pending until one exists.
+  // Zendit orders are finished the same way by the zendit-webhook edge
+  // function (matching on the transactionId we supplied, which is stored
+  // here as the transaction reference).
   if (!providerResult.final) {
     const { data: pendingOrderId } = await supabaseAdmin.rpc(
       "create_global_purchase_order",
