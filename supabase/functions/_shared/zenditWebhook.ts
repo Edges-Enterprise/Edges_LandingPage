@@ -30,6 +30,24 @@
 // webhook can therefore at worst trigger a status lookup.
 
 export const ZENDIT_AUTH_HEADER = "x-webhook-token";
+
+// Zendit's webhook sender addresses (supplied by the person; Zendit's
+// webhooks doc says to whitelist "the IP addresses from our service" but
+// does not list them, so these are unverified by us). An extra layer
+// in front of the secret header, in OBSERVE-ONLY mode by default: a sender
+// outside this list is logged but not blocked, because a stale list or an
+// unexpected header would otherwise 403 real webhooks and leave paid orders
+// pending. After a real Zendit webhook has been seen in the logs coming from
+// a listed address, set ZENDIT_WEBHOOK_ENFORCE_IPS=true to start blocking.
+// Override the list without a redeploy via ZENDIT_WEBHOOK_ALLOWED_IPS
+// (comma-separated, or "*" to turn the check off entirely).
+export const ZENDIT_WEBHOOK_IPS = [
+  "18.209.125.75",
+  "3.217.45.95",
+  "54.243.153.139",
+  "216.53.69.2",
+  "216.53.104.2",
+];
 export const ZENDIT_API_BASE = "https://api.zendit.io";
 const API_TIMEOUT_MS = 5000;
 
@@ -37,6 +55,8 @@ export interface ZenditWebhookConfig {
   secret?: string;
   previousSecret?: string; // optional, lets a rotation overlap with no gap
   apiKey?: string;
+  allowedIps?: string; // raw ZENDIT_WEBHOOK_ALLOWED_IPS; unset = default list, "*" = off
+  enforceIps?: string; // raw ZENDIT_WEBHOOK_ENFORCE_IPS; only "true" blocks, otherwise observe-only
 }
 
 export interface ZenditTransaction {
@@ -115,6 +135,24 @@ export async function tokenMatches(
   return ok;
 }
 
+// null = check disabled; otherwise the list to enforce.
+export function resolveAllowedIps(raw: string | undefined): string[] | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return ZENDIT_WEBHOOK_IPS;
+  if (trimmed === "*") return null;
+  const list = trimmed.split(",").map((x) => x.trim()).filter(Boolean);
+  return list.length ? list : ZENDIT_WEBHOOK_IPS;
+}
+
+// Cloudflare fronts Supabase and sets cf-connecting-ip itself, so clients
+// cannot forge it. x-forwarded-for is deliberately NOT used: its first entry
+// is client-controlled.
+export function clientIp(req: Request): string | null {
+  const raw = req.headers.get("cf-connecting-ip")?.trim();
+  if (!raw) return null;
+  return raw.replace(/^::ffff:/i, "");
+}
+
 export type FetchResult =
   | { kind: "ok"; tx: ZenditTransaction }
   | { kind: "not_found" }
@@ -184,6 +222,27 @@ export function createZenditWebhookHandler(deps: ZenditWebhookDeps) {
       // Fail closed: never process a webhook we cannot authenticate.
       console.error("zendit-webhook: ZENDIT_WEBHOOK_SECRET is not set");
       return json({ error: "Webhook not configured" }, 500);
+    }
+
+    const allowedIps = resolveAllowedIps(config.allowedIps);
+    if (allowedIps) {
+      const ip = clientIp(req);
+      const enforcing = config.enforceIps?.trim().toLowerCase() === "true";
+      if (!ip) {
+        // Not expected behind Cloudflare. Do not lock out real webhooks over
+        // a missing header: the secret header and the API confirmation
+        // below still protect settlement.
+        console.warn("zendit-webhook: no cf-connecting-ip header; IP allow-list not applied");
+      } else if (allowedIps.includes(ip)) {
+        console.log(`zendit-webhook: POST from allow-listed source ${ip}`);
+      } else if (enforcing) {
+        console.warn(`zendit-webhook: rejected (source ${ip} not in allow-list)`);
+        return json({ error: "Forbidden" }, 403);
+      } else {
+        console.warn(
+          `zendit-webhook: source ${ip} is NOT in the allow-list (observe-only; set ZENDIT_WEBHOOK_ENFORCE_IPS=true to block)`,
+        );
+      }
     }
 
     const authorised = await tokenMatches(

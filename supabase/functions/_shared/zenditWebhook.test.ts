@@ -1,13 +1,17 @@
 // Run with: deno test supabase/functions/_shared/zenditWebhook.test.ts
 import assert from "node:assert/strict";
 import {
+  clientIp,
   constantTimeEqual,
   createZenditWebhookHandler,
   fetchZenditTransaction,
   normalizeZenditStatus,
+  resolveAllowedIps,
   type SettleFn,
   tokenMatches,
+  type ZenditWebhookConfig,
   ZENDIT_AUTH_HEADER,
+  ZENDIT_WEBHOOK_IPS,
 } from "./zenditWebhook.ts";
 
 const SECRET = "test-secret-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -15,10 +19,13 @@ const REF = "GRC_DATA_1790000000000_ab12cd";
 
 type Call = { url: string; auth: string | null };
 
+// Config with the IP allow-list in blocking mode (default is observe-only).
+const ENFORCING: ZenditWebhookConfig = { secret: SECRET, apiKey: "zendit-key", enforceIps: "true" };
+
 function setup(opts: {
   apiResponse?: () => Response | Promise<Response>;
   settleResult?: Awaited<ReturnType<SettleFn>>;
-  config?: { secret?: string; previousSecret?: string; apiKey?: string };
+  config?: ZenditWebhookConfig;
 } = {}) {
   const fetchCalls: Call[] = [];
   const settleCalls: Array<{ ref: string; outcome: string; payload: Record<string, unknown> }> = [];
@@ -46,9 +53,10 @@ function setup(opts: {
   return { handler, fetchCalls, settleCalls };
 }
 
-function post(body: unknown, token: string | null = SECRET): Request {
+function post(body: unknown, token: string | null = SECRET, ip?: string): Request {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token !== null) headers[ZENDIT_AUTH_HEADER] = token;
+  if (ip) headers["cf-connecting-ip"] = ip;
   return new Request("http://x/", {
     method: "POST",
     headers,
@@ -218,4 +226,66 @@ Deno.test("fetchZenditTransaction encodes the id in the URL", async () => {
   }) as unknown as typeof fetch;
   await fetchZenditTransaction("a/b c", "k", f);
   assert.equal(seen, "https://api.zendit.io/v1/topups/purchases/a%2Fb%20c");
+});
+
+Deno.test("IP allow-list (enforcing): built-in Zendit IPs pass, others get 403 before any auth/lookup/settlement", async () => {
+  for (const ip of ZENDIT_WEBHOOK_IPS) {
+    const { handler, settleCalls } = setup({ config: ENFORCING });
+    assert.equal((await handler(post(hook("DONE"), SECRET, ip))).status, 200, ip);
+    assert.equal(settleCalls.length, 1, ip);
+  }
+  const { handler, fetchCalls, settleCalls } = setup({ config: ENFORCING });
+  assert.equal((await handler(post(hook("DONE"), SECRET, "203.0.113.9"))).status, 403);
+  assert.equal(fetchCalls.length + settleCalls.length, 0);
+  // right IP but wrong secret is still rejected
+  assert.equal((await handler(post(hook("DONE"), "wrong", ZENDIT_WEBHOOK_IPS[0]))).status, 401);
+});
+
+Deno.test("IP allow-list: missing client-IP header does not lock out real webhooks", async () => {
+  const { handler, settleCalls } = setup();
+  assert.equal((await handler(post(hook("DONE")))).status, 200); // no cf-connecting-ip
+  assert.equal(settleCalls.length, 1);
+});
+
+Deno.test("IP allow-list: observe-only by default (unknown source is logged, not blocked)", async () => {
+  for (const enforceIps of [undefined, "", "false", "yes"]) {
+    const { handler, settleCalls } = setup({ config: { secret: SECRET, apiKey: "k", enforceIps } });
+    assert.equal((await handler(post(hook("DONE"), SECRET, "203.0.113.9"))).status, 200, String(enforceIps));
+    assert.equal(settleCalls.length, 1);
+  }
+  // observe-only still never bypasses the secret header
+  const { handler } = setup();
+  assert.equal((await handler(post(hook("DONE"), "wrong", "203.0.113.9"))).status, 401);
+  // "TRUE" with whitespace also enforces
+  const loud = setup({ config: { secret: SECRET, apiKey: "k", enforceIps: " TRUE " } });
+  assert.equal((await loud.handler(post(hook("DONE"), SECRET, "203.0.113.9"))).status, 403);
+});
+
+Deno.test("IP allow-list (enforcing): x-forwarded-for is ignored (client-controlled)", async () => {
+  const { handler } = setup({ config: ENFORCING });
+  const req = post(hook("DONE"), SECRET, "203.0.113.9");
+  req.headers.set("x-forwarded-for", ZENDIT_WEBHOOK_IPS[0]);
+  assert.equal((await handler(req)).status, 403);
+});
+
+Deno.test("IP allow-list: env override, wildcard off-switch, ::ffff: form, HEAD/GET exempt", async () => {
+  assert.deepEqual(resolveAllowedIps(undefined), ZENDIT_WEBHOOK_IPS);
+  assert.deepEqual(resolveAllowedIps("  "), ZENDIT_WEBHOOK_IPS);
+  assert.equal(resolveAllowedIps("*"), null);
+  assert.deepEqual(resolveAllowedIps("1.1.1.1, 2.2.2.2"), ["1.1.1.1", "2.2.2.2"]);
+  assert.equal(clientIp(new Request("http://x/", { headers: { "cf-connecting-ip": " ::ffff:3.217.45.95 " } })), "3.217.45.95");
+
+  const custom = setup({ config: { ...ENFORCING, allowedIps: "203.0.113.9" } });
+  assert.equal((await custom.handler(post(hook("DONE"), SECRET, "203.0.113.9"))).status, 200);
+  assert.equal((await custom.handler(post(hook("DONE"), SECRET, ZENDIT_WEBHOOK_IPS[0]))).status, 403);
+
+  const off = setup({ config: { ...ENFORCING, allowedIps: "*" } });
+  assert.equal((await off.handler(post(hook("DONE"), SECRET, "203.0.113.9"))).status, 200);
+
+  const v6 = setup({ config: ENFORCING });
+  assert.equal((await v6.handler(post(hook("DONE"), SECRET, "::ffff:216.53.69.2"))).status, 200);
+
+  const strict = setup({ config: ENFORCING });
+  const head = new Request("http://x/", { method: "HEAD", headers: { "cf-connecting-ip": "203.0.113.9" } });
+  assert.equal((await strict.handler(head)).status, 200); // console verify not IP-gated
 });
