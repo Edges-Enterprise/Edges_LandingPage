@@ -97,7 +97,13 @@ not just the type-check, which doesn't validate Supabase column names
 in this codebase at all. Keep doing both when you add new
 DB-touching code.
 
-## 3. Active pointer right now: `1.d.i.zi.x`
+## 3. Active pointer — read it from `HANDOVER.md`, not from this file
+
+> **Note (2026-10-09):** the rest of this section is historical. It
+> describes `1.d.i.zi.x`, which is long finished. The live pointer is
+> always the one in `HANDOVER.md`'s Task 4 status line and "Next atomic
+> step" subsection. Branch `1.d` is done; the pointer is now in branch
+> `2.a`.
 
 **This is your starting task.** Full detail is in `HANDOVER.md`'s
 "Next atomic step" subsection at the end of the Task 4 section — read

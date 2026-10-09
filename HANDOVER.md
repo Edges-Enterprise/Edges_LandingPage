@@ -1257,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `2.a`** (not yet decomposed — see below).
+**Status: OPEN. Active pointer: `2.a.i.zi.x`** (`2.a` decomposed 2026-10-09 — see "Findings from this session (2.a decomposition)" below).
 
 ### Context
 
@@ -1548,7 +1548,27 @@ worth correcting or adding before locking in an architecture:
 
 2. Multi-country adaptations (smaller than originally scoped — finding #7)
    a. Currency formatter using config.currency/currencySymbol —
-      not yet decomposed, likely trivial
+      DECOMPOSED 2026-10-09 (see findings below)
+      i.   Shared storefront price formatter
+           zi. Write src/lib/currency/formatStorePrice.ts — a pure
+               function (amount, {currencySymbol, locale}) -> string
+               x. <ACTIVE POINTER — see "Next atomic step" below>
+           zo. Verify: full-project tsc, plus a throwaway Node
+               script comparing output against legacy formatNaira
+               for NG and sample outputs for other countries
+               x. Not yet started
+      ii.  Adopt it in the [storeName] files that survive branch 4
+           zi. StoreProducts.tsx — replace `{currencySymbol}` +
+               `product.price.toLocaleString()` (lines ~598-599) and
+               drop the `|| "₦"` fallback (line 50)
+               x. Not yet started
+           zo. StoreHero.tsx — same change (lines ~152-153, fallback
+               at line 21)
+               x. Not yet started
+      iii. Closed by design, no work: StoreCart.tsx / StoreCheckout.tsx
+           keep their own `|| "₦"` + `toLocaleString()` until branch
+           4.a deletes them; the legacy `formatNaira` in
+           src/lib/pricing/calculatePrice.ts stays (see findings)
    b. Network/provider tab list derived from global_plans.provider
       (fixes finding #2's bug) — not yet decomposed
    c. Phone validation — needs a new lightweight per-country field
@@ -2694,7 +2714,84 @@ evidence; 6 and 9 OPEN; 7, 8, 10 standing/optional):
   `GET /v1/transactions/{id}`; Zendit also lets us poll
   `GET /v1/topups/purchases?status=…`. An automated poller is not built.
 
-### Next atomic step — active pointer `2.a`
+### Findings from this session (2.a decomposition — DONE, 2026-10-09)
+
+Decomposition only, no application code changed. Read the price-formatting
+sites and the country config before splitting, per the pointer rule.
+
+- **The storefront is half-done already.** All four current
+  `[storeName]` files that format money (`StoreProducts.tsx`,
+  `StoreHero.tsx`, `StoreCart.tsx`, `StoreCheckout.tsx`) already read
+  `config.currencySymbol` instead of hardcoding naira. What is wrong
+  with them: (1) each has a `|| "₦"` fallback, a Nigeria default that
+  can never fire in practice because `getCountryConfig` already falls
+  back to the `ng` config for an unknown code; (2) each renders the
+  number with `.toLocaleString()` and **no locale**, so a client
+  component rendered on the server and then hydrated can format
+  differently on each side (Node's default locale vs. the visitor's
+  browser locale; likely, not reproduced); (3) the same
+  symbol-plus-number snippet is copied into every file instead of
+  living in one helper. So `2.a` is a consolidation and a locale fix,
+  not a rewrite.
+- **The legacy reference is the only real hardcode.**
+  `old-storeName/StoreContent.tsx` calls `formatNaira` seven times
+  (lines 2040, 2479, 2480, 2839, 3091, 3847, 3862). `formatNaira`
+  (`src/lib/pricing/calculatePrice.ts`) is
+  `` `₦${amount.toLocaleString('en-NG')}` ``. That file is the
+  behavioral reference, not something being edited, so it is not
+  touched. `formatNaira` has other callers (reseller dashboard
+  pages, `ResellerBenefits.tsx`) that are out of Task 4's scope.
+- **Why a new helper instead of reusing an existing one.** Two
+  already exist and neither fits: `formatPrice(amount, currencyCode)`
+  in `src/lib/currency/currency.ts` puts a space after the symbol,
+  uses no explicit locale, falls back to the ISO code, and is used by
+  the dashboard's `PlansClient.tsx` (changing it would change dashboard
+  output); `formatCurrency` in `src/lib/utils/helpers.ts` forces two
+  decimals via `Intl` currency style, which would turn `₦1,500` into
+  `NGN 1,500.00`. The new helper matches `formatNaira`'s look (symbol
+  directly before the number, no forced decimals).
+- **No new config needed.** `CountryConfig` already has
+  `currencySymbol` and `locale` (e.g. `en-NG`, `ar-EG`). Prices have
+  no per-plan currency: `global_plans` has `price numeric(10,2)` and
+  no currency column, so the store's currency is always its country's
+  `config.currency`. `locale` is already there, so the helper can take
+  `Pick<CountryConfig, "currencySymbol" | "locale">`.
+- **Planned behavior for the helper:** symbol directly before the
+  number, no space, matching `formatNaira`; `Intl.NumberFormat(locale,
+  { minimumFractionDigits: 0, maximumFractionDigits: 2 })` (prices are
+  `numeric(10,2)`; whole-number currencies print without decimals, and a
+  value like `10.5` prints as `10.5`); `null`/`undefined`/`NaN` formats as
+  `0`, like `formatPriceSafe`.
+- **Open product question — confirm with the person before
+  `2.a.i.zi.x` is written:** `config.locale` for Egypt is `ar-EG`,
+  which renders digits as Arabic-Indic (`١٬٥٠٠`). Using `config.locale`
+  gives that for every Egyptian price. If Western digits are wanted
+  there, the helper should pin the numbering system instead
+  (`ar-EG-u-nu-latn`). Every other configured locale is expected to
+  print Western digits, but this was not checked per country. Default
+  if no answer is given: use `config.locale` as-is and say so in the
+  commit message. Symbol side/position for RTL is a separate layout
+  question and belongs to `5.a`, not here.
+- **No test runner exists in the repo** (`package.json` has no
+  jest/vitest/test script), so `2.a.i.zo` verifies with a throwaway
+  Node script run against the compiled helper, not a committed test
+  file. A committed test would mean adding tooling, which is outside
+  this step.
+- **Stale pickup brief fixed.** `TASK-4-PICKUP-BRIEF.md` section 3 still
+  named `1.d.i.zi.x` as the active pointer (flagged in the 2026-10-05
+  log entry and left alone since). It now carries a note pointing at
+  this file as the source of truth for the pointer.
+
+### Next atomic step — active pointer `2.a.i.zi.x`
+
+Write `src/lib/currency/formatStorePrice.ts` per the "Planned behavior"
+bullet above, after the Egypt digits question is answered (or the
+stated default is accepted). One new file, nothing imported by anything
+yet; adoption is `2.a.ii`. Verify as `2.a.i.zo` describes. This is not
+DB-touching, so the schema cross-check does not apply, but the
+full-project `npx tsc --noEmit -p tsconfig.json` does.
+
+### Previous pointer (superseded, kept for reference) — was `2.a`
 
 Branch 1 (provider integration) is code-complete: `1.a`–`1.d` including
 both async-provider webhooks, with the manual steps and smoke tests
@@ -2723,6 +2820,9 @@ care as the wallet-funding work in `1.c`, and expect it not to fit a
 single atomic `x` either.
 
 ### Delivery for this task
+- `2.a` decomposition (2026-10-09) — documentation only (this file and
+  `TASK-4-PICKUP-BRIEF.md`). Normal patch process; no migration, no
+  schema snapshot, no deploy step.
 - `1.a.ii.zi.x` — the migration file (commit `cbe9f9e`). Delivered via
   the normal Standing handoff process.
 - `1.a.iii` — verification-only, no delivery needed.
@@ -2919,3 +3019,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-09 | Pointer-execution session (1.d.iv.zo live checks) | Person ran three live checks against the deployed `zendit-webhook` (right token + IN_PROGRESS → 200 `acted:false`; wrong token → 401; right token + DONE for a nonexistent transaction → 200 `ignored: unknown transaction`). Together they show the function is reachable, the stored secret equals the typed value, wrong tokens are refused, and the production Zendit API key works from Supabase (so no API IP whitelist is blocking edge functions — step 6 recorded DONE by evidence). Verified the allow-list commit `e310fdb` is on the remote and its code equals the local clone; re-ran 26/26 Deno tests and `deno check` (clean). Re-read Zendit's webhooks page: it tells integrators to whitelist "the IP addresses from our service" but lists none, so the five IPs remain person-supplied and unverified — observe-only stands. NOT proven: which code version those checks hit (no deploy output was shown; step 9 stays OPEN with a log-line test to settle it), and that the header value in the Zendit console equals the secret. Pointer unchanged (`2.a`). |
 | 2026-10-09 | Pointer-execution session (1.d.iv.zo allow-list live) | Person redeployed `zendit-webhook` from Ubuntu (version 2, 2026-10-09 05:00:40 UTC); deployed files byte-identical to the tested versions on the remote. Person-supplied function logs show the new code live (`source <ip> is NOT in the allow-list (observe-only …)` at 05:03:09 UTC) and that `cf-connecting-ip` reaches the function with the real client address, so the header assumption behind the allow-list is now proven; the person's own IP is intentionally not recorded. The logs also show the earlier three live checks ran on version 1 (an earlier session had correctly refused to assume otherwise). Step 9 recorded DONE; enforcement stays OFF (`ZENDIT_WEBHOOK_ENFORCE_IPS` unset) until a real Zendit webhook shows `POST from allow-listed source`, because whether the five IPs match Zendit's real senders is still unproven. Still open for Zendit: the header value saved in the Zendit console equalling the secret (shown only by the first real webhook), and the deferred smoke test. Pointer unchanged (`2.a`). |
 | 2026-10-09 | Pointer-execution session (1.d.iv.zo IP list confirmed) | Person pasted the text from the Zendit console's webhook dialog: five sender IPs plus "Zendit Webhooks will arrive from the IP addresses listed above" and "To verify the authenticity of a webhook call, you may check the transaction status through the Gateway API". The five addresses are identical, character for character and in order, to `ZENDIT_WEBHOOK_IPS` in the code, so the allow-list is now first-party-sourced rather than person-supplied and unverified; Zendit's own advice to confirm authenticity through the API is exactly the re-confirmation step the handler already does. Updated the code comment and the HANDOVER paragraph accordingly (comment-only: no behaviour change, no redeploy required). Enforcement stays OFF; the assistant's recommendation is to enable it after the first real webhook shows `POST from allow-listed source`, the person's call. Pointer unchanged (`2.a`). |
+| 2026-10-09 | Pointer-execution session (2.a decomposition) | Bootstrapped both repos (latest branch `handover/supabase-dump`: `Edges_LandingPage` @ `ec0b12b`, `reseller-app` @ `467a680`) and read this file in full plus the pickup brief. Brief's section 3 was stale (named `1.d.i.zi.x`); this file's pointer `2.a` was correct, so the brief got a pointer-to-HANDOVER note. `2.a` was not atomic, so per the pointer rule this session decomposed it and stopped. Read all four `[storeName]` money-formatting sites, the legacy `formatNaira` (7 call sites), both existing currency helpers, `CountryConfig` and the `global_plans` columns. Finding: the storefront already reads `config.currencySymbol`; what's wrong is a dead `|| "₦"` fallback, locale-less `.toLocaleString()` (possible server/client hydration mismatch), and copy-pasted formatting, not a Naira hardcode. Existing `formatPrice`/`formatCurrency` do not fit (spacing, forced decimals, dashboard dependency), so a new `formatStorePrice` helper is planned. New tree under `2.a` (i helper, ii adopt in `StoreProducts`/`StoreHero`, iii closed by design). Open question for the person: Egypt's `ar-EG` locale renders Arabic-Indic digits. No application code changed; full-project `npx tsc --noEmit -p tsconfig.json` still 0 errors (run anyway, as a baseline for `2.a.i.zi.x`). Pointer advanced to `2.a.i.zi.x`. |
