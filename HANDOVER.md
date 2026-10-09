@@ -1257,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `2.a.i.zo.x`** (`2.a` decomposed 2026-10-09 — see "Findings from this session (2.a decomposition)" below).
+**Status: OPEN. Active pointer: `2.a.ii.zi.x`** (`2.a` decomposed 2026-10-09 — see "Findings from this session (2.a decomposition)" below).
 
 ### Context
 
@@ -1556,12 +1556,14 @@ worth correcting or adding before locking in an architecture:
            zo. Verify: full-project tsc, plus a throwaway Node
                script comparing output against legacy formatNaira
                for NG and sample outputs for other countries
-               x. <ACTIVE POINTER — see "Next atomic step" below>
+               x. DONE 2026-10-09 (found a spacing problem, fixed in
+                  the same helper file at the person's direction — see
+                  findings below)
       ii.  Adopt it in the [storeName] files that survive branch 4
-           zi. StoreProducts.tsx — replace `{currencySymbol}` +
+           zi. StoreProducts.tsx — <ACTIVE POINTER> replace `{currencySymbol}` +
                `product.price.toLocaleString()` (lines ~598-599) and
                drop the `|| "₦"` fallback (line 50)
-               x. Not yet started
+               x. <ACTIVE POINTER — see "Next atomic step" below>
            zo. StoreHero.tsx — same change (lines ~152-153, fallback
                at line 21)
                x. Not yet started
@@ -2792,15 +2794,39 @@ format as 0. Egypt decision applied as given (`config.locale` as-is).
 Nothing imports it yet. Full-project `npx tsc --noEmit -p tsconfig.json`:
 0 errors. Not DB-touching, so no schema cross-check applies.
 
-### Next atomic step — active pointer `2.a.i.zo.x`
+### `2.a.i.zo.x` — DONE, 2026-10-09
 
-Verify the helper: a throwaway Node script (not committed; the repo has
-no test runner) that compares `formatStorePrice(n, ng config)` with the
-legacy `formatNaira(n)` for several values (0, 500, 1500, 1234567, 10.5),
-and prints sample output for a few other countries' real
-`currencySymbol`/`locale` pairs (read from `src/config/countries/*.ts`,
-check every configured locale, which also settles whether any besides
-`ar-EG` prints non-Western digits). Plus the full-project tsc.
+Verified with a throwaway `tsx` script (not committed; no test runner in
+the repo) plus full-project `tsc` (0 errors).
+- NG vs legacy `formatNaira`: identical for 0, 500, 1500, 1234567, 10.5.
+  Only difference is 99.999 (`₦100` vs `₦99.999`), intended: prices are
+  `numeric(10,2)`. null/undefined/NaN/Infinity print `₦0`.
+- Ran the helper over the real `currencySymbol`/`locale` of all 24
+  `src/config/countries/*.ts`. Only `ar-EG` prints non-Western digits,
+  as decided. Every other locale printed Western digits.
+- **Found and fixed:** with the symbol glued to the number, letter
+  symbols read badly (`CFA1 234 567,5`, `KSh1,234,567.5`, `R1 234 567,5`).
+  The person approved a fix: a space is added when the symbol ends in a
+  letter (`\p{L}`), so `₦`, `₵` and `E£` stay attached and `CFA`,
+  `FCFA`, `FC`, `KSh`, `FRw`, `USh`, `DH`, `R`, `ZK` get a space.
+  Re-ran the script and tsc after the fix: Nigeria output unchanged,
+  all letter symbols now spaced. Note the old storefront rendered them
+  glued (`{currencySymbol}{price}`), so adopting the helper changes
+  that on purpose. French-locale groupings use a narrow no-break space
+  (U+202F) from `Intl`; that is expected.
+- Not addressed (belongs to `5.a`): how `E£` plus Arabic digits lays out
+  in an RTL page.
+
+### Next atomic step — active pointer `2.a.ii.zi.x`
+
+`src/app/[countryCode]/[storeName]/StoreProducts.tsx`: import
+`formatStorePrice`, replace `{currencySymbol}{product.price.toLocaleString()}`
+(lines ~598-599) with `formatStorePrice(product.price, config)`, remove
+the `|| "₦"` fallback (line ~50) and thread/keep whatever of `config` the
+component needs (the `currencySymbol` prop passed down at lines ~255/267/
+336/528 may become unused: check with a repo-wide search before removing
+it). Verify with full-project tsc. Not DB-touching. `StoreHero.tsx` is
+`2.a.ii.zo.x`, a separate step.
 
 ### Previous pointer (superseded, kept for reference) — was `2.a`
 
@@ -2831,8 +2857,8 @@ care as the wallet-funding work in `1.c`, and expect it not to fit a
 single atomic `x` either.
 
 ### Delivery for this task
-- `2.a.i.zi.x` — `src/lib/currency/formatStorePrice.ts` (new, unused
-  until `2.a.ii`). Normal patch process; no migration/deploy.
+- `2.a.i.zi.x` / `2.a.i.zo.x` — `src/lib/currency/formatStorePrice.ts`
+  (new, unused until `2.a.ii`; includes the letter-symbol spacing fix). Normal patch process; no migration/deploy.
 - `2.a` decomposition (2026-10-09) — documentation only (this file and
   `TASK-4-PICKUP-BRIEF.md`). Normal patch process; no migration, no
   schema snapshot, no deploy step.
@@ -3034,3 +3060,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-09 | Pointer-execution session (1.d.iv.zo IP list confirmed) | Person pasted the text from the Zendit console's webhook dialog: five sender IPs plus "Zendit Webhooks will arrive from the IP addresses listed above" and "To verify the authenticity of a webhook call, you may check the transaction status through the Gateway API". The five addresses are identical, character for character and in order, to `ZENDIT_WEBHOOK_IPS` in the code, so the allow-list is now first-party-sourced rather than person-supplied and unverified; Zendit's own advice to confirm authenticity through the API is exactly the re-confirmation step the handler already does. Updated the code comment and the HANDOVER paragraph accordingly (comment-only: no behaviour change, no redeploy required). Enforcement stays OFF; the assistant's recommendation is to enable it after the first real webhook shows `POST from allow-listed source`, the person's call. Pointer unchanged (`2.a`). |
 | 2026-10-09 | Pointer-execution session (2.a decomposition) | Bootstrapped both repos (latest branch `handover/supabase-dump`: `Edges_LandingPage` @ `ec0b12b`, `reseller-app` @ `467a680`) and read this file in full plus the pickup brief. Brief's section 3 was stale (named `1.d.i.zi.x`); this file's pointer `2.a` was correct, so the brief got a pointer-to-HANDOVER note. `2.a` was not atomic, so per the pointer rule this session decomposed it and stopped. Read all four `[storeName]` money-formatting sites, the legacy `formatNaira` (7 call sites), both existing currency helpers, `CountryConfig` and the `global_plans` columns. Finding: the storefront already reads `config.currencySymbol`; what's wrong is a dead `|| "₦"` fallback, locale-less `.toLocaleString()` (possible server/client hydration mismatch), and copy-pasted formatting, not a Naira hardcode. Existing `formatPrice`/`formatCurrency` do not fit (spacing, forced decimals, dashboard dependency), so a new `formatStorePrice` helper is planned. New tree under `2.a` (i helper, ii adopt in `StoreProducts`/`StoreHero`, iii closed by design). Open question for the person: Egypt's `ar-EG` locale renders Arabic-Indic digits. No application code changed; full-project `npx tsc --noEmit -p tsconfig.json` still 0 errors (run anyway, as a baseline for `2.a.i.zi.x`). Pointer advanced to `2.a.i.zi.x`. |
 | 2026-10-09 | Pointer-execution session (2.a.i.zi) | Confirmed the decomposition patch landed (`410b847`). Person answered the open question: leave Egypt's digits as is (`config.locale` unchanged). Wrote `formatStorePrice.ts` (new file, no callers yet); full-project tsc 0 errors. Pointer advanced to `2.a.i.zo.x` (verify against legacy `formatNaira` and every configured locale). |
+| 2026-10-09 | Pointer-execution session (2.a.i.zo) | Confirmed the helper patch landed (`b335db9`). Verified `formatStorePrice` with a throwaway script: matches legacy `formatNaira` for NG (except intended 2-decimal rounding), all 24 country configs checked, only `ar-EG` non-Western. Found letter symbols glued to the number (`CFA1 234 567,5`); person approved a fix (space after a symbol ending in a letter), applied and re-verified; full-project tsc 0 errors. `2.a.i` fully closed. Pointer advanced to `2.a.ii.zi.x` (`StoreProducts.tsx`). |

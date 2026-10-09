@@ -2,8 +2,9 @@
 //
 // Customer-storefront price formatter (Task 4, branch 2.a).
 //
-// Output: currency symbol directly before the number, no space, no forced
-// decimals (e.g. "₦1,500"). This matches the legacy `formatNaira` look in
+// Output: currency symbol before the number, no forced decimals
+// (e.g. "₦1,500", "KSh 1,500"; a space is added only after a symbol that
+// ends in a letter). This matches the legacy `formatNaira` look in
 // src/lib/pricing/calculatePrice.ts, but is country-driven.
 //
 // Deliberately separate from `formatPrice` (src/lib/currency/currency.ts:
@@ -32,5 +33,8 @@ export function formatStorePrice(
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(safe);
-  return `${config.currencySymbol}${number}`;
+  // Letter symbols ("CFA", "KSh", "R") get a space; symbols ending in a
+  // sign ("₦", "₵", "E£") stay attached.
+  const gap = /\p{L}$/u.test(config.currencySymbol) ? " " : "";
+  return `${config.currencySymbol}${gap}${number}`;
 }
