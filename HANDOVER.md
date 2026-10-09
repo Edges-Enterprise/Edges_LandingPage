@@ -1257,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `2.a.ii.zi.x`** (`2.a` decomposed 2026-10-09 — see "Findings from this session (2.a decomposition)" below).
+**Status: OPEN. Active pointer: `2.a.ii.zo.x`** (`2.a` decomposed 2026-10-09 — see "Findings from this session (2.a decomposition)" below).
 
 ### Context
 
@@ -1560,13 +1560,13 @@ worth correcting or adding before locking in an architecture:
                   the same helper file at the person's direction — see
                   findings below)
       ii.  Adopt it in the [storeName] files that survive branch 4
-           zi. StoreProducts.tsx — <ACTIVE POINTER> replace `{currencySymbol}` +
+           zi. StoreProducts.tsx — DONE 2026-10-09; replace `{currencySymbol}` +
                `product.price.toLocaleString()` (lines ~598-599) and
                drop the `|| "₦"` fallback (line 50)
-               x. <ACTIVE POINTER — see "Next atomic step" below>
+               x. DONE
            zo. StoreHero.tsx — same change (lines ~152-153, fallback
                at line 21)
-               x. Not yet started
+               x. <ACTIVE POINTER — see "Next atomic step" below>
       iii. Closed by design, no work: StoreCart.tsx / StoreCheckout.tsx
            keep their own `|| "₦"` + `toLocaleString()` until branch
            4.a deletes them; the legacy `formatNaira` in
@@ -2817,16 +2817,26 @@ the repo) plus full-project `tsc` (0 errors).
 - Not addressed (belongs to `5.a`): how `E£` plus Arabic digits lays out
   in an RTL page.
 
-### Next atomic step — active pointer `2.a.ii.zi.x`
+### `2.a.ii.zi.x` — DONE, 2026-10-09
 
-`src/app/[countryCode]/[storeName]/StoreProducts.tsx`: import
-`formatStorePrice`, replace `{currencySymbol}{product.price.toLocaleString()}`
-(lines ~598-599) with `formatStorePrice(product.price, config)`, remove
-the `|| "₦"` fallback (line ~50) and thread/keep whatever of `config` the
-component needs (the `currencySymbol` prop passed down at lines ~255/267/
-336/528 may become unused: check with a repo-wide search before removing
-it). Verify with full-project tsc. Not DB-touching. `StoreHero.tsx` is
-`2.a.ii.zo.x`, a separate step.
+`StoreProducts.tsx` now renders prices with `formatStorePrice(product.price,
+config)`. Removed the `|| "₦"` fallback and the `currencySymbol` prop chain
+(`StoreProducts` -> `ProductGrid` -> `ProductCard`); those two inner
+components now take `config: StorePriceConfig` instead. Typed `config` as
+`CountryConfig` (was `any`): its only caller is `StoreContent.tsx`, which
+already passes a `CountryConfig`, so nothing else changed. Full-project
+`npx tsc --noEmit -p tsconfig.json`: 0 errors. Not DB-touching. Visible
+effect: letter symbols now show a space and a fixed locale is used
+(previously default-locale `toLocaleString()`).
+
+### Next atomic step — active pointer `2.a.ii.zo.x`
+
+`src/app/[countryCode]/[storeName]/StoreHero.tsx`: same change as above
+(lines ~152-153 render, fallback at line ~21). Check first whether
+`config` is typed `any` there and what else reads `currencySymbol`. Verify
+with full-project tsc. After this, branch `2.a` is closed and the pointer
+moves to `2.b` (network/provider tab list from `global_plans.provider`),
+which is not yet decomposed.
 
 ### Previous pointer (superseded, kept for reference) — was `2.a`
 
@@ -2857,6 +2867,8 @@ care as the wallet-funding work in `1.c`, and expect it not to fit a
 single atomic `x` either.
 
 ### Delivery for this task
+- `2.a.ii.zi.x` — `StoreProducts.tsx` adopts `formatStorePrice`.
+  Normal patch process; no migration/deploy.
 - `2.a.i.zi.x` / `2.a.i.zo.x` — `src/lib/currency/formatStorePrice.ts`
   (new, unused until `2.a.ii`; includes the letter-symbol spacing fix). Normal patch process; no migration/deploy.
 - `2.a` decomposition (2026-10-09) — documentation only (this file and
@@ -3061,3 +3073,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-09 | Pointer-execution session (2.a decomposition) | Bootstrapped both repos (latest branch `handover/supabase-dump`: `Edges_LandingPage` @ `ec0b12b`, `reseller-app` @ `467a680`) and read this file in full plus the pickup brief. Brief's section 3 was stale (named `1.d.i.zi.x`); this file's pointer `2.a` was correct, so the brief got a pointer-to-HANDOVER note. `2.a` was not atomic, so per the pointer rule this session decomposed it and stopped. Read all four `[storeName]` money-formatting sites, the legacy `formatNaira` (7 call sites), both existing currency helpers, `CountryConfig` and the `global_plans` columns. Finding: the storefront already reads `config.currencySymbol`; what's wrong is a dead `|| "₦"` fallback, locale-less `.toLocaleString()` (possible server/client hydration mismatch), and copy-pasted formatting, not a Naira hardcode. Existing `formatPrice`/`formatCurrency` do not fit (spacing, forced decimals, dashboard dependency), so a new `formatStorePrice` helper is planned. New tree under `2.a` (i helper, ii adopt in `StoreProducts`/`StoreHero`, iii closed by design). Open question for the person: Egypt's `ar-EG` locale renders Arabic-Indic digits. No application code changed; full-project `npx tsc --noEmit -p tsconfig.json` still 0 errors (run anyway, as a baseline for `2.a.i.zi.x`). Pointer advanced to `2.a.i.zi.x`. |
 | 2026-10-09 | Pointer-execution session (2.a.i.zi) | Confirmed the decomposition patch landed (`410b847`). Person answered the open question: leave Egypt's digits as is (`config.locale` unchanged). Wrote `formatStorePrice.ts` (new file, no callers yet); full-project tsc 0 errors. Pointer advanced to `2.a.i.zo.x` (verify against legacy `formatNaira` and every configured locale). |
 | 2026-10-09 | Pointer-execution session (2.a.i.zo) | Confirmed the helper patch landed (`b335db9`). Verified `formatStorePrice` with a throwaway script: matches legacy `formatNaira` for NG (except intended 2-decimal rounding), all 24 country configs checked, only `ar-EG` non-Western. Found letter symbols glued to the number (`CFA1 234 567,5`); person approved a fix (space after a symbol ending in a letter), applied and re-verified; full-project tsc 0 errors. `2.a.i` fully closed. Pointer advanced to `2.a.ii.zi.x` (`StoreProducts.tsx`). |
+| 2026-10-09 | Pointer-execution session (2.a.ii.zi) | Confirmed the spacing-fix patch landed (`f4eb4c2`). `StoreProducts.tsx` now uses `formatStorePrice`; removed the `"₦"` fallback and the `currencySymbol` prop chain, typed `config` as `CountryConfig` (sole caller already passes one). Full-project tsc 0 errors. Pointer advanced to `2.a.ii.zo.x` (`StoreHero.tsx`). |

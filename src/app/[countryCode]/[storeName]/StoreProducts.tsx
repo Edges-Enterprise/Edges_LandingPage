@@ -4,6 +4,11 @@
 import { useState, useEffect, useRef } from "react";
 import { ShoppingBag, Wifi, Tag, DollarSign, TrendingUp } from "lucide-react";
 import { StoreProduct } from "@/types/reseller/storefront";
+import { CountryConfig } from "@/config/countries";
+import {
+  formatStorePrice,
+  type StorePriceConfig,
+} from "@/lib/currency/formatStorePrice";
 
 interface StoreProductsProps {
   products: StoreProduct[];
@@ -15,7 +20,7 @@ interface StoreProductsProps {
   onNetworkChange: (network: string) => void;
   onAddToCart: (product: StoreProduct) => void;
   translations: any;
-  config: any;
+  config: CountryConfig;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -47,7 +52,6 @@ export default function StoreProducts({
   config,
 }: StoreProductsProps) {
   const t = translations;
-  const currencySymbol = config.currencySymbol || "₦";
 
   const getCategoryLabel = (category: string) => {
     const labels: Record<string, string> = {
@@ -252,7 +256,7 @@ export default function StoreProducts({
         <ProductGrid
           key={`${selectedCategory}-${selectedNetwork}`}
           products={products}
-          currencySymbol={currencySymbol}
+          config={config}
           onBuyClick={onAddToCart}
         />
       )}
@@ -264,11 +268,11 @@ export default function StoreProducts({
 
 function ProductGrid({
   products,
-  currencySymbol,
+  config,
   onBuyClick,
 }: {
   products: StoreProduct[];
-  currencySymbol: string;
+  config: StorePriceConfig;
   onBuyClick: (product: StoreProduct) => void;
 }) {
   const [page, setPage] = useState(0);
@@ -333,7 +337,7 @@ function ProductGrid({
           <ProductCard
             key={product.id}
             product={product}
-            currencySymbol={currencySymbol}
+            config={config}
             onBuyClick={onBuyClick}
           />
         ))}
@@ -525,11 +529,11 @@ function ProductGrid({
 
 function ProductCard({
   product,
-  currencySymbol,
+  config,
   onBuyClick,
 }: {
   product: StoreProduct;
-  currencySymbol: string;
+  config: StorePriceConfig;
   onBuyClick: (product: StoreProduct) => void;
 }) {
   return (
@@ -595,8 +599,7 @@ function ProductCard({
           marginBottom: 10,
         }}
       >
-        {currencySymbol}
-        {product.price.toLocaleString()}
+        {formatStorePrice(product.price, config)}
       </p>
       <button
         onClick={() => onBuyClick(product)}
