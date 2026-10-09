@@ -1257,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `2.a.i.zi.x`** (`2.a` decomposed 2026-10-09 — see "Findings from this session (2.a decomposition)" below).
+**Status: OPEN. Active pointer: `2.a.i.zo.x`** (`2.a` decomposed 2026-10-09 — see "Findings from this session (2.a decomposition)" below).
 
 ### Context
 
@@ -1552,11 +1552,11 @@ worth correcting or adding before locking in an architecture:
       i.   Shared storefront price formatter
            zi. Write src/lib/currency/formatStorePrice.ts — a pure
                function (amount, {currencySymbol, locale}) -> string
-               x. <ACTIVE POINTER — see "Next atomic step" below>
+               x. DONE 2026-10-09
            zo. Verify: full-project tsc, plus a throwaway Node
                script comparing output against legacy formatNaira
                for NG and sample outputs for other countries
-               x. Not yet started
+               x. <ACTIVE POINTER — see "Next atomic step" below>
       ii.  Adopt it in the [storeName] files that survive branch 4
            zi. StoreProducts.tsx — replace `{currencySymbol}` +
                `product.price.toLocaleString()` (lines ~598-599) and
@@ -2762,8 +2762,9 @@ sites and the country config before splitting, per the pointer rule.
   `numeric(10,2)`; whole-number currencies print without decimals, and a
   value like `10.5` prints as `10.5`); `null`/`undefined`/`NaN` formats as
   `0`, like `formatPriceSafe`.
-- **Open product question — confirm with the person before
-  `2.a.i.zi.x` is written:** `config.locale` for Egypt is `ar-EG`,
+- **RESOLVED 2026-10-09 — the person said to leave Egypt's digits as
+  is: use `config.locale` unchanged (Arabic-Indic digits for `ar-EG`).**
+  Original question: `config.locale` for Egypt is `ar-EG`,
   which renders digits as Arabic-Indic (`١٬٥٠٠`). Using `config.locale`
   gives that for every Egyptian price. If Western digits are wanted
   there, the helper should pin the numbering system instead
@@ -2782,14 +2783,24 @@ sites and the country config before splitting, per the pointer rule.
   log entry and left alone since). It now carries a note pointing at
   this file as the source of truth for the pointer.
 
-### Next atomic step — active pointer `2.a.i.zi.x`
+### `2.a.i.zi.x` — DONE, 2026-10-09
 
-Write `src/lib/currency/formatStorePrice.ts` per the "Planned behavior"
-bullet above, after the Egypt digits question is answered (or the
-stated default is accepted). One new file, nothing imported by anything
-yet; adoption is `2.a.ii`. Verify as `2.a.i.zo` describes. This is not
-DB-touching, so the schema cross-check does not apply, but the
-full-project `npx tsc --noEmit -p tsconfig.json` does.
+Wrote `src/lib/currency/formatStorePrice.ts`: `formatStorePrice(amount,
+{currencySymbol, locale})` — symbol directly before the number, explicit
+`Intl.NumberFormat(locale)` with 0–2 fraction digits, null/NaN/Infinity
+format as 0. Egypt decision applied as given (`config.locale` as-is).
+Nothing imports it yet. Full-project `npx tsc --noEmit -p tsconfig.json`:
+0 errors. Not DB-touching, so no schema cross-check applies.
+
+### Next atomic step — active pointer `2.a.i.zo.x`
+
+Verify the helper: a throwaway Node script (not committed; the repo has
+no test runner) that compares `formatStorePrice(n, ng config)` with the
+legacy `formatNaira(n)` for several values (0, 500, 1500, 1234567, 10.5),
+and prints sample output for a few other countries' real
+`currencySymbol`/`locale` pairs (read from `src/config/countries/*.ts`,
+check every configured locale, which also settles whether any besides
+`ar-EG` prints non-Western digits). Plus the full-project tsc.
 
 ### Previous pointer (superseded, kept for reference) — was `2.a`
 
@@ -2820,6 +2831,8 @@ care as the wallet-funding work in `1.c`, and expect it not to fit a
 single atomic `x` either.
 
 ### Delivery for this task
+- `2.a.i.zi.x` — `src/lib/currency/formatStorePrice.ts` (new, unused
+  until `2.a.ii`). Normal patch process; no migration/deploy.
 - `2.a` decomposition (2026-10-09) — documentation only (this file and
   `TASK-4-PICKUP-BRIEF.md`). Normal patch process; no migration, no
   schema snapshot, no deploy step.
@@ -3020,3 +3033,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-09 | Pointer-execution session (1.d.iv.zo allow-list live) | Person redeployed `zendit-webhook` from Ubuntu (version 2, 2026-10-09 05:00:40 UTC); deployed files byte-identical to the tested versions on the remote. Person-supplied function logs show the new code live (`source <ip> is NOT in the allow-list (observe-only …)` at 05:03:09 UTC) and that `cf-connecting-ip` reaches the function with the real client address, so the header assumption behind the allow-list is now proven; the person's own IP is intentionally not recorded. The logs also show the earlier three live checks ran on version 1 (an earlier session had correctly refused to assume otherwise). Step 9 recorded DONE; enforcement stays OFF (`ZENDIT_WEBHOOK_ENFORCE_IPS` unset) until a real Zendit webhook shows `POST from allow-listed source`, because whether the five IPs match Zendit's real senders is still unproven. Still open for Zendit: the header value saved in the Zendit console equalling the secret (shown only by the first real webhook), and the deferred smoke test. Pointer unchanged (`2.a`). |
 | 2026-10-09 | Pointer-execution session (1.d.iv.zo IP list confirmed) | Person pasted the text from the Zendit console's webhook dialog: five sender IPs plus "Zendit Webhooks will arrive from the IP addresses listed above" and "To verify the authenticity of a webhook call, you may check the transaction status through the Gateway API". The five addresses are identical, character for character and in order, to `ZENDIT_WEBHOOK_IPS` in the code, so the allow-list is now first-party-sourced rather than person-supplied and unverified; Zendit's own advice to confirm authenticity through the API is exactly the re-confirmation step the handler already does. Updated the code comment and the HANDOVER paragraph accordingly (comment-only: no behaviour change, no redeploy required). Enforcement stays OFF; the assistant's recommendation is to enable it after the first real webhook shows `POST from allow-listed source`, the person's call. Pointer unchanged (`2.a`). |
 | 2026-10-09 | Pointer-execution session (2.a decomposition) | Bootstrapped both repos (latest branch `handover/supabase-dump`: `Edges_LandingPage` @ `ec0b12b`, `reseller-app` @ `467a680`) and read this file in full plus the pickup brief. Brief's section 3 was stale (named `1.d.i.zi.x`); this file's pointer `2.a` was correct, so the brief got a pointer-to-HANDOVER note. `2.a` was not atomic, so per the pointer rule this session decomposed it and stopped. Read all four `[storeName]` money-formatting sites, the legacy `formatNaira` (7 call sites), both existing currency helpers, `CountryConfig` and the `global_plans` columns. Finding: the storefront already reads `config.currencySymbol`; what's wrong is a dead `|| "₦"` fallback, locale-less `.toLocaleString()` (possible server/client hydration mismatch), and copy-pasted formatting, not a Naira hardcode. Existing `formatPrice`/`formatCurrency` do not fit (spacing, forced decimals, dashboard dependency), so a new `formatStorePrice` helper is planned. New tree under `2.a` (i helper, ii adopt in `StoreProducts`/`StoreHero`, iii closed by design). Open question for the person: Egypt's `ar-EG` locale renders Arabic-Indic digits. No application code changed; full-project `npx tsc --noEmit -p tsconfig.json` still 0 errors (run anyway, as a baseline for `2.a.i.zi.x`). Pointer advanced to `2.a.i.zi.x`. |
+| 2026-10-09 | Pointer-execution session (2.a.i.zi) | Confirmed the decomposition patch landed (`410b847`). Person answered the open question: leave Egypt's digits as is (`config.locale` unchanged). Wrote `formatStorePrice.ts` (new file, no callers yet); full-project tsc 0 errors. Pointer advanced to `2.a.i.zo.x` (verify against legacy `formatNaira` and every configured locale). |
