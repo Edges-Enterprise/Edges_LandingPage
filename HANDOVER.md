@@ -2534,10 +2534,11 @@ handler never trusts the webhook body for anything that moves money:
    gap. Fails closed (500) if the secret is not configured.
 1a. Source-IP allow-list in front of that, **observe-only by default**:
    Zendit's five webhook IPs (18.209.125.75, 3.217.45.95, 54.243.153.139,
-   216.53.69.2, 216.53.104.2 — supplied by the person; Zendit's webhooks
-   doc says to whitelist "the IP addresses from our service" but does not
-   list them (checked 2026-10-08), so they are unverified by us) are
-   compared with `cf-connecting-ip` (set by the Cloudflare layer that
+   216.53.69.2, 216.53.104.2 — copied from the Zendit console's webhook
+   dialog ("Copy these IP Addresses ... Zendit Webhooks will arrive from the
+   IP addresses listed above"), relayed by the person on 2026-10-09 and
+   compared character for character with the list in the code: identical;
+   the public docs page itself lists none) are compared with `cf-connecting-ip` (set by the Cloudflare layer that
    fronts Supabase; `x-forwarded-for` is deliberately ignored because its
    first entry is client-controlled). A sender outside the list is
    logged ("NOT in the allow-list") but still processed, because a stale
@@ -2664,10 +2665,15 @@ evidence; 6 and 9 OPEN; 7, 8, 10 standing/optional):
    version 1, which is why only checks 2 and 3 left traces.
 10. Optional, after the first real Zendit webhook has been seen: check the
    function logs for `POST from allow-listed source <ip>`. Status 2026-10-09:
-   `cf-connecting-ip` is PROVEN to reach the function (step 9), so the
-   remaining unknown is only whether the five person-supplied IPs match
-   Zendit's real senders. A real webhook showing the allow-listed line proves
-   that; only then consider
+   `cf-connecting-ip` is PROVEN to reach the function (step 9) and the IP list
+   is now first-party (it matches Zendit's own console), so the remaining
+   unknown is only that a real webhook really arrives from one of them (e.g. no
+   unlisted IPv6 or relay address). A real webhook showing the allow-listed
+   line proves that. The person may choose to enforce earlier, accepting that
+   an unexpected sender address would leave orders pending until fixed (Zendit
+   retries for ~22 h and the list can be changed without a redeploy via
+   `ZENDIT_WEBHOOK_ALLOWED_IPS`); the assistant's recommendation is still to
+   wait for that first line, and then consider
    `supabase secrets set ZENDIT_WEBHOOK_ENFORCE_IPS=true`. A line saying
    `NOT in the allow-list` means the list is incomplete or the header is
    not what we assumed — fix the list first.
@@ -2912,3 +2918,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-08 | Pointer-execution session (1.d.iv.zo follow-up) | Person reported the Zendit console step done (Production environment, Topup type, address = the `zendit-webhook` URL, header `X-Webhook-Token`, Verify passed and Confirmed), showed `supabase functions list` (zendit-webhook ACTIVE v1, 2026-10-07 06:04 UTC) and `supabase secrets list` (ZENDIT_WEBHOOK_SECRET present), and supplied Zendit's five webhook sender IPs. Production environment recorded as person-stated. The remote's six touched files were compared blob-for-blob with the delivered commit (identical), so manual steps 1–5 are recorded DONE with that evidence; the header value matching the secret is still unproven because Verify only sends HEAD. Added a source-IP allow-list to `zendit-webhook`, **observe-only by default** (`ZENDIT_WEBHOOK_ENFORCE_IPS=true` to block), because the IP list is unverified against Zendit's docs and a wrong list would 403 real webhooks. Provenance note: the sandbox repo contained an unpushed assistant-authored draft commit (`061e710`, enforce-by-default) with no record in the conversation; it was reviewed, its code adopted, its default changed to observe-only, and its verification claims re-run rather than trusted. Verified: `tsc` 0 errors, `deno check` clean, 26/26 Deno tests (5 new for the allow-list), and the real handler end-to-end against the real SQL function on local Postgres (7 scenarios, requests carrying a Zendit source IP) with the same balances as before. Corrected the smoke-test notes: with a production key a Zendit live test spends real money. Re-run again by the reviewing session this date: 26/26 Deno tests, `deno check` clean, `tsc` 0 errors, e2e identical. Still open: step 6 (check the Zendit API IP whitelist), step 9 (apply the allow-list patch and redeploy), confirming the header secret on the first real webhook, and the deferred smoke test. |
 | 2026-10-09 | Pointer-execution session (1.d.iv.zo live checks) | Person ran three live checks against the deployed `zendit-webhook` (right token + IN_PROGRESS → 200 `acted:false`; wrong token → 401; right token + DONE for a nonexistent transaction → 200 `ignored: unknown transaction`). Together they show the function is reachable, the stored secret equals the typed value, wrong tokens are refused, and the production Zendit API key works from Supabase (so no API IP whitelist is blocking edge functions — step 6 recorded DONE by evidence). Verified the allow-list commit `e310fdb` is on the remote and its code equals the local clone; re-ran 26/26 Deno tests and `deno check` (clean). Re-read Zendit's webhooks page: it tells integrators to whitelist "the IP addresses from our service" but lists none, so the five IPs remain person-supplied and unverified — observe-only stands. NOT proven: which code version those checks hit (no deploy output was shown; step 9 stays OPEN with a log-line test to settle it), and that the header value in the Zendit console equals the secret. Pointer unchanged (`2.a`). |
 | 2026-10-09 | Pointer-execution session (1.d.iv.zo allow-list live) | Person redeployed `zendit-webhook` from Ubuntu (version 2, 2026-10-09 05:00:40 UTC); deployed files byte-identical to the tested versions on the remote. Person-supplied function logs show the new code live (`source <ip> is NOT in the allow-list (observe-only …)` at 05:03:09 UTC) and that `cf-connecting-ip` reaches the function with the real client address, so the header assumption behind the allow-list is now proven; the person's own IP is intentionally not recorded. The logs also show the earlier three live checks ran on version 1 (an earlier session had correctly refused to assume otherwise). Step 9 recorded DONE; enforcement stays OFF (`ZENDIT_WEBHOOK_ENFORCE_IPS` unset) until a real Zendit webhook shows `POST from allow-listed source`, because whether the five IPs match Zendit's real senders is still unproven. Still open for Zendit: the header value saved in the Zendit console equalling the secret (shown only by the first real webhook), and the deferred smoke test. Pointer unchanged (`2.a`). |
+| 2026-10-09 | Pointer-execution session (1.d.iv.zo IP list confirmed) | Person pasted the text from the Zendit console's webhook dialog: five sender IPs plus "Zendit Webhooks will arrive from the IP addresses listed above" and "To verify the authenticity of a webhook call, you may check the transaction status through the Gateway API". The five addresses are identical, character for character and in order, to `ZENDIT_WEBHOOK_IPS` in the code, so the allow-list is now first-party-sourced rather than person-supplied and unverified; Zendit's own advice to confirm authenticity through the API is exactly the re-confirmation step the handler already does. Updated the code comment and the HANDOVER paragraph accordingly (comment-only: no behaviour change, no redeploy required). Enforcement stays OFF; the assistant's recommendation is to enable it after the first real webhook shows `POST from allow-listed source`, the person's call. Pointer unchanged (`2.a`). |

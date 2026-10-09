@@ -31,14 +31,17 @@
 
 export const ZENDIT_AUTH_HEADER = "x-webhook-token";
 
-// Zendit's webhook sender addresses (supplied by the person; Zendit's
-// webhooks doc says to whitelist "the IP addresses from our service" but
-// does not list them, so these are unverified by us). An extra layer
-// in front of the secret header, in OBSERVE-ONLY mode by default: a sender
-// outside this list is logged but not blocked, because a stale list or an
-// unexpected header would otherwise 403 real webhooks and leave paid orders
-// pending. After a real Zendit webhook has been seen in the logs coming from
-// a listed address, set ZENDIT_WEBHOOK_ENFORCE_IPS=true to start blocking.
+// Zendit's webhook sender addresses. Source: the Zendit console's webhook
+// dialog ("Copy these IP Addresses"), relayed by the person on 2026-10-09 and
+// identical to this list; the public docs page only says to whitelist "the IP
+// addresses from our service" without listing them. Zendit's console also
+// says to confirm a webhook's authenticity through the Gateway API, which is
+// what the API re-confirmation below does. An extra layer in front of the
+// secret header, in OBSERVE-ONLY mode by default: a sender outside this list
+// is logged but not blocked, because a changed list would otherwise 403 real
+// webhooks and leave paid orders pending. After a real Zendit webhook has
+// been seen in the logs coming from a listed address, set
+// ZENDIT_WEBHOOK_ENFORCE_IPS=true to start blocking.
 // Override the list without a redeploy via ZENDIT_WEBHOOK_ALLOWED_IPS
 // (comma-separated, or "*" to turn the check off entirely).
 export const ZENDIT_WEBHOOK_IPS = [
