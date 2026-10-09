@@ -2616,10 +2616,27 @@ evidence; 6 and 9 OPEN; 7, 8, 10 standing/optional):
    auth-gated, so the header VALUE matching `ZENDIT_WEBHOOK_SECRET` is NOT
    yet proven; the first real webhook will show it (a mismatch logs
    `rejected (missing or wrong auth header)` and Zendit retries).
-6. OPEN — in the same console page, check the **IP Whitelist** for the API key.
-   If enabled, calls from Supabase edge functions (no fixed outbound IP)
-   get 403 — that would break both purchasing and this function's status
-   confirmation (it logs "Zendit API refused our key … IP allow-list").
+6. DONE by evidence, 2026-10-09 — the **IP Whitelist** for the API key does
+   not block calls from Supabase edge functions. (Had it been enabled, calls
+   from Supabase edge functions would get 403 and the function would log
+   "Zendit API refused our key … IP allow-list".) Evidence: live check 3
+   below made the deployed function call Zendit's real API
+   `GET /v1/topups/purchases/{id}` with `ZENDIT_API_KEY`; the response was a
+   clean 404 (function answered `ignored: unknown transaction`), which is only
+   reachable if the API accepted our key from Supabase. The console page itself
+   was not inspected.
+
+   **Live checks run by the person on 2026-10-09** (secret typed with
+   `read -rs`, never recorded; transaction id `GRC_TEST_NONEXISTENT`, no money
+   moved, no database row touched): (1) right token + IN_PROGRESS → 200
+   `acted:false`; (2) wrong token → 401 `Unauthorized`; (3) right token + DONE
+   for a transaction Zendit does not know → 200 `ignored: unknown
+   transaction`. These prove, against the DEPLOYED function: the function is
+   reachable, the secret stored in Supabase equals the value the person typed,
+   wrong tokens are refused, and the production API key works from Supabase.
+   They do NOT prove which code version ran (see step 9), and they do not prove
+   that the value saved in the Zendit console equals the secret (still only
+   shown by the first real webhook).
 7. Put a ~90-day reminder on the webhook secret. To rotate with no gap:
    set the old value as `ZENDIT_WEBHOOK_SECRET_PREVIOUS`, set the new
    `ZENDIT_WEBHOOK_SECRET`, change the header value in the Zendit
@@ -2630,10 +2647,21 @@ evidence; 6 and 9 OPEN; 7, 8, 10 standing/optional):
    real money (API reference, "Environments"), but using it means a
    separate sandbox API key and a Sandbox webhook; do not point a sandbox
    webhook at this production function or mix the two.
-9. OPEN — apply the source-IP allow-list patch (commit "feat(zendit-webhook):
-   source-IP allow-list") and redeploy: `supabase functions deploy
-   zendit-webhook --no-verify-jwt`. No new secret is needed; it is
-   observe-only by default.
+9. OPEN — redeploy the source-IP allow-list. The patch itself IS on the
+   remote (`e310fdb`, verified 2026-10-09), but the person's last output
+   showed no deploy or `functions list` result (the commands appear to have
+   been run in Termux, which has no Supabase CLI) and the only listing seen
+   is still version 1 from 2026-10-07, before that commit. Redeploy from
+   Ubuntu: `git pull --rebase` then `supabase functions deploy
+   zendit-webhook --no-verify-jwt --project-ref jjyyfaxcwanrmiipzkoj`, and
+   confirm the version is 2 or higher. No new secret is needed; it is
+   observe-only by default. To prove the new code is live AND that
+   `cf-connecting-ip` is present before any real webhook, send check 1
+   again (right token, IN_PROGRESS) and read the function logs: `source <ip>
+   is NOT in the allow-list (observe-only …)` = new code live and the header
+   works; `no cf-connecting-ip header; IP allow-list not applied` = the
+   header is absent, so never enforce; neither line = the old version is
+   still deployed.
 10. Optional, after the first real Zendit webhook has been seen: check the
    function logs for `POST from allow-listed source <ip>`. That confirms
    `cf-connecting-ip` works and the list matches; only then consider
@@ -2879,3 +2907,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-06 | Status-check / planning session | Person reviewed all deferred items across Tasks 1–4 and directed that this session's open items be deferred to the project-completion stage, to be done when the project is completed (same convention as the DB-password rotation). Added the new "Project-completion stage — deferred items" section above as the single wrap-up checklist (revoke migration for the four open money RPCs, orchestrator `description` fix, NetFillGh key rotation, secrets hygiene incl. `EXPO_PUBLIC_*` and the plaintext Lizzysub token, `edge-functions.json` refresh, AccraGH smoke test), and updated the revoke finding to say deferred. The assistant's own note that item 1 should be closed before real customer money flows through the global platform is recorded as a note, not a decision. Pointer unchanged: `1.d.iv.zo.x` (Zendit), blocked on docs. |
 | 2026-10-06 | Pointer-execution session (1.d.iv.zo) | Read Zendit's webhook, transaction-processing and API docs. Found: no payload signature; authentication is a console-configured secret header + IP allow-list; HEAD required; separate webhooks per product type and environment; `transactionId` is client-supplied (our `requestId`, already stored as `transaction_reference`). Built `zendit-webhook`: secret-header auth (constant-time, rotation overlap via `ZENDIT_WEBHOOK_SECRET_PREVIOUS`), then confirms every final status against Zendit's API with our own key before calling the existing provider-agnostic `settle_global_pending_purchase` (no SQL change). Verified: `tsc` 0 errors, `deno check` clean (fixed one real typing error), 21/21 Deno tests, and the real handler end-to-end against the real SQL function on local Postgres (7 scenarios incl. the webhook-before-order race, forgery attempts, provider isolation). NOT done and recorded as open: the manual steps (secret, deploy with `--no-verify-jwt`, Zendit console registration, IP allow-list check) and the smoke test (deferred to project completion). Pointer advanced to `2.a` (branch 2, not yet decomposed). |
 | 2026-10-08 | Pointer-execution session (1.d.iv.zo follow-up) | Person reported the Zendit console step done (Production environment, Topup type, address = the `zendit-webhook` URL, header `X-Webhook-Token`, Verify passed and Confirmed), showed `supabase functions list` (zendit-webhook ACTIVE v1, 2026-10-07 06:04 UTC) and `supabase secrets list` (ZENDIT_WEBHOOK_SECRET present), and supplied Zendit's five webhook sender IPs. Production environment recorded as person-stated. The remote's six touched files were compared blob-for-blob with the delivered commit (identical), so manual steps 1–5 are recorded DONE with that evidence; the header value matching the secret is still unproven because Verify only sends HEAD. Added a source-IP allow-list to `zendit-webhook`, **observe-only by default** (`ZENDIT_WEBHOOK_ENFORCE_IPS=true` to block), because the IP list is unverified against Zendit's docs and a wrong list would 403 real webhooks. Provenance note: the sandbox repo contained an unpushed assistant-authored draft commit (`061e710`, enforce-by-default) with no record in the conversation; it was reviewed, its code adopted, its default changed to observe-only, and its verification claims re-run rather than trusted. Verified: `tsc` 0 errors, `deno check` clean, 26/26 Deno tests (5 new for the allow-list), and the real handler end-to-end against the real SQL function on local Postgres (7 scenarios, requests carrying a Zendit source IP) with the same balances as before. Corrected the smoke-test notes: with a production key a Zendit live test spends real money. Re-run again by the reviewing session this date: 26/26 Deno tests, `deno check` clean, `tsc` 0 errors, e2e identical. Still open: step 6 (check the Zendit API IP whitelist), step 9 (apply the allow-list patch and redeploy), confirming the header secret on the first real webhook, and the deferred smoke test. |
+| 2026-10-09 | Pointer-execution session (1.d.iv.zo live checks) | Person ran three live checks against the deployed `zendit-webhook` (right token + IN_PROGRESS → 200 `acted:false`; wrong token → 401; right token + DONE for a nonexistent transaction → 200 `ignored: unknown transaction`). Together they show the function is reachable, the stored secret equals the typed value, wrong tokens are refused, and the production Zendit API key works from Supabase (so no API IP whitelist is blocking edge functions — step 6 recorded DONE by evidence). Verified the allow-list commit `e310fdb` is on the remote and its code equals the local clone; re-ran 26/26 Deno tests and `deno check` (clean). Re-read Zendit's webhooks page: it tells integrators to whitelist "the IP addresses from our service" but lists none, so the five IPs remain person-supplied and unverified — observe-only stands. NOT proven: which code version those checks hit (no deploy output was shown; step 9 stays OPEN with a log-line test to settle it), and that the header value in the Zendit console equals the secret. Pointer unchanged (`2.a`). |
