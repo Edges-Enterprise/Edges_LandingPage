@@ -1257,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `2.a.ii.zo.x`** (`2.a` decomposed 2026-10-09 — see "Findings from this session (2.a decomposition)" below).
+**Status: OPEN. Active pointer: `2.b`** (`2.a` is closed 2026-10-09; `2.b` is not yet decomposed — the next session decomposes it before any code is written).
 
 ### Context
 
@@ -1548,7 +1548,7 @@ worth correcting or adding before locking in an architecture:
 
 2. Multi-country adaptations (smaller than originally scoped — finding #7)
    a. Currency formatter using config.currency/currencySymbol —
-      DECOMPOSED 2026-10-09 (see findings below)
+      DONE 2026-10-09 (see findings below)
       i.   Shared storefront price formatter
            zi. Write src/lib/currency/formatStorePrice.ts — a pure
                function (amount, {currencySymbol, locale}) -> string
@@ -1566,13 +1566,13 @@ worth correcting or adding before locking in an architecture:
                x. DONE
            zo. StoreHero.tsx — same change (lines ~152-153, fallback
                at line 21)
-               x. <ACTIVE POINTER — see "Next atomic step" below>
+               x. DONE 2026-10-09
       iii. Closed by design, no work: StoreCart.tsx / StoreCheckout.tsx
            keep their own `|| "₦"` + `toLocaleString()` until branch
            4.a deletes them; the legacy `formatNaira` in
            src/lib/pricing/calculatePrice.ts stays (see findings)
    b. Network/provider tab list derived from global_plans.provider
-      (fixes finding #2's bug) — not yet decomposed
+      (fixes finding #2's bug) — <ACTIVE POINTER> not yet decomposed
    c. Phone validation — needs a new lightweight per-country field
       (min/max length), not yet decomposed
    d. WhatsApp dial-code prefixing using config.phoneCode directly —
@@ -2829,14 +2829,30 @@ already passes a `CountryConfig`, so nothing else changed. Full-project
 effect: letter symbols now show a space and a fixed locale is used
 (previously default-locale `toLocaleString()`).
 
-### Next atomic step — active pointer `2.a.ii.zo.x`
+### `2.a.ii.zo.x` — DONE, 2026-10-09 (branch `2.a` closed)
 
-`src/app/[countryCode]/[storeName]/StoreHero.tsx`: same change as above
-(lines ~152-153 render, fallback at line ~21). Check first whether
-`config` is typed `any` there and what else reads `currencySymbol`. Verify
-with full-project tsc. After this, branch `2.a` is closed and the pointer
-moves to `2.b` (network/provider tab list from `global_plans.provider`),
-which is not yet decomposed.
+`StoreHero.tsx` now renders prices with `formatStorePrice(product.price,
+config)`; removed the `|| "₦"` fallback and the local `currencySymbol`;
+typed `config` as `CountryConfig` (was `any`; its only caller,
+`StoreContent.tsx` line ~156, already passes the real config). No prop
+chain to untangle here, unlike `StoreProducts`. Full-project
+`npx tsc --noEmit -p tsconfig.json`: 0 errors. Not DB-touching.
+
+Branch `2.a` is complete: the helper exists and both surviving
+storefront files use it. `StoreCart.tsx` / `StoreCheckout.tsx` keep
+their own formatting until `4.a` deletes them.
+
+### Next atomic step — active pointer `2.b` (needs decomposition first)
+
+Network/provider tab list derived from `global_plans.provider` (fixes
+finding #2's bug: see that finding above for the exact bug). `2.b` is
+not atomic: the first session on it reads the current tab-building code
+in `StoreContent.tsx`/`StoreProducts.tsx`, the `global_plans` provider
+and network columns in `supabase/schema.sql`, and the legacy
+`old-storeName` behavior, then writes the `i/zi/zo` tree under `2.b`
+and sets the pointer to its first `x`. Decompose and stop, as with `2.a`;
+no application code in that session unless the decomposition reveals a
+trivially atomic change.
 
 ### Previous pointer (superseded, kept for reference) — was `2.a`
 
@@ -2867,6 +2883,8 @@ care as the wallet-funding work in `1.c`, and expect it not to fit a
 single atomic `x` either.
 
 ### Delivery for this task
+- `2.a.ii.zo.x` — `StoreHero.tsx` adopts `formatStorePrice` (closes
+  branch `2.a`). Normal patch process; no migration/deploy.
 - `2.a.ii.zi.x` — `StoreProducts.tsx` adopts `formatStorePrice`.
   Normal patch process; no migration/deploy.
 - `2.a.i.zi.x` / `2.a.i.zo.x` — `src/lib/currency/formatStorePrice.ts`
@@ -3074,3 +3092,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-09 | Pointer-execution session (2.a.i.zi) | Confirmed the decomposition patch landed (`410b847`). Person answered the open question: leave Egypt's digits as is (`config.locale` unchanged). Wrote `formatStorePrice.ts` (new file, no callers yet); full-project tsc 0 errors. Pointer advanced to `2.a.i.zo.x` (verify against legacy `formatNaira` and every configured locale). |
 | 2026-10-09 | Pointer-execution session (2.a.i.zo) | Confirmed the helper patch landed (`b335db9`). Verified `formatStorePrice` with a throwaway script: matches legacy `formatNaira` for NG (except intended 2-decimal rounding), all 24 country configs checked, only `ar-EG` non-Western. Found letter symbols glued to the number (`CFA1 234 567,5`); person approved a fix (space after a symbol ending in a letter), applied and re-verified; full-project tsc 0 errors. `2.a.i` fully closed. Pointer advanced to `2.a.ii.zi.x` (`StoreProducts.tsx`). |
 | 2026-10-09 | Pointer-execution session (2.a.ii.zi) | Confirmed the spacing-fix patch landed (`f4eb4c2`). `StoreProducts.tsx` now uses `formatStorePrice`; removed the `"₦"` fallback and the `currencySymbol` prop chain, typed `config` as `CountryConfig` (sole caller already passes one). Full-project tsc 0 errors. Pointer advanced to `2.a.ii.zo.x` (`StoreHero.tsx`). |
+| 2026-10-09 | Pointer-execution session (2.a.ii.zo) | Confirmed the `StoreProducts` patch landed (`a337d98`). `StoreHero.tsx` now uses `formatStorePrice`; removed the `"₦"` fallback, typed `config` as `CountryConfig`. Full-project tsc 0 errors. Branch `2.a` closed. Pointer advanced to `2.b` (network/provider tab list), which still needs decomposition. |

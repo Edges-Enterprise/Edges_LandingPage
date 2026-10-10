@@ -3,11 +3,13 @@
 
 import { ShoppingCart } from "lucide-react";
 import { StoreProduct } from "@/types/reseller/storefront";
+import { CountryConfig } from "@/config/countries";
+import { formatStorePrice } from "@/lib/currency/formatStorePrice";
 
 interface StoreHeroProps {
   storeData: any;
   translations: any;
-  config: any;
+  config: CountryConfig;
   onAddToCart?: (product: StoreProduct) => void;
 }
 
@@ -18,7 +20,6 @@ export default function StoreHero({
   onAddToCart,
 }: StoreHeroProps) {
   const t = translations;
-  const currencySymbol = config.currencySymbol || "₦";
   const canSell = storeData.settings.store_status !== "inactive";
 
   const featured: StoreProduct[] = (storeData.products || []).slice(0, 3);
@@ -149,8 +150,7 @@ export default function StoreHero({
                     lineHeight: 1,
                   }}
                 >
-                  {currencySymbol}
-                  {product.price.toLocaleString()}
+                  {formatStorePrice(product.price, config)}
                 </p>
                 <button
                   onClick={() => onAddToCart?.(product)}
