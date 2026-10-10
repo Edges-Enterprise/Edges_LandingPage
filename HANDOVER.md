@@ -1257,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `2.b`** (`2.a` is closed 2026-10-09; `2.b` is not yet decomposed — the next session decomposes it before any code is written).
+**Status: OPEN. Active pointer: `2.b.i.zi.x`** (`2.a` closed 2026-10-09; `2.b` decomposed 2026-10-10 — write the shared live-catalog fetch/map function; see the `2.b` findings and "Next atomic step" below).
 
 ### Context
 
@@ -1571,8 +1571,39 @@ worth correcting or adding before locking in an architecture:
            keep their own `|| "₦"` + `toLocaleString()` until branch
            4.a deletes them; the legacy `formatNaira` in
            src/lib/pricing/calculatePrice.ts stays (see findings)
-   b. Network/provider tab list derived from global_plans.provider
-      (fixes finding #2's bug) — <ACTIVE POINTER> not yet decomposed
+   b. Network/provider tab list derived from the live plan catalog —
+      the thing the storefront must actually read. Decomposed
+      2026-10-10 (see the `2.b` findings below); the pointer is now
+      `2.b.i.zi.x`. IMPORTANT correction found while decomposing: the
+      storefront reads `global_plans` (which has NO `network` column,
+      only `provider`), but the live plan catalog — the one the reseller
+      dashboard manages and the one the purchase orchestrator resolves
+      plans from — is `global_base_plans` (`provider`,
+      `provider_plan_id`, `network`, `country_code`, `category`) plus
+      `global_reseller_plan_configs` (per-reseller markup/enable). See
+      the `2.b` findings; finding #2's "`provider` holds network names"
+      is corrected there.
+      i. Read the currently-displayed catalog for this store, as a
+         shared function of (reseller, country, category) — sourced from
+         `global_base_plans` x `global_reseller_plan_configs`, not
+         `global_plans.provider`
+         zi. Write the shared fetch/map function (returns the plans plus
+             the network/provider tab set actually present in that
+             catalog)
+            x. <ACTIVE POINTER — write the function; see "Next atomic
+               step" below>
+         zo. Not yet decomposed — verify: full-project tsc plus a
+             field-by-field cross-check of every selected column against
+             `schema.sql` (the Supabase client here is not typed against
+             generated DB types, so tsc alone won't catch a wrong column
+             name)
+      ii. Derive the network/provider tab list from that catalog and
+          render it in `StoreProducts.tsx` (replaces the dead
+          `products.map(p => p.network)` derivation; keeps the tabs
+          data-driven — no hardcoded per-country network array)
+      iii. Guard: fall back to a neutral single "all" view when the
+           catalog has no network/provider value, rather than rendering
+           zero tabs
    c. Phone validation — needs a new lightweight per-country field
       (min/max length), not yet decomposed
    d. WhatsApp dial-code prefixing using config.phoneCode directly —
@@ -2842,17 +2873,134 @@ Branch `2.a` is complete: the helper exists and both surviving
 storefront files use it. `StoreCart.tsx` / `StoreCheckout.tsx` keep
 their own formatting until `4.a` deletes them.
 
-### Next atomic step — active pointer `2.b` (needs decomposition first)
+### Findings from this session (2.b decomposition — DONE, 2026-10-10)
 
-Network/provider tab list derived from `global_plans.provider` (fixes
-finding #2's bug: see that finding above for the exact bug). `2.b` is
-not atomic: the first session on it reads the current tab-building code
-in `StoreContent.tsx`/`StoreProducts.tsx`, the `global_plans` provider
-and network columns in `supabase/schema.sql`, and the legacy
-`old-storeName` behavior, then writes the `i/zi/zo` tree under `2.b`
-and sets the pointer to its first `x`. Decompose and stop, as with `2.a`;
-no application code in that session unless the decomposition reveals a
-trivially atomic change.
+Decomposition only, no application code changed. Per the pointer rule,
+read the tab-building code, the legacy behavior, and the relevant schema
+before splitting. This session surfaced a material correction to Task 4
+finding #2, recorded here so the next session doesn't re-derive it.
+
+- **What `2.b` was said to be, and why that was wrong.** The tree entry
+  read "Network/provider tab list derived from `global_plans.provider`
+  (fixes finding #2's bug)". Finding #2 said `global_plans` has no
+  `network` column and the real column is `provider`, and that the
+  dashboard's `CreatePlanModal.tsx` "stores network names like MTN into
+  `provider`". Two things are wrong with that:
+  1. **`CreatePlanModal.tsx` is dead scaffold.** It is imported by
+     nothing (checked with a repo-wide import search: the only hits are
+     its own file and the orphaned-components `README.md`). It is not
+     evidence of live behavior. Its `provider` input is even labelled
+     "Provider *" with placeholder "e.g., MTN" — a confused free-text
+     field, not a network picker.
+  2. **`provider` in this codebase means the upstream *fulfillment
+     provider*, not the mobile network.** `global_base_plans.provider`
+     holds values like `lizzysub` / `zendit` / `accragh` (the
+     `serviceProvider` from the country config), and `network` (e.g.
+     `MTN`, `ORANGE`) is a separate column. The storefront reading
+     `global_plans.provider` and treating it as the network tab would
+     label every tab "lizzysub"/"zendit".
+- **The real bug is bigger than a wrong column name: the storefront
+  reads a table the live flow doesn't use.** `supabase/schema.sql`
+  confirms `global_plans` has `provider` and no `network` column (and
+  no `country_code`, no `base_price`/`send_value`). But the plan catalog
+  the product actually runs on is:
+  - `global_base_plans` — the platform catalog, per `country_code`,
+    with `provider`, `provider_plan_id`, `network`, `category`,
+    `base_price`, `currency`, `send_value`, `send_currency`. It is what
+    `getPlans.ts` (the live reseller dashboard) reads and what
+    `purchaseOrchestrator.ts` resolves against — the orchestrator's own
+    comment calls `provider_plan_id` "global_base_plans.provider_plan_id,
+    as shown to the buyer".
+  - `global_reseller_plan_configs` — per-reseller enable + markup
+    (`enabled`, `markup_type`, `markup_value`, `selling_price`), joined
+    to base plans by `plan_id` = `global_base_plans.id`.
+  By contrast, `global_plans` is written only by `createPlan.ts` /
+  `updatePlan.ts` / `deletePlan.ts`, which are exported from the plans
+  barrel but called by nothing except the dead `CreatePlanModal.tsx`;
+  no migration, trigger, edge function, or admin action populates it,
+  and the mobile repo never references it. `global_plans` is effectively
+  dead schema (same pattern as `global_reseller_stores` from finding #3
+  and `supabase/rpc/**` from Task 1). The current `[storeName]/page.tsx`
+  querying it is why the storefront shows nothing useful today.
+- **Consequence for the rebuild.** `2.b` must not "fix" the storefront to
+  use `global_plans.provider`. The correct catalog source for the new
+  storefront is `global_base_plans` × `global_reseller_plan_configs`,
+  scoped by the store's `country_code` and the reseller id, with the
+  network/provider tab list derived from the actual `network` values
+  present in that catalog (falling back to `provider`/category where
+  `network` is null). This also aligns the storefront with the purchase
+  flow (`1.d`), which already resolves plans from those two tables — so
+  the storefront and the purchase action will agree on plan identity,
+  which they would not if the storefront kept reading `global_plans`.
+- **`page.tsx` will need a real data-fetch rewrite, not a one-line
+  column swap.** Its `global_plans` query (with `.eq("reseller_id",
+  application.id)` and no country scoping) feeds `storeData.products`;
+  `StoreContent.tsx` filters on `product.network` (always undefined
+  today) and `StoreProducts.tsx` renders tabs from
+  `storeData.networks`. Switching the source to base plans changes the
+  shape (`base_price` + markup, not `price`/`cost`), so this is the
+  "shared fetch/map function" that `2.b.i.zi.x` is scoped to write. That
+  fetch/map boundary is also deliberate: `2.b` produces the catalog +
+  tab data; the broader `page.tsx`/`4.b` data-fetch reconciliation stays
+  where the tree puts it.
+- **Placement of the fetch/map function.** The storefront's own async
+  server components currently query Supabase inline in `page.tsx`; the
+  reseller side keeps its reads in `src/actions/reseller/plans/`
+  (`getPlans.ts`). The new function is a *storefront* read, so the
+  natural home is a storefront-scoped server module (not the reseller
+  dashboard action, which is session-auth'd and hardcodes the logged-in
+  reseller). `2.b.i.zi.x` will decide the exact path (`2.a.i` already
+  set the precedent of a new file under `src/lib/`); this session did
+  not write it, per the decompose-and-stop rule.
+- **Two "network" meanings to keep separate in the UI.** The legacy
+  reference's middle tab row was *networks* (`MTN`, `AIRTEL`, `GLO`,
+  `9MOBILE` from a static `NETWORKS` const; the new version derives
+  them from the catalog). The current `[storeName]` code also has a
+  *category* tab row (`data`/`airtime`, from `product.category`). Both
+  survive the rebuild; `2.b` only touches the network/provider row.
+- **No new config needed, still.** As with `2.a`, the tab list is
+  derived from data already carried by the catalog
+  (`global_base_plans.network`), not a per-country array — matching
+  finding #7's conclusion and avoiding a hardcoded
+  `["MTN","AIRTEL","GLO","9MOBILE"]`. A static per-country network list
+  would be ignored by the methodology's data-driven intent and would go
+  stale for non-Nigerian stores.
+- **`2.b` decomposed (not atomic).** Tree written under `2.b` in the
+  architecture section:
+  - `i` — read the live catalog for the store as a shared function
+    (`i.zi` write the function → **pointer**; `i.zo` verify tsc + a
+    field-by-field `schema.sql` column cross-check).
+  - `ii` — derive the tab list from that catalog and render it in
+    `StoreProducts.tsx`.
+  - `iii` — guard the empty-network case (single neutral "all" view).
+  Pointer set to the first atomic leaf: `2.b.i.zi.x`.
+- **Verification.** This session touched documentation only, but ran the
+  full-project `npx tsc --noEmit -p tsconfig.json` anyway as a baseline
+  for `2.b.i.zi.x`: 0 errors. Not DB-touching, so no schema cross-check
+  applies to this session's own change; the *next* leaf's verification
+  is where the column cross-check lands.
+
+### Next atomic step — active pointer `2.b.i.zi.x`
+
+Write the shared storefront catalog fetch/map function that reads the
+store's real plan catalog from `global_base_plans` joined to
+`global_reseller_plan_configs` (per-reseller `enabled` + effective
+selling price), scoped to the reseller's `country_code`, returning both
+the mapped plan list and the network/provider tab set actually present.
+Do not read `global_plans` (dead: see the `2.b` findings) and do not
+treat `provider` as a network. Before writing, re-read
+`src/actions/reseller/plans/getPlans.ts` (the live reseller-side
+equivalent, for the base-plan × config join shape and markup math) and
+`supabase/functions/_shared/purchaseOrchestrator.ts` (the purchase
+flow's plan resolution, so storefront and purchase agree on plan
+identity). Then write the function, run the full-project type-check, and
+cross-check every selected column against `supabase/schema.sql` by hand.
+Advance to `2.b.i.zo.x` (verification) when done.
+
+### Previous pointer (superseded, kept for reference) — was `2.b`
+
+`2.b` was recorded as "not yet decomposed". Superseded 2026-10-10 by
+the decomposition above; the pointer is now `2.b.i.zi.x`.
 
 ### Previous pointer (superseded, kept for reference) — was `2.a`
 
@@ -2883,6 +3031,9 @@ care as the wallet-funding work in `1.c`, and expect it not to fit a
 single atomic `x` either.
 
 ### Delivery for this task
+- `2.b` decomposition (2026-10-10) — documentation only (this file).
+  Normal patch process; no migration, no schema snapshot, no deploy
+  step.
 - `2.a.ii.zo.x` — `StoreHero.tsx` adopts `formatStorePrice` (closes
   branch `2.a`). Normal patch process; no migration/deploy.
 - `2.a.ii.zi.x` — `StoreProducts.tsx` adopts `formatStorePrice`.
@@ -3093,3 +3244,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-09 | Pointer-execution session (2.a.i.zo) | Confirmed the helper patch landed (`b335db9`). Verified `formatStorePrice` with a throwaway script: matches legacy `formatNaira` for NG (except intended 2-decimal rounding), all 24 country configs checked, only `ar-EG` non-Western. Found letter symbols glued to the number (`CFA1 234 567,5`); person approved a fix (space after a symbol ending in a letter), applied and re-verified; full-project tsc 0 errors. `2.a.i` fully closed. Pointer advanced to `2.a.ii.zi.x` (`StoreProducts.tsx`). |
 | 2026-10-09 | Pointer-execution session (2.a.ii.zi) | Confirmed the spacing-fix patch landed (`f4eb4c2`). `StoreProducts.tsx` now uses `formatStorePrice`; removed the `"₦"` fallback and the `currencySymbol` prop chain, typed `config` as `CountryConfig` (sole caller already passes one). Full-project tsc 0 errors. Pointer advanced to `2.a.ii.zo.x` (`StoreHero.tsx`). |
 | 2026-10-09 | Pointer-execution session (2.a.ii.zo) | Confirmed the `StoreProducts` patch landed (`a337d98`). `StoreHero.tsx` now uses `formatStorePrice`; removed the `"₦"` fallback, typed `config` as `CountryConfig`. Full-project tsc 0 errors. Branch `2.a` closed. Pointer advanced to `2.b` (network/provider tab list), which still needs decomposition. |
+| 2026-10-10 | Pointer-execution session (2.b decomposition) | Bootstrapped both repos (latest branch `handover/supabase-dump`: `Edges_LandingPage` @ `816fe96`, `reseller-app` @ `467a680`), read this file and the pickup brief in full. `2.b` was not atomic, so per the pointer rule this session decomposed it and stopped; no application code changed. **Material correction to finding #2 found while decomposing:** the storefront reads `global_plans` (only `provider`, no `network`), but the live plan catalog is `global_base_plans` (`network`, `provider`, `provider_plan_id`, `country_code`, `base_price`) x `global_reseller_plan_configs` (per-reseller enable/markup) — the tables `getPlans.ts` (dashboard) and `purchaseOrchestrator.ts` (purchase) both use. `global_plans` is written only by `createPlan`/`updatePlan`/`deletePlan`, which nothing calls except the dead `CreatePlanModal.tsx` (import-searched) — effectively dead schema. So `2.b` must switch the storefront to the live catalog, not swap to `global_plans.provider` (that would label tabs "lizzysub"/"zendit"). Also: `provider` here means the upstream fulfillment provider, not the mobile network. New tree under `2.b`: i (shared fetch/map of the live catalog; zi write → **pointer** `2.b.i.zi.x`, zo verify tsc + `schema.sql` column cross-check), ii (derive/render tabs from that catalog), iii (empty-network guard). Full-project `npx tsc --noEmit -p tsconfig.json` run as baseline: 0 errors. Pointer advanced from `2.b` to `2.b.i.zi.x`. |
