@@ -1257,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `5.a`** (`2.b`, `2.c`, `2.d` closed 2026-10-10; `2.a` closed 2026-10-09; branch `3.a` decomposed 2026-10-10 and now fully executed — `3.a.i` (cart/checkout removal), `3.a.ii` (auth core), `3.a.iii` (wallet read), `3.a.iv` (PIN status), `3.a.v` (purchase flow), `3.a.vi` (apkUrl), `3.a.vii` (WhatsApp), `3.a.viii` (single provider owner); modals `3.c.i` (auth), `3.c.ii` (fund wallet), `3.c.iv` (support); footer `3.d` — all DONE. Cleanup branch `4`: `4.a` (retire cart/checkout) and `4.b` (data-fetch + store sell-readiness gate) DONE 2026-10-10; `4.c` (dead cart/checkout translation plumbing) and `4.d` (store-theme.css token reconciliation) DONE 2026-10-10 — the Cleanup branch is complete; next is `5.a` (manual behavioral parity pass vs old-storeName, per country incl. RTL). See the `4.a`-`4.d` findings below and "Next atomic step").
+**Status: DONE (pending user-side git am/push). Branches `5.a`/`5.b` (verification, no code change) + `5.c` (es storefront.json) complete 2026-10-10.** (`2.b`, `2.c`, `2.d` closed 2026-10-10; `2.a` closed 2026-10-09; branch `3.a` decomposed 2026-10-10 and now fully executed — `3.a.i` (cart/checkout removal), `3.a.ii` (auth core), `3.a.iii` (wallet read), `3.a.iv` (PIN status), `3.a.v` (purchase flow), `3.a.vi` (apkUrl), `3.a.vii` (WhatsApp), `3.a.viii` (single provider owner); modals `3.c.i` (auth), `3.c.ii` (fund wallet), `3.c.iv` (support); footer `3.d` — all DONE. Cleanup branch `4`: `4.a` (retire cart/checkout) and `4.b` (data-fetch + store sell-readiness gate) DONE 2026-10-10; `4.c` (dead cart/checkout translation plumbing) and `4.d` (store-theme.css token reconciliation) DONE 2026-10-10 — the Cleanup branch is complete. Verification branch `5` DONE 2026-10-10: `5.a` (per-country/RTL parity) and `5.b` (shared-table regression scope) closed by inspection with findings; `5.c` implemented (es storefront.json). See the `4.a`-`5.c` findings below and "Next atomic step").
 
 ### Context
 
@@ -3330,32 +3330,79 @@ finding #2, recorded here so the next session doesn't re-derive it.
   `supabase.auth.getUser()` effect (~195-210) and its own `signOut`.
   `3.a.ii` may duplicate this; the resolution belongs in `3.a.viii`.
 
-### Next atomic step — active pointer `5.a`
+### Next atomic step — Task 4 complete, no active pointer
 
-Cleanup branch `4` is **fully DONE** (2026-10-10): `4.a` (retire
-cart/checkout), `4.b` (data-fetch + sell-readiness), `4.c` (dead
-translation plumbing), `4.d` (theme-token reconciliation). `5` is the
-final Verification & handoff branch.
+Task 4’s tree (`1` through `5`) is fully executed as of 2026-10-10.
+`5.a` and `5.b` closed **by inspection** (verification leaves; no code
+change required, findings below) and `5.c` was implemented (es
+storefront.json). There is no active pointer inside Task 4.
 
-`5.a` is next: **manual behavioral pass against `old-storeName`, per
-country — including RTL for Egypt.** Legacy hardcodes `left/right`
-positioning throughout (e.g. pagination arrows at `left: -12`/
-`right: -12` in the ported `ProductGrid`), so the per-country/RTL check
-is the substantive part. Atomic step:
+**Remaining, outside Task 4 — user-side git operations only:** the
+sandbox has no push access, so the session’s work was delivered as a
+`git format-patch` bundle for the user to apply with `git am` +
+`git push` (after `git pull --rebase`, per the standing handoff
+process). See the handoff message; nothing further to code here unless
+verification surfaces a defect.
 
-1. Walk each `[storeName]` component against its `old-storeName`
-   counterpart for behavioral parity (data shape, gating, empty
-   states), starting with the ported `ProductGrid`/`ProductCard`
-   pagination and the `[dir]`/RTL behavior for `ar` (Egypt).
-2. Record any per-country deltas found; fix only in-scope deltas (a
-   delta that is a deliberate Task-4 design change is logged, not
-   reverted).
-3. `5.b` (no regressions to dashboard reseller flows) and `5.c` (the
-   `es` storefront.json) follow.
+**Deliberately deferred, tracked (not part of Task 4’s deliverable):**
+- `1.b.iii.zo` — verify `useCustomerAuth` against `StoreContent`’s
+  real auth-state shape. Superseded in practice: `3.a.ii` built
+  `useStoreCustomerAuth` directly against the live `StoreContent`, so
+  the standalone `useCustomerAuth` is no longer on the storefront path;
+  close it out (or delete the unused hook) in a future cleanup pass.
+- `pt` locale has no `storefront.json` and no country config uses `pt`,
+  so it is a no-op today (documented in `5.c`).
+- The reseller-side `completed_at`/`provider_reference` bug on
+  `global_transactions` (flagged in the pickup brief and `1.c`
+  findings) is real and pre-existing, but reseller-side — out of
+  Task 4’s scope.
 
-Then full-project tsc; hand off. Note: this is a *verification* leaf,
-so it may close with "no code change — findings recorded" if parity
-holds.
+### Findings from this session (5.a / 5.b / 5.c — DONE, 2026-10-10)
+
+Full-project `npx tsc --noEmit -p tsconfig.json` **EXIT 0**.
+
+**`5.a` — per-country/behavioral parity (DONE, no code change):**
+- RTL: direction is global, set once in `src/app/layout.tsx:95`
+  (`<html lang={config.language.code} dir={config.language.direction}>`;
+  `eg.ts` sets `direction: "rtl"`). The legacy `old-storeName` has
+  **zero** RTL-specific logic — `grep -n "rtl\|direction\|isRTL"`
+  returns nothing — and hardcodes `left/right` the same way; the port
+  reproduces exactly that (pagination arrows `left: -12`/`right: -12`).
+  No in-scope delta; inherent legacy behavior preserved.
+- NG hardcoding: `grep "₦\|NGN\|naira\|234\|Nigeria"` across
+  `[storeName]/`, `src/hooks/store/`, `src/lib/storefront/` returns
+  **nothing** — the port carries no hardcoded currency or dial code;
+  price/currency comes from `formatStorePrice(..., config)` and WhatsApp
+  from `toWhatsAppLink(..., config)`.
+- Gating/data shape: the port consumes `global_*` tables
+  (`getStoreCatalog`, `getStoreReadiness`, wallet/PIN actions), which is
+  the deliberate multi-country change from legacy’s NG-only tables —
+  a designed delta, not a parity break.
+
+**`5.b` — shared-table regression scope (DONE, no code change):**
+- The full Task-4 diff (`git diff --stat 451c1e5..HEAD`) touches only:
+  `[countryCode]/[storeName]/*`, new `hooks/store/*`,
+  `lib/storefront/*`, `lib/phone/*`, `config/countries/*` (the
+  `phoneNumber` field added in `2.c`), `messages/*/storefront.json`,
+  `types/reseller/storefront.ts`, two new `actions/reseller/customers/*`
+  reads, and `HANDOVER.md`. **No existing dashboard or reseller-action
+  file was modified**, so there is no regression surface on the
+  dashboard side. The storefront only *reads* the shared
+  `global_wallets`/`global_virtual_accounts`/`global_base_plans`/
+  `global_reseller_plan_configs` tables — it writes none of them in a
+  way the dashboard reads.
+
+**`5.c` — es storefront.json (DONE):**
+- `gq.ts` uses `language.code = "es"` but `src/messages/es/` had no
+  `storefront.json`, so Equatorial Guinea silently fell back to English.
+  Added a 31-key Spanish file whose key names and order match
+  `en`/`fr`/`ar` exactly (asserted programmatically). Commit `1848474`.
+- `pt` intentionally not added (unused).
+
+### Previous pointer (superseded, kept for reference) — was `5.a`
+
+`5.a` — manual behavioral pass vs `old-storeName`, per country incl.
+Egypt RTL. Executed as `5.a`/`5.b`/`5.c` (see findings above).
 
 ### Findings from this session (4.c + 4.d — DONE, 2026-10-10)
 
