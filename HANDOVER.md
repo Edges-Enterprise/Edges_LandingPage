@@ -1257,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `3.a.iii.zi.x`** (`2.b`, `2.c`, `2.d` closed 2026-10-10; `2.a` closed 2026-10-09; branch `3.a` decomposed 2026-10-10, and leaves `3.a.i` (cart/checkout removal), `3.a.ii` (auth core) and `3.c.i` (sign-in/up modal) are done — see the `3.a` findings below. Next session wires the customer wallet read (`3.a.iii`: `getGlobalCustomerWallet` vs. `schema.sql`) before writing any code, per the pointer methodology).
+**Status: OPEN. Active pointer: `4.a`** (`2.b`, `2.c`, `2.d` closed 2026-10-10; `2.a` closed 2026-10-09; branch `3.a` decomposed 2026-10-10 and now fully executed — `3.a.i` (cart/checkout removal), `3.a.ii` (auth core), `3.a.iii` (wallet read), `3.a.iv` (PIN status), `3.a.v` (purchase flow), `3.a.vi` (apkUrl), `3.a.vii` (WhatsApp), `3.a.viii` (single provider owner); modals `3.c.i` (auth), `3.c.ii` (fund wallet), `3.c.iv` (support); footer `3.d` — all DONE. Next session starts the Cleanup branch `4.a` — retire the cart/checkout files and dead plumbing; see the `3.a` findings below and "Next atomic step").
 
 ### Context
 
@@ -1716,16 +1716,25 @@ worth correcting or adding before locking in an architecture:
            `virtualLoading`, `virtualMessage`, `copiedAccount`, fed by
            `getGlobalCustomerWallet(customerId, resellerId)`
            (`global_customer_wallets` x `global_customer_virtual_accounts`)
-           zi. Wire the wallet read + refresh on login
-           zo. Verify: tsc + column cross-check of the two tables'
-               selected columns against `schema.sql`
+           zi. DONE 2026-10-10 — implemented as
+               `src/hooks/store/useStoreCustomerWallet.ts` (owner branch
+               reuses `getWallet`, customer branch uses the new
+               `getCurrentCustomerWallet` action); wired into
+               `StoreContent.tsx`
+           zo. DONE 2026-10-10 — tsc 0; selected columns of
+               `global_customer_wallets`/`global_customer_virtual_accounts`
+               cross-checked against `schema.sql` (via
+               `getGlobalCustomerWallet`'s select)
       iv. PIN state (legacy ~133-145, `hasTransactionPin`,
           `isCreatingPin`, `showPin`, `showCreatePin`, `showPinInfo`) —
           how the UI knows a customer has/hasn't set a transaction PIN
-          zi. Resolve the PIN-presence read (customer row
-              `transaction_pin` vs. a flag) before coding
-              x. not yet — blocked on the `3.a.iv.zi` investigation
-          zo. tsc + schema cross-check
+          zi. DONE 2026-10-10 — resolved: owner PIN lives on
+              `global_reseller_applications.transaction_pin`, customer
+              PIN on `global_customers.transaction_pin`; added
+              `getCurrentCustomerPinStatus.ts` and extended
+              `useStoreCustomerAuth` to return `hasTransactionPin`
+          zo. DONE 2026-10-10 — tsc 0; identity-scoped read cross-checked
+              against `schema.sql`
       v. Purchase flow (legacy ~170-175, ~780-825 uses the legacy
          `purchasePlan` action; the global equivalent is the Task-4 API
          routes `src/app/api/v1/purchase/{data,airtime}/route.ts`):
@@ -1734,30 +1743,40 @@ worth correcting or adding before locking in an architecture:
          `purchaseSuccess`; call the `/api/v1/purchase/*` route with
          `planId = product.plan_id` (the `provider_plan_id` the catalog
          helper now carries — `2.b`)
-         zi. Wire the purchase modal + the API call
-            x. not yet — depends on `3.a.iv` (PIN) and `3.c.iii` (modal)
-         zo. tsc + confirm the request body matches the route's expected
-             fields
+         zi. DONE 2026-10-10 — implemented as
+             `src/hooks/store/useStorePurchase.ts` + `StorePurchaseModal.tsx`;
+             note: calls the `global-purchase-{data,airtime}` edge
+             functions via `functions.invoke` (session JWT), NOT the
+             api-key `/api/v1/purchase/*` routes — see findings
+         zo. DONE 2026-10-10 — tsc 0; `StoreProduct.provider_plan_id`
+             passed as `planId`; first-time PIN persisted before purchase
       vi. Install-banner + device detection (legacy ~121-128,
            ~185-230) — `showInstallBanner`, `isAndroid`,
            `isMobileOrTablet`, `bannerDismissed`, `shouldShowBanner`
-         zi. Port the device-detection effect + banner state
-         zo. tsc (no DB)
+         zi. DONE 2026-10-10 — device-detection + banner already live in
+             `StoreHeader`; `page.tsx` now fetches `global_app_builds.apk_url`
+             and returns it in `storeData`, `StoreContent` passes
+             `apkUrl` to `StoreHeader`
+         zo. DONE 2026-10-10 — tsc 0 (no DB)
       vii. Support/WhatsApp state (`supportModalOpen`,
            `resellerWhatsApp`) — `resellerWhatsApp` comes from the
            store row; the modal is `3.c.iv`
-         zi. Wire `resellerWhatsApp` from `storeData` + the modal toggle
-         zo. tsc
+         zi. DONE 2026-10-10 — `StoreContent` owns `supportModalOpen`;
+             `resellerWhatsApp` = `storeData.application.phone`; wired
+             through `StoreHeader.onSupportClick` into `StoreSupportModal`
+         zo. DONE 2026-10-10 — tsc 0
       viii. Resolve the duplicate provider: both `[storeName]/page.tsx`
             (current architecture) and `StoreLayoutClient.tsx` wrap in
             `ThemeProvider`; and `StoreContent.tsx` currently imports
             `CountryProvider` but not `useCountry`, so `config` is
             prop-drilled. Decide the single owner before growing state
-            zi. Decide + document (likely: drop `ThemeProvider` from
-                `StoreContent.tsx`, keep `StoreLayoutClient`'s, and drop
-                the redundant `CountryProvider` import)
-            x. not yet
-         zo. tsc + no double-provider warning
+         zi. DONE 2026-10-10 — decided: `StoreLayoutClient` (via
+             `layout.tsx`) is the sole provider owner; removed
+             `ThemeProvider`/`CountryProvider` from `page.tsx` and the
+             redundant `ThemeProvider` + duplicated `brandColor` state
+             from `StoreContent.tsx`
+         zo. DONE 2026-10-10 — tsc 0; only `StoreLayoutClient` mounts the
+             providers
    b. StoreHeader.tsx: legacy-style header behavior — note the
       *current* StoreHeader.tsx (2640 lines) already has auth-state
       checking, store-owner detection, install-banner logic, and a
@@ -1787,26 +1806,35 @@ worth correcting or adding before locking in an architecture:
          zo. DONE 2026-10-10 — tsc 0 errors; markup/behavior checked
              field-by-field against legacy ~1051-1300
       ii. Fund-wallet modal (gateway-branched, finding #5)
-         zi. Create the component
-         zo. tsc + confirm the gateway branch list matches the country
-             `paymentGateway` config
+         zi. DONE 2026-10-10 — `[storeName]/StoreFundWalletModal.tsx`
+             (virtual-account list + copy, create-virtual-account form,
+             `isXixapay` branch; non-xixapay shows a contact-support
+             fallback). `StoreHeader` balance chip became a button
+             (`onFundClick`); `StoreContent` added `openFunding`/
+             `handleCreateVirtualAccount`/`copyToClipboard`
+         zo. DONE 2026-10-10 — tsc 0; gateway branch keys
+             (`config.paymentGateway.provider`) match the country config
       iii. Purchase modal + PIN-creation sub-flow
-         zi. Create the component (consumes `3.a.v` state)
-         zo. tsc + parity pass
+         zi. DONE 2026-10-10 — `StorePurchaseModal.tsx` (consumes
+             `3.a.v` state: phone, 4-digit PIN, first-time PIN creation)
+         zo. DONE 2026-10-10 — tsc 0
       iv. Support (WhatsApp deep link) modal
-         zi. Create the component (uses `toWhatsAppLink`, `2.d`)
-         zo. tsc
+         zi. DONE 2026-10-10 — `[storeName]/StoreSupportModal.tsx`
+             (WhatsApp deep link via `toWhatsAppLink`, or
+             support-coming-soon with an owner → dashboard-settings
+             shortcut); wired via `StoreHeader.onSupportClick`
+         zo. DONE 2026-10-10 — tsc 0
    d. StoreFooter.tsx: legacy-style footer (current one is 44 lines,
       minimal — confirm scope needed)
-      i. Confirm the legacy footer's actual content vs. current
-         zi. Investigation: diff legacy footer markup against
-             `[storeName]/StoreFooter.tsx`
-            x. not yet — investigation leaf
-         zo. Document the delta
+      i. Confirm the legacy footer’s actual content vs. current
+         zi. DONE 2026-10-10 — investigation: diffed legacy footer markup
+             against `[storeName]/StoreFooter.tsx`
+         zo. DONE 2026-10-10 — delta documented: only the brand-colored
+             swatch was missing; everything else already matched
       ii. Implement whatever `3.d.i` shows is missing
-         zi. Apply the footer changes
-            x. not yet
-         zo. tsc
+         zi. DONE 2026-10-10 — added `background: var(--brand-color)` to
+             the footer swatch
+         zo. DONE 2026-10-10 — tsc 0
 
 4. Cleanup
    a. Retire StoreCart.tsx / StoreCheckout.tsx / cart-related types;
@@ -3302,7 +3330,28 @@ finding #2, recorded here so the next session doesn't re-derive it.
   `supabase.auth.getUser()` effect (~195-210) and its own `signOut`.
   `3.a.ii` may duplicate this; the resolution belongs in `3.a.viii`.
 
-### Next atomic step — active pointer `3.a.iii.zi.x`
+### Next atomic step — active pointer `4.a`
+
+Branch `3.a` is fully executed and branch `4` (Cleanup) is next. `4.a`
+is the first leaf: **retire the cart/checkout remnants.** Measured this
+session: `[storeName]/StoreCart.tsx` (9302 B) and `StoreCheckout.tsx`
+(17310 B) still exist but are imported by nothing (only self-references
+plus `types/reseller/storefront.ts`); `StoreOrderConfirmation.tsx` is an
+empty 0-byte file. So the atomic step is:
+
+1. Delete `src/app/[countryCode]/[storeName]/StoreCart.tsx`,
+   `StoreCheckout.tsx`, `StoreOrderConfirmation.tsx`.
+2. Remove the now-unused `CartItem` and `CheckoutData` interfaces from
+   `src/types/reseller/storefront.ts` (grep confirms no other importer).
+3. Confirm the inert `StoreHeader` cart props (`cartCount`/`cartTotal`/
+   `onCartClick`) are still referenced by `StoreContent.tsx` (they are,
+   as `0/0/no-op`) — do **not** remove them in `4.a`; `StoreHeader`'s
+   cart rendering cleanup, if any, is a separate leaf.
+
+Then full-project tsc and advance to `4.b` (page.tsx/layout.tsx
+data-fetching + the finding-#2 network-derivation bug).
+
+### Previous pointer (superseded, kept for reference) — was `3.a.iii.zi.x`
 
 Wire the customer wallet read in `StoreContent.tsx` (or a
 `useStoreCustomerWallet` hook alongside `useStoreCustomerAuth`): when a
@@ -3586,3 +3635,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-10 | Pointer-execution session (2.b decomposition, person clarification) | Person confirmed the storefront selection rule: the storefront shows only the plans the reseller selected and turned ON in the plans dashboard, priced with the reseller's markup; if none are enabled it shows "no active plans on this store". Folded into the `2.b` decomposition: the fetch/map leaf (`2.b.i.zi.x`) now reads `global_reseller_plan_configs` rows with `enabled = true` joined to `global_base_plans` (`selling_price` already includes markup), strict opt-in (no config row = not shown) — explicitly NOT the dashboard's `p.config?.enabled !== false` default, which would leak unselected plans. `2.b.iii` restated as the empty-store state. No application code changed; full-project `tsc` still 0 errors. Pointer unchanged (`2.b.i.zi.x`). |
 | 2026-10-10 | Pointer-execution session (2.b/2.c/2.d implemented) | Applied the selection-rule clarification on top of origin `451c1e5` (origin already had the base `2.b` decomposition; the clarification was not yet pushed), then executed leaves `2.b.i/ii/iii` (zi+zo), `2.c.i/iii` (ii closed by design) and `2.d.i/ii/iii`. Code: new `src/lib/storefront/getStoreCatalog.ts` (strict opt-in enabled-catalog read: `global_reseller_plan_configs.enabled = true` joined to `global_base_plans` via `.in(id, planId)`, scoped by country + `is_active`; returns plans/networks/categories; `selling_price`, else markup recomputed identically to `purchaseOrchestrator.ts`; each plan carries `provider_plan_id` as `plan_id`); `[storeName]/page.tsx` now calls it instead of reading dead `global_plans`; `StoreProducts.tsx` empty state now \"No active plans on this store yet.\" (key `noActivePlans`); `StoreProduct.plan_id?` added to the type. `2.c`: added `phoneNumber:{minDigits,maxDigits}` to `CountryConfig` + all 24 country configs and `src/lib/phone/validatePhoneNumber.ts` (storefront path had no active length check to convert \u2014 scope corrected in the doc). `2.d`: new `src/lib/phone/toWhatsAppLink.ts`, `StoreHeader.tsx` adopts it (country-driven `phoneCode`, hardcoded `234` gone). Verification: full-project `npx tsc --noEmit -p tsconfig.json` 0 errors after each leaf; every selected DB column cross-checked against `supabase/schema.sql` by hand (all present); join FK `global_reseller_plan_configs.plan_id -> global_base_plans.id` confirmed. Noted `createServerClient` uses the service-role key so storefront reads bypass RLS (relevant because the catalog RLS is reseller/admin-scoped). Pointer advanced to `3.a` (needs decomposition first). Delivered as one combined patch. |
 | 2026-10-10 | Pointer-execution session (3.a decomposition + 3.a.i/ii, 3.c.i) | Decomposed branch `3.a` (measured: legacy `(store)/old-storeName/StoreContent.tsx` = 3920 lines vs. current `[storeName]/StoreContent.tsx` = 208 cart-only lines) into `3.a.i`-`3.a.viii` + branch `3.c` modal leaves, with the legacy state graph, the confirmed auth alias-email scheme, the available actions, the empty-`purchasePlan.ts` finding (purchase must go via `src/app/api/v1/purchase/{data,airtime}`), the duplicate `ThemeProvider`/unused `CountryProvider` finding, and the `StoreHeader`-owns-auth overlap all recorded in the `3.a` findings. Then executed the next leaves: (1) `3.a.i` removed all cart/checkout state, handlers, localStorage effects, imports and both drawers from `StoreContent.tsx`; `StoreHeader` got inert `cartCount=0`/`cartTotal=0`/`onCartClick`, `StoreHero` dropped `onAddToCart`, the grid's buy is a local no-op pending `3.a.v`. (2) `3.a.ii` added `src/hooks/store/useStoreCustomerAuth.ts` (alias-email signup -> `registerCustomerToGlobalReseller`; signin -> `getGlobalCustomerAuthEmail` + `signInWithPassword`; owner -> `/dashboard`; logout) and wired it into `StoreContent.tsx` with a `?login=true`-triggered `loginOpen`. (3) `3.c.i` added `[storeName]/StoreAuthModal.tsx` (tabbed sign-in/sign-up, show/hide password, 'why create an account' panel) using `--brand-color` tokens instead of the legacy inline palette, wired into `StoreContent.tsx`. Verification: `npx tsc --noEmit -p tsconfig.json` 0 errors after each leaf; grep confirms no storefront file imports `StoreCart`/`StoreCheckout`; action call sites match `1.b.i`/`1.b.ii` signatures. Pointer advanced to `3.a.iii.zi.x` (wallet read). Delivered as one combined patch. |
+| 2026-10-10 | Pointer-execution session (3.a.iii–viii, 3.c.ii, 3.c.iv, 3.d) | Executed the remaining `3.a`/`3.c`/`3.d` leaves one at a time, tsc-0 after each: (1) `3.a.vi` — `page.tsx` now fetches the latest `global_app_builds.apk_url` for the store (via `application_id`, newest `build_status='ready'` fallback) and returns it in `storeData`; `StoreContent` passes `apkUrl` to `StoreHeader`, activating the already-present device-detection/install-banner. (2) `3.a.viii` — deduped the triple `ThemeProvider`: provider ownership is now solely `StoreLayoutClient` (via `layout.tsx`); removed `ThemeProvider`/`CountryProvider` from `page.tsx` and the redundant `ThemeProvider` + duplicated `brandColor`/localStorage state from `StoreContent`. (3) `3.c.ii` — new `StoreFundWalletModal.tsx` (virtual-account list with copy, create-virtual-account form; `isXixapay` branch per finding #5, non-xixapay shows a contact-support fallback); `StoreHeader` balance chip became a button (`onFundClick`); `StoreContent` added `openFunding` (login gate → accounts vs create), `handleCreateVirtualAccount` (via `createGlobalCustomerVirtualAccount`), `copyToClipboard`. (4) `3.c.iv`+`3.a.vii` — new `StoreSupportModal.tsx` (WhatsApp deep link via `toWhatsAppLink`, or support-coming-soon with an owner → dashboard-settings shortcut); `StoreHeader` gained `onSupportClick` (contact button now opens the modal); `StoreContent` owns `supportModalOpen` and `resellerWhatsApp` from `storeData.application.phone`. (5) `3.d` — footer parity; the current `StoreFooter` was already a faithful port, delta was only the missing brand-colored swatch, now `var(--brand-color)`. Committed as four commits; no push (sandbox). `npx tsc --noEmit -p tsconfig.json` = 0 after every leaf. Pointer advanced to `4.a` (Cleanup: retire cart/checkout files) with the atomic steps written into "Next atomic step". |
