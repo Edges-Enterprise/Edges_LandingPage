@@ -34,10 +34,11 @@ export default function StoreFooter({
           style={{
             width: 18,
             height: 18,
-            borderRadius: 5
+            borderRadius: 5,
+            background: "var(--brand-color)",
           }}
         />
-         {storeData.application.store_name} © {new Date().getFullYear()}
+        {storeData.application.store_name} © {new Date().getFullYear()}
       </div>
     </footer>
   );
