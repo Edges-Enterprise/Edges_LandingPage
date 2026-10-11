@@ -1257,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `4.c`** (`2.b`, `2.c`, `2.d` closed 2026-10-10; `2.a` closed 2026-10-09; branch `3.a` decomposed 2026-10-10 and now fully executed — `3.a.i` (cart/checkout removal), `3.a.ii` (auth core), `3.a.iii` (wallet read), `3.a.iv` (PIN status), `3.a.v` (purchase flow), `3.a.vi` (apkUrl), `3.a.vii` (WhatsApp), `3.a.viii` (single provider owner); modals `3.c.i` (auth), `3.c.ii` (fund wallet), `3.c.iv` (support); footer `3.d` — all DONE. Cleanup branch `4`: `4.a` (retire cart/checkout) and `4.b` (data-fetch + store sell-readiness gate) DONE 2026-10-10; next is `4.c` — remove now-dead category/translation-filter plumbing after confirming nothing else depends on it. See the `4.a`/`4.b` findings below and "Next atomic step").
+**Status: OPEN. Active pointer: `5.a`** (`2.b`, `2.c`, `2.d` closed 2026-10-10; `2.a` closed 2026-10-09; branch `3.a` decomposed 2026-10-10 and now fully executed — `3.a.i` (cart/checkout removal), `3.a.ii` (auth core), `3.a.iii` (wallet read), `3.a.iv` (PIN status), `3.a.v` (purchase flow), `3.a.vi` (apkUrl), `3.a.vii` (WhatsApp), `3.a.viii` (single provider owner); modals `3.c.i` (auth), `3.c.ii` (fund wallet), `3.c.iv` (support); footer `3.d` — all DONE. Cleanup branch `4`: `4.a` (retire cart/checkout) and `4.b` (data-fetch + store sell-readiness gate) DONE 2026-10-10; `4.c` (dead cart/checkout translation plumbing) and `4.d` (store-theme.css token reconciliation) DONE 2026-10-10 — the Cleanup branch is complete; next is `5.a` (manual behavioral parity pass vs old-storeName, per country incl. RTL). See the `4.a`-`4.d` findings below and "Next atomic step").
 
 ### Context
 
@@ -3330,37 +3330,82 @@ finding #2, recorded here so the next session doesn't re-derive it.
   `supabase.auth.getUser()` effect (~195-210) and its own `signOut`.
   `3.a.ii` may duplicate this; the resolution belongs in `3.a.viii`.
 
-### Next atomic step — active pointer `4.c`
+### Next atomic step — active pointer `5.a`
 
-Branch `4` (Cleanup): `4.a` and `4.b` are **DONE** (2026-10-10, see the
-`4.a`/`4.b` findings below). `4.c` is next: **remove now-dead
-category/translation-filter plumbing — but confirm nothing else depends
-on it first.**
+Cleanup branch `4` is **fully DONE** (2026-10-10): `4.a` (retire
+cart/checkout), `4.b` (data-fetch + sell-readiness), `4.c` (dead
+translation plumbing), `4.d` (theme-token reconciliation). `5` is the
+final Verification & handoff branch.
 
-Measured this session (`grep -rn` across `src/`): the survivors to
-check are `StoreProducts.tsx`'s `getCategoryLabel`/`CATEGORY_COLORS`/
-`CATEGORY_ICONS` maps and the `categories`/`networks` tab wiring, plus
-any `translations` keys only the deleted cart/checkout files consumed.
-The atomic step is:
+`5.a` is next: **manual behavioral pass against `old-storeName`, per
+country — including RTL for Egypt.** Legacy hardcodes `left/right`
+positioning throughout (e.g. pagination arrows at `left: -12`/
+`right: -12` in the ported `ProductGrid`), so the per-country/RTL check
+is the substantive part. Atomic step:
 
-1. Grep each candidate (`CATEGORY_COLORS`, `CATEGORY_ICONS`,
-   `getCategoryLabel`, `categories`, `networks`) for importers outside
-   `[storeName]/StoreProducts.tsx`; keep anything still referenced.
-2. Delete only the maps/branches proven dead by that grep; tsc stays 0.
-3. Do **not** touch the `noActivePlans`/tab derivation added in `2.b`
-   (live), nor `StoreHero`'s `ShoppingCart` icon (a distinct cosmetic
-   leaf — see `4.c` note below if it isn't folded in here).
+1. Walk each `[storeName]` component against its `old-storeName`
+   counterpart for behavioral parity (data shape, gating, empty
+   states), starting with the ported `ProductGrid`/`ProductCard`
+   pagination and the `[dir]`/RTL behavior for `ar` (Egypt).
+2. Record any per-country deltas found; fix only in-scope deltas (a
+   delta that is a deliberate Task-4 design change is logged, not
+   reverted).
+3. `5.b` (no regressions to dashboard reseller flows) and `5.c` (the
+   `es` storefront.json) follow.
 
-Then full-project tsc and advance to `4.d` (reconcile
-`store-theme.css`).
+Then full-project tsc; hand off. Note: this is a *verification* leaf,
+so it may close with "no code change — findings recorded" if parity
+holds.
 
-Note for whoever picks up the `StoreHero.tsx` `ShoppingCart` import
-(the remaining cart cosmetic): it is now the only cart-named symbol
-left in the rebuilt storefront — `import { ShoppingCart }` (L4) and
-`<ShoppingCart size={14} />` in the "Buy Now" button (L178). It is a
-generic lucide icon, harmless, but is the last legacy cart tell; fold
-its removal/replacement into `4.c` or `4.d` rather than leaving it
-untracked.
+### Findings from this session (4.c + 4.d — DONE, 2026-10-10)
+
+Full-project `npx tsc --noEmit -p tsconfig.json` **EXIT 0** after each.
+
+**`4.c` — dead category/translation plumbing (DONE):**
+- First confirmed the "category/translation-filter" candidates are
+  **not** dead: `StoreProducts.tsx`'s `CATEGORY_COLORS`/`CATEGORY_ICONS`/
+  `getCategoryLabel` and the `categories`/`networks` tab maps are all
+  live in the current markup (lines ~68-217), so they stay.
+- The genuinely dead plumbing is the retired cart/checkout translation
+  surface: removed 18 keys (`addToCart`, `cart`, `checkout`,
+  `continueShopping`, `customerEmail`, `customerName`, `customerPhone`,
+  `deliveryDetails`, `emptyCart`, `orderNumber`, `orderPlaced`,
+  `orderSummary`, `placeOrder`, `quantity`, `remove`, `thankYou`,
+  `total`, `viewCart`) from `en`/`fr`/`ar` `storefront.json`
+  (49 → 31 keys; the three locales remain key-identical) and from
+  `page.tsx`'s hardcoded fallback object. `page.tsx` is the only
+  consumer of these JSONs (`grep -rln storefront.json src` → only
+  `page.tsx`); `old-storeName` imports no `messages/`.
+- Replaced `StoreHero.tsx`'s `ShoppingCart` lucide icon with `Zap` —
+  the last cart-named symbol left in the rebuilt storefront.
+- Commit `c6f1925`.
+
+**`4.d` — store-theme.css reconciliation (DONE):**
+- The real defect: the four new modal components
+  (`StoreAuthModal`, `StorePurchaseModal`, `StoreFundWalletModal`,
+  `StoreSupportModal`) referenced `var(--text-muted)` 23× — a token
+  **defined nowhere** (the theme defines `--muted`). Those labels were
+  silently falling back to `inherit`. Repointed all 23 to `--muted`.
+  Legacy `old-storeName` never used `--text-muted` either.
+- Dropped `page.tsx`'s redundant `import "./store-theme.css"` (already
+  imported once in `StoreLayoutClient`, the sole theme/provider owner)
+  and its stale "We'll create this" comment.
+- Verified every other var the `[storeName]` tree uses
+  (`--bg`, `--bg2`, `--card`, `--border`, `--border2`, `--text`,
+  `--text2`, `--muted`, `--dim`, `--accent`, `--accent-lt`,
+  `--accent-dark`, `--brand-color`, `--brand-color-rgb`,
+  `--shadow-lg`) is defined in `store-theme.css` (dark + light), and
+  that `StoreLayoutClient` applies `body.storefront-theme` +
+  `data-theme` and sets `--brand-color`/`--brand-color-rgb`. The
+  visual approach (reuse scaffolding, inline styles + tokens) is
+  unchanged from the brief.
+- Commit `7659876`.
+
+### Previous pointer (superseded, kept for reference) — was `4.c`
+
+Remove now-dead category/translation-filter plumbing after confirming
+nothing else depends on it. Executed as `4.c`/`4.d` (see findings
+above); the category maps turned out to be live and stayed.
 
 ### Findings from this session (4.a + 4.b — DONE, 2026-10-10)
 
