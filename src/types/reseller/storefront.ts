@@ -14,6 +14,13 @@ export interface StoreProduct {
   data_amount?: string;
   is_active: boolean;
   is_featured: boolean;
+  /**
+   * Provider-facing plan id (global_base_plans.provider_plan_id). This is
+   * what the purchase edge functions expect as `planId`; optional so
+   * existing rows that predate the storefront catalog (and the cart flow
+   * being deleted) still type-check.
+   */
+  plan_id?: string;
 }
 
 export interface StoreData {

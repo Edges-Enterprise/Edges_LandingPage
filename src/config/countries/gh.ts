@@ -11,6 +11,7 @@ export const COUNTRY_GH: CountryConfig = {
   currency: "GHS",
   currencySymbol: "₵",
   phoneCode: "+233",
+  phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
     code: "en",
     name: "English",

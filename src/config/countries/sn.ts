@@ -11,6 +11,7 @@ export const COUNTRY_SN: CountryConfig = {
   currency: "XOF",
   currencySymbol: "CFA",
   phoneCode: "+221",
+  phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
     code: "fr",
     name: "French",

@@ -11,6 +11,7 @@ export const COUNTRY_ZM: CountryConfig = {
   currency: "ZMW",
   currencySymbol: "ZK",
   phoneCode: "+260",
+  phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
     code: "en",
     name: "English",

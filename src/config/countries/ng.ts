@@ -11,6 +11,7 @@ export const COUNTRY_NG: CountryConfig = {
   currency: "NGN",
   currencySymbol: "₦",
   phoneCode: "+234",
+  phoneNumber: { minDigits: 10, maxDigits: 10 },
   language: {
     code: "en",
     name: "English",

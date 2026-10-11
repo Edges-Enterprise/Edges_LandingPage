@@ -11,6 +11,7 @@ export const COUNTRY_TG: CountryConfig = {
   currency: "XOF",
   currencySymbol: "CFA",
   phoneCode: "+228",
+  phoneNumber: { minDigits: 8, maxDigits: 8 },
   language: {
     code: "fr",
     name: "French",

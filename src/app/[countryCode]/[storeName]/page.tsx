@@ -1,6 +1,7 @@
 // src/app/[countryCode]/[storeName]/page.tsx
 import { createServerClient } from "@/lib/supabase/server";
 import { getCountryConfig } from "@/config/countries";
+import { getStoreCatalog } from "@/lib/storefront/getStoreCatalog";
 import { CountryProvider } from "@/providers/CountryProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import StoreContent from "./StoreContent";
@@ -35,28 +36,20 @@ async function getStoreData(storeSlug: string) {
       .eq("reseller_id", application.id)
       .single();
 
-    // Get products
-    const { data: products, error: productsError } = await supabase
-      .from("global_plans")
-      .select("*")
-      .eq("reseller_id", application.id)
-      .eq("is_active", true)
-      .order("category", { ascending: true })
-      .order("name", { ascending: true });
-
-    if (productsError) throw productsError;
-
-    // Get categories
-    const categories = products
-      ? [...new Set(products.map((p) => p.category))]
-      : [];
-    const networks = products
-      ? [...new Set(products.map((p) => p.network).filter(Boolean))]
-      : [];
+    // Get the plans the reseller actually enabled for this store. Source
+    // is the live catalog (global_base_plans x
+    // global_reseller_plan_configs), not global_plans (which has no
+    // network column and is not what the purchase flow reads). Strictly
+    // opt-in: nothing enabled -> an empty catalog, which StoreProducts
+    // renders as "no active plans on this store".
+    const { plans: products, categories, networks } = await getStoreCatalog(
+      application.id,
+      application.country_code,
+    );
 
     return {
       application,
-      products: products || [],
+      products,
       categories,
       networks,
       settings: settings?.store_settings || {

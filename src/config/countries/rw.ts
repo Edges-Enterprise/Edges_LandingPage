@@ -11,6 +11,7 @@ export const COUNTRY_RW: CountryConfig = {
   currency: "RWF",
   currencySymbol: "FRw",
   phoneCode: "+250",
+  phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
     code: "en",
     name: "English",

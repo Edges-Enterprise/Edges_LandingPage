@@ -11,6 +11,7 @@ export const COUNTRY_UG: CountryConfig = {
   currency: "UGX",
   currencySymbol: "USh",
   phoneCode: "+256",
+  phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
     code: "en",
     name: "English",

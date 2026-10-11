@@ -246,7 +246,7 @@ export default function StoreProducts({
             style={{ margin: "0 auto 0.75rem", opacity: 0.25 }}
           />
           <p style={{ fontWeight: 600, color: "var(--text2)" }}>
-            {t?.noProducts || "No products available"}
+            {t?.noActivePlans || "No active plans on this store yet."}
           </p>
           <p style={{ fontSize: "0.82rem", marginTop: 4 }}>
             {t?.comingSoon || "More products coming soon!"}

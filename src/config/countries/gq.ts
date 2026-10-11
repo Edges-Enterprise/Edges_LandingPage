@@ -11,6 +11,7 @@ export const COUNTRY_GQ: CountryConfig = {
   currency: "XAF",
   currencySymbol: "FCFA",
   phoneCode: "+240",
+  phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
     code: "es",
     name: "Spanish",

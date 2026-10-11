@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/providers/ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
+import { toWhatsAppLink } from "@/lib/phone/toWhatsAppLink";
 
 interface StoreHeaderProps {
   storeData: any;
@@ -211,14 +212,8 @@ export default function StoreHeader({
 
   const handleWhatsApp = () => {
     if (resellerPhone) {
-      let phone = resellerPhone.replace(/[\s\-()]/g, "");
-      phone = phone.replace(/^\+/, "");
-      if (phone.startsWith("0")) {
-        phone = "234" + phone.slice(1);
-      } else if (!phone.startsWith("234") && phone.length === 10) {
-        phone = "234" + phone;
-      }
-      window.open(`https://wa.me/${phone}`, "_blank");
+      const link = toWhatsAppLink(resellerPhone, config);
+      if (link) window.open(link, "_blank");
     }
   };
 

@@ -92,6 +92,15 @@ export interface CountryConfig {
   currency: string;
   currencySymbol: string;
   phoneCode: string;
+  /**
+   * National mobile number digit length (country code and any trunk `0`
+   * excluded). Used for phone validation instead of a hardcoded
+   * 11-digit check. `phoneCode` only supplies the WhatsApp dial prefix.
+   */
+  phoneNumber: {
+    minDigits: number;
+    maxDigits: number;
+  };
   language: {
     code: string;
     name: string;

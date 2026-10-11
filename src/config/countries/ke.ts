@@ -11,6 +11,7 @@ export const COUNTRY_KE: CountryConfig = {
   currency: "KES",
   currencySymbol: "KSh",
   phoneCode: "+254",
+  phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
     code: "en",
     name: "English",

@@ -11,6 +11,7 @@ export const COUNTRY_TD: CountryConfig = {
   currency: "XAF",
   currencySymbol: "FCFA",
   phoneCode: "+235",
+  phoneNumber: { minDigits: 8, maxDigits: 8 },
   language: {
     code: "fr",
     name: "French",

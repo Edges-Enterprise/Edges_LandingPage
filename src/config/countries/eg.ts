@@ -11,6 +11,7 @@ export const COUNTRY_EG: CountryConfig = {
   currency: "EGP",
   currencySymbol: "E£",
   phoneCode: "+20",
+  phoneNumber: { minDigits: 10, maxDigits: 10 },
   language: {
     code: "ar",
     name: "Arabic",

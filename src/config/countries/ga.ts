@@ -11,6 +11,7 @@ export const COUNTRY_GA: CountryConfig = {
   currency: "XAF",
   currencySymbol: "FCFA",
   phoneCode: "+241",
+  phoneNumber: { minDigits: 8, maxDigits: 8 },
   language: {
     code: "fr",
     name: "French",

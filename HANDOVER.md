@@ -1257,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `2.b.i.zi.x`** (`2.a` closed 2026-10-09; `2.b` decomposed 2026-10-10 — write the shared live-catalog fetch/map function; see the `2.b` findings and "Next atomic step" below).
+**Status: OPEN. Active pointer: `3.a` (needs decomposition first)** (`2.b`, `2.c`, `2.d` closed 2026-10-10 — see the `2.b`/`2.c`/`2.d` findings below. `2.a` closed 2026-10-09. Next session decomposes branch `3.a` (`StoreContent.tsx` rebuild: drop cart/checkout, add auth/wallet/PIN state) before writing any code, per the pointer methodology).
 
 ### Context
 
@@ -1583,31 +1583,80 @@ worth correcting or adding before locking in an architecture:
       `global_reseller_plan_configs` (per-reseller markup/enable). See
       the `2.b` findings; finding #2's "`provider` holds network names"
       is corrected there.
-      i. Read the currently-displayed catalog for this store, as a
-         shared function of (reseller, country, category) — sourced from
-         `global_base_plans` x `global_reseller_plan_configs`, not
-         `global_plans.provider`
+      i. Read the currently-*offered* catalog for this store, as a
+         shared function of (reseller, country, category) — only the
+         base plans the reseller has turned ON in
+         `global_reseller_plan_configs`, sourced from `global_base_plans`
+         x `global_reseller_plan_configs`, not `global_plans.provider`.
+         Strict opt-in: a plan shows only when its config row exists AND
+         `enabled = true`; a base plan with no config row is NOT shown
+         (do not copy the dashboard's "missing config = enabled" default
+         — see the `2.b` findings). If nothing is enabled, the storefront
+         shows "no active plans on this store" rather than any catalog.
          zi. Write the shared fetch/map function (returns the plans plus
              the network/provider tab set actually present in that
-             catalog)
-            x. <ACTIVE POINTER — write the function; see "Next atomic
-               step" below>
-         zo. Not yet decomposed — verify: full-project tsc plus a
-             field-by-field cross-check of every selected column against
-             `schema.sql` (the Supabase client here is not typed against
-             generated DB types, so tsc alone won't catch a wrong column
-             name)
-      ii. Derive the network/provider tab list from that catalog and
-          render it in `StoreProducts.tsx` (replaces the dead
+             enabled catalog; empty list when nothing is enabled)
+            x. DONE 2026-10-10 — `src/lib/storefront/getStoreCatalog.ts`
+         zo. DONE 2026-10-10 — full-project tsc 0 errors; every selected
+             column cross-checked against `schema.sql`
+      ii. Derive the network/provider tab list from that enabled catalog
+          and render it in `StoreProducts.tsx` (replaces the dead
           `products.map(p => p.network)` derivation; keeps the tabs
           data-driven — no hardcoded per-country network array)
-      iii. Guard: fall back to a neutral single "all" view when the
-           catalog has no network/provider value, rather than rendering
-           zero tabs
-   c. Phone validation — needs a new lightweight per-country field
-      (min/max length), not yet decomposed
-   d. WhatsApp dial-code prefixing using config.phoneCode directly —
-      not yet decomposed, likely trivial
+         zi. Feed the enabled catalog into the storefront
+             (`[storeName]/page.tsx` calls `getStoreCatalog` instead of
+             reading `global_plans`)
+            x. DONE 2026-10-10
+         zo. DONE 2026-10-10 — tsc 0 errors; verified the
+             `global_reseller_plan_configs.plan_id -> global_base_plans.id`
+             FK join in `schema.sql`
+      iii. Empty-store state: when the enabled catalog is empty, render
+           an explicit "no active plans on this store" message and no
+           tabs, instead of a neutral "all" view or a blank product grid
+         zi. Add the empty message to `StoreProducts.tsx`
+            x. DONE 2026-10-10 (`noActivePlans` key + English default;
+               other locales added in `5.c`)
+         zo. DONE 2026-10-10 — tsc 0 errors; no DB read added
+   c. Phone validation — a lightweight per-country min/max digit-length
+      field on `CountryConfig`, added 2026-10-10, plus a shared
+      `validatePhoneNumber` helper for the branch-`3` forms. The
+      storefront path itself has no active length check to convert (the
+      legacy check is commented out); this lands as the shared helper
+      the wallet/PIN purchase flow will use. Existing `phoneCode` alone
+      can't validate length — it only supplies the WhatsApp dial prefix
+      (`2.d`).
+      i. Add `phoneNumber: { minDigits, maxDigits }` to `CountryConfig`
+         and set it on every `src/config/countries/*.ts`
+         zi. Add the field to the type + all 24 country configs
+            x. DONE 2026-10-10
+         zo. DONE 2026-10-10 — tsc 0 errors
+      ii. Not applicable to the storefront file — closed by design: the
+          `[storeName]` path has no country-blind length check (only the
+          commented-out legacy block at `StoreHeader.tsx:1157`). The
+          active 11-digit checks live in `PurchaseModal.tsx`,
+          `airtime-client.tsx`, `flashsale` and other `(protected)`
+          flows outside Task 4's storefront scope.
+      iii. Shared helper for the branch-`3` purchase/auth forms
+           (branch `3`)
+         zi. `src/lib/phone/validatePhoneNumber.ts`
+            x. DONE 2026-10-10
+         zo. DONE 2026-10-10 — tsc 0 errors; pure function, not DB-touching
+   d. WhatsApp dial-code prefixing using config.phoneCode directly
+      (storefront uses a country-driven prefix instead of hardcoded
+      `234`; the legacy reference is left as-is — see `2.d` findings)
+      i. Country-driven WhatsApp link builder
+         zi. `src/lib/phone/toWhatsAppLink.ts` (E.164 normalization via
+             `config.phoneCode` instead of hardcoded `234`)
+            x. DONE 2026-10-10
+         zo. DONE 2026-10-10 — tsc 0 errors; pure function, not DB-touching
+      ii. Adopt it in the storefront WhatsApp buttons
+         zi. `StoreHeader.tsx` `handleWhatsApp` uses the helper +
+             `config`
+            x. DONE 2026-10-10
+         zo. DONE 2026-10-10 — tsc 0 errors; not DB-touching
+      iii. Closed by design, no work: the legacy `(store)/old-storeName`
+           file keeps its hardcoded `234` (it is the behavioral
+           reference, not edited; `5.a` is where RTL/parity is checked)
 
 3. Frontend replacement
    a. StoreContent.tsx: drop cart/checkout state, add auth/wallet/PIN
@@ -2965,14 +3014,32 @@ finding #2, recorded here so the next session doesn't re-derive it.
   `["MTN","AIRTEL","GLO","9MOBILE"]`. A static per-country network list
   would be ignored by the methodology's data-driven intent and would go
   stale for non-Nigerian stores.
+- **Selection rule (person-confirmed 2026-10-10): the storefront shows
+  only the plans the reseller turned on.** The catalog the customer sees
+  is *strictly opt-in*: a plan appears only when
+  `global_reseller_plan_configs` has a row for it with `enabled = true`.
+  A base plan with no config row is not shown at all — it has not been
+  selected. The `enabled` flag is exactly the reseller's on/off switch
+  in the plans dashboard (`togglePlan` creates a config row with
+  `enabled:false` on first touch, then flips it; `updatePlanConfig`
+  creates a row with `enabled:true` when the reseller sets a markup).
+  `selling_price` already includes the markup, so the storefront shows
+  that as the price. When nothing is enabled, the storefront shows an
+  explicit "no active plans on this store" state — not an empty grid and
+  not a fallback to the full catalog. **Do not copy the dashboard's
+  default:** `PlansClient.tsx` treats a missing config as enabled
+  (`p.config?.enabled !== false`) for its own display purposes; the
+  storefront must use the opposite (present-and-true only), or every
+  unselected plan would leak into the store.
 - **`2.b` decomposed (not atomic).** Tree written under `2.b` in the
   architecture section:
-  - `i` — read the live catalog for the store as a shared function
-    (`i.zi` write the function → **pointer**; `i.zo` verify tsc + a
-    field-by-field `schema.sql` column cross-check).
-  - `ii` — derive the tab list from that catalog and render it in
-    `StoreProducts.tsx`.
-  - `iii` — guard the empty-network case (single neutral "all" view).
+  - `i` — read the reseller's *enabled* catalog for the store as a
+    shared function (`i.zi` write the function → **pointer**; `i.zo`
+    verify tsc + a field-by-field `schema.sql` column cross-check).
+  - `ii` — derive the tab list from that enabled catalog and render it
+    in `StoreProducts.tsx`.
+  - `iii` — empty-store state ("no active plans on this store") when the
+    enabled catalog is empty.
   Pointer set to the first atomic leaf: `2.b.i.zi.x`.
 - **Verification.** This session touched documentation only, but ran the
   full-project `npx tsc --noEmit -p tsconfig.json` anyway as a baseline
@@ -2980,24 +3047,99 @@ finding #2, recorded here so the next session doesn't re-derive it.
   applies to this session's own change; the *next* leaf's verification
   is where the column cross-check lands.
 
-### Next atomic step — active pointer `2.b.i.zi.x`
+### Findings from this session (2.b/2.c/2.d execution — DONE, 2026-10-10)
 
-Write the shared storefront catalog fetch/map function that reads the
-store's real plan catalog from `global_base_plans` joined to
-`global_reseller_plan_configs` (per-reseller `enabled` + effective
-selling price), scoped to the reseller's `country_code`, returning both
-the mapped plan list and the network/provider tab set actually present.
-Do not read `global_plans` (dead: see the `2.b` findings) and do not
-treat `provider` as a network. Before writing, re-read
-`src/actions/reseller/plans/getPlans.ts` (the live reseller-side
-equivalent, for the base-plan × config join shape and markup math) and
-`supabase/functions/_shared/purchaseOrchestrator.ts` (the purchase
-flow's plan resolution, so storefront and purchase agree on plan
-identity). Then write the function, run the full-project type-check, and
-cross-check every selected column against `supabase/schema.sql` by hand.
-Advance to `2.b.i.zo.x` (verification) when done.
+- **`2.b` implemented** (all six leaves):
+  - `2.b.i` — new `src/lib/storefront/getStoreCatalog.ts`. Reads
+    `global_reseller_plan_configs` for the reseller with
+    `enabled = true`, then `.in("id", planIds)` on `global_base_plans`
+    scoped to `country_code` (uppercased) + `is_active = true`. Strict
+    opt-in (a plan with no config row is not returned). Returns
+    `{ plans, networks, categories }`; networks/categories are the
+    distinct non-empty values actually present, so tabs stay
+    data-driven. Price is `selling_price`; if that is null the helper
+    recomputes markup with the same formula as
+    `purchaseOrchestrator.ts` (`percentage` -> `round(base*(1+v/100))`,
+    else `round(base+v)`), so storefront and purchase agree. Each
+    mapped plan's `plan_id` is `global_base_plans.provider_plan_id` —
+    the id `global-purchase-data`/`global-purchase-airtime` expect as
+    `planId` (confirmed by reading `global-purchase-data/index.ts`:
+    it forwards the request's `planId` straight into
+    `processPurchase({ providerPlanId: planId })`).
+  - `2.b.ii` — `[storeName]/page.tsx` now calls `getStoreCatalog`
+    instead of reading `global_plans`; `products/categories/networks`
+    come from the helper. Confirmed the join key in `schema.sql`:
+    `global_reseller_plan_configs.plan_id` FKs to `global_base_plans.id`
+    (so the `.in`/`Map` keying on `plan_id`/`id` is correct).
+  - `2.b.iii` — `StoreProducts.tsx` empty branch now reads
+    `t?.noActivePlans || "No active plans on this store yet."` instead
+    of `t?.noProducts`. Localization of the new key is `5.c`.
+  - **Column cross-check (the `2.b.i.zo`/`ii.zo` verification):** every
+    selected column verified present in `supabase/schema.sql` —
+    `global_reseller_plan_configs`: `plan_id, enabled, markup_type,
+    markup_value, selling_price, reseller_id`;
+    `global_base_plans`: `id, provider, provider_plan_id, country_code,
+    network, name, description, category, data_amount, validity,
+    base_price, currency, send_value, send_currency, is_active`.
+    Full-project `npx tsc --noEmit -p tsconfig.json`: 0 errors.
+  - **Read path / RLS note:** `createServerClient()` is built with
+    `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` (not the anon key), so
+    these server-side reads bypass RLS. That matters because the
+    catalog's own RLS policies are reseller/admin-scoped and would
+    return nothing for an anonymous storefront — do not "fix" this by
+    switching the storefront to the anon/browser client without adding
+    a public read policy. Also note `global_base_plans` has an
+    `enabled`-style flag named `is_active`, not `enabled` (only the
+    config table uses `enabled`) — easy to mix up.
+- **`2.c` phone validation** — added
+  `phoneNumber: { minDigits, maxDigits }` to `CountryConfig` and set it
+  on all 24 `src/config/countries/*.ts`, plus
+  `src/lib/phone/validatePhoneNumber.ts` (normalize + length check) for
+  the branch-`3` forms. Values are national mobile digit lengths
+  (country code and trunk `0` excluded): e.g. NG 10, EG 10, CI/BJ 10,
+  GH/KE/SN/CM/CD/MA/UG/ZM/RW/GN/GQ 9, XOF/XAF/CEMAC (BF/ML/NE/TD/TG/
+  CF/GA) 8. **Scope note:** the `[storeName]` path has *no* active
+  country-blind length check to convert — the only one there is
+  commented out (`StoreHeader.tsx:1157`); the real 11-digit checks live
+  in `(protected)` flows (`PurchaseModal.tsx`, `airtime-client.tsx`,
+  `flashsale`) outside Task 4's storefront scope, so the helper is
+  additive, not a replacement. `phoneCode` alone can't validate length,
+  so the two fields stay separate on purpose.
+- **`2.d` WhatsApp dial code** — added
+  `src/lib/phone/toWhatsAppLink.ts`, which normalizes to E.164 using
+  `config.phoneCode` instead of the hardcoded `234`; `StoreHeader.tsx`
+  `handleWhatsApp` now uses it. The legacy `(store)/old-storeName`
+  reference keeps its hardcoded `234` (not edited; parity is `5.a`).
+- All of the above is non-DB-touching at runtime for `2.c`/`2.d`
+  (pure helpers + config), and `2.b`'s DB reads were column-checked
+  above. `npx tsc --noEmit -p tsconfig.json`: 0 errors after each leaf.
 
-### Previous pointer (superseded, kept for reference) — was `2.b`
+### Next atomic step — active pointer `3.a` (needs decomposition first)
+
+Per the pointer methodology, the next session must **decompose `3.a`
+before writing any code**, because `3.a` as written is not atomic:
+"`StoreContent.tsx`: drop cart/checkout state, add auth/wallet/PIN
+state (mirrors old-storeName's state shape, confirmed above)". That is
+a large state-graph change. Start by reading, in this order:
+
+1. The current `[storeName]/StoreContent.tsx` in full (what cart/
+   checkout state exists to delete, what the component already
+   wires).
+2. The legacy reference
+   `[countryCode]/(store)/(old-storeName)/StoreContent.tsx` state
+   shape (auth/wallet/PIN) that the architecture says to mirror.
+3. The `Context` / "Frontend replacement" notes under this Task 4
+   section, and the confirmed `StoreData`/`StoreProduct` types.
+
+Then write the `3.a` sub-tree (expect it to need at least: auth/session
+state, wallet balance state, PIN-modal state, and the removal of
+cart/checkout state + its imports) pointing at the first real `x`, and
+record it here. Do not start editing `StoreContent.tsx` until the
+sub-tree exists and a single atomic `x` is identified — that is the
+whole point of the pointer rule this repo runs on.
+
+### Previous pointer (superseded, kept for reference) — was `2.b.i.zi.x`
+
 
 `2.b` was recorded as "not yet decomposed". Superseded 2026-10-10 by
 the decomposition above; the pointer is now `2.b.i.zi.x`.
@@ -3245,3 +3387,5 @@ pointer, blocked on Zendit's docs.
 | 2026-10-09 | Pointer-execution session (2.a.ii.zi) | Confirmed the spacing-fix patch landed (`f4eb4c2`). `StoreProducts.tsx` now uses `formatStorePrice`; removed the `"₦"` fallback and the `currencySymbol` prop chain, typed `config` as `CountryConfig` (sole caller already passes one). Full-project tsc 0 errors. Pointer advanced to `2.a.ii.zo.x` (`StoreHero.tsx`). |
 | 2026-10-09 | Pointer-execution session (2.a.ii.zo) | Confirmed the `StoreProducts` patch landed (`a337d98`). `StoreHero.tsx` now uses `formatStorePrice`; removed the `"₦"` fallback, typed `config` as `CountryConfig`. Full-project tsc 0 errors. Branch `2.a` closed. Pointer advanced to `2.b` (network/provider tab list), which still needs decomposition. |
 | 2026-10-10 | Pointer-execution session (2.b decomposition) | Bootstrapped both repos (latest branch `handover/supabase-dump`: `Edges_LandingPage` @ `816fe96`, `reseller-app` @ `467a680`), read this file and the pickup brief in full. `2.b` was not atomic, so per the pointer rule this session decomposed it and stopped; no application code changed. **Material correction to finding #2 found while decomposing:** the storefront reads `global_plans` (only `provider`, no `network`), but the live plan catalog is `global_base_plans` (`network`, `provider`, `provider_plan_id`, `country_code`, `base_price`) x `global_reseller_plan_configs` (per-reseller enable/markup) — the tables `getPlans.ts` (dashboard) and `purchaseOrchestrator.ts` (purchase) both use. `global_plans` is written only by `createPlan`/`updatePlan`/`deletePlan`, which nothing calls except the dead `CreatePlanModal.tsx` (import-searched) — effectively dead schema. So `2.b` must switch the storefront to the live catalog, not swap to `global_plans.provider` (that would label tabs "lizzysub"/"zendit"). Also: `provider` here means the upstream fulfillment provider, not the mobile network. New tree under `2.b`: i (shared fetch/map of the live catalog; zi write → **pointer** `2.b.i.zi.x`, zo verify tsc + `schema.sql` column cross-check), ii (derive/render tabs from that catalog), iii (empty-network guard). Full-project `npx tsc --noEmit -p tsconfig.json` run as baseline: 0 errors. Pointer advanced from `2.b` to `2.b.i.zi.x`. |
+| 2026-10-10 | Pointer-execution session (2.b decomposition, person clarification) | Person confirmed the storefront selection rule: the storefront shows only the plans the reseller selected and turned ON in the plans dashboard, priced with the reseller's markup; if none are enabled it shows "no active plans on this store". Folded into the `2.b` decomposition: the fetch/map leaf (`2.b.i.zi.x`) now reads `global_reseller_plan_configs` rows with `enabled = true` joined to `global_base_plans` (`selling_price` already includes markup), strict opt-in (no config row = not shown) — explicitly NOT the dashboard's `p.config?.enabled !== false` default, which would leak unselected plans. `2.b.iii` restated as the empty-store state. No application code changed; full-project `tsc` still 0 errors. Pointer unchanged (`2.b.i.zi.x`). |
+| 2026-10-10 | Pointer-execution session (2.b/2.c/2.d implemented) | Applied the selection-rule clarification on top of origin `451c1e5` (origin already had the base `2.b` decomposition; the clarification was not yet pushed), then executed leaves `2.b.i/ii/iii` (zi+zo), `2.c.i/iii` (ii closed by design) and `2.d.i/ii/iii`. Code: new `src/lib/storefront/getStoreCatalog.ts` (strict opt-in enabled-catalog read: `global_reseller_plan_configs.enabled = true` joined to `global_base_plans` via `.in(id, planId)`, scoped by country + `is_active`; returns plans/networks/categories; `selling_price`, else markup recomputed identically to `purchaseOrchestrator.ts`; each plan carries `provider_plan_id` as `plan_id`); `[storeName]/page.tsx` now calls it instead of reading dead `global_plans`; `StoreProducts.tsx` empty state now \"No active plans on this store yet.\" (key `noActivePlans`); `StoreProduct.plan_id?` added to the type. `2.c`: added `phoneNumber:{minDigits,maxDigits}` to `CountryConfig` + all 24 country configs and `src/lib/phone/validatePhoneNumber.ts` (storefront path had no active length check to convert \u2014 scope corrected in the doc). `2.d`: new `src/lib/phone/toWhatsAppLink.ts`, `StoreHeader.tsx` adopts it (country-driven `phoneCode`, hardcoded `234` gone). Verification: full-project `npx tsc --noEmit -p tsconfig.json` 0 errors after each leaf; every selected DB column cross-checked against `supabase/schema.sql` by hand (all present); join FK `global_reseller_plan_configs.plan_id -> global_base_plans.id` confirmed. Noted `createServerClient` uses the service-role key so storefront reads bypass RLS (relevant because the catalog RLS is reseller/admin-scoped). Pointer advanced to `3.a` (needs decomposition first). Delivered as one combined patch. |

@@ -11,6 +11,7 @@ export const COUNTRY_ZA: CountryConfig = {
   currency: "ZAR",
   currencySymbol: "R",
   phoneCode: "+27",
+  phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
     code: "en",
     name: "English",

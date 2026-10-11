@@ -11,6 +11,7 @@ export const COUNTRY_MA: CountryConfig = {
   currency: "MAD",
   currencySymbol: "DH",
   phoneCode: "+212",
+  phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
     code: "fr",
     name: "French",
