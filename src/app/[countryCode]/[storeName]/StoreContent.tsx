@@ -7,11 +7,13 @@ import StoreHero from "./StoreHero";
 import StoreProducts from "./StoreProducts";
 import StoreFooter from "./StoreFooter";
 import StoreAuthModal from "./StoreAuthModal";
+import StorePurchaseModal from "./StorePurchaseModal";
 import { StoreProduct } from "@/types/reseller/storefront";
 import { CountryConfig } from "@/config/countries";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { useStoreCustomerAuth } from "@/hooks/store/useStoreCustomerAuth";
 import { useStoreCustomerWallet } from "@/hooks/store/useStoreCustomerWallet";
+import { useStorePurchase } from "@/hooks/store/useStorePurchase";
 
 interface StoreContentProps {
   storeData: any;
@@ -55,8 +57,16 @@ export default function StoreContent({
     if (params.get("login") === "true") setLoginOpen(true);
   }, []);
 
-  // Purchase is wired in 3.a.v; until then the grid's buy action is inert.
-  const handleAddToCart = (_product: StoreProduct) => {};
+  const purchase = useStorePurchase({
+    loggedIn: auth.loggedIn,
+    isStoreOwner: auth.isStoreOwner,
+    resellerId: storeData.application.id,
+    hasTransactionPin: auth.hasTransactionPin,
+    config,
+    onPinSet: () => {},
+    onPurchased: wallet.refreshWalletData,
+    onRequireLogin: () => setLoginOpen(true),
+  });
 
   const filteredProducts = storeData.products.filter(
     (product: StoreProduct) => {
@@ -101,7 +111,7 @@ export default function StoreContent({
             selectedNetwork={selectedNetwork}
             onCategoryChange={setSelectedCategory}
             onNetworkChange={setSelectedNetwork}
-            onAddToCart={handleAddToCart}
+            onAddToCart={purchase.startPurchase}
             translations={t}
             config={config}
           />
@@ -121,6 +131,22 @@ export default function StoreContent({
           loginError={auth.loginError}
           loginLoading={auth.loginLoading}
           onSubmit={auth.handleLogin}
+        />
+
+        <StorePurchaseModal
+          open={purchase.purchaseModalOpen}
+          onClose={purchase.closePurchase}
+          plan={purchase.selectedPlan}
+          config={config}
+          isCreatingPin={purchase.isCreatingPin}
+          phone={purchase.purchasePhone}
+          setPhone={purchase.setPurchasePhone}
+          pin={purchase.purchasePin}
+          setPin={purchase.setPurchasePin}
+          loading={purchase.purchaseLoading}
+          error={purchase.purchaseError}
+          success={purchase.purchaseSuccess}
+          onSubmit={purchase.handlePurchase}
         />
       </div>
     </ThemeProvider>
