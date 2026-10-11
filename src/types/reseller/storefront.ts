@@ -45,20 +45,3 @@ export interface StoreData {
   };
 }
 
-export interface CartItem {
-  product_id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  network?: string;
-  category: string;
-  delivery_details?: string;
-}
-
-export interface CheckoutData {
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  items: CartItem[];
-  total: number;
-}

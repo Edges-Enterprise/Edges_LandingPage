@@ -126,9 +126,6 @@ export default function StoreContent({
     >
         <StoreHeader
           storeData={storeData}
-          cartCount={0}
-          cartTotal={0}
-          onCartClick={() => {}}
           translations={t}
           config={config}
           apkUrl={storeData.apkUrl}

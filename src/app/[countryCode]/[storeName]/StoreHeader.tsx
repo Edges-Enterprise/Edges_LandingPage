@@ -28,9 +28,6 @@ import { formatStorePrice } from "@/lib/currency/formatStorePrice";
 
 interface StoreHeaderProps {
   storeData: any;
-  cartCount: number;
-  cartTotal: number;
-  onCartClick: () => void;
   translations: any;
   config: any;
   apkUrl?: string | null;
