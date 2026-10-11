@@ -1257,7 +1257,7 @@ this task is fully closed, not just locally verified.
 
 ## Task 4 — Rebuild `[countryCode]/[storeName]` into a wallet/PIN/login customer storefront (replaces cart/checkout)
 
-**Status: OPEN. Active pointer: `4.a`** (`2.b`, `2.c`, `2.d` closed 2026-10-10; `2.a` closed 2026-10-09; branch `3.a` decomposed 2026-10-10 and now fully executed — `3.a.i` (cart/checkout removal), `3.a.ii` (auth core), `3.a.iii` (wallet read), `3.a.iv` (PIN status), `3.a.v` (purchase flow), `3.a.vi` (apkUrl), `3.a.vii` (WhatsApp), `3.a.viii` (single provider owner); modals `3.c.i` (auth), `3.c.ii` (fund wallet), `3.c.iv` (support); footer `3.d` — all DONE. Next session starts the Cleanup branch `4.a` — retire the cart/checkout files and dead plumbing; see the `3.a` findings below and "Next atomic step").
+**Status: OPEN. Active pointer: `4.c`** (`2.b`, `2.c`, `2.d` closed 2026-10-10; `2.a` closed 2026-10-09; branch `3.a` decomposed 2026-10-10 and now fully executed — `3.a.i` (cart/checkout removal), `3.a.ii` (auth core), `3.a.iii` (wallet read), `3.a.iv` (PIN status), `3.a.v` (purchase flow), `3.a.vi` (apkUrl), `3.a.vii` (WhatsApp), `3.a.viii` (single provider owner); modals `3.c.i` (auth), `3.c.ii` (fund wallet), `3.c.iv` (support); footer `3.d` — all DONE. Cleanup branch `4`: `4.a` (retire cart/checkout) and `4.b` (data-fetch + store sell-readiness gate) DONE 2026-10-10; next is `4.c` — remove now-dead category/translation-filter plumbing after confirming nothing else depends on it. See the `4.a`/`4.b` findings below and "Next atomic step").
 
 ### Context
 
@@ -3330,26 +3330,105 @@ finding #2, recorded here so the next session doesn't re-derive it.
   `supabase.auth.getUser()` effect (~195-210) and its own `signOut`.
   `3.a.ii` may duplicate this; the resolution belongs in `3.a.viii`.
 
-### Next atomic step — active pointer `4.a`
+### Next atomic step — active pointer `4.c`
 
-Branch `3.a` is fully executed and branch `4` (Cleanup) is next. `4.a`
-is the first leaf: **retire the cart/checkout remnants.** Measured this
-session: `[storeName]/StoreCart.tsx` (9302 B) and `StoreCheckout.tsx`
-(17310 B) still exist but are imported by nothing (only self-references
-plus `types/reseller/storefront.ts`); `StoreOrderConfirmation.tsx` is an
-empty 0-byte file. So the atomic step is:
+Branch `4` (Cleanup): `4.a` and `4.b` are **DONE** (2026-10-10, see the
+`4.a`/`4.b` findings below). `4.c` is next: **remove now-dead
+category/translation-filter plumbing — but confirm nothing else depends
+on it first.**
 
-1. Delete `src/app/[countryCode]/[storeName]/StoreCart.tsx`,
-   `StoreCheckout.tsx`, `StoreOrderConfirmation.tsx`.
-2. Remove the now-unused `CartItem` and `CheckoutData` interfaces from
-   `src/types/reseller/storefront.ts` (grep confirms no other importer).
-3. Confirm the inert `StoreHeader` cart props (`cartCount`/`cartTotal`/
-   `onCartClick`) are still referenced by `StoreContent.tsx` (they are,
-   as `0/0/no-op`) — do **not** remove them in `4.a`; `StoreHeader`'s
-   cart rendering cleanup, if any, is a separate leaf.
+Measured this session (`grep -rn` across `src/`): the survivors to
+check are `StoreProducts.tsx`'s `getCategoryLabel`/`CATEGORY_COLORS`/
+`CATEGORY_ICONS` maps and the `categories`/`networks` tab wiring, plus
+any `translations` keys only the deleted cart/checkout files consumed.
+The atomic step is:
 
-Then full-project tsc and advance to `4.b` (page.tsx/layout.tsx
-data-fetching + the finding-#2 network-derivation bug).
+1. Grep each candidate (`CATEGORY_COLORS`, `CATEGORY_ICONS`,
+   `getCategoryLabel`, `categories`, `networks`) for importers outside
+   `[storeName]/StoreProducts.tsx`; keep anything still referenced.
+2. Delete only the maps/branches proven dead by that grep; tsc stays 0.
+3. Do **not** touch the `noActivePlans`/tab derivation added in `2.b`
+   (live), nor `StoreHero`'s `ShoppingCart` icon (a distinct cosmetic
+   leaf — see `4.c` note below if it isn't folded in here).
+
+Then full-project tsc and advance to `4.d` (reconcile
+`store-theme.css`).
+
+Note for whoever picks up the `StoreHero.tsx` `ShoppingCart` import
+(the remaining cart cosmetic): it is now the only cart-named symbol
+left in the rebuilt storefront — `import { ShoppingCart }` (L4) and
+`<ShoppingCart size={14} />` in the "Buy Now" button (L178). It is a
+generic lucide icon, harmless, but is the last legacy cart tell; fold
+its removal/replacement into `4.c` or `4.d` rather than leaving it
+untracked.
+
+### Findings from this session (4.a + 4.b — DONE, 2026-10-10)
+
+Executed the two Cleanup leaves one at a time; full-project
+`npx tsc --noEmit -p tsconfig.json` was **EXIT 0** after each.
+
+**`4.a` — retire cart/checkout (DONE):**
+- Deleted `[storeName]/StoreCart.tsx`, `StoreCheckout.tsx`,
+  `StoreOrderConfirmation.tsx` (the last was a 0-byte file; grep
+  confirmed no importers of any of the three).
+- Removed `CartItem` + `CheckoutData` from
+  `src/types/reseller/storefront.ts` (no remaining importer).
+- Removed the inert `cartCount`/`cartTotal`/`onCartClick` props from
+  `StoreHeader.tsx` and the `cartCount={0} cartTotal={0}
+  onCartClick={() => {}}` call site in `StoreContent.tsx`. Contrary to
+  the old pointer's note they were **not** needed: a full-body grep
+  confirmed they were declared but never read (`StoreHeader` renders no
+  cart UI at all), so `4.a` removes them cleanly.
+- Commit `be41682`.
+
+**`4.b` — data-fetch + sell-readiness (DONE):**
+- New `src/lib/storefront/getStoreReadiness.ts` — the multi-country
+  port of the legacy `app/api/store-status/route.ts` that the old
+  storefront called and gated every "Buy" on. Reads the `global_*`
+  counterparts: `global_reseller_applications.phone` (hasWhatsApp), an
+  active `global_virtual_accounts` row for the reseller
+  (hasVirtualAccount), and `global_wallets.balance > 0` (hasBalance);
+  `canSell = all three`. Server-side (service-role) so the RLS-gated
+  wallet/VA tables are readable; returns booleans + a reason string.
+- `[storeName]/page.tsx`: now fetches `storeStatus` and returns it in
+  `storeData`. Also **removed the dead `global_reseller_settings`
+  `.store_settings` query** — that table has no `store_settings` (or
+  `reseller_id`) column in `schema.sql` (only `id`, `auth_user_id`,
+  `notification_settings`, timestamps), so the query always errored and
+  the code fell back to the hardcoded settings object anyway. Settings
+  are now a plain object, same values as the old fallback.
+- New `[storeName]/StoreStatusBanner.tsx` — port of the legacy
+  store-not-ready banner (old `StoreContent.tsx` ~2706-2762): amber
+  banner with the reason, plus the per-cause detail line and the
+  Dashboard-Settings link (`/${countryCode}/dashboard/settings`,
+  matching the convention `StoreContent` already uses for
+  `onGoToSettings`).
+- Gated every Buy on the real readiness, not the meaningless
+  `settings.store_status`: `StoreProducts`/`ProductGrid`/`ProductCard`
+  take `canSell` (button disabled + "Unavailable"), and `StoreHero`'s
+  `canSell` is now `storeData.storeStatus?.canSell !== false`.
+- Wired `StoreHero`'s previously-dead `onAddToCart` to
+  `purchase.startPurchase` (it had been optional-but-unpassed since
+  `3.a.i`).
+- Finding #2 (the `products.map(p => p.network)` bug) was already
+  resolved by `2.b`'s `getStoreCatalog`; confirmed no remaining
+  occurrence in `[storeName]/`.
+- DB cross-check: every selected column verified against `schema.sql`
+  — `global_reseller_applications (id, store_name, store_slug,
+  brand_color, logo_url, country_code, phone, email)`,
+  `global_virtual_accounts (reseller_id, status)`,
+  `global_wallets (reseller_id, balance)`,
+  `global_app_builds (application_id, apk_url, created_at)` — all
+  present with the expected types.
+- Commit `2184567`.
+
+### Previous pointer (superseded, kept for reference) — was `4.a`
+
+Retire the cart/checkout remnants. `[storeName]/StoreCart.tsx` and
+`StoreCheckout.tsx` existed but were imported by nothing (only
+self-references plus `types/reseller/storefront.ts`);
+`StoreOrderConfirmation.tsx` was an empty 0-byte file. Executed as
+`4.a` (see findings above).
 
 ### Previous pointer (superseded, kept for reference) — was `3.a.iii.zi.x`
 
