@@ -20,7 +20,7 @@ export default function StoreHero({
   onAddToCart,
 }: StoreHeroProps) {
   const t = translations;
-  const canSell = storeData.settings.store_status !== "inactive";
+  const canSell = storeData.storeStatus?.canSell !== false;
 
   const featured: StoreProduct[] = (storeData.products || []).slice(0, 3);
 

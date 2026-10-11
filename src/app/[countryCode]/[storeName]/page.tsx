@@ -2,6 +2,7 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { getCountryConfig } from "@/config/countries";
 import { getStoreCatalog } from "@/lib/storefront/getStoreCatalog";
+import { getStoreReadiness } from "@/lib/storefront/getStoreReadiness";
 import StoreContent from "./StoreContent";
 import "./store-theme.css"; // We'll create this
 
@@ -27,13 +28,6 @@ async function getStoreData(storeSlug: string) {
       return null;
     }
 
-    // Get store settings
-    const { data: settings, error: settingsError } = await supabase
-      .from("global_reseller_settings")
-      .select("store_settings")
-      .eq("reseller_id", application.id)
-      .single();
-
     // Latest built APK for the install banner (global_app_builds is the
     // global equivalent of the legacy reseller_app_configs.apk_url).
     const { data: appBuild } = await supabase
@@ -58,13 +52,22 @@ async function getStoreData(storeSlug: string) {
       application.country_code,
     );
 
+    // Store sell-readiness (legacy /api/store-status equivalent, global
+    // tables) — gates every "Buy" until the owner has WhatsApp, an
+    // active virtual account, and a funded wallet.
+    const storeStatus = await getStoreReadiness(
+      application.id,
+      application.phone,
+    );
+
     return {
       application,
       products,
       categories,
       networks,
       apkUrl,
-      settings: settings?.store_settings || {
+      storeStatus,
+      settings: {
         welcome_message: `Welcome to ${application.store_name || "our store"}!`,
         contact_email: application.email,
         contact_phone: application.phone,

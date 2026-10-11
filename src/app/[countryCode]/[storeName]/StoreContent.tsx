@@ -6,6 +6,7 @@ import StoreHeader from "./StoreHeader";
 import StoreHero from "./StoreHero";
 import StoreProducts from "./StoreProducts";
 import StoreFooter from "./StoreFooter";
+import StoreStatusBanner from "./StoreStatusBanner";
 import StoreAuthModal from "./StoreAuthModal";
 import StorePurchaseModal from "./StorePurchaseModal";
 import StoreFundWalletModal from "./StoreFundWalletModal";
@@ -135,8 +136,19 @@ export default function StoreContent({
           onSupportClick={() => setSupportModalOpen(true)}
         />
 
+        <StoreStatusBanner
+          storeStatus={storeData.storeStatus}
+          countryCode={storeData.application.country_code}
+          translations={t}
+        />
+
         <main style={{ padding: "2rem 5%", maxWidth: 1100, margin: "0 auto" }}>
-          <StoreHero storeData={storeData} translations={t} config={config} />
+          <StoreHero
+            storeData={storeData}
+            translations={t}
+            config={config}
+            onAddToCart={purchase.startPurchase}
+          />
 
           <StoreProducts
             products={filteredProducts}
@@ -147,6 +159,7 @@ export default function StoreContent({
             onCategoryChange={setSelectedCategory}
             onNetworkChange={setSelectedNetwork}
             onAddToCart={purchase.startPurchase}
+            canSell={storeData.storeStatus?.canSell !== false}
             translations={t}
             config={config}
           />

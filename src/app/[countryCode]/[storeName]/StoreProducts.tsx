@@ -19,6 +19,7 @@ interface StoreProductsProps {
   onCategoryChange: (category: string) => void;
   onNetworkChange: (network: string) => void;
   onAddToCart: (product: StoreProduct) => void;
+  canSell?: boolean;
   translations: any;
   config: CountryConfig;
 }
@@ -48,6 +49,7 @@ export default function StoreProducts({
   onCategoryChange,
   onNetworkChange,
   onAddToCart,
+  canSell = true,
   translations,
   config,
 }: StoreProductsProps) {
@@ -258,6 +260,7 @@ export default function StoreProducts({
           products={products}
           config={config}
           onBuyClick={onAddToCart}
+          canSell={canSell}
         />
       )}
     </section>
@@ -270,10 +273,12 @@ function ProductGrid({
   products,
   config,
   onBuyClick,
+  canSell,
 }: {
   products: StoreProduct[];
   config: StorePriceConfig;
   onBuyClick: (product: StoreProduct) => void;
+  canSell: boolean;
 }) {
   const [page, setPage] = useState(0);
   const [showControls, setShowControls] = useState(false);
@@ -339,6 +344,7 @@ function ProductGrid({
             product={product}
             config={config}
             onBuyClick={onBuyClick}
+            canSell={canSell}
           />
         ))}
       </div>
@@ -531,10 +537,12 @@ function ProductCard({
   product,
   config,
   onBuyClick,
+  canSell,
 }: {
   product: StoreProduct;
   config: StorePriceConfig;
   onBuyClick: (product: StoreProduct) => void;
+  canSell: boolean;
 }) {
   return (
     <div
@@ -603,6 +611,7 @@ function ProductCard({
       </p>
       <button
         onClick={() => onBuyClick(product)}
+        disabled={!canSell}
         style={{
           width: "100%",
           padding: "0.55rem",
@@ -612,16 +621,17 @@ function ProductCard({
           color: "#FDF8F3",
           fontWeight: 700,
           fontSize: "0.78rem",
-          cursor: "pointer",
+          cursor: canSell ? "pointer" : "not-allowed",
           fontFamily: "inherit",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           gap: 5,
           marginTop: "auto",
+          opacity: canSell ? 1 : 0.5,
         }}
       >
-        Buy
+        {canSell ? "Buy" : "Unavailable"}
       </button>
     </div>
   );
