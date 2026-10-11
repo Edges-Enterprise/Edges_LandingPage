@@ -37,6 +37,7 @@ interface StoreHeaderProps {
   walletBalance?: number;
   walletLoading?: boolean;
   onFundClick?: () => void;
+  onSupportClick?: () => void;
 }
 
 export default function StoreHeader({
@@ -47,6 +48,7 @@ export default function StoreHeader({
   walletBalance,
   walletLoading,
   onFundClick,
+  onSupportClick,
 }: StoreHeaderProps) {
   const t = translations;
   const router = useRouter();
@@ -219,6 +221,10 @@ export default function StoreHeader({
   };
 
   const handleWhatsApp = () => {
+    if (onSupportClick) {
+      onSupportClick();
+      return;
+    }
     if (resellerPhone) {
       const link = toWhatsAppLink(resellerPhone, config);
       if (link) window.open(link, "_blank");

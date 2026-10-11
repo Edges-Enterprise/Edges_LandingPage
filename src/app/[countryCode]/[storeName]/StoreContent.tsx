@@ -9,6 +9,8 @@ import StoreFooter from "./StoreFooter";
 import StoreAuthModal from "./StoreAuthModal";
 import StorePurchaseModal from "./StorePurchaseModal";
 import StoreFundWalletModal from "./StoreFundWalletModal";
+import StoreSupportModal from "./StoreSupportModal";
+import { useRouter } from "next/navigation";
 import { StoreProduct } from "@/types/reseller/storefront";
 import { CountryConfig } from "@/config/countries";
 import { createGlobalCustomerVirtualAccount } from "@/actions/reseller/customers/createGlobalCustomerVirtualAccount";
@@ -38,8 +40,10 @@ export default function StoreContent({
     resellerId: storeData.application.id,
   });
   const [loginOpen, setLoginOpen] = useState(false);
+  const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedNetwork, setSelectedNetwork] = useState<string>("all");
+  const router = useRouter();
 
   // StoreHeader's sign-in button navigates with ?login=true.
   useEffect(() => {
@@ -131,6 +135,7 @@ export default function StoreContent({
           walletBalance={wallet.walletBalance}
           walletLoading={wallet.customerDataLoading}
           onFundClick={openFunding}
+          onSupportClick={() => setSupportModalOpen(true)}
         />
 
         <main style={{ padding: "2rem 5%", maxWidth: 1100, margin: "0 auto" }}>
@@ -197,6 +202,18 @@ export default function StoreContent({
           copiedAccount={wallet.copiedAccount}
           onCopy={copyToClipboard}
           onCreateVirtualAccount={handleCreateVirtualAccount}
+        />
+
+        <StoreSupportModal
+          open={supportModalOpen}
+          onClose={() => setSupportModalOpen(false)}
+          resellerWhatsApp={storeData.application.phone ?? null}
+          isStoreOwner={auth.isStoreOwner}
+          config={config}
+          onGoToSettings={() => {
+            setSupportModalOpen(false);
+            router.push(`/${storeData.application.country_code}/dashboard/settings`);
+          }}
         />
       </div>
   );
