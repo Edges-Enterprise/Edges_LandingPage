@@ -2,8 +2,6 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { getCountryConfig } from "@/config/countries";
 import { getStoreCatalog } from "@/lib/storefront/getStoreCatalog";
-import { CountryProvider } from "@/providers/CountryProvider";
-import { ThemeProvider } from "@/providers/ThemeProvider";
 import StoreContent from "./StoreContent";
 import "./store-theme.css"; // We'll create this
 
@@ -36,6 +34,19 @@ async function getStoreData(storeSlug: string) {
       .eq("reseller_id", application.id)
       .single();
 
+    // Latest built APK for the install banner (global_app_builds is the
+    // global equivalent of the legacy reseller_app_configs.apk_url).
+    const { data: appBuild } = await supabase
+      .from("global_app_builds")
+      .select("apk_url")
+      .eq("application_id", application.id)
+      .not("apk_url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const apkUrl = appBuild?.apk_url || null;
+
     // Get the plans the reseller actually enabled for this store. Source
     // is the live catalog (global_base_plans x
     // global_reseller_plan_configs), not global_plans (which has no
@@ -52,6 +63,7 @@ async function getStoreData(storeSlug: string) {
       products,
       categories,
       networks,
+      apkUrl,
       settings: settings?.store_settings || {
         welcome_message: `Welcome to ${application.store_name || "our store"}!`,
         contact_email: application.email,
@@ -176,18 +188,13 @@ export default async function StorePage({ params }: StorePageProps) {
   const language = config.language.code || "en";
   const translations = await getTranslations(language);
 
-  // Get brand color from application or use default
-  const brandColor = storeData.application.brand_color || "#C98A54";
-
+  // Providers (ThemeProvider/CountryProvider) live in StoreLayoutClient,
+  // which wraps this page via layout.tsx.
   return (
-    <ThemeProvider brandColor={brandColor}>
-      <CountryProvider config={config}>
-        <StoreContent
-          storeData={storeData}
-          translations={translations}
-          config={config}
-        />
-      </CountryProvider>
-    </ThemeProvider>
+    <StoreContent
+      storeData={storeData}
+      translations={translations}
+      config={config}
+    />
   );
 }

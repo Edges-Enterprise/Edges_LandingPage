@@ -10,7 +10,6 @@ import StoreAuthModal from "./StoreAuthModal";
 import StorePurchaseModal from "./StorePurchaseModal";
 import { StoreProduct } from "@/types/reseller/storefront";
 import { CountryConfig } from "@/config/countries";
-import { ThemeProvider } from "@/providers/ThemeProvider";
 import { useStoreCustomerAuth } from "@/hooks/store/useStoreCustomerAuth";
 import { useStoreCustomerWallet } from "@/hooks/store/useStoreCustomerWallet";
 import { useStorePurchase } from "@/hooks/store/useStorePurchase";
@@ -39,17 +38,6 @@ export default function StoreContent({
   const [loginOpen, setLoginOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedNetwork, setSelectedNetwork] = useState<string>("all");
-  const [brandColor, setBrandColor] = useState<string>(
-    storeData.application.brand_color || "#C98A54",
-  );
-
-  // Load brand color from localStorage if available
-  useEffect(() => {
-    const savedBrandColor = localStorage.getItem("brandColor");
-    if (savedBrandColor) {
-      setBrandColor(savedBrandColor);
-    }
-  }, []);
 
   // StoreHeader's sign-in button navigates with ?login=true.
   useEffect(() => {
@@ -81,14 +69,13 @@ export default function StoreContent({
   );
 
   return (
-    <ThemeProvider brandColor={brandColor}>
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "var(--bg)",
-          fontFamily: "'Instrument Sans', system-ui, sans-serif",
-        }}
-      >
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "var(--bg)",
+        fontFamily: "'Instrument Sans', system-ui, sans-serif",
+      }}
+    >
         <StoreHeader
           storeData={storeData}
           cartCount={0}
@@ -96,6 +83,7 @@ export default function StoreContent({
           onCartClick={() => {}}
           translations={t}
           config={config}
+          apkUrl={storeData.apkUrl}
           walletBalance={wallet.walletBalance}
           walletLoading={wallet.customerDataLoading}
         />
@@ -149,6 +137,5 @@ export default function StoreContent({
           onSubmit={purchase.handlePurchase}
         />
       </div>
-    </ThemeProvider>
   );
 }
