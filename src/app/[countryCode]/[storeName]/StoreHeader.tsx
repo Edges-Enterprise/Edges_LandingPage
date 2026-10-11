@@ -36,6 +36,7 @@ interface StoreHeaderProps {
   apkUrl?: string | null;
   walletBalance?: number;
   walletLoading?: boolean;
+  onFundClick?: () => void;
 }
 
 export default function StoreHeader({
@@ -45,6 +46,7 @@ export default function StoreHeader({
   apkUrl,
   walletBalance,
   walletLoading,
+  onFundClick,
 }: StoreHeaderProps) {
   const t = translations;
   const router = useRouter();
@@ -654,8 +656,10 @@ export default function StoreHeader({
                     />
                   )}
                   {!isStoreOwner && !walletLoading && walletBalance != null && (
-                    <span
-                      title="Wallet balance"
+                    <button
+                      type="button"
+                      onClick={onFundClick}
+                      title="Wallet balance — tap to fund"
                       style={{
                         display: "inline-flex",
                         alignItems: "center",
@@ -667,11 +671,14 @@ export default function StoreHeader({
                         fontWeight: 700,
                         color: "var(--text)",
                         whiteSpace: "nowrap",
+                        border: "none",
+                        fontFamily: "inherit",
+                        cursor: onFundClick ? "pointer" : "default",
                       }}
                     >
                       <Wallet size={13} />
                       {formatStorePrice(walletBalance, config)}
-                    </span>
+                    </button>
                   )}
                   <div
                     style={{

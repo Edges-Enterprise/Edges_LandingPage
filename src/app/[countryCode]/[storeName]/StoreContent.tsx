@@ -8,8 +8,10 @@ import StoreProducts from "./StoreProducts";
 import StoreFooter from "./StoreFooter";
 import StoreAuthModal from "./StoreAuthModal";
 import StorePurchaseModal from "./StorePurchaseModal";
+import StoreFundWalletModal from "./StoreFundWalletModal";
 import { StoreProduct } from "@/types/reseller/storefront";
 import { CountryConfig } from "@/config/countries";
+import { createGlobalCustomerVirtualAccount } from "@/actions/reseller/customers/createGlobalCustomerVirtualAccount";
 import { useStoreCustomerAuth } from "@/hooks/store/useStoreCustomerAuth";
 import { useStoreCustomerWallet } from "@/hooks/store/useStoreCustomerWallet";
 import { useStorePurchase } from "@/hooks/store/useStorePurchase";
@@ -56,6 +58,48 @@ export default function StoreContent({
     onRequireLogin: () => setLoginOpen(true),
   });
 
+  const openFunding = () => {
+    if (!auth.loggedIn) {
+      setLoginOpen(true);
+      return;
+    }
+    if (wallet.virtualAccounts.length > 0) {
+      wallet.setShowFundingModal(true);
+    } else {
+      wallet.setShowVirtualForm(true);
+    }
+  };
+
+  const handleCreateVirtualAccount = async () => {
+    wallet.setVirtualLoading(true);
+    wallet.setVirtualMessage(null);
+    const result = await createGlobalCustomerVirtualAccount(
+      storeData.application.id,
+      storeData.application.store_slug,
+    );
+    if (result.error) {
+      wallet.setVirtualMessage({ type: "error", text: result.error });
+    } else {
+      wallet.setVirtualMessage({
+        type: "success",
+        text: result.message || "Virtual account created successfully!",
+      });
+      await wallet.refreshWalletData();
+      setTimeout(() => wallet.setShowVirtualForm(false), 2000);
+    }
+    wallet.setVirtualLoading(false);
+  };
+
+  const copyToClipboard = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // clipboard may be unavailable (insecure context); still flash the label
+    }
+    wallet.setCopiedAccount(key);
+    setTimeout(() => wallet.setCopiedAccount(null), 2000);
+  };
+
   const filteredProducts = storeData.products.filter(
     (product: StoreProduct) => {
       if (selectedCategory !== "all" && product.category !== selectedCategory) {
@@ -86,6 +130,7 @@ export default function StoreContent({
           apkUrl={storeData.apkUrl}
           walletBalance={wallet.walletBalance}
           walletLoading={wallet.customerDataLoading}
+          onFundClick={openFunding}
         />
 
         <main style={{ padding: "2rem 5%", maxWidth: 1100, margin: "0 auto" }}>
@@ -135,6 +180,23 @@ export default function StoreContent({
           error={purchase.purchaseError}
           success={purchase.purchaseSuccess}
           onSubmit={purchase.handlePurchase}
+        />
+
+        <StoreFundWalletModal
+          open={wallet.showFundingModal || wallet.showVirtualForm}
+          mode={wallet.showFundingModal ? "accounts" : "create"}
+          onClose={() => {
+            wallet.setShowFundingModal(false);
+            wallet.setShowVirtualForm(false);
+          }}
+          config={config}
+          balance={wallet.walletBalance}
+          virtualAccounts={wallet.virtualAccounts}
+          loading={wallet.virtualLoading}
+          message={wallet.virtualMessage}
+          copiedAccount={wallet.copiedAccount}
+          onCopy={copyToClipboard}
+          onCreateVirtualAccount={handleCreateVirtualAccount}
         />
       </div>
   );
