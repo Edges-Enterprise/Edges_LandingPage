@@ -126,7 +126,7 @@ export default function StorePurchaseModal({
             background: "var(--bg-muted, #F3F4F6)",
             border: "none",
             cursor: loading ? "not-allowed" : "pointer",
-            color: "var(--text-muted)",
+            color: "var(--muted)",
             borderRadius: 8,
             width: 32,
             height: 32,
@@ -189,7 +189,7 @@ export default function StorePurchaseModal({
             <span
               style={{
                 fontSize: "0.72rem",
-                color: "var(--text-muted)",
+                color: "var(--muted)",
                 background: "var(--bg-muted, #F3F4F6)",
                 padding: "2px 8px",
                 borderRadius: 100,
@@ -201,7 +201,7 @@ export default function StorePurchaseModal({
               <span
                 style={{
                   fontSize: "0.72rem",
-                  color: "var(--text-muted)",
+                  color: "var(--muted)",
                   background: "var(--bg-muted, #F3F4F6)",
                   padding: "2px 8px",
                   borderRadius: 100,
@@ -297,7 +297,7 @@ export default function StorePurchaseModal({
                 background: "transparent",
                 border: "none",
                 cursor: "pointer",
-                color: "var(--text-muted)",
+                color: "var(--muted)",
                 display: "flex",
                 alignItems: "center",
                 padding: 0,
@@ -310,7 +310,7 @@ export default function StorePurchaseModal({
             <p
               style={{
                 fontSize: "0.7rem",
-                color: "var(--text-muted)",
+                color: "var(--muted)",
                 marginTop: 4,
               }}
             >
@@ -434,7 +434,7 @@ export default function StorePurchaseModal({
                   margin: "0 0 1rem 0",
                   paddingLeft: "1.2rem",
                   fontSize: "0.78rem",
-                  color: "var(--text-muted)",
+                  color: "var(--muted)",
                   lineHeight: 1.6,
                 }}
               >

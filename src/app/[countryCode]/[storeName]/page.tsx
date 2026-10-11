@@ -4,7 +4,6 @@ import { getCountryConfig } from "@/config/countries";
 import { getStoreCatalog } from "@/lib/storefront/getStoreCatalog";
 import { getStoreReadiness } from "@/lib/storefront/getStoreReadiness";
 import StoreContent from "./StoreContent";
-import "./store-theme.css"; // We'll create this
 
 interface StorePageProps {
   params: Promise<{ countryCode: string; storeName: string }>;

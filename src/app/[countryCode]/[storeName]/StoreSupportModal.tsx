@@ -85,7 +85,7 @@ export default function StoreSupportModal({
             background: "var(--bg-muted, #F3F4F6)",
             border: "none",
             cursor: "pointer",
-            color: "var(--text-muted)",
+            color: "var(--muted)",
             borderRadius: 8,
             width: 32,
             height: 32,
@@ -126,7 +126,7 @@ export default function StoreSupportModal({
             <p
               style={{
                 fontSize: "0.88rem",
-                color: "var(--text-muted)",
+                color: "var(--muted)",
                 marginBottom: "1.5rem",
               }}
             >
@@ -158,7 +158,7 @@ export default function StoreSupportModal({
             <p
               style={{
                 fontSize: "0.72rem",
-                color: "var(--text-muted)",
+                color: "var(--muted)",
                 marginTop: "1rem",
               }}
             >
@@ -195,7 +195,7 @@ export default function StoreSupportModal({
             <p
               style={{
                 fontSize: "0.88rem",
-                color: "var(--text-muted)",
+                color: "var(--muted)",
                 marginBottom: "1.5rem",
               }}
             >

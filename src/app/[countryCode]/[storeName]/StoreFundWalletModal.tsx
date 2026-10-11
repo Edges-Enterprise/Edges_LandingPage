@@ -131,7 +131,7 @@ export default function StoreFundWalletModal({
             background: "var(--bg-muted, #F3F4F6)",
             border: "none",
             cursor: "pointer",
-            color: "var(--text-muted)",
+            color: "var(--muted)",
             borderRadius: 8,
             width: 32,
             height: 32,
@@ -162,7 +162,7 @@ export default function StoreFundWalletModal({
             <p
               style={{
                 fontSize: "0.85rem",
-                color: "var(--text-muted)",
+                color: "var(--muted)",
                 marginBottom: "1.5rem",
               }}
             >
@@ -171,7 +171,7 @@ export default function StoreFundWalletModal({
             </p>
 
             {virtualAccounts.length === 0 ? (
-              <p style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+              <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
                 No funding accounts yet.
               </p>
             ) : (
@@ -243,7 +243,7 @@ export default function StoreFundWalletModal({
                         background: "transparent",
                         border: "none",
                         cursor: "pointer",
-                        color: "var(--text-muted)",
+                        color: "var(--muted)",
                         padding: 4,
                         display: "flex",
                         alignItems: "center",
@@ -261,7 +261,7 @@ export default function StoreFundWalletModal({
                   <p
                     style={{
                       fontSize: "0.82rem",
-                      color: "var(--text-muted)",
+                      color: "var(--muted)",
                       margin: 0,
                     }}
                   >
@@ -279,7 +279,7 @@ export default function StoreFundWalletModal({
                       padding: "4px 8px",
                       fontSize: "0.7rem",
                       cursor: "pointer",
-                      color: "var(--text-muted)",
+                      color: "var(--muted)",
                       fontFamily: "inherit",
                     }}
                   >
@@ -307,7 +307,7 @@ export default function StoreFundWalletModal({
             <p
               style={{
                 fontSize: "0.82rem",
-                color: "var(--text-muted)",
+                color: "var(--muted)",
                 marginBottom: "1.5rem",
                 textAlign: "center",
               }}

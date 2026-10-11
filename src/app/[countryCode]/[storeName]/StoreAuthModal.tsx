@@ -66,7 +66,7 @@ export default function StoreAuthModal({
     borderRadius: 8,
     border: "none",
     background: active ? "var(--bg)" : "transparent",
-    color: active ? "var(--text)" : "var(--text-muted)",
+    color: active ? "var(--text)" : "var(--muted)",
     fontWeight: active ? 700 : 500,
     fontSize: "0.88rem",
     cursor: "pointer",
@@ -125,7 +125,7 @@ export default function StoreAuthModal({
             background: "var(--bg-muted, #F3F4F6)",
             border: "none",
             cursor: "pointer",
-            color: "var(--text-muted)",
+            color: "var(--muted)",
             borderRadius: 8,
             width: 32,
             height: 32,
@@ -174,7 +174,7 @@ export default function StoreAuthModal({
         <p
           style={{
             fontSize: "0.85rem",
-            color: "var(--text-muted)",
+            color: "var(--muted)",
             marginBottom: "1.5rem",
           }}
         >
@@ -254,7 +254,7 @@ export default function StoreAuthModal({
                   background: "transparent",
                   border: "none",
                   cursor: "pointer",
-                  color: "var(--text-muted)",
+                  color: "var(--muted)",
                   display: "flex",
                   alignItems: "center",
                   padding: 0,
@@ -267,7 +267,7 @@ export default function StoreAuthModal({
               <p
                 style={{
                   fontSize: "0.7rem",
-                  color: "var(--text-muted)",
+                  color: "var(--muted)",
                   marginTop: 4,
                 }}
               >
@@ -350,7 +350,7 @@ export default function StoreAuthModal({
                   margin: 0,
                   paddingLeft: "1.2rem",
                   fontSize: "0.75rem",
-                  color: "var(--text-muted)",
+                  color: "var(--muted)",
                 }}
               >
                 <li>Fund your wallet via bank transfer</li>
