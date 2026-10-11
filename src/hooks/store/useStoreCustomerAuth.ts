@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { registerCustomerToGlobalReseller } from "@/actions/reseller/customers/registerCustomerToGlobalReseller";
 import { getGlobalCustomerAuthEmail } from "@/actions/reseller/customers/getGlobalCustomerAuthEmail";
+import { getCurrentCustomerPinStatus } from "@/actions/reseller/customers/getCurrentCustomerPinStatus";
 
 export type AuthMode = "signin" | "signup";
 
@@ -34,7 +35,7 @@ export function buildStoreAliasEmail(
   };
 }
 
-export function useStoreCustomerAuth(storeSlug: string) {
+export function useStoreCustomerAuth(storeSlug: string, resellerId: string) {
   const router = useRouter();
   const [loggedIn, setLoggedIn] = useState(false);
   const [isStoreOwner, setIsStoreOwner] = useState(false);
@@ -44,6 +45,11 @@ export function useStoreCustomerAuth(storeSlug: string) {
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  // null = not yet known (legacy's tri-state); drives isCreatingPin in the
+  // purchase flow (3.a.v). See getCurrentCustomerPinStatus.
+  const [hasTransactionPin, setHasTransactionPin] = useState<boolean | null>(
+    null,
+  );
 
   useEffect(() => {
     const supabase = createClient();
@@ -53,6 +59,20 @@ export function useStoreCustomerAuth(storeSlug: string) {
       setIsStoreOwner(user.user_metadata?.store_name === storeSlug);
     });
   }, [storeSlug]);
+
+  useEffect(() => {
+    if (!loggedIn) {
+      setHasTransactionPin(null);
+      return;
+    }
+    let cancelled = false;
+    getCurrentCustomerPinStatus(resellerId, isStoreOwner).then((result) => {
+      if (!cancelled) setHasTransactionPin(result.hasPin);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [loggedIn, isStoreOwner, resellerId]);
 
   const switchAuthMode = useCallback((mode: AuthMode) => {
     setAuthMode(mode);
@@ -145,5 +165,6 @@ export function useStoreCustomerAuth(storeSlug: string) {
     switchAuthMode,
     handleLogin,
     handleLogout,
+    hasTransactionPin,
   };
 }

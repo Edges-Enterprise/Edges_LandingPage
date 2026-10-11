@@ -19,10 +19,12 @@ import {
   Smartphone,
   XCircle,
   MessageCircle,
+  Wallet,
 } from "lucide-react";
 import { useTheme } from "@/providers/ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
 import { toWhatsAppLink } from "@/lib/phone/toWhatsAppLink";
+import { formatStorePrice } from "@/lib/currency/formatStorePrice";
 
 interface StoreHeaderProps {
   storeData: any;
@@ -32,6 +34,8 @@ interface StoreHeaderProps {
   translations: any;
   config: any;
   apkUrl?: string | null;
+  walletBalance?: number;
+  walletLoading?: boolean;
 }
 
 export default function StoreHeader({
@@ -39,6 +43,8 @@ export default function StoreHeader({
   translations,
   config,
   apkUrl,
+  walletBalance,
+  walletLoading,
 }: StoreHeaderProps) {
   const t = translations;
   const router = useRouter();
@@ -637,6 +643,36 @@ export default function StoreHeader({
                     gap: "0.5rem",
                   }}
                 >
+                  {!isStoreOwner && walletLoading && (
+                    <span
+                      style={{
+                        width: 56,
+                        height: 12,
+                        borderRadius: 6,
+                        background: "rgba(255,255,255,0.25)",
+                      }}
+                    />
+                  )}
+                  {!isStoreOwner && !walletLoading && walletBalance != null && (
+                    <span
+                      title="Wallet balance"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "0.3rem 0.6rem",
+                        borderRadius: 999,
+                        background: "rgba(255,255,255,0.2)",
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        color: "var(--text)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <Wallet size={13} />
+                      {formatStorePrice(walletBalance, config)}
+                    </span>
+                  )}
                   <div
                     style={{
                       width: 28,

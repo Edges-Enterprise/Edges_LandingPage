@@ -11,6 +11,7 @@ import { StoreProduct } from "@/types/reseller/storefront";
 import { CountryConfig } from "@/config/countries";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { useStoreCustomerAuth } from "@/hooks/store/useStoreCustomerAuth";
+import { useStoreCustomerWallet } from "@/hooks/store/useStoreCustomerWallet";
 
 interface StoreContentProps {
   storeData: any;
@@ -24,7 +25,15 @@ export default function StoreContent({
   config,
 }: StoreContentProps) {
   const t = translations;
-  const auth = useStoreCustomerAuth(storeData.application.store_slug);
+  const auth = useStoreCustomerAuth(
+    storeData.application.store_slug,
+    storeData.application.id,
+  );
+  const wallet = useStoreCustomerWallet({
+    loggedIn: auth.loggedIn,
+    isStoreOwner: auth.isStoreOwner,
+    resellerId: storeData.application.id,
+  });
   const [loginOpen, setLoginOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedNetwork, setSelectedNetwork] = useState<string>("all");
@@ -77,6 +86,8 @@ export default function StoreContent({
           onCartClick={() => {}}
           translations={t}
           config={config}
+          walletBalance={wallet.walletBalance}
+          walletLoading={wallet.customerDataLoading}
         />
 
         <main style={{ padding: "2rem 5%", maxWidth: 1100, margin: "0 auto" }}>
