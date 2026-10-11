@@ -1,7 +1,7 @@
 // src/app/[countryCode]/[storeName]/StoreHero.tsx
 "use client";
 
-import { ShoppingCart } from "lucide-react";
+import { Zap } from "lucide-react";
 import { StoreProduct } from "@/types/reseller/storefront";
 import { CountryConfig } from "@/config/countries";
 import { formatStorePrice } from "@/lib/currency/formatStorePrice";
@@ -175,7 +175,7 @@ export default function StoreHero({
                     opacity: canSell ? 1 : 0.5,
                   }}
                 >
-                  <ShoppingCart size={14} />
+                  <Zap size={14} />
                   {canSell ? "Buy Now" : "Unavailable"}
                 </button>
               </div>
