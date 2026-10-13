@@ -6,10 +6,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Check,
-  ExternalLink,
   Mail,
   Loader2,
-  Store,
   LayoutDashboard,
 } from "lucide-react";
 import { useCountry } from "@/providers/CountryProvider";
@@ -363,36 +361,6 @@ export default function SuccessClient({
               </>
             )}
           </button>
-          <a
-            href={`/${countryCode}/${application.store_slug}`}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              background: "transparent",
-              color: "var(--text)",
-              border: "1px solid var(--border2)",
-              borderRadius: 10,
-              padding: "0.85rem 1.8rem",
-              fontSize: "0.95rem",
-              fontWeight: 500,
-              textDecoration: "none",
-              transition: "border-color 0.2s, background 0.2s",
-              flex: 1,
-              justifyContent: "center",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "rgba(201,138,84,0.4)";
-              e.currentTarget.style.background = "rgba(201,138,84,0.05)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "var(--border2)";
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            <Store size={18} />
-            {t?.previewStore || "Preview Store"} <ExternalLink size={15} />
-          </a>
         </div>
 
         <p

@@ -3684,8 +3684,8 @@ The live legacy reference is **https://telcos.govt.hu/ghost** (Nigeria, MTN
 tab) — used here only to confirm the intended *structure/IA*, which the
 in-code `old-storeName/StoreContent.tsx` reproduces exactly.
 
-**Status: OPEN. Active pointer: `1.a.i.zi.x`** (leaf `1.a.i.zi`; rollback
-baseline `451c1e5`).
+**Status: OPEN. Active pointer: `1.b.i.zi.x`** (leaf `1.b.i.zi`; rollback
+baseline `451c1e5`). `1.a.i.zi.x` DONE 2026-10-13.
 
 ### What was found (confirmed against code + the live store, 2026-10-10)
 
@@ -3784,17 +3784,38 @@ either — they share `global_reseller_plan_configs`.
    c  (reserve)   d  (reserve)
 ```
 
-### Next atomic step — active pointer `1.a.i.zi.x` (leaf `1.a.i.zi`)
+### Next atomic step — active pointer `1.b.i.zi.x` (leaf `1.b.i.zi`)
+
+`1.a.i.zi.x` is DONE (2026-10-13). Person decision: **keep the success
+interstitial, drop only the `Preview Store` link.** Implemented:
+- `reseller/success/page.tsx` — removed the `Preview Store` CTA; the
+  remaining `Go to Dashboard` button was promoted to the primary style
+  (accent background). Dropped the now-unused `ExternalLink` import.
+- `[countryCode]/success/SuccessClient.tsx` — removed the `Preview Store`
+  anchor in the same actions row (the auto-login `Go to Dashboard` button
+  remains); dropped the now-unused `ExternalLink` + `Store` imports.
+Full-project `npx tsc --noEmit -p tsconfig.json` **EXIT 0**.
+
+Next leaf `1.b.i.zi` — the `[countryCode]/success` auto-login redirect path
+itself: confirm `handleAutoLogin` always lands on `/<country>/dashboard`
+(true today at `SuccessClient.tsx:107` for the success case, and the sign-in
+fallback for the failure case), and that no residual path sends a
+freshly-registered reseller to the storefront. Small verification only; if it
+needs real code, keep it minimal.
+
+### Previous pointer (superseded, kept for reference) — was `1.a.i.zi.x`
 
 Resolve the post-register interstitial so registration goes to the dashboard
-only. Before writing: confirm with the person whether the `/reseller/success`
-page should (a) auto-redirect straight to `/<country>/dashboard` and drop the
-`Preview Store` CTA entirely, or (b) keep a success confirmation but remove
-only the storefront-preview link. Then make the minimal change in
-`reseller/success/page.tsx` (+ the `[countryCode]/success/SuccessClient.tsx`
-CTA if the person wants both flows consistent), run full-project
-`npx tsc --noEmit -p tsconfig.json`, then stop and hand off (update the
-pointer to the next leaf).
+only (DONE — see "Next atomic step" above).
+
+### Findings for `1.a.i.zi.x` (DONE, 2026-10-13)
+
+- `reseller/ResellerFormClient.tsx:233` posts to `/reseller/success?store=…`;
+  that interstitial now offers only `Go to Dashboard` (`/dashboard`).
+- `[countryCode]/success/SuccessClient.tsx` auto-logins then pushes
+  `/<country>/dashboard` (`:107`); its preview link is removed. The sign-in
+  fallback (`:82`/`:99`/`:111`) is unchanged and is correct (a logged-out
+  reseller must authenticate before the dashboard).
 
 ### Verification for this task
 

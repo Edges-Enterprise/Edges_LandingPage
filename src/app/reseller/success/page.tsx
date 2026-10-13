@@ -2,7 +2,7 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Check, ArrowRight, ExternalLink, Mail } from "lucide-react";
+import { Check, ArrowRight, Mail } from "lucide-react";
 import "./../../reseller.css";
 
 export const metadata: Metadata = {
@@ -142,7 +142,7 @@ export default async function SuccessPage({
           }}
         >
           <Link
-            href={`/${storeName}`}
+            href="/dashboard"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -154,24 +154,6 @@ export default async function SuccessPage({
               fontSize: "0.9rem",
               padding: "0.75rem 1.5rem",
               borderRadius: 10,
-            }}
-          >
-            Preview Store <ExternalLink size={15} />
-          </Link>
-          <Link
-            href="/dashboard"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              background: "transparent",
-              color: "var(--text)",
-              textDecoration: "none",
-              fontWeight: 500,
-              fontSize: "0.9rem",
-              padding: "0.75rem 1.5rem",
-              borderRadius: 10,
-              border: "1px solid var(--border2)",
             }}
           >
             Go to Dashboard <ArrowRight size={15} />
