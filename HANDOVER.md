@@ -3684,8 +3684,9 @@ The live legacy reference is **https://telcos.govt.hu/ghost** (Nigeria, MTN
 tab) — used here only to confirm the intended *structure/IA*, which the
 in-code `old-storeName/StoreContent.tsx` reproduces exactly.
 
-**Status: OPEN. Active pointer: `1.b.i.zi.x`** (leaf `1.b.i.zi`; rollback
-baseline `451c1e5`). `1.a.i.zi.x` DONE 2026-10-13.
+**Status: OPEN. Active pointer: `5.a.i.zi.x`** (branches `1`,`2`,`3`,`4` DONE
+2026-10-13; `5.a.i.zi.x` = final cumulative tsc + DB schema cross-check + the
+delivery patch; rollback baseline `451c1e5`).
 
 ### What was found (confirmed against code + the live store, 2026-10-10)
 
@@ -3784,25 +3785,61 @@ either — they share `global_reseller_plan_configs`.
    c  (reserve)   d  (reserve)
 ```
 
-### Next atomic step — active pointer `1.b.i.zi.x` (leaf `1.b.i.zi`)
+### Next atomic step — active pointer `5.a.i.zi.x` (final delivery)
 
-`1.a.i.zi.x` is DONE (2026-10-13). Person decision: **keep the success
-interstitial, drop only the `Preview Store` link.** Implemented:
-- `reseller/success/page.tsx` — removed the `Preview Store` CTA; the
-  remaining `Go to Dashboard` button was promoted to the primary style
-  (accent background). Dropped the now-unused `ExternalLink` import.
-- `[countryCode]/success/SuccessClient.tsx` — removed the `Preview Store`
-  anchor in the same actions row (the auto-login `Go to Dashboard` button
-  remains); dropped the now-unused `ExternalLink` + `Store` imports.
-Full-project `npx tsc --noEmit -p tsconfig.json` **EXIT 0**.
+Branches `1`, `2`, `3`, `4` are all DONE 2026-10-13. `5.a.i.zi.x` is the
+final delivery step: regenerate the cumulative `git format-patch` from
+`origin/handover/supabase-dump`, verify `git am` on a clean origin worktree
+plus one more full-project `tsc`, then hand off the `git pull --rebase` +
+`git am` + `git push` command. No further code changes expected unless the
+person wants the exact per-network brand colors (GH MTN yellow, etc.) rather
+than the category-derived accent.
 
-Next leaf `1.b.i.zi` — the `[countryCode]/success` auto-login redirect path
-itself: confirm `handleAutoLogin` always lands on `/<country>/dashboard`
-(true today at `SuccessClient.tsx:107` for the success case, and the sign-in
-fallback for the failure case), and that no residual path sends a
-freshly-registered reseller to the storefront. Small verification only; if it
-needs real code, keep it minimal.
+### Branch log (DONE 2026-10-13)
 
+**1 — Registration → dashboard (no storefront preview).** `1.a.i.zi.x` DONE
+(removed `Preview Store` from `reseller/success/page.tsx` + the success
+interstitial `SuccessClient.tsx`, promoted `Go to Dashboard`). `1.b.i.zi.x`
+DONE (verification): `handleAutoLogin` always lands on `/<country>/dashboard`
+on success / `/<country>/sign-in` on the fallback — no storefront path.
+`1.c`/`1.d` (verification): no other post-register/verify/email path links to
+the storefront.
+
+**2 — Dashboard toggles default OFF.** `getPlans.ts` virtual config now
+`enabled: false` (was `true`); `PlansClient.tsx` `enabledPlans`/`isEnabled`
+now `=== true` (was `!== false`); `getPlanStats.ts` count `=== true`;
+`PlanCard.tsx` already `?? false`.
+
+**4 — "No active plans" when signed in.** ROOT CAUSE: `togglePlan.ts` had no
+direction parameter — a no-config plan always inserted `enabled: false`, so
+clicking ON created a config that read as OFF, and `getStoreCatalog.ts`'s
+strict `enabled = true` read returned empty. FIX: `togglePlan(planId,
+enabled?)` now honours the explicit target for both update and insert, and
+seeds the insert's `markup_value`/`selling_price` from the country
+`defaultMarkup`; `PlansClient.handleToggle` passes the intended state and
+adopts the server-returned `enabled`. Shared fix for #2 + #4.
+
+**3 — Storefront IA rebuilt to legacy.** Target confirmed against the live
+store. `StoreProducts.tsx` is network-first: primary tabs are the store's
+actual networks (country-driven), selecting one shows its "Popular Plans"
+(3 cheapest, legacy "Best Deal" highlight) + a "{Net} Plans" header with a
+count + that network's grid. Removed category-first pills and the "All
+Networks" sub-row. "Popular Plans" moved out of `StoreHero` (now a welcome
+banner only). Added `plans`/`popularPlans`/`noActivePlans` to all four
+`storefront.json` locales (34 keys each, in parity).
+
+### Verification for this task (this pass)
+
+- Full-project `npx tsc --noEmit -p tsconfig.json` **EXIT 0** after branches
+  2+4 and again after branch 3.
+- DB field-by-field cross-check vs `supabase/schema.sql` for every column the
+  changed code selects/writes: `global_reseller_plan_configs` (`enabled`,
+  `markup_type`, `markup_value`, `selling_price`, `reseller_id`, `plan_id`,
+  `updated_at`) and `global_base_plans` (`provider`, `provider_plan_id`,
+  `country_code`, `network`, `category`, `base_price`, `send_value`,
+  `send_currency`, `is_active`) — all present, names exact.
+
+### Previous pointer (superseded, kept for reference) — was `1.b.i.zi.x`
 ### Previous pointer (superseded, kept for reference) — was `1.a.i.zi.x`
 
 Resolve the post-register interstitial so registration goes to the dashboard
