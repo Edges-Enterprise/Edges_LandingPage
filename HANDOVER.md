@@ -3675,6 +3675,138 @@ single atomic `x` either.
 
 ---
 
+## Task 5 — Storefront parity + dashboard/plan toggles + registration redirect (opened 2026-10-10)
+
+Task 4 (rebuild `[countryCode]/[storeName]`) is **code-complete** (see above)
+but a manual behavioural pass by the person surfaced four defects. This task
+confirms them against the code and the live legacy store, then fixes them.
+The live legacy reference is **https://telcos.govt.hu/ghost** (Nigeria, MTN
+tab) — used here only to confirm the intended *structure/IA*, which the
+in-code `old-storeName/StoreContent.tsx` reproduces exactly.
+
+**Status: OPEN. Active pointer: `1.a.i.zi.x`** (leaf `1.a.i.zi`; rollback
+baseline `451c1e5`).
+
+### What was found (confirmed against code + the live store, 2026-10-10)
+
+**#1 — Registration lands on a "Preview Store" CTA instead of the dashboard.**
+`reseller/ResellerFormClient.tsx:233` pushes to `/reseller/success?store=…`
+after `createReseller`. `reseller/success/page.tsx` renders **two CTAs** —
+`Preview Store` → `/${storeName}` (i.e. the customer storefront) and
+`Go to Dashboard` → `/dashboard` — and never auto-redirects. The country
+flow has the same shape: `[countryCode]/success/SuccessClient.tsx:107` does
+`router.push(`/${countryCode}/dashboard`)` on auto-login but still renders a
+`Preview Store` link (`:394`). Wanted: after register, **go to the dashboard
+only** — no storefront preview. (Confirm whether the success CTA/interstitial
+should remain at all, or auto-redirect straight to the dashboard.)
+
+**#2 — New dashboard shows every plan toggled ON.**
+`src/actions/reseller/plans/getPlans.ts:196-212` — when a base plan has **no**
+`global_reseller_plan_configs` row for this reseller, it fabricates a virtual
+config with `enabled: true`. `PlansClient.tsx` then treats it as on:
+`enabledPlans` filter `p.config?.enabled !== false` (`:243`) and render
+`isEnabled = plan.config?.enabled !== false` (`:698`). So a brand-new reseller
+sees all plans "on" though no row exists — contradicting the stated intent
+("off until the user toggles on + adds markup"). Note `PlanCard.tsx:95` uses
+the opposite default (`plan.config?.enabled ?? false`) — two components
+disagree. Legacy's "on" state is likely also this virtual-config artifact,
+which is why the toggle never persists.
+
+**#3 — Storefront does not reproduce the legacy UI's information architecture.**
+The live legacy store (`/ghost`) is **network-first**: hardcoded network tabs
+`NETWORKS = ["MTN","AIRTEL","GLO","9MOBILE"]` (legacy `:49`), a **"Popular
+Plans"** section gated to `activeTab === "MTN"` (`:2955-2996`), a per-network
+**"{activeTab} Plans"** heading with a count badge (`:3205`), then the plan
+grid for that network. The rebuild is **category-first**: `StoreProducts.tsx`
+renders *category* pills (`allCategories`/`data`/`airtime`/…) then *network*
+sub-tabs, and `StoreHero.tsx:25` shows "Popular Plans" as `products.slice(0,3)`
+**unconditionally** (not gated to MTN, not the legacy layout). Net: shared
+components/theme exist but the IA, section headings, tab semantics, and
+popular-plans gating differ from legacy. (The exact target: reproduce the
+legacy DOM/behaviour from `old-storeName/StoreContent.tsx` — network tabs
+first, Popular Plans on MTN, per-network section — with the theme tokens.)
+
+**#4 — "No active plans" appears even after toggling a plan on + adding markup,
+and the store looks different signed-in vs signed-out.**
+The storefront catalog `src/lib/storefront/getStoreCatalog.ts` is **strict
+opt-in**: it selects only configs with `enabled = true` (`.eq("enabled",
+true)`), joins to `global_base_plans`, and returns empty otherwise →
+`StoreProducts.tsx:251` renders "No active plans on this store yet." So the
+store shows nothing until a real `global_reseller_plan_configs` row with
+`enabled = true` exists. This is the flip side of #2: the dashboard *shows*
+plans on via the virtual config, but toggling never writes `enabled = true`,
+so the store stays empty. Needs a live repro (signed-in vs signed-out
+session) to pin the exact write path; the confirmed code path is
+`togglePlan.ts` (creates `enabled:false`) / `updatePlanConfig.ts` (creates
+`enabled:true`, markup only). Root-cause #2 and #4 together before changing
+either — they share `global_reseller_plan_configs`.
+
+### Architecture / decomposition (`1`–`5`)
+
+```
+1  Registration → dashboard (no storefront preview)   [active: 1.a.i.zi.x]
+   a  ResellerFormClient → success CTA
+      i  success page CTAs      (zi.x = remove/adjust Preview CTA + auto-redirect)
+      ii (not yet decomposed — reserve)
+      iii(not yet decomposed — reserve)
+   b  [countryCode]/success SuccessClient
+      i  auto-login redirect + preview CTA
+      ii (reserve)   iii (reserve)
+   c  (reserve — e.g. email-link return paths)
+   d  (not yet decomposed, scope unclear)
+2  Dashboard plan-toggle default = OFF
+   a  getPlans.ts virtual config enabled:true → false (+ markup semantics)
+      i  remove fabricate-on  (zi.x = set virtual enabled:false; keep card off)
+      ii (reserve)   iii (reserve)
+   b  PlansClient/PlanCard/stat default unification (`?? false`, `!== false`, int count)
+      i  (zi.x = unify all readers to opt-in default)
+      ii (reserve)   iii (reserve)
+   c  getPlanStats.ts enabled count
+   d  (reserve)
+3  Storefront UI rebuild to legacy IA
+   a  Network-first IA (NETWORKS tabs, {Net} Plans section, counts)
+      i  StoreProducts                 (zi.x = network-first tabs + section)
+      ii StoreContent/StoreHero popular gating
+      iii(reserve)
+   b  Legacy components/theme parity (StoreHeader modern rewrite vs legacy markup)
+   c  per-country + RTL re-verify
+   d  (reserve)
+4  "No active plans" when signed in (configs never enabled / empty storefront)
+   a  Repro + root-cause of the write path across signed-in/out
+      i  (zi.x = live repro note captured; no code until #2 decided)
+      ii (reserve)   iii (reserve)
+   b  Fix once root-caused (likely shared with #2)
+   c  (reserve)   d  (reserve)
+5  Re-verify all four + handoff
+   a  tsc 0 + field-by-field vs schema.sql on every DB-touching change
+      i  (zi.x = final cumulative tsc + schema cross-check)
+   b  regenerate `git format-patch` for the person
+   c  (reserve)   d  (reserve)
+```
+
+### Next atomic step — active pointer `1.a.i.zi.x` (leaf `1.a.i.zi`)
+
+Resolve the post-register interstitial so registration goes to the dashboard
+only. Before writing: confirm with the person whether the `/reseller/success`
+page should (a) auto-redirect straight to `/<country>/dashboard` and drop the
+`Preview Store` CTA entirely, or (b) keep a success confirmation but remove
+only the storefront-preview link. Then make the minimal change in
+`reseller/success/page.tsx` (+ the `[countryCode]/success/SuccessClient.tsx`
+CTA if the person wants both flows consistent), run full-project
+`npx tsc --noEmit -p tsconfig.json`, then stop and hand off (update the
+pointer to the next leaf).
+
+### Verification for this task
+
+Same discipline as Task 4: one `x` at a time; after any DB-touching change a
+full-project `npx tsc --noEmit -p tsconfig.json` **and** a manual
+field-by-field cross-check of every selected column against
+`supabase/schema.sql`. The storefront/dashboard plan reads and the toggle
+writes touch `global_base_plans` + `global_reseller_plan_configs`, so cross-
+check those column names before shipping. Delivery via `git format-patch`
+(sandbox has no push); regenerate the cumulative patch at the end of branch 5.
+
+
 ## Project-completion stage — deferred items (decided by the person)
 
 These are deliberately NOT being worked now; the person's decision
