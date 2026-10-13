@@ -98,8 +98,20 @@ export default function PlansClient({
       ),
     );
 
-    const result = await togglePlan(planId);
-    if (!result.success) {
+    const result = await togglePlan(planId, enabled);
+    if (result.success) {
+      // Adopt the authoritative state the server persisted.
+      if (result.data) {
+        const persisted = result.data.enabled;
+        setPlansData((prev) =>
+          prev.map((p) =>
+            p.id === planId
+              ? { ...p, config: p.config ? { ...p.config, enabled: persisted } : null }
+              : p,
+          ),
+        );
+      }
+    } else {
       setPlansData((prev) =>
         prev.map((p) =>
           p.id === planId
@@ -241,7 +253,7 @@ export default function PlansClient({
 
   const totalPlans = plansData.length;
   const enabledPlans = plansData.filter(
-    (p) => p.config?.enabled !== false,
+    (p) => p.config?.enabled === true,
   ).length;
 
   // ============================================
@@ -695,7 +707,7 @@ export default function PlansClient({
         ) : (
           plans.map((plan) => {
             const isEditing = editingPlan === plan.id;
-            const isEnabled = plan.config?.enabled !== false;
+            const isEnabled = plan.config?.enabled === true;
 
             // Get display values using type-safe helpers
             const costPrice = getCostPriceSafe(plan);

@@ -195,12 +195,14 @@ export async function getPlans(params: GetPlansParams = {}): Promise<{
         };
       }
 
-      // No config exists - create virtual config with defaults
+      // No config exists - create virtual config with defaults.
+      // Default to DISABLED: a plan only becomes sellable once the
+      // reseller explicitly turns it on (which writes a real config row).
       const virtualConfig = {
         id: null,
         reseller_id: application.id,
         plan_id: plan.id,
-        enabled: true,
+        enabled: false,
         markup_type: "percentage" as const,
         markup_value: defaultMarkup,
         selling_price: plan.base_price,

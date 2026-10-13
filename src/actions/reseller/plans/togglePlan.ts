@@ -5,7 +5,10 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
 
-export async function togglePlan(planId: string): Promise<{
+export async function togglePlan(
+  planId: string,
+  enabled?: boolean,
+): Promise<{
   success: boolean;
   data?: { enabled: boolean };
   error?: string;
@@ -49,8 +52,10 @@ export async function togglePlan(planId: string): Promise<{
     let newEnabled: boolean;
 
     if (existingConfig) {
-      // Config exists - toggle it
-      newEnabled = !existingConfig.enabled;
+      // Config exists - toggle it (or apply the explicit target the
+      // caller asked for). The UI computes the target as `!isEnabled`,
+      // which is more reliable than inverting the stored value.
+      newEnabled = enabled ?? !existingConfig.enabled;
 
       const { error: updateError } = await adminClient
         .from("global_reseller_plan_configs")
@@ -66,8 +71,10 @@ export async function togglePlan(planId: string): Promise<{
         return { success: false, error: updateError.message };
       }
     } else {
-      // No config exists - create one with default values
-      newEnabled = false;
+      // No config exists - create one with default values. Honour the
+      // explicit target if one was passed (turning a plan ON for the
+      // first time must persist enabled=true); otherwise default OFF.
+      newEnabled = enabled ?? false;
 
       // Get base plan price (also verify it's from the correct provider)
       const { data: plan, error: planError } = await adminClient
@@ -81,16 +88,23 @@ export async function togglePlan(planId: string): Promise<{
         return { success: false, error: "Plan not found" };
       }
 
-      // Create config with disabled state
+      // Create config with the requested enabled state, seeded with the
+      // country's default markup so the stored selling_price is real.
+      const defaultMarkup = countryConfig.defaultMarkup || 0;
+      const sellingPrice =
+        defaultMarkup > 0
+          ? Math.round(plan.base_price * (1 + defaultMarkup / 100))
+          : plan.base_price;
+
       const { error: insertError } = await adminClient
         .from("global_reseller_plan_configs")
         .insert({
           reseller_id: application.id,
           plan_id: planId,
-          enabled: false,
+          enabled: newEnabled,
           markup_type: "percentage",
-          markup_value: 0,
-          selling_price: plan.base_price,
+          markup_value: defaultMarkup,
+          selling_price: sellingPrice,
         });
 
       if (insertError) {

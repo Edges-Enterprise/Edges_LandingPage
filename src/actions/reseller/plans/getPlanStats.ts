@@ -64,7 +64,7 @@ export async function getPlanStats(): Promise<{
 
     const total = plans?.length || 0;
     const enabled =
-      plans?.filter((p: any) => p.config?.[0]?.enabled).length || 0;
+      plans?.filter((p: any) => p.config?.[0]?.enabled === true).length || 0;
     const disabled = total - enabled;
 
     // Category breakdown
