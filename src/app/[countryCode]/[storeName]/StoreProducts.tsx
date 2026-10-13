@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ShoppingBag, Wifi, Tag, DollarSign, TrendingUp } from "lucide-react";
+import { ShoppingBag, Zap } from "lucide-react";
 import { StoreProduct } from "@/types/reseller/storefront";
 import { CountryConfig } from "@/config/countries";
 import {
@@ -12,11 +12,8 @@ import {
 
 interface StoreProductsProps {
   products: StoreProduct[];
-  categories: string[];
   networks: string[];
-  selectedCategory: string;
   selectedNetwork: string;
-  onCategoryChange: (category: string) => void;
   onNetworkChange: (network: string) => void;
   onAddToCart: (product: StoreProduct) => void;
   canSell?: boolean;
@@ -31,22 +28,12 @@ const CATEGORY_COLORS: Record<string, string> = {
   cable: "#10B981",
 };
 
-const CATEGORY_ICONS: Record<string, any> = {
-  data: Wifi,
-  airtime: Tag,
-  electricity: DollarSign,
-  cable: TrendingUp,
-};
-
 const PRODUCTS_PER_PAGE = 15;
 
 export default function StoreProducts({
   products,
-  categories,
   networks,
-  selectedCategory,
   selectedNetwork,
-  onCategoryChange,
   onNetworkChange,
   onAddToCart,
   canSell = true,
@@ -55,182 +42,60 @@ export default function StoreProducts({
 }: StoreProductsProps) {
   const t = translations;
 
-  const getCategoryLabel = (category: string) => {
-    const labels: Record<string, string> = {
-      data: t?.data || "Data",
-      airtime: t?.airtime || "Airtime",
-      electricity: t?.electricity || "Electricity",
-      cable: t?.cable || "Cable TV",
-    };
-    return labels[category] || category;
-  };
+  const activeNetwork = selectedNetwork === "all" ? networks[0] : selectedNetwork;
 
-  const activeColor = CATEGORY_COLORS[selectedCategory] || "var(--brand-color)";
-  const ActiveIcon = CATEGORY_ICONS[selectedCategory] || ShoppingBag;
+  // ─── Network-first tab list (legacy IA) ──────────────────────────
+  // Legacy hardcodes MTN/AIRTEL/GLO/9MOBILE; here we use the networks
+  // actually present in the store (country-driven), in display order.
+  const networkTabs = networks;
+
+  // Products for the active network, and the "Popular Plans" pick for
+  // it (3 cheapest by price — legacy shows featured on the MTN tab).
+  const networkProducts = products
+    .filter((p) => (p.network || "") === activeNetwork)
+    .sort((a, b) => a.price - b.price);
+  const featured = networkProducts.slice(0, 3);
+  const networkColor =
+    CATEGORY_COLORS[networkProducts[0]?.category || ""] || "var(--brand-color)";
 
   return (
     <section id="products" style={{ padding: "1rem 0 2rem" }}>
-      {/* Category Tabs — legacy pill style */}
-      <div
-        style={{
-          display: "flex",
-          gap: "0.5rem",
-          marginBottom: "1rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          onClick={() => onCategoryChange("all")}
-          style={{
-            padding: "0.55rem 1.1rem",
-            borderRadius: 10,
-            fontSize: "0.82rem",
-            fontWeight: 700,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            letterSpacing: "0.02em",
-            transition: "all 0.15s",
-            background:
-              selectedCategory === "all" ? "var(--brand-color)" : "var(--card)",
-            color: selectedCategory === "all" ? "#FDF8F3" : "var(--text2)",
-            border:
-              selectedCategory === "all" ? "none" : "1.5px solid var(--border)",
-          }}
-        >
-          {t?.allCategories || "All"}
-        </button>
-        {categories.map((cat) => {
-          const isActive = selectedCategory === cat;
-          const color = CATEGORY_COLORS[cat] || "var(--brand-color)";
-          return (
-            <button
-              key={cat}
-              onClick={() => onCategoryChange(cat)}
-              style={{
-                padding: "0.55rem 1.1rem",
-                borderRadius: 10,
-                fontSize: "0.82rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                letterSpacing: "0.02em",
-                transition: "all 0.15s",
-                background: isActive ? "var(--brand-color)" : "var(--card)",
-                color: isActive ? "#FDF8F3" : "var(--text2)",
-                border: isActive ? "none" : "1.5px solid var(--border)",
-                display: "flex",
-                alignItems: "center",
-                gap: 7,
-              }}
-            >
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: color,
-                  border: "1.5px solid rgba(0,0,0,0.15)",
-                  flexShrink: 0,
-                }}
-              />
-              {getCategoryLabel(cat)}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Network Tabs — secondary row, only when applicable */}
-      {networks.length > 0 && (
+      {/* Network Tabs — legacy primary navigation (MTN/AIRTEL/GLO/…) */}
+      {networkTabs.length > 0 && (
         <div
           style={{
             display: "flex",
-            gap: "0.4rem",
-            marginBottom: "1.25rem",
+            gap: "0.5rem",
+            marginBottom: "1.5rem",
             flexWrap: "wrap",
           }}
         >
-          <button
-            onClick={() => onNetworkChange("all")}
-            style={{
-              padding: "0.35rem 0.85rem",
-              borderRadius: 100,
-              fontSize: "0.75rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              background:
-                selectedNetwork === "all" ? "var(--bg2)" : "transparent",
-              color: "var(--muted)",
-              border: "1px solid var(--border)",
-            }}
-          >
-            {t?.allNetworks || "All Networks"}
-          </button>
-          {networks.map((net) => (
-            <button
-              key={net}
-              onClick={() => onNetworkChange(net)}
-              style={{
-                padding: "0.35rem 0.85rem",
-                borderRadius: 100,
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                background:
-                  selectedNetwork === net ? "var(--bg2)" : "transparent",
-                color: selectedNetwork === net ? "var(--text)" : "var(--muted)",
-                border: "1px solid var(--border)",
-              }}
-            >
-              {net}
-            </button>
-          ))}
+          {networkTabs.map((net) => {
+            const isActive = net === activeNetwork;
+            return (
+              <button
+                key={net}
+                onClick={() => onNetworkChange(net)}
+                style={{
+                  padding: "0.55rem 1.1rem",
+                  borderRadius: 10,
+                  fontSize: "0.82rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  letterSpacing: "0.02em",
+                  transition: "all 0.15s",
+                  background: isActive ? "var(--brand-color)" : "var(--card)",
+                  color: isActive ? "#FDF8F3" : "var(--text2)",
+                  border: isActive ? "none" : "1.5px solid var(--border)",
+                }}
+              >
+                {net}
+              </button>
+            );
+          })}
         </div>
       )}
-
-      {/* Section header with icon + count badge, legacy style */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          marginBottom: "1rem",
-        }}
-      >
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 8,
-            background: `color-mix(in srgb, ${activeColor} 18%, transparent)`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <ActiveIcon size={14} style={{ color: activeColor }} />
-        </div>
-        <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text)" }}>
-          {selectedCategory === "all"
-            ? t?.products || "Products"
-            : getCategoryLabel(selectedCategory)}
-        </h3>
-        <span
-          style={{
-            marginLeft: "auto",
-            fontSize: "0.72rem",
-            color: "var(--muted)",
-            background: "var(--bg2)",
-            border: "1px solid var(--border)",
-            padding: "2px 9px",
-            borderRadius: 100,
-            fontWeight: 500,
-          }}
-        >
-          {products.length} available
-        </span>
-      </div>
 
       {products.length === 0 ? (
         <div
@@ -255,15 +120,252 @@ export default function StoreProducts({
           </p>
         </div>
       ) : (
-        <ProductGrid
-          key={`${selectedCategory}-${selectedNetwork}`}
-          products={products}
-          config={config}
-          onBuyClick={onAddToCart}
-          canSell={canSell}
-        />
+        <>
+          {/* Popular Plans — legacy shows this for the active network */}
+          {featured.length > 0 && (
+            <section style={{ marginBottom: "2rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: "0.9rem",
+                }}
+              >
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 8,
+                    background: "color-mix(in srgb, var(--brand-color) 18%, transparent)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Zap size={14} style={{ color: "var(--brand-color)" }} />
+                </div>
+                <h3
+                  style={{
+                    fontSize: "1rem",
+                    fontWeight: 700,
+                    color: "var(--text)",
+                  }}
+                >
+                  {t?.popularPlans || "Popular Plans"}
+                </h3>
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    fontSize: "0.75rem",
+                    color: "var(--muted)",
+                    fontWeight: 500,
+                  }}
+                >
+                  {activeNetwork}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "0.75rem",
+                }}
+              >
+                {featured.map((product, i) => (
+                  <FeaturedCard
+                    key={product.id}
+                    product={product}
+                    config={config}
+                    highlight={i === 0}
+                    onBuyClick={onAddToCart}
+                    canSell={canSell}
+                    brandColor={networkColor}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Active-network section header (legacy "{Net} Plans") */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: "1rem",
+            }}
+          >
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                background: `color-mix(in srgb, ${networkColor} 18%, transparent)`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <ShoppingBag size={14} style={{ color: networkColor }} />
+            </div>
+            <h3
+              style={{
+                fontSize: "1rem",
+                fontWeight: 700,
+                color: "var(--text)",
+              }}
+            >
+              {`${activeNetwork} ${t?.plans || "Plans"}`}
+            </h3>
+            <span
+              style={{
+                marginLeft: "auto",
+                fontSize: "0.72rem",
+                color: "var(--muted)",
+                background: "var(--bg2)",
+                border: "1px solid var(--border)",
+                padding: "2px 9px",
+                borderRadius: 100,
+                fontWeight: 500,
+              }}
+            >
+              {networkProducts.length} available
+            </span>
+          </div>
+
+          {networkProducts.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "3rem 2rem",
+                color: "var(--muted)",
+                background: "var(--card)",
+                borderRadius: 12,
+              }}
+            >
+              <p>{`No ${activeNetwork} plans right now`}</p>
+            </div>
+          ) : (
+            <ProductGrid
+              key={activeNetwork}
+              products={networkProducts}
+              config={config}
+              onBuyClick={onAddToCart}
+              canSell={canSell}
+            />
+          )}
+        </>
       )}
     </section>
+  );
+}
+
+// ─── FeaturedCard (legacy "Popular Plans" highlight card) ────────────
+
+function FeaturedCard({
+  product,
+  config,
+  highlight,
+  onBuyClick,
+  canSell,
+  brandColor,
+}: {
+  product: StoreProduct;
+  config: StorePriceConfig;
+  highlight: boolean;
+  onBuyClick: (product: StoreProduct) => void;
+  canSell: boolean;
+  brandColor: string;
+}) {
+  return (
+    <div
+      style={{
+        background: highlight
+          ? `linear-gradient(135deg, ${brandColor}, color-mix(in srgb, ${brandColor} 70%, black))`
+          : "var(--card)",
+        border: highlight ? "none" : "1.5px solid var(--border)",
+        borderRadius: 16,
+        padding: "1.4rem",
+        textAlign: "center",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {highlight && (
+        <span
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            background: "rgba(255,255,255,0.25)",
+            color: "#FDF8F3",
+            fontSize: "0.62rem",
+            fontWeight: 700,
+            padding: "2px 8px",
+            borderRadius: 100,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+          }}
+        >
+          {`Best Deal`}
+        </span>
+      )}
+      <p
+        style={{
+          fontWeight: 700,
+          fontSize: "1rem",
+          color: highlight ? "#FDF8F3" : "var(--text)",
+          marginBottom: 2,
+        }}
+      >
+        {product.name}
+      </p>
+      <p
+        style={{
+          fontSize: "0.7rem",
+          color: highlight ? "rgba(253,248,243,0.8)" : "var(--muted)",
+          marginBottom: 10,
+        }}
+      >
+        {product.network ? product.network : product.category}
+      </p>
+      <p
+        style={{
+          fontSize: "1.75rem",
+          fontWeight: 800,
+          color: highlight ? "#FDF8F3" : brandColor,
+          marginBottom: 14,
+          lineHeight: 1,
+        }}
+      >
+        {formatStorePrice(product.price, config)}
+      </p>
+      <button
+        onClick={() => onBuyClick(product)}
+        disabled={!canSell}
+        style={{
+          width: "100%",
+          padding: "0.65rem",
+          background: highlight ? "rgba(255,255,255,0.25)" : brandColor,
+          border: highlight ? "1.5px solid rgba(255,255,255,0.4)" : "none",
+          borderRadius: 10,
+          color: "#FDF8F3",
+          fontWeight: 700,
+          fontSize: "0.85rem",
+          cursor: canSell ? "pointer" : "not-allowed",
+          fontFamily: "inherit",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          opacity: canSell ? 1 : 0.5,
+        }}
+      >
+        <Zap size={14} />
+        {canSell ? "Buy Now" : "Unavailable"}
+      </button>
+    </div>
   );
 }
 

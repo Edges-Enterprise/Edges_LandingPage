@@ -12,7 +12,6 @@ import StorePurchaseModal from "./StorePurchaseModal";
 import StoreFundWalletModal from "./StoreFundWalletModal";
 import StoreSupportModal from "./StoreSupportModal";
 import { useRouter } from "next/navigation";
-import { StoreProduct } from "@/types/reseller/storefront";
 import { CountryConfig } from "@/config/countries";
 import { createGlobalCustomerVirtualAccount } from "@/actions/reseller/customers/createGlobalCustomerVirtualAccount";
 import { useStoreCustomerAuth } from "@/hooks/store/useStoreCustomerAuth";
@@ -42,7 +41,6 @@ export default function StoreContent({
   });
   const [loginOpen, setLoginOpen] = useState(false);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedNetwork, setSelectedNetwork] = useState<string>("all");
   const router = useRouter();
 
@@ -105,17 +103,7 @@ export default function StoreContent({
     setTimeout(() => wallet.setCopiedAccount(null), 2000);
   };
 
-  const filteredProducts = storeData.products.filter(
-    (product: StoreProduct) => {
-      if (selectedCategory !== "all" && product.category !== selectedCategory) {
-        return false;
-      }
-      if (selectedNetwork !== "all" && product.network !== selectedNetwork) {
-        return false;
-      }
-      return true;
-    },
-  );
+  const filteredProducts = storeData.products;
 
   return (
     <div
@@ -152,11 +140,8 @@ export default function StoreContent({
 
           <StoreProducts
             products={filteredProducts}
-            categories={storeData.categories}
             networks={storeData.networks}
-            selectedCategory={selectedCategory}
             selectedNetwork={selectedNetwork}
-            onCategoryChange={setSelectedCategory}
             onNetworkChange={setSelectedNetwork}
             onAddToCart={purchase.startPurchase}
             canSell={storeData.storeStatus?.canSell !== false}
