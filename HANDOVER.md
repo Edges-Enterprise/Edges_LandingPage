@@ -3945,6 +3945,91 @@ migration adding e.g. `USING (enabled = true)` on
 `global_reseller_plan_configs` plus a matching `global_base_plans` policy.
 Until then the storefront must keep reading via `createAdminClient()`.
 
+## Task 7 — "Building" never completes: APK build pipeline broken (opened 2026-10-14)
+
+Person reported: after filling the registration form (Android App toggle is
+ON by default — `StoreConfigStep.tsx`: `androidApp: data.androidApp ?? true`),
+the dashboard shows the app "building" but it never completes.
+
+**Status: PARTIAL — root cause proven, first fix applied & delivered
+(Node bump). Active pointer: `7.a.i.zi.x` (verify on CI + tackle callback).**
+
+### What was found (evidence, not inference)
+
+**The build IS triggered.** `submitApplication.ts` inserts `global_app_builds`
+(`queued`) → calls `triggerAppBuild` → on a successful dispatch sets
+`building` + `building_at` and POSTs to GitHub's
+`actions/workflows/build-global-reseller-apk.yml/dispatches` in
+`Erudite885/reseller-app` (`ref: main`). The dispatch succeeds.
+
+**Every run fails within seconds.** All 23 runs of that workflow since
+2026-07-22 are `failure` (latest `38560991091`). The job fails at step 4 of
+15, **"Setup Expo"**:
+
+```
+error @oclif/plugin-autocomplete@3.3.0: The engine "node" is incompatible
+with this module. Expected version ">=22.0.0". Got "20.20.2"
+##[error]The process '/usr/local/bin/yarn' failed with exit code 1
+```
+
+Both workflows pinned `node-version: "20"`
+(`.github/workflows/build-global-reseller-apk.yml:50`,
+`build-reseller-apk.yml:46`), but `expo/expo-github-action@v8` with
+`expo-version: latest` now pulls a CLI needing Node ≥22. Everything
+downstream (Install, Generate assets, Build APK, Upload, Notify success) is
+**skipped**, so no APK is ever produced.
+
+**The failure callback never reaches the DB** — two independent reasons:
+
+1. **Wrong id.** The workflow's notify step sends
+   `"buildId": "<config_id>"` — the `global_reseller_app_configs.id` (e.g.
+   `953a8cb1-73d5-465a-83bf-c76c26f7e78e`). The webhook
+   (`src/app/api/reseller/[countryCode]/webhooks/build/route.ts`) updates
+   `global_app_builds` by that id, but the real build id is different (e.g.
+   `a468d1a4-…`). No row matches → `PGRST116` → 500.
+2. **Wrong URL.** The callback POSTs to
+   `$API_URL/api/reseller/gh/webhooks/build` and receives a **Next.js 404
+   page** back (that route is not served at `API_URL`; it is not on
+   production `main` either — `git ls-tree origin/main` for the route path is
+   empty).
+   The step still shows green because it ends with `|| true`.
+
+Net effect: `global_app_builds.build_status` stays `building` forever, with
+`completed_at`/`error_message` both `null` — exactly the reported symptom.
+Confirmed in the live DB: 8+ rows stuck at `building` since 2026-10-12.
+
+**Also noted (not fixed):** the success path has the same id bug — the
+webhook writes `apk_url` onto `global_app_builds` keyed by `config_id`, so a
+green build would not surface the APK on the row the dashboard reads
+(`getBuildStatus`). And the dashboard "Build Now" button uses a different,
+legacy path (`@/app/actions/reseller/triggerAppBuild`, the `resellers` table)
+that never touches this workflow.
+
+### Fix applied & delivered (this session)
+
+Bumped `node-version` `"20"` → `"22"` in **both** mobile-repo workflows
+(`build-global-reseller-apk.yml`, `build-reseller-apk.yml`). Delivered as a
+patch to `Erudite885/reseller-app` (the fix lives in the mobile repo; the
+master handover is the coordination point).
+
+**Verified locally (real repro, not assumed):** under Node 20 the exact CI
+error reproduces verbatim (`@oclif/plugin-autocomplete@3.3.0 … Expected
+version ">=22.0.0". Got "20.20.2"`, exit 1); under Node 22 the same install
+succeeds and `npm ci` passes (1007 packages). No `engines`/`.nvmrc` pins the
+repo to Node 20, so 22 is safe.
+
+**IMPORTANT:** the web app dispatches with `ref: "main"`, so the fix only
+takes effect once it is on `main` — landing it on `handover/supabase-dump`
+alone is not enough. The workflow blob is identical on both branches today.
+
+### Remaining (open, needs the person)
+
+- Land the Node fix on `main` (or change the dispatch `ref`).
+- Fix the callback: send the real `global_app_builds.id` as `buildId`, point
+  `API_URL` at the deployed URL where the route exists, drop the `|| true` on
+  the failure notify, and make the webhook return a clear non-2xx.
+- Reconcile the stuck `building` rows once the pipeline works.
+
 ## Project-completion stage — deferred items (decided by the person)
 
 These are deliberately NOT being worked now; the person's decision
@@ -4098,3 +4183,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-14 | Task 6 session (storefront empty when signed in) | Bootstrapped both repos (latest branch `handover/supabase-dump`: `Edges_LandingPage` @ `8479642` = Task 5, `reseller-app` @ `467a680`) and read this file + the pickup brief. **Note: the Task 6 work described in the pickup brief was never on origin** — this was a fresh clone, the local commits `48ffe11`/`352803f` did not exist, no branch contained the fix, and the referenced `.patch`/sandbox URL were unreachable, so the fix was re-authored from the description and independently re-verified. Person confirmed the Task 5 dashboard is correct (plans off until toggled on) and that the storefront still shows no products after toggling on. Root cause confirmed live: `createServerClient()` sends the service-role key only when no session cookie exists; with a customer cookie it sends the user JWT and RLS applies. RLS is enabled on `global_reseller_plan_configs`/`global_base_plans`/`global_virtual_accounts`/`global_wallets` with only admin + owner-scoped SELECT policies (no public one); anon read returns `401 permission denied for table users` (admin policy's `auth.users` subquery). Fix: switched the anonymous storefront reads to `createAdminClient()` in `getStoreCatalog.ts`, `getStoreReadiness.ts`, and `[storeName]/page.tsx` `getStoreData` (3 files, no column changes). Verification: before/after local render — OLD+session-cookie → 0 plans, OLD no cookie → 30, NEW+cookie → 30, NEW no cookie → 30 (signed-in == signed-out, exact plan set); live `gh/kwam-two` renders tabs + Popular Plans + grid; full-project `tsc` = 0. Task 6 complete, no active pointer. Open follow-up (not started, needs the person): add a public RLS SELECT policy if browser/anon catalog reads are ever wanted. Delivered via `git format-patch`. |
 | 2026-10-14 | Popular Plans card colour fix | Person reported the Popular Plans "Best Deal" card used a constant blue instead of the store's theme colour (visible on green-brand store `gh/kwam-two`). Cause: `StoreProducts.tsx` passed `brandColor={networkColor}` to `FeaturedCard`, and `networkColor` resolves to the per-category palette `CATEGORY_COLORS[category]` (`data: #3B82F6` blue) — overriding the store brand. The regular `ProductCard` already uses `var(--brand-color)`. Fix: pass `brandColor="var(--brand-color)"` to `FeaturedCard` (1 line + comment; `networkColor` left for the section header icon, which matches legacy). Verified by pixel analysis of headless-chromium screenshots of `gh/kwam-two` (brand `#16A34A`): before → green 9,985 / blue 10,341 px; after → green 24,212 / blue 11 px. `tsc` = 0. Person confirmed the storefront displays the active plans correctly. Delivered via `git format-patch`. |
 | 2026-10-14 | Minor copy fix (apply submit label) | Person reported the registration wizard's final button said "Submit Application"; changed to "Submit". Source is `review.submit` in `src/messages/en/apply.json` (line 49), rendered by `ReviewStep.tsx` (`t?.review?.submit || "Submit Application"`). Changed both the English string and the hardcoded fallback. `ar`/`fr` have their own `apply.json` (left untouched, not asked); `es`/`pt` have no `apply.json` so they already fall back to English. Verified read-only via the `/gh/apply` RSC payload (no form submit, no DB write): `"submit":"Submit"`, zero `Submit Application`; `tsc` = 0; `en/apply.json` still valid JSON (en-dash intact). Delivered via `git format-patch`. |
+| 2026-10-14 | Build-pipeline session (Task 7) | Person asked why the app build never completes. Proved: build IS dispatched on submit (Android App toggle defaults ON), but all 23 GitHub Actions runs since 2026-07-22 fail at "Setup Expo" (Node 20 vs Expo CLI needing >=22). Fixed by bumping both mobile-repo workflows to Node 22; verified by local repro (Node 20 fails with the exact error, Node 22 passes). Also found the failure callback never lands: `buildId` is the config_id not the build_id, and `API_URL` returns a 404 for the webhook route, so rows sit at "building" with no error. Node fix delivered as a patch to reseller-app; NOTE dispatch uses `ref: main` so it must reach main. Callback fix + stuck-row reconciliation still open. |
