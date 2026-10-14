@@ -4120,6 +4120,115 @@ Needs a decision on (a) which countries must be supported, (b) whether the
 legacy `resellers` row is still created per country, and (c) currency/prefix
 data per country.
 
+## Task 8 (continued) — Full move to the `global_*` data model (opened 2026-10-14)
+
+Person approved **Full (data model)**: move the mobile app off the legacy
+`resellers`/`reseller_*` tables onto the `global_*` tables so plans are
+country-scoped at the source, matching the web storefront, and support **all
+countries the web supports**.
+
+**Status: IN PROGRESS — planning/decomposition done, no code changed yet.
+Active pointer: `8.a.i.zi.x`.**
+
+### Architecture decomposition (5-level)
+
+```
+8   Mobile app → multi-country (global_* data model)
+ 8.a  Read-path foundation (DB exposure + store/identity/catalog reads)
+   8.a.i   Store & country context
+    8.a.i.zi    Public store+country read path            -> 8.a.i.zi.x  (migration: expose store+country to customers)
+    8.a.i.zo    App resolves store + country              -> 8.a.i.zo.x  (app: getStoreContext())
+   8.a.ii  Customer identity & money reads
+    8.a.ii.zi   Customer-scoped RLS on global customer tables -> 8.a.ii.zi.x (migration: enable RLS + owner policies)
+    8.a.ii.zo   App customer record/wallet/VA/tx fetch    -> 8.a.ii.zo.x (app: login/register/_layout + hooks)
+   8.a.iii Catalog read path
+    8.a.iii.zi  Public catalog read path                  -> 8.a.iii.zi.x (migration: catalog policy/view)
+    8.a.iii.zo  App plan fetch                            -> 8.a.iii.zo.x (app: useDataPlans -> global_*)
+ 8.b  Country-aware presentation
+   8.b.i   Currency & locale from country                -> 8.b.i.zi.x / 8.b.i.zo.x
+   8.b.ii  Network list + phone prefixes per country     -> 8.b.ii.zi.x / 8.b.ii.zo.x
+   8.b.iii Legal/help/notification copy per country      -> 8.b.iii.zi.x / 8.b.iii.zo.x
+ 8.c  Purchases & money movement
+   8.c.i   Switch to global purchase edge functions      -> 8.c.i.zi.x / 8.c.i.zo.x
+   8.c.ii  Wallet/VA/transaction hooks on global_*       -> 8.c.ii.zi.x / 8.c.ii.zo.x
+   8.c.iii Notifications (see blocker 2)                 -> 8.c.iii.zi.x / 8.c.iii.zo.x
+ 8.d  Verification & rollout
+   8.d.i   tsc + APK build                               -> 8.d.i.zi.x / 8.d.i.zo.x
+   8.d.ii  Live multi-country verify (ng/gh/zm)          -> 8.d.ii.zi.x / 8.d.ii.zo.x
+   8.d.iii Docs + handoff                                -> 8.d.iii.zi.x / 8.d.iii.zo.x
+```
+
+### Table mapping (app today -> target)
+
+| App need | Legacy (today) | Global target | Customer-readable today? |
+|---|---|---|---|
+| store id / brand | `resellers` | `global_reseller_stores` | ✅ no RLS, no policies (open) |
+| country_code | (absent) | `global_reseller_applications.country_code` | ❌ reseller-owner RLS only |
+| legal text (email) | `resellers.email` | `global_reseller_applications.email` / `original_email` | ❌ reseller-owner RLS only |
+| plans | `reseller_plan_configs` x `reseller_base_plans` | `global_reseller_plan_configs` x `global_base_plans` (country_code) | ❌ admin/reseller RLS only |
+| customer record | `reseller_customers` | `global_customers` | ❌ reseller-owner RLS only |
+| customer wallet | `reseller_customer_wallets` | `global_customer_wallets` | ⚠️ RLS **not enabled** (wide open) |
+| customer VA | `reseller_customer_virtual_accounts` | `global_customer_virtual_accounts` | ⚠️ RLS **not enabled** (wide open) |
+| transactions | `reseller_customer_transactions` | `global_customer_transactions` | ⚠️ RLS **not enabled** (wide open) |
+| notifications | `reseller_notifications` / `reseller_customer_notifications` | **none** | n/a — no global table |
+| notification settings | `resellers` | `global_reseller_settings` | ❌ RLS enabled, no policy |
+| purchase | edge `purchase-data` / `purchase-airtime` (storeSlug) | edge `global-purchase-data` / `global-purchase-airtime` (resellerId, planId=provider_plan_id) | verify deployed |
+
+### Blocker 1 — RLS: the app is a customer, not the reseller owner
+
+The mobile app authenticates as a **customer** and uses the **publishable
+(anon) key** (`lib/supabase.ts`). Every `global_*` SELECT policy in
+`schema.sql` is scoped to the **reseller owner**
+(`auth.uid() IN (SELECT global_reseller_applications.auth_user_id)`), so a
+customer session matches nothing on `global_customers`, `global_wallets`,
+`global_virtual_accounts`, `global_transactions`, `global_reseller_plan_configs`,
+`global_base_plans`, `global_reseller_settings`. This is the same RLS trap Task 6
+hit on the web (which is why the web storefront reads via service role).
+
+Also: `global_customer_wallets`, `global_customer_virtual_accounts` and
+`global_customer_transactions` have **RLS not enabled at all** — the publishable
+key can currently read (and write) every row. Moving the app onto them without
+policies would be a data-exposure regression.
+
+**So a DB migration is a hard prerequisite**, and it must be written carefully:
+public catalog reads (`enabled = true` configs joined to active base plans,
+country-scoped) plus owner-scoped customer reads (`auth_user_id = auth.uid()` /
+`customer_id` of the caller's own `global_customers` row). For the catalog, a
+**column-limited VIEW** is preferable to a base-table policy so
+`base_price`/`markup_value`/`markup_type` are not exposed (matches the deferred
+item 7 note). The store+country read also needs a non-leaking shape (view or a
+denormalised `country_code` on `global_reseller_stores`) rather than opening
+`global_reseller_applications`.
+
+### Blocker 2 — no global notifications table
+
+The app reads `reseller_notifications` / `reseller_customer_notifications`.
+There is **no** `global_*` equivalent (`schema.sql` has no global notification
+table). This needs a decision: add `global_notifications` (+ customer scope),
+or keep the app's notification reads on the legacy tables.
+
+### Also needs confirming
+
+- The app calls `global-purchase-data` / `global-purchase-airtime`? Today it
+  calls `purchase-data` / `purchase-airtime` (storeSlug-based). The global
+  functions exist **in the repo** (`supabase/functions/global-purchase-*/`)
+  but are **not in `edge-functions.json`** (last fetched 2026-09-24) — confirm
+  they are actually deployed before wiring the app to them.
+- `get-customer-auth-email` (customer login email resolution) — confirm whether
+  a global variant exists or it needs a store/country parameter.
+- Which countries to enable, and currency/phone-prefix data per country (the
+  app has NG-only data today: `NETWORK_PREFIXES`, `NETWORK_COLORS`,
+  `NETWORK_IMAGES`, naira formatting).
+
+### Next atomic step — `8.a.i.zi.x` (needs the person's approval: it is a DB migration)
+
+Draft the read-path migration: expose, to a customer/anon session, (a) the
+store + its `country_code` and (b) the country-scoped active catalog — via
+column-limited views (no base-price/markup leakage), plus enable RLS + owner
+policies on the three `global_customer_*` tables. Delivered as a direct `psql`
+command per the standing rule. **No app code can be meaningfully tested until
+this lands.**
+
 ## Project-completion stage — deferred items (decided by the person)
 
 These are deliberately NOT being worked now; the person's decision
@@ -4276,3 +4385,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-14 | Build-pipeline session (Task 7) | Person asked why the app build never completes. Proved: build IS dispatched on submit (Android App toggle defaults ON), but all 23 GitHub Actions runs since 2026-07-22 fail at "Setup Expo" (Node 20 vs Expo CLI needing >=22). Fixed by bumping both mobile-repo workflows to Node 22; verified by local repro (Node 20 fails with the exact error, Node 22 passes). Also found the failure callback never lands: `buildId` is the config_id not the build_id, and `API_URL` returns a 404 for the webhook route, so rows sit at "building" with no error. Node fix delivered as a patch to reseller-app; NOTE dispatch uses `ref: main` so it must reach main. Callback fix + stuck-row reconciliation still open. |
 | 2026-10-14 | Build-pipeline session (Task 7, cont.) | Person asked to dispatch from `handover/supabase-dump` instead of `main` while fixes are in flight. Changed both dispatch sites (`src/actions/reseller/build/triggerAppBuild.ts`, `src/app/actions/reseller/triggerAppBuild.ts`) to a named `BUILD_WORKFLOW_REF = "handover/supabase-dump"` constant, with a comment to revert to `"main"` after merge. `tsc` = 0. Confirmed the branch exists on the remote. Note: that branch does not yet carry the Node 22 fix, so the mobile patch must land there before a dispatch succeeds. |
 | 2026-10-14 | Multi-country audit (Task 8) | Confirmed: build workflow IS multi-country (`country_code` input threaded through asset fetch, release tag, callback, summary), but the mobile app is Nigeria-only in every user-facing layer — zero `country` refs in app code; naira/`en-NG` hardcoded; NG phone prefixes for network detection; NG-only carriers; and it reads the legacy `resellers`/`reseller_plan_configs`/`reseller_base_plans` tables which have no `country_code` column (the web's `global_*` country-scoped model is not read). `countryCode` is fetched by the build but never propagated into `extra.resellerConfig`, and the asset script silently defaults to `ng`. No code changed; fix scoping left to the person. |
+| 2026-10-14 | Task 8 (cont.) — Full global_* migration planning | Person approved the full data-model move (all web countries). Decomposed Task 8 into the 5-level tree (8.a read-path foundation, 8.b presentation, 8.c purchases, 8.d verification). Mapped every app table to its global_* target. Found two blockers: (1) RLS — the app is a customer with the anon key, but every global_* SELECT policy is reseller-owner-scoped, so the app can read none of them; and global_customer_wallets/virtual_accounts/transactions have RLS not enabled at all (wide open). (2) No global notifications table exists. A DB migration is a hard prerequisite; first atomic step is 8.a.i.zi.x. No code changed. |
