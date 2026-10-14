@@ -14,12 +14,15 @@
 //                        the gateway-specific split, matching legacy)
 //   hasBalance        -> global_wallets.balance > 0 (owner's own wallet)
 //
-// A store is sellable only when all three hold. Kept server-side (like
-// any other storefront read) so the RLS-protected wallet /
-// virtual-account tables are read with the service-role client; the
-// result is non-sensitive booleans + a reason string.
+// A store is sellable only when all three hold. This is an anonymous
+// storefront read, so it uses the admin (service-role) client, NOT
+// `createServerClient()`: RLS is enabled on `global_virtual_accounts`
+// and `global_wallets` with only owner-scoped SELECT policies, so with a
+// customer session cookie present the user's JWT is sent and both reads
+// come back empty. The service-role client bypasses RLS; the result is
+// non-sensitive booleans + a reason string.
 
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface StoreReadiness {
   canSell: boolean;
@@ -60,7 +63,7 @@ export async function getStoreReadiness(
   resellerId: string,
   phone: string | null | undefined,
 ): Promise<StoreReadiness> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
 
   const [{ data: virtualAccount }, { data: wallet }] = await Promise.all([
     supabase

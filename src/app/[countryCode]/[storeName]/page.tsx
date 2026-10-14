@@ -1,5 +1,5 @@
 // src/app/[countryCode]/[storeName]/page.tsx
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
 import { getStoreCatalog } from "@/lib/storefront/getStoreCatalog";
 import { getStoreReadiness } from "@/lib/storefront/getStoreReadiness";
@@ -10,7 +10,12 @@ interface StorePageProps {
 }
 
 async function getStoreData(storeSlug: string) {
-  const supabase = await createServerClient();
+  // Anonymous storefront read: use the admin (service-role) client so the
+  // RLS-protected store/catalog tables resolve for signed-in and
+  // signed-out visitors alike. `createServerClient()` sends a customer's
+  // JWT when a session cookie is present, which filtered this data to
+  // nothing (empty storefront when signed in).
+  const supabase = createAdminClient();
 
   try {
     // Get store owner (reseller)

@@ -19,10 +19,17 @@
 // — the id the purchase edge function (`global-purchase-data` /
 // `global-purchase-airtime`) expects as `planId`.
 //
-// This is a storefront read and uses the server client, matching the
-// existing `[storeName]/page.tsx` which already reads through it.
+// This is an anonymous storefront read, so it uses the admin (service-
+// role) client, NOT `createServerClient()`. RLS is enabled on both
+// `global_reseller_plan_configs` and `global_base_plans` with only
+// admin/reseller-scoped SELECT policies: with a customer session cookie
+// present, `createServerClient()` sends the user's JWT and the read is
+// filtered to nothing (and the admin policy's `auth.users` subquery
+// fails outright with `permission denied for table users`), so the
+// storefront rendered empty for signed-in visitors. The service-role
+// client bypasses RLS, which is what a public storefront needs.
 
-import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { StoreProduct } from "@/types/reseller/storefront";
 
 export interface StoreCatalog {
@@ -57,7 +64,7 @@ export async function getStoreCatalog(
   countryCode: string,
   category?: string,
 ): Promise<StoreCatalog> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
 
   const { data: configs, error: configError } = await supabase
     .from("global_reseller_plan_configs")

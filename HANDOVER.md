@@ -3684,9 +3684,12 @@ The live legacy reference is **https://telcos.govt.hu/ghost** (Nigeria, MTN
 tab) — used here only to confirm the intended *structure/IA*, which the
 in-code `old-storeName/StoreContent.tsx` reproduces exactly.
 
-**Status: OPEN. Active pointer: `5.a.i.zi.x`** (branches `1`,`2`,`3`,`4` DONE
-2026-10-13; `5.a.i.zi.x` = final cumulative tsc + DB schema cross-check + the
-delivery patch; rollback baseline `451c1e5`).
+**Status: DONE (2026-10-13).** Branches `1`,`2`,`3`,`4` DONE; `5.a.i.zi.x`
+(final cumulative tsc + DB schema cross-check + delivery patch) DONE and
+pushed as `8479642` on `origin/handover/supabase-dump`. A manual pass by the
+person confirmed the dashboard now behaves correctly (plans off until toggled
+on) — but surfaced a follow-up storefront defect, opened as Task 6 below.
+Rollback baseline `451c1e5`.
 
 ### What was found (confirmed against code + the live store, 2026-10-10)
 
@@ -3865,6 +3868,83 @@ check those column names before shipping. Delivery via `git format-patch`
 (sandbox has no push); regenerate the cumulative patch at the end of branch 5.
 
 
+## Task 6 — Storefront shows no products even after plans are toggled ON (opened 2026-10-14)
+
+Task 5's dashboard fix is confirmed working by the person (plans default OFF
+and persist ON). The remaining defect is storefront-side: **the store still
+shows no products after the user turns plans on in the dashboard.** This task
+root-causes and fixes it.
+
+**Status: DONE (2026-10-14). Active pointer: none** (`6.b.i.a`–`d` all done
+in this session). Branch log below.
+
+### What was found (confirmed against the live DB + `schema.sql`)
+
+Root cause: the storefront's anonymous reads used `createServerClient()`
+(`src/lib/supabase/server.ts`), which is `@supabase/ssr`'s `createServerClient`
+configured with the **service-role key but with cookie passthrough**. Per
+`@supabase/ssr`, the service-role key is only sent when there is **no session
+cookie**; with a cookie present the client sends the **user's JWT**, so RLS
+applies.
+
+RLS is **enabled** on all four tables the storefront reads (`schema.sql`:
+`global_reseller_plan_configs`, `global_base_plans`, `global_virtual_accounts`,
+`global_wallets`) with only **admin** and **reseller/owner-scoped** SELECT
+policies — no public policy:
+
+- `global_reseller_plan_configs` — "Admin can read all configs" (`EXISTS
+  (SELECT 1 FROM auth.users … role='admin')`) + "Resellers can read their own
+  configs" (`reseller_id = (SELECT global_reseller_applications.id … auth_user_id = auth.uid())`).
+- `global_base_plans` — admin + "Resellers can read active plans for their
+  country" (same owner-scoped subquery).
+- `global_virtual_accounts` / `global_wallets` — owner-scoped ("Users can view
+  their own …", `auth.uid() IN (SELECT … auth_user_id)`).
+
+Live proof (service role vs anon key, same query, reseller `2731f8e9…`):
+service role → **30 enabled configs (HTTP 200)**; anon/user JWT →
+**HTTP 401 `permission denied for table users`** (the admin policy's
+`auth.users` subquery is not grantable to anon/authenticated). A customer
+session matched neither policy, so `getStoreCatalog` returned `EMPTY` and
+`StoreProducts` rendered "No active plans on this store yet." Signed-out the
+service-role key won and the store rendered — hence the signed-in vs
+signed-out divergence.
+
+### Fix (3 files, no column changes)
+
+Switched the anonymous storefront reads from `createServerClient()` to
+`createAdminClient()` (`src/lib/supabase/admin.ts` — plain
+`@supabase/supabase-js` with the service-role key, `persistSession:false`, no
+cookies, bypasses RLS; already the pattern used by `[storeName]/layout.tsx`):
+
+- `src/lib/storefront/getStoreCatalog.ts` — catalog read (enabled configs × base plans).
+- `src/lib/storefront/getStoreReadiness.ts` — virtual-account + wallet reads.
+- `src/app/[countryCode]/[storeName]/page.tsx` (`getStoreData`) — store lookup + APK read.
+
+### Verification for this task
+
+- **Before/after repro** (local `next dev`, real render): OLD
+  `createServerClient` + session cookie → **0 plans**; OLD without cookie →
+  30 plans; NEW `createAdminClient` + cookie → **30 plans**; NEW without
+  cookie → 30 plans. Signed-in and signed-out payloads now **identical** (30
+  plan names, exact set match).
+- Rendered the live store `gh/kwam-two` in a browser: network tabs
+  (AirtelTigo, MTN), "Popular Plans" (Best Deal), "AirtelTigo Plans — 16
+  available", full grid with prices. The "Unavailable" buy buttons are the
+  separate **store-readiness gate** (owner has no active virtual account and a
+  zero-balance wallet), not the catalog defect.
+- Full-project `npx tsc --noEmit -p tsconfig.json` = **0**.
+- Columns re-cross-checked against `supabase/schema.sql` (no column changes).
+
+### Next atomic step — none (Task 6 complete)
+
+### Open follow-up (NOT started — needs the person's confirmation)
+
+The catalog tables have **no public RLS SELECT policy**. The service-role
+storefront read works, but if browser/anon reads are ever wanted, draft a
+migration adding e.g. `USING (enabled = true)` on
+`global_reseller_plan_configs` plus a matching `global_base_plans` policy.
+Until then the storefront must keep reading via `createAdminClient()`.
+
 ## Project-completion stage — deferred items (decided by the person)
 
 These are deliberately NOT being worked now; the person's decision
@@ -3941,6 +4021,7 @@ pointer, blocked on Zendit's docs.
 
 | Date | Session | Notes |
 |---|---|---|
+| 2026-10-14 | Task 6 session (storefront empty when signed in) | Bootstrapped both repos (latest branch `handover/supabase-dump`: `Edges_LandingPage` @ `8479642` = Task 5, `reseller-app` @ `467a680`) and read this file + the pickup brief. **Note: the Task 6 work described in the pickup brief was never on origin** — this was a fresh clone, the local commits `48ffe11`/`352803f` did not exist, no branch contained the fix, and the referenced `.patch`/sandbox URL were unreachable, so the fix was re-authored from the description and independently re-verified. Person confirmed the Task 5 dashboard is correct (plans off until toggled on) and that the storefront still shows no products after toggling on. Root cause confirmed live: `createServerClient()` sends the service-role key only when no session cookie exists; with a customer cookie it sends the user JWT and RLS applies. RLS is enabled on `global_reseller_plan_configs`/`global_base_plans`/`global_virtual_accounts`/`global_wallets` with only admin + owner-scoped SELECT policies (no public one); anon read returns `401 permission denied for table users` (admin policy's `auth.users` subquery). Fix: switched the anonymous storefront reads to `createAdminClient()` in `getStoreCatalog.ts`, `getStoreReadiness.ts`, and `[storeName]/page.tsx` `getStoreData` (3 files, no column changes). Verification: before/after local render — OLD+session-cookie → 0 plans, OLD no cookie → 30, NEW+cookie → 30, NEW no cookie → 30 (signed-in == signed-out, exact plan set); live `gh/kwam-two` renders tabs + Popular Plans + grid; full-project `tsc` = 0. Task 6 complete, no active pointer. Open follow-up (not started, needs the person): add a public RLS SELECT policy if browser/anon catalog reads are ever wanted. Delivered via `git format-patch`. |
 | 2026-09-08 | Setup session | Created both branches, wrote `scripts/supabase_dump.sh` + the direct `pg_dump` command block above, verified pg_dump installs on Ubuntu, wrote this handover file and the standing Termux handoff process. Delivered as `.patch` files, applied via `git am` from `~/storage/downloads/`. Did not run the actual dump (no live credentials in this sandbox). |
 | 2026-09-08 | Setup session | User confirmed both patches applied cleanly and `handover/supabase-dump` was pushed to `origin` on both repos (PR links returned by GitHub for each). Updated the standing handoff process above to a single combined command (subshells per repo) so the user doesn't have to run two separate command blocks or manually `cd` back and forth. |
 | 2026-09-08 | Setup session | User pointed out the branch already exists/is checked out, so `git checkout -b` shouldn't run on every handoff. Split the process into a one-time setup command (branch creation, run once) and a steady-state command (just `git am` + `git push` per repo) for every session after that. |
