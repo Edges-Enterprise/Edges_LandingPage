@@ -4047,6 +4047,79 @@ applied and pushed to that branch **before** a dispatch will succeed.
   the failure notify, and make the webhook return a clear non-2xx.
 - Reconcile the stuck `building` rows once the pipeline works.
 
+## Task 8 — Mobile app is Nigeria-only while the web is multi-country (opened 2026-10-14)
+
+Person asked to confirm: (a) is the mobile app still Nigeria-only, and (b) is
+the APK build workflow multi-country. Both answered from source — **no code
+changed in this session.**
+
+**Status: CONFIRMED / NOT STARTED. Active pointer: none (needs the person's
+scope decision before any code change).**
+
+### Answer
+
+- **The build workflow IS multi-country.** `country_code` is a required
+  `workflow_dispatch` input (`.github/workflows/build-global-reseller-apk.yml`
+  lines 18-21, documented as "e.g., ng, gh, zm") and is threaded through the
+  whole job: asset fetch (`/api/reseller/${COUNTRY_CODE}/config/${CONFIG_ID}`),
+  release tag (`${COUNTRY_CODE}-${STORE_NAME}-...`), release title, the
+  completion/failure callback URL (`/api/reseller/${country_code}/webhooks/build`),
+  and the build summary. The web config API also returns `countryCode`
+  (`src/app/api/reseller/[countryCode]/config/[configId]/route.ts`).
+- **The mobile app itself is Nigeria-only in every user-facing layer.** There
+  are **zero** `country` references anywhere in app code (`app/`, `components/`,
+  `constants/`, `hooks/`, `lib/`, `store/`, `module/`). So a `gh`/`zm` build
+  still produces a Nigeria-branded app.
+
+### Evidence (mobile, `Erudite885/reseller-app`)
+
+1. **Currency hardcoded to naira.** `Intl.NumberFormat("en-NG", { currency:
+   "NGN" })` in `app/(app)/(protected)/index.tsx:303-305`; the naira symbol is
+   hardcoded in `index.tsx` (lines 190, 271, 468, 1004, 1055),
+   `transaction-history.tsx` (383, 522, 566, 572), `PlanCarousel.tsx:117`,
+   `help.tsx:100`. Dates use `en-NG` locale (`settings.tsx:75`,
+   `transaction-history.tsx:91,100,121`).
+2. **Network auto-detection uses Nigerian phone prefixes.** `NETWORK_PREFIXES`
+   (`constants/helpers.ts:25-59`) maps NG ranges (0703/0803/0806/0903 …) to
+   MTN/Airtel/Glo/9mobile; `NETWORK_COLORS` (`helpers.ts:451-456`) and
+   `NETWORK_IMAGES` (`helpers.ts:6-14`) are the four NG carriers only.
+   `help.tsx:107` literally says "all major Nigerian networks".
+3. **Data model has no country scoping.** The app reads the **legacy** tables
+   (`resellers`, `reseller_plan_configs`, `reseller_base_plans`) via
+   `hooks/useDataPlans.ts` and friends. None of those tables has a
+   `country_code` column (`supabase/schema.sql`: `resellers` 6732,
+   `reseller_plan_configs` 6657, `reseller_base_plans` 6483). The multi-country
+   model the web uses (`global_base_plans.country_code NOT NULL`, schema.sql
+   5877; `global_reseller_plan_configs`) is **not read by the app at all**.
+4. **The country value never reaches the app.** The build fetches
+   `countryCode` from the config API, but `app.config.ts` does not copy it into
+   `extra.resellerConfig` (`app.config.ts:95-108`), and
+   `store/resellerStore.ts` (`ResellerConfig`) has no `countryCode` field — so
+   the app has nothing to branch on even if it wanted to.
+5. **Silent NG default in the build.** `scripts/generate-global-reseller-assets.sh:21-24`
+   defaults `COUNTRY_CODE="ng"` when the input is missing, so a misconfigured
+   dispatch silently ships NG assets.
+6. **Dead NG data.** `constants/helpers.ts:88` `allDataPlans` is ~250 lines of
+   hardcoded naira plans; it is defined but never imported (dead code, but it
+   signals the NG assumption baked into the template).
+
+### Shape of a fix (NOT started — for the person to scope)
+
+The workflow needs no change. The work is on the app, and the real fork is
+which data model the app should read:
+
+- **Minimum (cosmetic):** propagate `countryCode` into `extra.resellerConfig`,
+  then derive currency symbol/locale, network list, phone prefixes and help
+  copy from it. Keeps the legacy tables.
+- **Full (data model):** move the app onto the `global_*` tables so plans are
+  country-scoped at the source, matching the web storefront. Bigger change —
+  affects `useDataPlans`, wallet/virtual-account hooks and the legacy
+  `resellers` lookup.
+
+Needs a decision on (a) which countries must be supported, (b) whether the
+legacy `resellers` row is still created per country, and (c) currency/prefix
+data per country.
+
 ## Project-completion stage — deferred items (decided by the person)
 
 These are deliberately NOT being worked now; the person's decision
@@ -4202,3 +4275,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-14 | Minor copy fix (apply submit label) | Person reported the registration wizard's final button said "Submit Application"; changed to "Submit". Source is `review.submit` in `src/messages/en/apply.json` (line 49), rendered by `ReviewStep.tsx` (`t?.review?.submit || "Submit Application"`). Changed both the English string and the hardcoded fallback. `ar`/`fr` have their own `apply.json` (left untouched, not asked); `es`/`pt` have no `apply.json` so they already fall back to English. Verified read-only via the `/gh/apply` RSC payload (no form submit, no DB write): `"submit":"Submit"`, zero `Submit Application`; `tsc` = 0; `en/apply.json` still valid JSON (en-dash intact). Delivered via `git format-patch`. |
 | 2026-10-14 | Build-pipeline session (Task 7) | Person asked why the app build never completes. Proved: build IS dispatched on submit (Android App toggle defaults ON), but all 23 GitHub Actions runs since 2026-07-22 fail at "Setup Expo" (Node 20 vs Expo CLI needing >=22). Fixed by bumping both mobile-repo workflows to Node 22; verified by local repro (Node 20 fails with the exact error, Node 22 passes). Also found the failure callback never lands: `buildId` is the config_id not the build_id, and `API_URL` returns a 404 for the webhook route, so rows sit at "building" with no error. Node fix delivered as a patch to reseller-app; NOTE dispatch uses `ref: main` so it must reach main. Callback fix + stuck-row reconciliation still open. |
 | 2026-10-14 | Build-pipeline session (Task 7, cont.) | Person asked to dispatch from `handover/supabase-dump` instead of `main` while fixes are in flight. Changed both dispatch sites (`src/actions/reseller/build/triggerAppBuild.ts`, `src/app/actions/reseller/triggerAppBuild.ts`) to a named `BUILD_WORKFLOW_REF = "handover/supabase-dump"` constant, with a comment to revert to `"main"` after merge. `tsc` = 0. Confirmed the branch exists on the remote. Note: that branch does not yet carry the Node 22 fix, so the mobile patch must land there before a dispatch succeeds. |
+| 2026-10-14 | Multi-country audit (Task 8) | Confirmed: build workflow IS multi-country (`country_code` input threaded through asset fetch, release tag, callback, summary), but the mobile app is Nigeria-only in every user-facing layer — zero `country` refs in app code; naira/`en-NG` hardcoded; NG phone prefixes for network detection; NG-only carriers; and it reads the legacy `resellers`/`reseller_plan_configs`/`reseller_base_plans` tables which have no `country_code` column (the web's `global_*` country-scoped model is not read). `countryCode` is fetched by the build but never propagated into `extra.resellerConfig`, and the asset script silently defaults to `ng`. No code changed; fix scoping left to the person. |
