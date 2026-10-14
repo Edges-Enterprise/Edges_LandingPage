@@ -4,6 +4,11 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Build workflows are dispatched from the mobile repo. While fixes are in
+// flight, dispatch from the handover branch so unreleased workflow changes
+// take effect; revert to "main" once everything is merged.
+const BUILD_WORKFLOW_REF = "handover/supabase-dump";
+
 export async function triggerAppBuild(resellerId: string) {
   const admin = createAdminClient();
 
@@ -116,7 +121,7 @@ export async function triggerAppBuild(resellerId: string) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            ref: "main",
+            ref: BUILD_WORKFLOW_REF,
             inputs: {
               reseller_id: resellerId,
               config_id: savedConfig.id,

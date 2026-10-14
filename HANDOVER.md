@@ -4018,13 +4018,30 @@ version ">=22.0.0". Got "20.20.2"`, exit 1); under Node 22 the same install
 succeeds and `npm ci` passes (1007 packages). No `engines`/`.nvmrc` pins the
 repo to Node 20, so 22 is safe.
 
-**IMPORTANT:** the web app dispatches with `ref: "main"`, so the fix only
-takes effect once it is on `main` — landing it on `handover/supabase-dump`
-alone is not enough. The workflow blob is identical on both branches today.
+**Dispatch ref — changed on the person's instruction (2026-10-14).** The web
+app originally dispatched with `ref: "main"`. Since we are still fixing, the
+person asked to dispatch from `Erudite885/reseller-app` branch
+`handover/supabase-dump` for now, and merge to `main` once all fixes are done.
+Both dispatch sites now use a named constant:
+
+- `src/actions/reseller/build/triggerAppBuild.ts` (global path)
+- `src/app/actions/reseller/triggerAppBuild.ts` (legacy path)
+
+```ts
+const BUILD_WORKFLOW_REF = "handover/supabase-dump";
+```
+
+**Revert to `"main"` once everything is merged** — change that one constant in
+each file. `tsc` = 0.
+
+Sequencing note: the dispatch target `handover/supabase-dump` did not yet
+contain the Node 22 fix when the ref was changed, so the Node 22 patch must be
+applied and pushed to that branch **before** a dispatch will succeed.
 
 ### Remaining (open, needs the person)
 
-- Land the Node fix on `main` (or change the dispatch `ref`).
+- Land the Node fix on `handover/supabase-dump` (dispatch ref now points
+  there); merge both repos to `main` and revert the ref constant when done.
 - Fix the callback: send the real `global_app_builds.id` as `buildId`, point
   `API_URL` at the deployed URL where the route exists, drop the `|| true` on
   the failure notify, and make the webhook return a clear non-2xx.
@@ -4184,3 +4201,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-14 | Popular Plans card colour fix | Person reported the Popular Plans "Best Deal" card used a constant blue instead of the store's theme colour (visible on green-brand store `gh/kwam-two`). Cause: `StoreProducts.tsx` passed `brandColor={networkColor}` to `FeaturedCard`, and `networkColor` resolves to the per-category palette `CATEGORY_COLORS[category]` (`data: #3B82F6` blue) — overriding the store brand. The regular `ProductCard` already uses `var(--brand-color)`. Fix: pass `brandColor="var(--brand-color)"` to `FeaturedCard` (1 line + comment; `networkColor` left for the section header icon, which matches legacy). Verified by pixel analysis of headless-chromium screenshots of `gh/kwam-two` (brand `#16A34A`): before → green 9,985 / blue 10,341 px; after → green 24,212 / blue 11 px. `tsc` = 0. Person confirmed the storefront displays the active plans correctly. Delivered via `git format-patch`. |
 | 2026-10-14 | Minor copy fix (apply submit label) | Person reported the registration wizard's final button said "Submit Application"; changed to "Submit". Source is `review.submit` in `src/messages/en/apply.json` (line 49), rendered by `ReviewStep.tsx` (`t?.review?.submit || "Submit Application"`). Changed both the English string and the hardcoded fallback. `ar`/`fr` have their own `apply.json` (left untouched, not asked); `es`/`pt` have no `apply.json` so they already fall back to English. Verified read-only via the `/gh/apply` RSC payload (no form submit, no DB write): `"submit":"Submit"`, zero `Submit Application`; `tsc` = 0; `en/apply.json` still valid JSON (en-dash intact). Delivered via `git format-patch`. |
 | 2026-10-14 | Build-pipeline session (Task 7) | Person asked why the app build never completes. Proved: build IS dispatched on submit (Android App toggle defaults ON), but all 23 GitHub Actions runs since 2026-07-22 fail at "Setup Expo" (Node 20 vs Expo CLI needing >=22). Fixed by bumping both mobile-repo workflows to Node 22; verified by local repro (Node 20 fails with the exact error, Node 22 passes). Also found the failure callback never lands: `buildId` is the config_id not the build_id, and `API_URL` returns a 404 for the webhook route, so rows sit at "building" with no error. Node fix delivered as a patch to reseller-app; NOTE dispatch uses `ref: main` so it must reach main. Callback fix + stuck-row reconciliation still open. |
+| 2026-10-14 | Build-pipeline session (Task 7, cont.) | Person asked to dispatch from `handover/supabase-dump` instead of `main` while fixes are in flight. Changed both dispatch sites (`src/actions/reseller/build/triggerAppBuild.ts`, `src/app/actions/reseller/triggerAppBuild.ts`) to a named `BUILD_WORKFLOW_REF = "handover/supabase-dump"` constant, with a comment to revert to `"main"` after merge. `tsc` = 0. Confirmed the branch exists on the remote. Note: that branch does not yet carry the Node 22 fix, so the mobile patch must land there before a dispatch succeeds. |
