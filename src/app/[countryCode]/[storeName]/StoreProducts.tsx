@@ -180,7 +180,9 @@ export default function StoreProducts({
                     highlight={i === 0}
                     onBuyClick={onAddToCart}
                     canSell={canSell}
-                    brandColor={networkColor}
+                    // Store theme colour, not the per-category palette:
+                    // the Popular card must match the store's brand.
+                    brandColor="var(--brand-color)"
                   />
                 ))}
               </div>
