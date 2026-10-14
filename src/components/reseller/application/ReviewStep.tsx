@@ -306,7 +306,7 @@ export default function ReviewStep({
               Submitting...
             </>
           ) : (
-            t?.review?.submit || "Submit Application"
+            t?.review?.submit || "Submit"
           )}
         </button>
       </div>

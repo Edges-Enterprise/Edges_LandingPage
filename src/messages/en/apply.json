@@ -46,7 +46,7 @@
     "storeConfig": "Store Configuration",
     "agreement": "By submitting, you agree to the Terms of Service, Privacy Policy, and Acceptable Use Policy.",
     "back": "Back",
-    "submit": "Submit Application"
+    "submit": "Submit"
   },
   "errors": {
     "firstNameRequired": "First name is required",
