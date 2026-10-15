@@ -4129,9 +4129,10 @@ read the browser cannot make through **edge functions** (the trusted server
 layer the web already uses) rather than opening the tables with new RLS
 policies. Support all countries the web supports.
 
-**Status: IN PROGRESS. Active pointer: `8.a.iii.zo.x` (app wiring for the
-catalog read). `global-store-catalog` is built, DEPLOYED and LIVE-VERIFIED; the
-app has not yet been pointed at it.**
+**Status: IN PROGRESS. Active pointer: `8.a.iii.zo.x` — app wiring for the
+catalog read is DONE in the mobile repo (tsc 0, not yet pushed). The next step
+is the end-to-end APK build/run test, which needs a real `resellerId` in the
+build config. `global-store-catalog` is deployed and live-verified.**
 
 ### Why Option B, and why it is a read-layer change only
 
@@ -4275,7 +4276,7 @@ There is no `global_*` equivalent of `reseller_notifications` /
    8.a.iii Catalog read path
     8.a.iii.zi  (superseded by Option B - no migration needed)
     8.a.iii.zo  global-store-catalog function                    [DONE - deployed + live-verified]
-    8.a.iii.zp  app: useDataPlans -> call the function           [NEXT: 8.a.iii.zo.x]
+    8.a.iii.zp  app: useDataPlans -> call the function           [DONE - mobile tsc 0, unpushed]
  8.b  Country-aware presentation (currency/locale, networks+prefixes,
       copy) - port src/config/countries/*                      [TODO]
  8.c  Purchases & money movement
@@ -4295,14 +4296,46 @@ list). That is the data 8.b needs, replacing the app's NG-only naira/prefix/
 carrier constants. Currency for a customer wallet is already resolved from the
 reseller's country by `registerCustomerToGlobalReseller`.
 
-### Next atomic step — `8.a.iii.zo.x`
+### `8.a.iii.zo.x` — DONE (mobile repo, not yet pushed)
 
-Wire the app's catalog read to `global-store-catalog`: rewrite
-`hooks/useDataPlans.ts` to POST to the function (replacing the legacy
-`resellers` x `reseller_plan_configs` x `reseller_base_plans` read), and add
-`resellerId`/`countryCode` to `store/resellerStore.ts`'s `ResellerConfig` so the
-hook can pass them. Hold until `global-store-catalog` is deployed, since the app
-cannot be tested against an undeployed function.
+`hooks/useDataPlans.ts` now calls the deployed `global-store-catalog` function
+instead of the legacy `resellers` x `reseller_plan_configs` x
+`reseller_base_plans` read. `store/resellerStore.ts` gained `resellerId` and
+`countryCode` on `ResellerConfig`. The `plan_id` type changed from `number` to
+`string` (the function returns `global_base_plans.provider_plan_id`, a string;
+`purchaseOrchestrator` looks it up with `.eq("provider_plan_id", …)`), which
+rippled to `components/PlanCarousel.tsx`, the `selectedPlanId` state in
+`app/(app)/(protected)/index.tsx`, and the `plan_id` field in
+`hooks/usePurchaseVTU.ts`.
+
+No build-script change was needed: `scripts/generate-global-reseller-assets.sh`
+writes the whole config API response to `reseller-config.json`, which already
+includes `resellerId` and `countryCode`; `app.config.ts` spreads it into
+`extra.resellerConfig`. Verified against live `global_reseller_app_configs`
+rows — every config carries `resellerId` and a lowercase `countryCode` (`ng`,
+`cm`, …).
+
+Verification: mobile `tsc --noEmit` 0 (after `npm ci`). The function's own
+behaviour is covered by the live verification above; the app wiring is not yet
+run on a device.
+
+### Next atomic step — `8.a.iii.zo.x.z` (end-to-end catalog test)
+
+Run the app on a store that has enabled plans and confirm the storefront lists
+them, signed-out and signed-in. This needs a build with a real `resellerId` in
+`reseller-config.json` (generate one for e.g. `roseline`/`marcel-data`), or a
+local `reseller-config.json` seeded with a known `resellerId`. It also needs the
+app pointed at the right Supabase project (the app reads
+`EXPO_PUBLIC_BIMBO_SUPABASE_URL`, currently not in the repo). If a device run
+isn't practical, the alternative is a small scripted check that calls the
+function with each store's `resellerId` and asserts the app's filter/map
+produces the expected list — weaker, but it exercises the real response shape.
+
+**Flagged, not yet addressed:** `hooks/usePurchaseVTU.ts` still calls the
+legacy `purchase-data` function, while the catalog now returns
+`provider_plan_id` values from `global_base_plans`. Buying a catalog plan will
+fail until 8.c.i repoints the purchase hooks at `global-purchase-data` /
+`global-purchase-airtime`. Browse works now; buy does not.
 
 ## Project-completion stage — deferred items (decided by the person)
 
@@ -4463,3 +4496,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-14 | Task 8 (cont.) — Full global_* migration planning | Person approved the full data-model move (all web countries). Decomposed Task 8 into the 5-level tree (8.a read-path foundation, 8.b presentation, 8.c purchases, 8.d verification). Mapped every app table to its global_* target. Found two blockers: (1) RLS — the app is a customer with the anon key, but every global_* SELECT policy is reseller-owner-scoped, so the app can read none of them; and global_customer_wallets/virtual_accounts/transactions have RLS not enabled at all (wide open). (2) No global notifications table exists. A DB migration is a hard prerequisite; first atomic step is 8.a.i.zi.x. No code changed. |
 | 2026-10-14 | Task 8 Option B — catalog read function | Person chose Option B (edge functions as the read layer; tables stay locked down). Key finding: `triggerAppBuild.ts` already bakes `resellerId` + `countryCode` into the build config and `app.config.ts` spreads it into `extra.resellerConfig`, so store/country context needs no DB read. Built and verified `global-store-catalog` (country-scoped, strict opt-in, pricing identical to `purchaseOrchestrator`, and column-limited so base_price/markup never leave the server) plus `_shared/storeCatalog.ts` + 8 tests. `deno check` clean, 8/8 new, 34/34 existing, `tsc` 0; the tests caught a real dedupe-after-trim bug. Deploy is a manual person step (`--no-verify-jwt`). Pointer advanced to `8.a.iii.zo.x` (app wiring). |
 | 2026-10-14 | Task 8 Option B — catalog function deployed + live-verified | `global-store-catalog` landed (cc0914f) and was deployed to project jjyyfaxcwanrmiipzkoj with `--no-verify-jwt`. Live-verified with the publishable key and no user JWT, exactly as the app will call it: the NG store `roseline` returned 7/7 plans with correct prices and `plan_id` = `provider_plan_id`; the GH store `marcel-data` returned only its 6 GH plans (no cross-country leakage); no response object carried base_price/markup/selling_price/currency; negatives (missing id 400, unknown store empty 200, GET 405) all correct. Recorded the casing finding that `global_base_plans.country_code` is uppercase while `global_reseller_applications.country_code` is lowercase, so the join must be case-insensitive. Deploy had to run from the Ubuntu clone after its own `git pull --rebase` (the termux clone had the patch; the deploy clone was stale). Pointer unchanged at `8.a.iii.zo.x` — app wiring is next. |
+| 2026-10-14 | Task 8 Option B — app wired to the catalog function | Wired the mobile app's catalog read to the deployed `global-store-catalog`: `hooks/useDataPlans.ts` now invokes the function (replacing the legacy `resellers` x `reseller_plan_configs` x `reseller_base_plans` read); `store/resellerStore.ts` gained `resellerId`/`countryCode`. The `plan_id` type moved `number` -> `string` (the function returns `global_base_plans.provider_plan_id`), rippling to `PlanCarousel`, the `selectedPlanId` state, and `usePurchaseVTU`. No build-script change was needed — `generate-global-reseller-assets.sh` already writes the full config response (`resellerId` + lowercase `countryCode`) into `reseller-config.json`, confirmed against live `global_reseller_app_configs` rows. Mobile `tsc 0` (after `npm ci`). Flagged: `usePurchaseVTU` still calls the legacy `purchase-data`, so buying a catalog plan fails until 8.c.i — browse works, buy does not. Next: `8.a.iii.zo.x.z` end-to-end catalog test (needs a build with a real `resellerId`). |
