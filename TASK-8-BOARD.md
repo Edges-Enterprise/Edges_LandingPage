@@ -43,8 +43,9 @@ Last updated: 2026-10-15.
 | **8.a.iii** | **Catalog read path** | | 🔄 | — |
 | 8.a.iii.zi | (superseded — Option B needs no migration) | — | ✅ | — |
 | 8.a.iii.zo | Function `global-store-catalog` | 🤖🧑 | ✅ | deployed + live-verified |
-| 8.a.iii.zp | App: `useDataPlans` → call the function | 🤖 | ✅ | mobile `tsc` 0 (unpushed) |
-| 8.a.iii.zq | End-to-end catalog test (browse, signed-out + signed-in) | 🧑🤖 | ⬜ | build with a real `resellerId` |
+| 8.a.iii.zp | App: `useDataPlans` → call the function | 🤖 | ✅ | pushed (mobile `d923185`) |
+| 8.a.iii.zq | Scripted e2e: function response → hook filter/map | 🤖 | ✅ | ALL PASS (see card) |
+| 8.a.iii.zr | Device e2e: browse signed-out + signed-in on a real build | 🧑 | ⬜ | build with a real `resellerId` |
 | **8.b** | **Country-aware presentation** | | ⬜ | — |
 | 8.b.i | Port country config into the app (currency, symbol, locale, phone digits, telecoms) | 🤖 | ⬜ | pick the shape (see note) |
 | 8.b.ii | De-hardcode currency/locale (16 sites) | 🤖 | ⬜ | 8.b.i |
@@ -105,7 +106,32 @@ service role, using the identity branch already proven in
 **Invariant to preserve:** these functions return only the caller's own rows.
 Resolve identity from `auth.uid()`, never from a request-supplied id.
 
-### 8.a.iii.zq — End-to-end catalog test ⬜
+### 8.a.iii.zq — Scripted e2e ✅ (ALL PASS)
+
+Ran the live function's response through the exact filter/map from
+`hooks/useDataPlans.ts` and asserted the shape `PlanCarousel` consumes, for a
+NG store and a GH store, plus negatives:
+
+- **roseline (NG)** — 7 plans; filter by MTN/AIRTEL/9MOBILE returns 4/1/2,
+  price-sorted; an absent network (GLO) yields `[]`.
+- **marcel-data (GH)** — 6 plans; filter by AirtelTigo/MTN returns 2/4. No
+  cross-country leakage.
+- **shape** — every plan: `plan_id` str, `price` number, `name` str, `validity`
+  str-or-absent. No `base_price`/`markup`/`selling_price`/`currency` anywhere.
+- **negatives** — unknown `resellerId` → 200 with empty plans; missing → 400.
+
+**Finding (data, not code): GH base plans have no `validity`.** The 6
+`marcel-data` plans carry `data_amount` (e.g. "1GB") but no validity string,
+while NG plans do. The carousel renders an empty validity node rather than
+crashing — which is exactly why `DataPlan.validity` is optional. Worth a
+decision later: should the GH (and other-country) plans get a validity value, or
+should the carousel fall back to `data_amount`? Not a blocker.
+
+This is a **weaker** check than a device run: it exercises the real function
+response and the real hook logic, but not the React Native render or the
+signed-in session path. The device run remains as `8.a.iii.zr`.
+
+### 8.a.iii.zr — Device e2e ⬜ (person)
 
 Confirm the storefront lists plans for a store that has toggled plans ON, both
 signed-out and signed-in. Needs a build whose `reseller-config.json` has a real
@@ -186,13 +212,14 @@ cleared** — the storefront now reads the function on this branch.
 |---|---|---|---|
 | 8.a.i | 2 | 2 | ✅ complete |
 | 8.a.ii | 0 | 5 | ⬜ not started |
-| 8.a.iii | 3 | 4 | 🔄 e2e test left |
+| 8.a.iii | 4 | 5 | 🔄 device e2e left (scripted e2e ✅) |
 | 8.b | 0 | 6 | ⬜ not started |
 | 8.c | 0 | 3 | ⬜ not started (8.c.iii blocked) |
 | 8.d | 0 | 4 | ⬜ not started |
 
-**Next atomic step:** `8.a.iii.zq` (end-to-end catalog test) — or `8.c.i` if the
-person prefers to make buying work before device testing.
+**Next atomic step:** `8.a.ii.zi` — build `global-store-customer-context`, the
+first of the three identity/money functions; it unblocks `8.c.i`. (`8.a.iii.zr`,
+the device e2e, is person-gated on a build with a real `resellerId`.)
 
 ## Not part of Task 8 (recorded for completeness)
 
