@@ -61,7 +61,7 @@ interface CatalogPlan {
   data_amount?: string;
 }
 
-const EMPTY = { plans: [], networks: [], categories: [] };
+const EMPTY = { plans: [], networks: [], categories: [], store: null };
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
     //    reseller's own row, never from the caller.
     const { data: reseller, error: resellerError } = await admin
       .from("global_reseller_applications")
-      .select("id, country_code")
+      .select("id, country_code, store_name, email")
       .eq("id", resellerId)
       .eq("application_status", "active")
       .maybeSingle();
@@ -168,6 +168,14 @@ Deno.serve(async (req) => {
       plans,
       networks: uniqueSorted(plans.map((p) => p.network)),
       categories: uniqueSorted(plans.map((p) => p.category)),
+      // Public store identity for presentation (storefront header, legal
+      // copy). No customer data, so it is safe on this anonymous endpoint.
+      store: {
+        id: reseller.id,
+        name: reseller.store_name,
+        email: reseller.email ?? null,
+        country_code: reseller.country_code,
+      },
     });
   } catch (error) {
     console.error("global-store-catalog error:", error);

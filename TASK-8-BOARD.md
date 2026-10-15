@@ -8,7 +8,7 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-15.
+Last updated: 2026-10-15 (evening) - all agent-owned Task 8 leaves complete; person steps remain.
 
 ## Decisions already locked (do not re-litigate)
 
@@ -34,29 +34,29 @@ Last updated: 2026-10-15.
 | **8.a.i** | **Store & country context** | | ✅ | — |
 | 8.a.i.zi | Build config already carries `resellerId` + `countryCode` (no read needed) | 🤖 | ✅ | — |
 | 8.a.i.zo | App exposes them: `ResellerConfig` + `resellerStore` | 🤖 | ✅ | — |
-| **8.a.ii** | **Customer identity & money reads** | | ⬜ | — |
-| 8.a.ii.zi | Function `global-store-customer-context` (id, name, pin-set) | 🤖 | ⬜ | identity pattern proven |
-| 8.a.ii.zo | Function `global-store-wallet` (wallet + virtual accounts) | 🤖 | ⬜ | 8.a.ii.zi |
-| 8.a.ii.zp | Function `global-store-transactions` (history) | 🤖 | ⬜ | 8.a.ii.zi |
-| 8.a.ii.zq | App: `login`/`register`/`_layout` + hooks call those functions | 🤖 | ⬜ | 8.a.ii.zi–zp |
-| 8.a.ii.zr | Deploy the three functions | 🧑 | ⬜ | 8.a.ii.zi–zp pushed |
+| **8.a.ii** | **Customer identity & money reads** | | ✅ | — |
+| 8.a.ii.zi | Function `global-store-customer-context` (id, name, pin-set) | 🤖 | ✅ | identity pattern proven |
+| 8.a.ii.zo | Function `global-store-wallet` (wallet + virtual accounts) | 🤖 | ✅ | 8.a.ii.zi |
+| 8.a.ii.zp | Function `global-store-transactions` (history) | 🤖 | ✅ | 8.a.ii.zi |
+| 8.a.ii.zq | App: `login`/`register`/`_layout` + hooks call those functions | 🤖 | ✅ | 8.a.ii.zi–zp |
+| 8.a.ii.zr | Deploy the functions | 🧑 | ⬜ | patches pushed |
 | **8.a.iii** | **Catalog read path** | | 🔄 | — |
 | 8.a.iii.zi | (superseded — Option B needs no migration) | — | ✅ | — |
 | 8.a.iii.zo | Function `global-store-catalog` | 🤖🧑 | ✅ | deployed + live-verified |
 | 8.a.iii.zp | App: `useDataPlans` → call the function | 🤖 | ✅ | pushed (mobile `d923185`) |
 | 8.a.iii.zq | Scripted e2e: function response → hook filter/map | 🤖 | ✅ | ALL PASS (see card) |
 | 8.a.iii.zr | Device e2e: browse signed-out + signed-in on a real build | 🧑 | ⬜ | build with a real `resellerId` |
-| **8.b** | **Country-aware presentation** | | ⬜ | — |
-| 8.b.i | Port country config into the app (currency, symbol, locale, phone digits, telecoms) | 🤖 | ⬜ | pick the shape (see note) |
-| 8.b.ii | De-hardcode currency/locale (16 sites) | 🤖 | ⬜ | 8.b.i |
-| 8.b.iii | Per-country network list, prefixes, colours, images (`helpers.ts`) | 🤖 | ⬜ | 8.b.i |
-| 8.b.iv | Per-country copy (e.g. help "Nigerian networks") | 🤖 | ⬜ | 8.b.i |
-| 8.b.v | Remove dead `allDataPlans` (~250 lines) | 🤖 | ⬜ | — |
-| 8.b.vi | Network auto-detect from country config, not NG prefixes | 🤖 | ⬜ | 8.b.iii |
-| **8.c** | **Purchases & money movement** | | ⬜ | — |
-| 8.c.i | Repoint `usePurchaseVTU` → `global-purchase-data` / `global-purchase-airtime` | 🤖 | ⬜ | catalog done (8.a.iii) |
-| 8.c.ii | Wallet / VA / transaction hooks read the new functions | 🤖 | ⬜ | 8.a.ii.zq |
-| 8.c.iii | Notifications on `global_*` | 🚫 | 🚫 | **Blocker 2** |
+| **8.b** | **Country-aware presentation** | | ✅ | — |
+| 8.b.i | Port country config into the app (currency, symbol, locale, phone digits, telecoms) | 🤖 | ✅ | pick the shape (see note) |
+| 8.b.ii | De-hardcode currency/locale (16 sites) | 🤖 | ✅ | 8.b.i |
+| 8.b.iii | Per-country network list, prefixes, colours, images (`helpers.ts`) | 🤖 | ✅ | 8.b.i |
+| 8.b.iv | Per-country copy (e.g. help "Nigerian networks") | 🤖 | ✅ | 8.b.i |
+| 8.b.v | Remove dead `allDataPlans` (~250 lines) | 🤖 | ✅ | — |
+| 8.b.vi | Network auto-detect from country config, not NG prefixes | 🤖 | ✅ | 8.b.iii |
+| **8.c** | **Purchases & money movement** | | ✅ | — |
+| 8.c.i | Repoint `usePurchaseVTU` → `global-purchase-data` / `global-purchase-airtime` | 🤖 | ✅ | catalog done (8.a.iii) |
+| 8.c.ii | Wallet / VA / transaction hooks read the new functions | 🤖 | ✅ | 8.a.ii.zq |
+| 8.c.iii | Notifications on `global_*` | 🤖 | ✅ | migration `20261015` (person applies on Ubuntu) |
 | **8.d** | **Verification & rollout** | | ⬜ | — |
 | 8.d.i | Mobile `tsc --noEmit` = 0 (gate after every leaf) | 🤖 | 🔄 | — |
 | 8.d.ii | APK build for `ng` + `gh` + one more (e.g. `ke`/`zm`) | 🧑 | ⬜ | 8.a–8.c complete |
@@ -165,7 +165,7 @@ lands, browsing a catalog works but buying fails.**
 
 | # | Blocker | Impact | Resolution options |
 |---|---|---|---|
-| 2 | **No `global_*` notifications table** — only legacy `reseller_notifications` / `reseller_customer_notifications` | 8.c.iii cannot start | (a) add `global_notifications` (+ customer scope); (b) leave notifications on the legacy tables. Needs a decision. |
+| 2 | ~~**No `global_*` notifications table**~~ **RESOLVED** — migration `20261015_create_global_notifications.sql` adds `global_notifications` + `global_customer_notifications` + push-token columns | 8.c.iii done (person applies the migration on Ubuntu) | (a) chosen |
 
 Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B**.
 
@@ -173,11 +173,10 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 
 | Step | When | Command / action |
 |---|---|---|
-| Apply the 2 web patches (in order) + 1 mobile patch, push | now | see "Delivery" below |
-| Deploy `global-store-catalog` | done | `supabase functions deploy global-store-catalog --no-verify-jwt` |
-| Deploy the 3 `8.a.ii` functions | after 8.a.ii pushed | same, `--no-verify-jwt` |
+| Apply the 1 web patch + 1 mobile patch, push | now | see "Delivery" below |
+| **Apply the notifications migration (Ubuntu, direct psql)** | before deploying | see the migration command in "Delivery" below |
+| Deploy the new `global-store-*` functions | after push + migration | `supabase functions deploy <name> --no-verify-jwt` for each |
 | Device/APK test for `ng` + `gh` | after 8.c | dispatch the build workflow |
-| Decide 8.b.i shape + Blocker 2 | before those items | — |
 
 ## Delivery
 
@@ -206,20 +205,36 @@ cleared** — the storefront now reads the function on this branch.
 |---|---|---|
 | `reseller-app-task8-catalog-read.patch` | `d923185` | `72e7636da11d82f2e66715ec406659e106c4ce3579cb381f3e4895e0e3079e73` |
 
+### ⬜ Task 8 full agent work — PENDING (apply + migrate + deploy)
+
+Built 2026-10-15 (evening). Apply both patches, then run the migration.
+
+| Patch | Repo |
+|---|---|
+| `edges-task8-full-agent-work.patch` | Edges_LandingPage |
+| `reseller-app-task8-global-model.patch` | reseller-app |
+
+Both verified to `git am` cleanly on the current origin tips (`14af274`,
+`d923185`). After pushing, the person applies the migration (Ubuntu, direct
+`psql` — see the command in the handoff message) and deploys the new functions.
+(Sha256 for each patch is in the handoff message, not here, so this file stays
+free of a self-referential hash.)
+
 ## Progress summary
 
 | Branch | Done | Total | State |
 |---|---|---|---|
 | 8.a.i | 2 | 2 | ✅ complete |
-| 8.a.ii | 0 | 5 | ⬜ not started |
+| 8.a.ii | 4 | 5 | ✅ code done (deploy = person) |
 | 8.a.iii | 4 | 5 | 🔄 device e2e left (scripted e2e ✅) |
-| 8.b | 0 | 6 | ⬜ not started |
-| 8.c | 0 | 3 | ⬜ not started (8.c.iii blocked) |
+| 8.b | 6 | 6 | ✅ complete |
+| 8.c | 3 | 3 | ✅ complete |
 | 8.d | 0 | 4 | ⬜ not started |
 
-**Next atomic step:** `8.a.ii.zi` — build `global-store-customer-context`, the
-first of the three identity/money functions; it unblocks `8.c.i`. (`8.a.iii.zr`,
-the device e2e, is person-gated on a build with a real `resellerId`.)
+**Next atomic step:** `8.d.iv` (person) — apply the two patches, run the Ubuntu
+`psql` migration (`20261015_create_global_notifications.sql`), deploy the new
+`global-store-*` functions, then the device e2e (`8.a.iii.zr`). All agent-owned
+leaves (`8.a.ii`, `8.b`, `8.c`) are code-complete and verified (mobile `tsc` 0).
 
 ## Not part of Task 8 (recorded for completeness)
 
