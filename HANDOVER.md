@@ -4130,8 +4130,8 @@ layer the web already uses) rather than opening the tables with new RLS
 policies. Support all countries the web supports.
 
 **Status: IN PROGRESS. Active pointer: `8.a.iii.zo.x` (app wiring for the
-catalog read). The catalog read function is built and verified; its deploy is a
-manual person step.**
+catalog read). `global-store-catalog` is built, DEPLOYED and LIVE-VERIFIED; the
+app has not yet been pointed at it.**
 
 ### Why Option B, and why it is a read-layer change only
 
@@ -4163,7 +4163,7 @@ is a later, optional refinement (8.b) and is not on the critical path.
 
 | Function | Purpose | Status |
 |---|---|---|
-| `global-store-catalog` | country-scoped storefront catalog (plans, networks, categories) | built + verified, **deploy pending** |
+| `global-store-catalog` | country-scoped storefront catalog (plans, networks, categories) | **DEPLOYED + LIVE-VERIFIED** |
 | `global-store-customer-context` | caller's own customer record (id, pin-set, name) | not started (8.a.ii) |
 | `global-store-wallet` | caller's own wallet + virtual accounts | not started (8.a.ii) |
 | `global-store-transactions` | caller's own transaction history | not started (8.a.ii) |
@@ -4204,21 +4204,52 @@ Verification: `deno check` clean; 8/8 new tests; 34/34 existing `_shared` tests
 still pass; project `tsc` 0. The test run caught one real bug in `uniqueSorted`
 (it deduped before trimming, so `" MTN "` and `"MTN"` both survived) — fixed.
 
-### Manual step (person, from Ubuntu) — deploy the function
+### Deploy — DONE (2026-10-14), and LIVE-VERIFIED
 
-The catalog is browsed by **anonymous** visitors, so it must be reachable
-without a session: deploy with `--no-verify-jwt`, like the app's other
-anon-called functions (`purchase-data` and `get-customer-auth-email` are already
-`verify_jwt = false`). Public exposure is limited to active stores' storefront
-fields (name/price/network) — equivalent to the public web storefront — because
-the column discipline above keeps cost and markup out of the response.
+The function is browsed by **anonymous** visitors, so it was deployed with
+`--no-verify-jwt` (like the app's other anon-called functions: `purchase-data`,
+`get-customer-auth-email`). Public exposure is limited to active stores'
+storefront fields (name/price/network) — equivalent to the public web
+storefront — because the column discipline keeps cost and markup out of the
+response.
 
 ```bash
 cd ~/ubuntu-repos/Edges_LandingPage
-supabase link --project-ref jjyyfaxcwanrmiipzkoj
+git pull --rebase
 supabase functions deploy global-store-catalog --no-verify-jwt
-# success line: "Deployed Functions on project jjyyfaxcwanrmiipzkoj: global-store-catalog"
+# -> "Deployed Functions on project jjyyfaxcwanrmiipzkoj: global-store-catalog"
 ```
+
+Note the two separate Ubuntu/termux clones: the patch was applied in the termux
+clone (`~/Edges_LandingPage`) but the deploy runs from the Ubuntu clone
+(`~/ubuntu-repos/Edges_LandingPage`), which needed its own `git pull --rebase`
+first. Deploying from a stale clone fails with "Entrypoint path does not
+exist"; pull in the clone you deploy from.
+
+**Live verification** (function invoked with the **publishable key and no user
+JWT**, i.e. exactly how the app will call it):
+
+- **Nigeria** (`store_slug = roseline`, `country_code = ng`, 7 enabled configs)
+  returned 7/7 plans with correct prices: MTN 1000MB 400 (selling_price),
+  MTN 1GB 489, 9MOBILE 40MB 54 (49 x 1.10 percentage -> 54), MTN 500MB 485,
+  AIRTEL 500MB 498, MTN 75MB 73, 9MOBILE 83MB 100 (98 + 2 fixed). Each
+  `plan_id` equalled the base plan's `provider_plan_id`, which is what
+  `global-purchase-*` expects.
+- **No leakage**: no plan object contained `base_price`, `markup_value`,
+  `markup_type`, `selling_price` or `currency`.
+- **Ghana** (`store_slug = marcel-data`, `country_code = gh`, 6 enabled configs)
+  returned **only** the 6 GH plans (AirtelTigo 1GB/2GB, MTN 1GB–4GB) — no NG
+  rows leaked across countries.
+- **Negatives**: missing `resellerId` -> 400; unknown reseller -> empty catalog
+  200; `GET` -> 405.
+
+**Casing finding (important for the rest of Task 8).** `global_base_plans`
+stores `country_code` **uppercase** (`'NG'`, `'GH'`) while
+`global_reseller_applications` stores it **lowercase** (`'ng'`, `'gh'`), so any
+country join across these two tables MUST be case-insensitive. `scopeToCountry`
+already is, which is why the live test passed. The wider catalog holds AO, BF,
+BJ, CD, CF, CG, CI, CM, GA, GH, GM, GN, KE (and NG) — more countries than the
+web's `SUPPORTED_COUNTRIES` list.
 
 ### Blocker 2 (unchanged) — no global notifications table
 
@@ -4243,7 +4274,7 @@ There is no `global_*` equivalent of `reseller_notifications` /
     8.a.ii.zq   app: login/register/_layout + hooks on those     [TODO]
    8.a.iii Catalog read path
     8.a.iii.zi  (superseded by Option B - no migration needed)
-    8.a.iii.zo  global-store-catalog function                    [BUILT - deploy pending]
+    8.a.iii.zo  global-store-catalog function                    [DONE - deployed + live-verified]
     8.a.iii.zp  app: useDataPlans -> call the function           [NEXT: 8.a.iii.zo.x]
  8.b  Country-aware presentation (currency/locale, networks+prefixes,
       copy) - port src/config/countries/*                      [TODO]
@@ -4431,3 +4462,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-14 | Multi-country audit (Task 8) | Confirmed: build workflow IS multi-country (`country_code` input threaded through asset fetch, release tag, callback, summary), but the mobile app is Nigeria-only in every user-facing layer — zero `country` refs in app code; naira/`en-NG` hardcoded; NG phone prefixes for network detection; NG-only carriers; and it reads the legacy `resellers`/`reseller_plan_configs`/`reseller_base_plans` tables which have no `country_code` column (the web's `global_*` country-scoped model is not read). `countryCode` is fetched by the build but never propagated into `extra.resellerConfig`, and the asset script silently defaults to `ng`. No code changed; fix scoping left to the person. |
 | 2026-10-14 | Task 8 (cont.) — Full global_* migration planning | Person approved the full data-model move (all web countries). Decomposed Task 8 into the 5-level tree (8.a read-path foundation, 8.b presentation, 8.c purchases, 8.d verification). Mapped every app table to its global_* target. Found two blockers: (1) RLS — the app is a customer with the anon key, but every global_* SELECT policy is reseller-owner-scoped, so the app can read none of them; and global_customer_wallets/virtual_accounts/transactions have RLS not enabled at all (wide open). (2) No global notifications table exists. A DB migration is a hard prerequisite; first atomic step is 8.a.i.zi.x. No code changed. |
 | 2026-10-14 | Task 8 Option B — catalog read function | Person chose Option B (edge functions as the read layer; tables stay locked down). Key finding: `triggerAppBuild.ts` already bakes `resellerId` + `countryCode` into the build config and `app.config.ts` spreads it into `extra.resellerConfig`, so store/country context needs no DB read. Built and verified `global-store-catalog` (country-scoped, strict opt-in, pricing identical to `purchaseOrchestrator`, and column-limited so base_price/markup never leave the server) plus `_shared/storeCatalog.ts` + 8 tests. `deno check` clean, 8/8 new, 34/34 existing, `tsc` 0; the tests caught a real dedupe-after-trim bug. Deploy is a manual person step (`--no-verify-jwt`). Pointer advanced to `8.a.iii.zo.x` (app wiring). |
+| 2026-10-14 | Task 8 Option B — catalog function deployed + live-verified | `global-store-catalog` landed (cc0914f) and was deployed to project jjyyfaxcwanrmiipzkoj with `--no-verify-jwt`. Live-verified with the publishable key and no user JWT, exactly as the app will call it: the NG store `roseline` returned 7/7 plans with correct prices and `plan_id` = `provider_plan_id`; the GH store `marcel-data` returned only its 6 GH plans (no cross-country leakage); no response object carried base_price/markup/selling_price/currency; negatives (missing id 400, unknown store empty 200, GET 405) all correct. Recorded the casing finding that `global_base_plans.country_code` is uppercase while `global_reseller_applications.country_code` is lowercase, so the join must be case-insensitive. Deploy had to run from the Ubuntu clone after its own `git pull --rebase` (the termux clone had the patch; the deploy clone was stale). Pointer unchanged at `8.a.iii.zo.x` — app wiring is next. |
