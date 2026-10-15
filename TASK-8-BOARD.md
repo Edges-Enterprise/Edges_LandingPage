@@ -8,7 +8,7 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-14.
+Last updated: 2026-10-15.
 
 ## Decisions already locked (do not re-litigate)
 
@@ -153,25 +153,32 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 | Device/APK test for `ng` + `gh` | after 8.c | dispatch the build workflow |
 | Decide 8.b.i shape + Blocker 2 | before those items | — |
 
-## Delivery (current, unpushed)
+## Delivery
 
-Web (`Edges-Enterprise/Edges_LandingPage`, `handover/supabase-dump`, origin tip
-`cc0914f`) — **two patches, apply in order**:
+### ✅ Web — LANDED
 
-| Patch | sha256 |
-|---|---|
-| `edges-task8-catalog-deployed.patch` | `62806ae2315f5a3ce44f71fc86ac32f52c01690cd19c7d373d5c5baed2d476d0` |
-| `edges-task8-app-wired.patch` | `9f50e5f6f165778d06391001b0703bd58833e2bd6d0789b200da9253dfbf6d4a` |
+Web (`Edges-Enterprise/Edges_LandingPage`, `handover/supabase-dump`) is
+**pushed and current**. Origin tip is now `ed325c3`; all three patches landed
+(verified by patch-id match): the `global-store-catalog` function, the deploy +
+live-verify docs, and this board. Local tree == origin tree
+(`0c34f55d…`). Nothing to apply.
 
-Mobile (`Erudite885/reseller-app`, `handover/supabase-dump`, origin tip
-`c556096`) — one patch:
+| Patch | Landed as | sha256 |
+|---|---|---|
+| `edges-task8-catalog-deployed.patch` | `6551097` | `62806ae2315f5a3ce44f71fc86ac32f52c01690cd19c7d373d5c5baed2d476d0` |
+| `edges-task8-app-wired.patch` | `fdf48fa` | `9f50e5f6f165778d06391001b0703bd58833e2bd6d0789b200da9253dfbf6d4a` |
+| `edges-task8-board.patch` | `ed325c3` | `8e279418623c91f490305f5ceba793e88cf4f99dea18cae1d9baefff07e3998e` |
 
-| Patch | sha256 |
-|---|---|
-| `reseller-app-task8-catalog-read.patch` | `72e7636da11d82f2e66715ec406659e106c4ce3579cb381f3e4895e0e3079e73` |
+### ✅ Mobile — LANDED
 
-All three verified to `git am` cleanly (web sequence tree `9a1ffd05…`, mobile
-tree `7bfd8ff3…`, both matching the local commits).
+Mobile (`Erudite885/reseller-app`, `handover/supabase-dump`) — pushed. Origin
+tip is now `d923185` (`c556096..d923185`), tree `7bfd8ff3…` (matches local); the
+catalog-read change is present by patch-id. **The 8.a.iii.zq blocker is
+cleared** — the storefront now reads the function on this branch.
+
+| Patch | Landed as | sha256 |
+|---|---|---|
+| `reseller-app-task8-catalog-read.patch` | `d923185` | `72e7636da11d82f2e66715ec406659e106c4ce3579cb381f3e4895e0e3079e73` |
 
 ## Progress summary
 
