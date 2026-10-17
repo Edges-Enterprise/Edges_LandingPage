@@ -4129,15 +4129,13 @@ read the browser cannot make through **edge functions** (the trusted server
 layer the web already uses) rather than opening the tables with new RLS
 policies. Support all countries the web supports.
 
-**Status: IN PROGRESS. Active pointer: `8.d.vi` (agent: fix the config route’s
-non-existent-column select, then re-dispatch the build). `8.d.v` (deploy the web
-to production) is DONE — the person merged `handover/supabase-dump` into `main`
-(PR #25, merge commit `50e2b7c`) and the Production deployment succeeded. All
-agent work for `8.a`/`8.b`/`8.c` is code-complete, verified (mobile `tsc` 0, all
-functions parse, columns cross-checked against `supabase/schema.sql`) and landed
-(web `9be9e80`, merged to `main`; mobile `778e937`). The notifications migration
-is applied live and all 10 `global-store-*` functions are deployed +
-live-verified.**
+**Status: IN PROGRESS. Active pointer: `8.d.ii` (re-dispatch the Roseline APK
+build, then device e2e). `8.d.v` (deploy the web to production) and `8.d.vi`
+(fix the config route’s non-existent-column select) are both DONE. All agent work
+for `8.a`/`8.b`/`8.c` is code-complete, verified (mobile `tsc` 0, all functions
+parse, columns cross-checked against `supabase/schema.sql`) and landed (web
+`9be9e80` merged to `main`; mobile `778e937`). The notifications migration is
+applied live and all 10 `global-store-*` functions are deployed + live-verified.**
 
 **2026-10-17 (second session): the Roseline APK build was dispatched for the
 first time — the new `P_TOKEN` has `actions:write` — and it exposed the real
@@ -4375,7 +4373,7 @@ The earlier reading (all deployments `Preview`, production serving stale `main`
 `57b3d1c`, config route absent from `main`) is superseded — that was the state
 *before* the merge.
 
-### Config route selects columns that do not exist (FOUND 2026-10-17, third check)
+### Config route selected columns that do not exist (FOUND + FIXED 2026-10-17)
 
 **This is the next blocker, and it is a small code defect.** The APK build’s
 config endpoint still returns 404, but it is now the **route’s own** 404, not a
@@ -4444,22 +4442,24 @@ Optionally also narrow the `if (error)` branch so a `42703`/`PGRST` schema error
 returns 500, not 404 — the current code makes a schema bug indistinguishable from
 a missing row, which is why this hid for so long.
 
-**Not yet fixed** — the user asked only to confirm the deployment; no code was
-changed this session.
+**FIXED** (web `e9e7a6b`, this session). The `.select()` is now
+`"config, application_id, build_status, error_message"` and the two `fullConfig`
+echoes are gone; the `if (error)` branch now returns 500 for any non-`PGRST116`
+error instead of masking a schema fault as 404. Verified against live data: the
+new select returns HTTP 200, and every field the build script reads
+(`storeName`, `appName`, `theme.primary`, `config.androidPackageName`, `assets.*`)
+is present in the assembled response. **This fix is on
+`handover/supabase-dump` and still needs to reach `main` for production to serve
+it** — either merge the branch, or re-dispatch the build against a deployment of
+the branch.
 
-### Next atomic step — `8.d.vi` (agent: fix the config-route select)
+### Next atomic step — `8.d.ii` (re-dispatch the Roseline APK build)
 
-`8.d.v` is **DONE** (production deploy confirmed above). The Roseline APK build
-now fails for a different, code-level reason (see the section just above). Fix:
-
-```ts
-// src/app/api/reseller/[countryCode]/config/[configId]/route.ts
-.select("config, application_id, build_status, error_message")
-```
-
-and drop the `apk_url: config.apk_url,` / `aab_url: config.aab_url,` lines in
-`fullConfig` (the build script reads neither). Then re-dispatch the Roseline build
-and run the device e2e:
+`8.d.v` and `8.d.vi` are **DONE**. First make sure the `8.d.vi` fix is live where
+the build will fetch it: merge `handover/supabase-dump` → `main` (or point
+`API_URL` at a deployment of the branch), because the build script fetches
+`${API_URL}/api/reseller/${COUNTRY_CODE}/config/${CONFIG_ID}` and `API_URL`
+defaults to `https://edges-landing-page.vercel.app`. Then re-dispatch:
 
 ```bash
 gh workflow run build-global-reseller-apk.yml \
@@ -4474,16 +4474,10 @@ Watch for a `ng-roseline-330e68c4-<timestamp>` release in
 APK and browse the catalog (expect 7 plans, MTN/AIRTEL/9MOBILE), then attempt a
 purchase.
 
-**Dispatch ref:** `main` now contains the whole `handover/supabase-dump` lineage
-(merged as `50e2b7c`), so the build may be dispatched from `main` too — the
-standing "revert `BUILD_WORKFLOW_REF` to `main`" note is satisfied. The `8.d.vi`
-fix must reach `main` (or be dispatched from the branch) for production to serve
-it.
-
 **Caveat:** the workflow callback POSTs to
-`$API_URL/api/reseller/ng/webhooks/build`; that route is now deployed (405 on GET
-= present), so a completed build should update the DB row — but still judge by
-the `tenant-distribution` release.
+`$API_URL/api/reseller/ng/webhooks/build`; that route is deployed, so a completed
+build should update the DB row — but still judge by the `tenant-distribution`
+release.
 
 ### (superseded) Next atomic step — `8.d.iv` (apply patches, migrate, deploy)
 
@@ -4695,3 +4689,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-17 | Task 8 — doc refresh (state verified live) | Bootstrapped both repos from fresh clones (web `be040bb` tree `481cd06c`; mobile `fe92bb2` tree `e4216570`) — both match HANDOVER exactly; local sandbox commits `370a411`/`87dab5b` are content-identical (same trees), no divergence. Live-verified section 2's claims: migration `20261015` IS applied (`global_notifications`, `global_customer_notifications`, and `push_token` on `global_reseller_applications`/`global_customers` all HTTP 200 via service-role REST); all 10 `global-store-*` functions deployed and behaving (catalog 200 with 7 NG plans; auth-email returns success:true/authEmail:null; identity fns 401 Invalid authorization token with no JWT; -pin/-update-profile 400). Confirmed the dispatch blocker: gh workflow run build-global-reseller-apk.yml returns 403 Resource not accessible by integration (App installation token, repo push but no actions:write), and no ng-roseline-* release exists in Erudite885/tenant-distribution — the Roseline build was never dispatched. Also found PAT_TOKEN is invalid (401 Bad credentials); GITHUB_TOKEN works as Phoenix-Boss. Doc-only update (this file + TASK-8-BOARD.md): marked 8.a.ii.zr and 8.d.iv done, migration applied, functions deployed; pointer advanced to 8.a.iii.zr (device e2e), gated on the Roseline build. Delivered via git format-patch. |
 | 2026-10-17 | Task 8 — doc push landed + Roseline build dispatched; **web never deployed to production** (new blocker) | Bootstrapped both repos from fresh clones (web `be040bb` tree `481cd06c`, mobile `fe92bb2` tree `e4216570` — both match HANDOVER exactly), downloaded and sha256-verified all four served artifacts (patch + 2 bundles + `HANDOFF-PROMPT.md`; all OK), then applied and **pushed the doc-only commit** `d48fc7e` via `git am` + `P_TOKEN` — web origin tip `be040bb` → `8bc1c00` (tree `5bd5390`); mobile already at `fe92bb2`, nothing to push. **New token found:** `P_TOKEN` (literal, uppercase) is present and works — HTTP 200, 5000/hr, classic PAT with `repo`+`workflow`+`admin:org` scopes, login `Phoenix-Boss` (the old `PAT_TOKEN` is absent; `GITHUB_TOKEN` is the App token). Live-verified section 2's claims: migration `20261015` applied (`global_notifications`, `global_customer_notifications`, `push_token` on `global_reseller_applications`/`global_customers` all 200 via service-role REST) and `global-store-catalog` returns 200 with 7 NG plans for Roseline (store block Roseline/ng). **Dispatched the Roseline APK build for the first time** (`gh workflow run build-global-reseller-apk.yml --ref handover/supabase-dump`, run `39058017316`) — it cleared "Setup Expo" (Node 22 fix confirmed in CI) and "Install dependencies", then failed at "Generate global reseller assets": the config endpoint 404s. **Root cause (new, material): the web app has never been deployed to production.** All 100 GitHub deployments for the repo are `Preview` (zero `Production`); production `edges-landing-page.vercel.app` serves an old `main` lineage (`57b3d1c`) that predates Tasks 4–8 — the config route, `/ng/roseline`, `/ng`, `/api/reseller/ng/countries`, `/gh/kwam-two` all 404; only legacy routes answer. The country route exists only on `handover/supabase-dump` (commit `5081575`), and the generic fallback reads the legacy `reseller_app_configs` table, so its "Config not found" is expected. Previews are Vercel-Auth protected (302→401), so they can't stand in. This also re-frames Task 7's "webhook 404": `API_URL` points at a deployment with no such routes. Roseline `build_status` stays `building` with null `error_message`, as predicted. Doc-only update (this file + TASK-8-BOARD.md): added leaf `8.d.v` (person: deploy web to production) and advanced the pointer to it; the device e2e (`8.a.iii.zr`) is gated on that deploy. No code changed this session. |
 | 2026-10-17 | Task 8 — production deploy CONFIRMED; config-route defect found | Re-checked the deployment at the user’s request. **`8.d.v` is DONE**: the person merged `handover/supabase-dump` into `main` (PR #25, merge commit `50e2b7c`, merged 20:12Z) and Vercel produced a **Production** deployment that succeeded (deployment `7145175251` on `50e2b7c`, state `success`, 20:14Z). The deployments API now reads `{Production: 1, Preview: 99}` (was `{0, 100}`), and `9be9e80` is an ancestor of `origin/main`. `edges-landing-page.vercel.app` now serves the Task 4–8 lineage: `/ng/roseline` → 200, `/ng` → 200, `/gh/kwam-two` → 200, `/api/reseller/ng/webhooks/build` → 405 (present). **The APK config endpoint still 404s, but now for a new, code-level reason** (Blocker 4): `src/app/api/reseller/[countryCode]/config/[configId]/route.ts:25` selects `apk_url, aab_url` off `global_reseller_app_configs`, which has no such columns (they live on `global_app_builds`), so PostgREST returns `42703 column … does not exist`; the route’s `if (error)` branch maps any error to its `{"error":"Config not found: …"}` 404. Proven by `x-matched-path: /api/reseller/[countryCode]/config/[configId]` (handler ran) and by reproducing the exact select against PostgREST (HTTP 400, code `42703`). The config row itself is fine (service-role/publishable/anon reads all 200). Fix is one line: drop `apk_url, aab_url` from the select and the two `fullConfig` echoes — the build script reads neither. Doc-only update this session (HANDOVER.md + TASK-8-BOARD.md): added Blocker 4, marked `8.d.v` done, added leaf `8.d.vi` (agent) and advanced the pointer to it. No code changed. |
+| 2026-10-17 | Task 8 — `8.d.vi` config-route fix applied | Removed the non-existent `apk_url, aab_url` from the config route’s select and the two `fullConfig` echoes (`src/app/api/reseller/[countryCode]/config/[configId]/route.ts`), and narrowed the `if (error)` branch so only `PGRST116` (no rows) yields 404 — any other error now returns 500 instead of masquerading as "Config not found". Verified: esbuild parses the file; the new select against live data returns HTTP 200; and every field the build script reads (`storeName`, `appName`, `theme.primary`, `config.androidPackageName`, `assets.*`) is present in the assembled response (emulated the route’s `fullConfig` from the live row). Commit `e9e7a6b` on `handover/supabase-dump`. Pointer advanced to `8.d.ii`: the fix must reach `main` (or `API_URL` must point at a branch deployment) before re-dispatching the Roseline build, since the script fetches `${API_URL}/api/reseller/${COUNTRY_CODE}/config/${CONFIG_ID}` and `API_URL` defaults to the production host. |

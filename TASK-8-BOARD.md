@@ -8,14 +8,14 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-17 (third check) - **the web IS now deployed to
-production** (`8.d.v` DONE: PR #25 merged `handover/supabase-dump` into `main` as
-`50e2b7c`; Production deployment `7145175251` succeeded at 20:14Z). That
-unblocked the APK build past the missing-deployment problem and exposed a new
-code-level blocker: the config route selects `apk_url, aab_url` off
-`global_reseller_app_configs`, which has no such columns (Blocker 4). New active
-leaf **`8.d.vi` (agent: fix the config-route select)**; the device e2e
-(`8.a.iii.zr`) is gated on it.
+Last updated: 2026-10-17 (fourth check) - **the web IS deployed to production**
+(`8.d.v` DONE: PR #25 merged `handover/supabase-dump` into `main` as `50e2b7c`;
+Production deployment `7145175251` succeeded at 20:14Z) **and the config-route
+defect is FIXED** (`8.d.vi` DONE: commit `e9e7a6b` drops the non-existent
+`apk_url, aab_url` from the select and stops masking schema errors as 404;
+Blocker 4 resolved). New active leaf **`8.d.ii` (re-dispatch the Roseline APK
+build)**; the fix must reach `main` (or the build must run against a deployment of
+the branch) before the build can fetch its config.
 
 ## Decisions already locked (do not re-litigate)
 
@@ -66,11 +66,11 @@ leaf **`8.d.vi` (agent: fix the config-route select)**; the device e2e
 | 8.c.iii | Notifications on `global_*` | 🤖 | ✅ | migration `20261015` **applied live** (2026-10-17) |
 | **8.d** | **Verification & rollout** | | 🔄 | — |
 | 8.d.i | Mobile `tsc --noEmit` = 0 (gate after every leaf) | 🤖 | ✅ | 0 after every leaf (2026-10-15) |
-| 8.d.ii | APK build for `ng` + `gh` + one more (e.g. `ke`/`zm`) | 🧑 | 🚫 | Roseline dispatched `39058017316`; re-run after **Blocker 4** fix |
+| 8.d.ii | APK build for `ng` + `gh` + one more (e.g. `ke`/`zm`) | 🧑 | 🚫 | Roseline dispatched `39058017316`; re-dispatch now that Blocker 4 is fixed (fix must be live where the build fetches) |
 | 8.d.iii | Signed-out vs signed-in storefront parity | 🧑 | ⬜ | 8.d.ii |
 | 8.d.iv | Push mobile + web | 🧑 | ✅ | web `9be9e80` (merged to `main`) / mobile `778e937` (2026-10-17) |
 | 8.d.v | Deploy the web to production | 🧑 | ✅ | **DONE** — PR #25 → `main` `50e2b7c`; Production deploy `7145175251` success |
-| 8.d.vi | **Fix config route select** (`apk_url, aab_url` not on `global_reseller_app_configs`) | 🤖 | ⬜ | **NEW + critical path** — see Blocker 4 |
+| 8.d.vi | Fix config route select (`apk_url, aab_url` not on `global_reseller_app_configs`) | 🤖 | ✅ | **DONE** — `e9e7a6b`; verified against live data (new select 200; script fields all present) |
 
 ## Critical path
 
@@ -183,7 +183,7 @@ lands, browsing a catalog works but buying fails.**
 |---|---|---|---|
 | 2 | ~~**No `global_*` notifications table**~~ **RESOLVED** — migration `20261015_create_global_notifications.sql` adds `global_notifications` + `global_customer_notifications` + push-token columns | 8.c.iii done (migration applied live) | (a) chosen |
 | 3 | ~~**The web has never been deployed to production.**~~ **RESOLVED (2026-10-17)** — PR #25 merged the branch to `main` (`50e2b7c`) and Production deployment `7145175251` succeeded. Originally: Vercel showed 100 deployments, all `Preview`, zero `Production`; `edges-landing-page.vercel.app` serves a stale `main` lineage (`57b3d1c`) that predates Tasks 4–8, so every Task 4–8 route 404s — including the config API the APK build fetches. | Blocks the APK build (`8.d.ii`) → device e2e (`8.a.iii.zr`); also the cause of Task 7's webhook 404 | (a) promote a preview of `handover/supabase-dump` to production + set the mobile `API_URL` secret to that host; (b) merge `handover/supabase-dump` → `main` and let Production build. **Person/Vercel-dashboard step** — no `VERCEL_TOKEN` in the sandbox. |
-| 4 | **Config route selects columns that do not exist.** `src/app/api/reseller/[countryCode]/config/[configId]/route.ts:25` selects `apk_url, aab_url` off `global_reseller_app_configs` (which lacks them; they are on `global_app_builds`), so PostgREST returns `42703` and the route maps any error to its 404 branch. | Blocks the APK build (`8.d.ii`) → device e2e (`8.a.iii.zr`) even now that production serves the branch | (a) drop `apk_url, aab_url` from the select + the `fullConfig` echoes — no caller reads them from this endpoint (the build script uses storeName/appName/theme/assets; the app reads neither; the real APK-URL source is `global_app_builds`, which the storefront already queries). Legacy carry-over: the old `reseller_app_configs` had these columns, the global table does not. (b) if a consumer ever needs them here, source them from `global_app_builds` by `application_id`. Agent fix. |
+| 4 | ~~**Config route selects columns that do not exist.**~~ **RESOLVED (2026-10-17)** — fixed in `e9e7a6b`. Originally: `src/app/api/reseller/[countryCode]/config/[configId]/route.ts:25` selects `apk_url, aab_url` off `global_reseller_app_configs` (which lacks them; they are on `global_app_builds`), so PostgREST returns `42703` and the route maps any error to its 404 branch. | Blocks the APK build (`8.d.ii`) → device e2e (`8.a.iii.zr`) even now that production serves the branch | (a) drop `apk_url, aab_url` from the select + the `fullConfig` echoes — no caller reads them from this endpoint (the build script uses storeName/appName/theme/assets; the app reads neither; the real APK-URL source is `global_app_builds`, which the storefront already queries). Legacy carry-over: the old `reseller_app_configs` had these columns, the global table does not. (b) if a consumer ever needs them here, source them from `global_app_builds` by `application_id`. Agent fix. |
 
 Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B**.
 
@@ -195,7 +195,7 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 | ~~Apply the notifications migration (Ubuntu, direct psql)~~ | **DONE** | `20261015_create_global_notifications.sql` applied (tables + columns return 200) |
 | ~~Deploy the new `global-store-*` functions~~ | **DONE** | all 10 deployed `--no-verify-jwt` + live-verified |
 | ~~Deploy the web to production~~ (`8.d.v`) | **DONE** | PR #25 merged `handover/supabase-dump` → `main` (`50e2b7c`); Production deploy `7145175251` success |
-| **Merge the `8.d.vi` fix to `main`** | after the agent fix | once the config route stops selecting `apk_url, aab_url`, merge/deploy so production serves it |
+| **Merge the `8.d.vi` fix to `main`** | **now** | `e9e7a6b` is on `handover/supabase-dump`; merge (or point `API_URL` at a branch deployment) so the build fetches the fixed route |
 | **Dispatch the Roseline APK build** | after `8.d.vi` lands | `gh workflow run build-global-reseller-apk.yml …` (may use `--ref main` now) |
 | **Device/APK test for `ng` + `gh`** | after build | install the release APK; browse + buy (`8.a.iii.zr`) |
 
@@ -300,15 +300,15 @@ by the `tenant-distribution` release.
 | 8.a.iii | 4 | 5 | 🔄 device e2e left (scripted e2e ✅) |
 | 8.b | 6 | 6 | ✅ complete |
 | 8.c | 3 | 3 | ✅ complete |
-| 8.d | 3 | 6 | 🔄 tsc + push + prod deploy done; **`8.d.vi` (config-route fix)** is the gate, then APK + parity |
+| 8.d | 4 | 7 | 🔄 tsc + push + prod deploy + config-route fix done; **`8.d.ii` (re-dispatch APK)** is the gate, then parity |
 
-**Next atomic step:** `8.d.vi` (agent) — drop `apk_url, aab_url` from the
-config route’s select (and the `fullConfig` echoes), then merge to `main`;
-then re-dispatch the Roseline APK build (`8.d.ii`) and run the device e2e
-(`8.a.iii.zr`: browse the catalog, expect 7 plans, MTN/AIRTEL/9MOBILE; then
-attempt a purchase). Everything else is done: both repos landed, `main` carries
-the full Task 8 lineage, production is deployed, the migration is applied live,
-and all 10 functions are deployed + live-verified.
+**Next atomic step:** `8.d.ii` (person + agent) — merge the `8.d.vi` fix
+(`e9e7a6b`) to `main` so production serves it, then re-dispatch the Roseline APK
+build and run the device e2e (`8.a.iii.zr`: browse the catalog, expect 7 plans,
+MTN/AIRTEL/9MOBILE; then attempt a purchase). Everything else is done: both repos
+landed, `main` carries the full Task 8 lineage, production is deployed, the
+config route is fixed, the migration is applied live, and all 10 functions are
+deployed + live-verified.
 
 ## Not part of Task 8 (recorded for completeness)
 
