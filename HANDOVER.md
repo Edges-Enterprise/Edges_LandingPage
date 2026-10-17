@@ -4410,15 +4410,39 @@ The route’s `if (error)` branch maps **any** error to
 indistinguishable from a missing row. The row itself is fine — service-role,
 publishable-key and anon reads of `global_reseller_app_configs` all return 200.
 
-**The fix (next atomic step, `8.d.vi`):** drop `apk_url, aab_url` from that
-select (and the two `fullConfig` lines that echo them), since
-`scripts/generate-global-reseller-assets.sh` never reads either field — it uses
-only `storeName`, `appName`, `theme.primary`, `config.androidPackageName`,
-`assets.*`. If those fields must stay in the response for other consumers, read
-them from `global_app_builds` by `application_id` (as
-`src/app/[countryCode]/[storeName]/page.tsx:38-46` already does) instead of
-selecting them off the config row. Optionally also narrow the `if (error)` branch
-so a `42703`/`PGRST` error returns 500, not 404.
+**Why the columns are there (verified):** a legacy carry-over. The legacy
+`reseller_app_configs` table *does* have `apk_url`/`aab_url`; the global table
+does not. The route (`5081575`) was written against the legacy shape and
+repointed at `global_reseller_app_configs` without dropping the two columns, so
+it has been broken on this branch since it was written — it only surfaced now
+because nothing ever fetched it (production never served it, and no APK build
+got this far).
+
+**Why drop them (next atomic step, `8.d.vi`):**
+
+1. They are not on the table, so the select can never succeed.
+2. No consumer reads them *from this endpoint*. The only callers of
+   `/api/reseller/[countryCode]/config/[configId]` are the build script — which
+   uses only `storeName`, `appName`, `theme.primary`, `config.androidPackageName`,
+   `assets.*` — and docs. The APK-URL consumer is the storefront, which reads
+   `global_app_builds.apk_url` directly (see below), not this route.
+3. The app does not need them: `app.config.ts` / `store/resellerStore.ts` read
+   only `appName`, `storeName`, `slug`, `theme`, `assets`, `config` — neither
+   `apk_url` nor `aab_url`. (The script writes the whole response to
+   `reseller-config.json`, so unused keys are harmless but also useless.)
+4. The correct source of a built APK URL is **`global_app_builds.apk_url`**, which
+   is what the webhook writes and what the storefront reads
+   (`src/app/[countryCode]/[storeName]/page.tsx:38-46`).
+
+**The alternative (option b), if this endpoint is meant to also report build
+artifacts:** keep the two fields in the response but source them from
+`global_app_builds` by `application_id` (same query the storefront uses) rather
+than selecting them off the config row. That is strictly more code for a field no
+current caller reads, so it is deferred unless a consumer appears.
+
+Optionally also narrow the `if (error)` branch so a `42703`/`PGRST` schema error
+returns 500, not 404 — the current code makes a schema bug indistinguishable from
+a missing row, which is why this hid for so long.
 
 **Not yet fixed** — the user asked only to confirm the deployment; no code was
 changed this session.
