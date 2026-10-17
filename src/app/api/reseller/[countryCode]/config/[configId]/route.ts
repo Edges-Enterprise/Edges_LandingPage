@@ -21,14 +21,20 @@ export async function GET(
     // ✅ Fetch from global_reseller_app_configs
     const { data: config, error } = await supabase
       .from("global_reseller_app_configs")
-      .select(
-        "config, application_id, build_status, error_message, apk_url, aab_url",
-      )
+      .select("config, application_id, build_status, error_message")
       .eq("id", configId)
       .single();
 
     if (error) {
       console.error("Config fetch error:", error);
+      // PGRST116 = no rows returned by .single(); anything else is a real fault
+      // (e.g. a missing column), which must not be reported as "not found".
+      if (error.code !== "PGRST116") {
+        return NextResponse.json(
+          { error: "Failed to fetch build config" },
+          { status: 500 },
+        );
+      }
       return NextResponse.json(
         { error: `Config not found: ${configId}` },
         { status: 404 },
@@ -102,8 +108,6 @@ export async function GET(
       // Build metadata
       build_status: config.build_status,
       error_message: config.error_message,
-      apk_url: config.apk_url,
-      aab_url: config.aab_url,
       application_id: config.application_id,
     };
 
