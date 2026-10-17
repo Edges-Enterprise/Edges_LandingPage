@@ -8,7 +8,12 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-15 (evening) - all agent-owned Task 8 leaves complete; person steps remain.
+Last updated: 2026-10-17 - all agent-owned Task 8 leaves complete; **both patches
+landed on origin** (web `be040bb` / mobile `fe92bb2`), the notifications
+migration **is applied live**, and all **10 `global-store-*` functions are
+deployed + live-verified**. The sole open leaf is the **device e2e
+(`8.a.iii.zr`)**, which is gated on the Roseline APK build (not yet dispatched —
+this sandbox's token lacks `actions:write`).
 
 ## Decisions already locked (do not re-litigate)
 
@@ -39,7 +44,7 @@ Last updated: 2026-10-15 (evening) - all agent-owned Task 8 leaves complete; per
 | 8.a.ii.zo | Function `global-store-wallet` (wallet + virtual accounts) | 🤖 | ✅ | 8.a.ii.zi |
 | 8.a.ii.zp | Function `global-store-transactions` (history) | 🤖 | ✅ | 8.a.ii.zi |
 | 8.a.ii.zq | App: `login`/`register`/`_layout` + hooks call those functions | 🤖 | ✅ | 8.a.ii.zi–zp |
-| 8.a.ii.zr | Deploy the functions | 🧑 | ⬜ | patches pushed |
+| 8.a.ii.zr | Deploy the functions | 🧑 | ✅ | 10 functions deployed + live-verified (2026-10-17) |
 | **8.a.iii** | **Catalog read path** | | 🔄 | — |
 | 8.a.iii.zi | (superseded — Option B needs no migration) | — | ✅ | — |
 | 8.a.iii.zo | Function `global-store-catalog` | 🤖🧑 | ✅ | deployed + live-verified |
@@ -56,12 +61,12 @@ Last updated: 2026-10-15 (evening) - all agent-owned Task 8 leaves complete; per
 | **8.c** | **Purchases & money movement** | | ✅ | — |
 | 8.c.i | Repoint `usePurchaseVTU` → `global-purchase-data` / `global-purchase-airtime` | 🤖 | ✅ | catalog done (8.a.iii) |
 | 8.c.ii | Wallet / VA / transaction hooks read the new functions | 🤖 | ✅ | 8.a.ii.zq |
-| 8.c.iii | Notifications on `global_*` | 🤖 | ✅ | migration `20261015` (person applies on Ubuntu) |
+| 8.c.iii | Notifications on `global_*` | 🤖 | ✅ | migration `20261015` **applied live** (2026-10-17) |
 | **8.d** | **Verification & rollout** | | ⬜ | — |
 | 8.d.i | Mobile `tsc --noEmit` = 0 (gate after every leaf) | 🤖 | 🔄 | — |
-| 8.d.ii | APK build for `ng` + `gh` + one more (e.g. `ke`/`zm`) | 🧑 | ⬜ | 8.a–8.c complete |
+| 8.d.ii | APK build for `ng` + `gh` + one more (e.g. `ke`/`zm`) | 🧑 | ⬜ | Roseline build not yet dispatched (needs `actions:write`) |
 | 8.d.iii | Signed-out vs signed-in storefront parity | 🧑 | ⬜ | 8.d.ii |
-| 8.d.iv | Push mobile + web | 🧑 | ⬜ | all above |
+| 8.d.iv | Push mobile + web | 🧑 | ✅ | web `be040bb` / mobile `fe92bb2` on origin (2026-10-17) |
 
 ## Critical path
 
@@ -173,10 +178,11 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 
 | Step | When | Command / action |
 |---|---|---|
-| Apply the 1 web patch + 1 mobile patch, push | now | see "Delivery" below |
-| **Apply the notifications migration (Ubuntu, direct psql)** | before deploying | see the migration command in "Delivery" below |
-| Deploy the new `global-store-*` functions | after push + migration | `supabase functions deploy <name> --no-verify-jwt` for each |
-| Device/APK test for `ng` + `gh` | after 8.c | dispatch the build workflow |
+| ~~Apply the 1 web patch + 1 mobile patch, push~~ | **DONE** | both landed on origin (`be040bb` / `fe92bb2`) |
+| ~~Apply the notifications migration (Ubuntu, direct psql)~~ | **DONE** | `20261015_create_global_notifications.sql` applied (tables + columns return 200) |
+| ~~Deploy the new `global-store-*` functions~~ | **DONE** | all 10 deployed `--no-verify-jwt` + live-verified |
+| **Dispatch the Roseline APK build** | now | `gh workflow run build-global-reseller-apk.yml …` (needs `actions:write`) |
+| **Device/APK test for `ng` + `gh`** | after build | install the release APK; browse + buy (`8.a.iii.zr`) |
 
 ## Delivery
 
@@ -205,36 +211,74 @@ cleared** — the storefront now reads the function on this branch.
 |---|---|---|
 | `reseller-app-task8-catalog-read.patch` | `d923185` | `72e7636da11d82f2e66715ec406659e106c4ce3579cb381f3e4895e0e3079e73` |
 
-### ⬜ Task 8 full agent work — PENDING (apply + migrate + deploy)
+### ✅ Task 8 full agent work — LANDED (2026-10-17)
 
-Built 2026-10-15 (evening). Apply both patches, then run the migration.
+The full agent work is on origin on both repos; nothing is left to apply.
 
-| Patch | Repo |
-|---|---|
-| `edges-task8-full-agent-work.patch` | Edges_LandingPage |
-| `reseller-app-task8-global-model.patch` | reseller-app |
+| Repo | Branch tip | Tree | Content |
+|---|---|---|---|
+| `Edges-Enterprise/Edges_LandingPage` | `be040bb` | `481cd06c…` | 10 `global-store-*` functions, `_shared` helpers, `constants/countryConfig.ts`, de-hardcoded presentation, `usePurchaseVTU` repoint, migration `20261015_create_global_notifications.sql`, board |
+| `Erudite885/reseller-app` | `fe92bb2` | `e4216570…` | app moved onto the `global_*` model: catalog via `global-store-catalog`, identity/money/notifications hooks on the `global-store-*` functions, country presentation |
 
-Both verified to `git am` cleanly on the current origin tips (`14af274`,
-`d923185`). After pushing, the person applies the migration (Ubuntu, direct
-`psql` — see the command in the handoff message) and deploys the new functions.
-(Sha256 for each patch is in the handoff message, not here, so this file stays
-free of a self-referential hash.)
+Local sandbox commits `370a411` / `87dab5b` are content-identical (same trees);
+no divergence from origin.
+
+**Applied / deployed / verified live (2026-10-17):**
+
+- Migration `20261015` is **applied**: `global_notifications` and
+  `global_customer_notifications` return HTTP 200 via service-role REST;
+  `push_token` exists on both `global_reseller_applications` and
+  `global_customers`.
+- All **10 edge functions deployed** with `--no-verify-jwt`, live-probed with
+  the publishable key: `global-store-catalog` → 200 (7 NG plans);
+  `global-store-customer-auth-email` → `{"success":true,"authEmail":null}`;
+  identity functions (`-customer-context`, `-wallet`, `-transactions`,
+  `-notifications`, `-notifications-settings`, `-register-customer`) → 401
+  `Invalid authorization token` with no JWT; field-validation
+  (`-pin`, `-update-profile`) → 400.
+
+### ⬜ Remaining — device e2e (`8.a.iii.zr`), needs the Roseline build
+
+The Roseline build has **not** been dispatched (no `ng-roseline-*` release in
+`Erudite885/tenant-distribution`). This sandbox cannot dispatch it: its GitHub
+token is an App installation token with repo `push` but no `actions:write`
+(`gh workflow run …` → 403 `Resource not accessible by integration`). The person
+dispatches with an Actions-write token:
+
+```bash
+gh workflow run build-global-reseller-apk.yml \
+  --repo Erudite885/reseller-app --ref handover/supabase-dump \
+  -f reseller_id=586de786-872c-42c7-af3e-aa5385610ae3 \
+  -f config_id=330e68c4-af17-4a57-be7e-76f67bf0f492 \
+  -f store_name=roseline -f country_code=ng -f environment=production
+```
+
+**Known caveat (from Task 7, still open):** the workflow's success callback
+POSTs to `$API_URL/api/reseller/ng/webhooks/build`, which 404s, so
+`global_reseller_app_configs.build_status` for Roseline
+(`330e68c4-af17-4a57-be7e-76f67bf0f492`) will likely stay `building`. Judge build
+success by the `tenant-distribution` release, **not** the DB row. A successful
+build appears as `ng-roseline-330e68c4-<timestamp>`.
 
 ## Progress summary
 
 | Branch | Done | Total | State |
 |---|---|---|---|
 | 8.a.i | 2 | 2 | ✅ complete |
-| 8.a.ii | 4 | 5 | ✅ code done (deploy = person) |
+| 8.a.ii | 5 | 5 | ✅ complete (deployed + live-verified) |
 | 8.a.iii | 4 | 5 | 🔄 device e2e left (scripted e2e ✅) |
 | 8.b | 6 | 6 | ✅ complete |
 | 8.c | 3 | 3 | ✅ complete |
-| 8.d | 0 | 4 | ⬜ not started |
+| 8.d | 1 | 4 | 🔄 push done; APK + parity left |
 
-**Next atomic step:** `8.d.iv` (person) — apply the two patches, run the Ubuntu
-`psql` migration (`20261015_create_global_notifications.sql`), deploy the new
-`global-store-*` functions, then the device e2e (`8.a.iii.zr`). All agent-owned
-leaves (`8.a.ii`, `8.b`, `8.c`) are code-complete and verified (mobile `tsc` 0).
+**Next atomic step:** `8.a.iii.zr` (person) — confirm the **Roseline APK build
+completes**, then run the device e2e (browse the catalog: expect 7 plans,
+MTN/AIRTEL/9MOBILE; then attempt a purchase). Everything upstream is done: both
+patches landed on origin, the migration is applied live, and all 10 functions
+are deployed + live-verified. The build is **not yet dispatched** — this
+sandbox's GitHub token is an App installation token without `actions:write`
+(dispatch → 403), so the person must dispatch it (command below) or register an
+`Actions:write` PAT as a secret.
 
 ## Not part of Task 8 (recorded for completeness)
 

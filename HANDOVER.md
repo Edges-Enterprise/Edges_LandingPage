@@ -4129,12 +4129,13 @@ read the browser cannot make through **edge functions** (the trusted server
 layer the web already uses) rather than opening the tables with new RLS
 policies. Support all countries the web supports.
 
-**Status: IN PROGRESS. Active pointer: `8.d.iv` (push + Ubuntu migration) —
-all agent work for `8.a`/`8.b`/`8.c` is code-complete and verified this session
-(mobile `tsc` 0, all functions parse, columns cross-checked against
-`supabase/schema.sql`). The remaining steps are person-owned: apply the two
-patches, run the Ubuntu `psql` migration for the new notification tables, deploy
-the `global-store-*` functions, and the device e2e (`8.a.iii.zr`).**
+**Status: IN PROGRESS. Active pointer: `8.a.iii.zr` (device e2e). All agent work
+for `8.a`/`8.b`/`8.c` is code-complete, verified (mobile `tsc` 0, all functions
+parse, columns cross-checked against `supabase/schema.sql`) AND landed on origin
+(web `be040bb` / mobile `fe92bb2`). The notifications migration is applied live
+and all 10 `global-store-*` functions are deployed + live-verified. The sole
+remaining leaf is the device e2e, which is gated on the Roseline APK build
+(not yet dispatched — see below).**
 
 **The full Task 8 to-do board lives in `TASK-8-BOARD.md`** — every leaf, owner
 (agent vs person), gate, blocker, and the critical path, in one place. That
@@ -4172,10 +4173,10 @@ is a later, optional refinement (8.b) and is not on the critical path.
 | Function | Purpose | Status |
 |---|---|---|
 | `global-store-catalog` | country-scoped storefront catalog (plans, networks, categories) | **DEPLOYED + LIVE-VERIFIED** |
-| `global-store-customer-context` | caller's own customer record (id, pin-set, name) | **BUILT** (8.a.ii) |
-| `global-store-wallet` | caller's own wallet + virtual accounts | **BUILT** (8.a.ii) |
-| `global-store-transactions` | caller's own transaction history | **BUILT** (8.a.ii) |
-| notifications | see Blocker 2 | **BUILT** (`global-store-notifications` + `-settings`; migration 20261015) |
+| `global-store-customer-context` | caller's own customer record (id, pin-set, name) | **DEPLOYED + LIVE-VERIFIED** |
+| `global-store-wallet` | caller's own wallet + virtual accounts | **DEPLOYED + LIVE-VERIFIED** |
+| `global-store-transactions` | caller's own transaction history | **DEPLOYED + LIVE-VERIFIED** |
+| notifications | see Blocker 2 | **DEPLOYED** (`global-store-notifications` + `-settings`); migration 20261015 **applied live** |
 
 Identity inside each function follows `_shared/purchaseOrchestrator.ts`'s proven
 branch: owner = `global_reseller_applications` by `(id = resellerId,
@@ -4259,11 +4260,13 @@ already is, which is why the live test passed. The wider catalog holds AO, BF,
 BJ, CD, CF, CG, CI, CM, GA, GH, GM, GN, KE (and NG) — more countries than the
 web's `SUPPORTED_COUNTRIES` list.
 
-### Blocker 2 (unchanged) — no global notifications table
+### Blocker 2 (RESOLVED) — global notifications table
 
-There is no `global_*` equivalent of `reseller_notifications` /
-`reseller_customer_notifications`. Decide later: add `global_notifications`
-(+ customer scope), or leave the app's notification reads on the legacy tables.
+`global_notifications` (+ `global_customer_notifications` and the `push_token`/
+`fcm_token`/`notifications_enabled` columns) is defined by migration
+`20261015_create_global_notifications.sql` and **applied live** (both tables and
+all four `push_token` column probes return HTTP 200 via the service-role REST
+API, 2026-10-17). The app's notification reads now run on `global_*`.
 
 ### Remaining tree (Option B)
 
@@ -4274,23 +4277,25 @@ There is no `global_*` equivalent of `reseller_notifications` /
     8.a.i.zi    DONE (no read needed) - build config already carries
                  resellerId + countryCode
     8.a.i.zo    App exposes resellerId/countryCode from build config
-                 -> resellerStore type + getStoreContext()      [TODO]
+                 -> resellerStore type + getStoreContext()      [DONE - pushed]
    8.a.ii  Customer identity & money reads
-    8.a.ii.zi   function: global-store-customer-context          [TODO]
-    8.a.ii.zo   function: global-store-wallet (+ VAs)            [TODO]
-    8.a.ii.zp   function: global-store-transactions              [TODO]
-    8.a.ii.zq   app: login/register/_layout + hooks on those     [TODO]
+    8.a.ii.zi   function: global-store-customer-context          [DONE - deployed]
+    8.a.ii.zo   function: global-store-wallet (+ VAs)            [DONE - deployed]
+    8.a.ii.zp   function: global-store-transactions              [DONE - deployed]
+    8.a.ii.zq   app: login/register/_layout + hooks on those     [DONE - pushed]
    8.a.iii Catalog read path
     8.a.iii.zi  (superseded by Option B - no migration needed)
     8.a.iii.zo  global-store-catalog function                    [DONE - deployed + live-verified]
-    8.a.iii.zp  app: useDataPlans -> call the function           [DONE - mobile tsc 0, unpushed]
+    8.a.iii.zp  app: useDataPlans -> call the function           [DONE - pushed]
+    8.a.iii.zq  scripted catalog e2e                             [DONE - all pass]
+    8.a.iii.zr  device e2e (Roseline build)                      [TODO - person]
  8.b  Country-aware presentation (currency/locale, networks+prefixes,
-      copy) - port src/config/countries/*                      [TODO]
+      copy) - port src/config/countries/*                      [DONE - pushed]
  8.c  Purchases & money movement
-   8.c.i   app -> global-purchase-data / global-purchase-airtime [TODO]
-   8.c.ii  wallet/VA/transaction hooks on the functions          [TODO]
-   8.c.iii notifications (blocked on Blocker 2)                  [TODO]
- 8.d  Verification & rollout (tsc, APK build, live ng/gh/zm)      [TODO]
+   8.c.i   app -> global-purchase-data / global-purchase-airtime [DONE - pushed]
+   8.c.ii  wallet/VA/transaction hooks on the functions          [DONE - pushed]
+   8.c.iii notifications (migration 20261015 applied live)       [DONE - pushed]
+ 8.d  Verification & rollout (tsc done; APK build + device e2e)   [IN PROGRESS]
 ```
 
 ### Country data is already available to port
@@ -4303,7 +4308,7 @@ list). That is the data 8.b needs, replacing the app's NG-only naira/prefix/
 carrier constants. Currency for a customer wallet is already resolved from the
 reseller's country by `registerCustomerToGlobalReseller`.
 
-### `8.a.iii.zo.x` — DONE (mobile repo, not yet pushed)
+### `8.a.iii.zo.x` — DONE (mobile repo, pushed)
 
 `hooks/useDataPlans.ts` now calls the deployed `global-store-catalog` function
 instead of the legacy `resellers` x `reseller_plan_configs` x
@@ -4326,52 +4331,64 @@ Verification: mobile `tsc --noEmit` 0 (after `npm ci`). The function's own
 behaviour is covered by the live verification above; the app wiring is not yet
 run on a device.
 
-### Next atomic step — `8.d.iv` (person: apply patches, migrate, deploy, push)
+### Next atomic step — `8.a.iii.zr` (device e2e)
 
-All agent-side Task 8 code is complete and verified. The remaining work is
-person-owned and ordered:
+All agent-side Task 8 code is complete, verified and **landed**; the migration
+and function deploys are **done and live-verified** (2026-10-17). The single
+remaining leaf is the device e2e, gated on the Roseline APK build:
 
-1. Apply the two patches (web + mobile) with the standing `git am` + `push`
-   command, then run the **Ubuntu `psql` migration** for the notification
-   tables (`supabase/migrations/20261015_create_global_notifications.sql`).
-2. Deploy the new `global-store-*` functions with `--no-verify-jwt` (the app
-   calls them with the publishable key; identity is enforced inside each
-   function from the JWT, so the gateway check is not the security boundary).
-3. Device e2e (`8.a.iii.zr`): browse + buy on a real build.
+1. **Dispatch the Roseline build** (person; needs an `Actions:write` token —
+   this sandbox's App token lacks it, so `gh workflow run …` returns 403):
 
-### Handoff commands (Task 8, 2026-10-15)
+   ```bash
+   gh workflow run build-global-reseller-apk.yml \
+     --repo Erudite885/reseller-app --ref handover/supabase-dump \
+     -f reseller_id=586de786-872c-42c7-af3e-aa5385610ae3 \
+     -f config_id=330e68c4-af17-4a57-be7e-76f67bf0f492 \
+     -f store_name=roseline -f country_code=ng -f environment=production
+   ```
 
-Agent heads: web `aafa69c`, mobile `87dab5b` (both on `handover/supabase-dump`,
-local-only — the sandbox has no push access). Patches in `patches/`:
-`edges-task8-full-agent-work.patch` (web) and
-`reseller-app-task8-global-model.patch` (mobile). Both were verified to `git am`
-cleanly on the base tips `14af274` / `d923185`. (Their sha256 values are in the
-handoff message, not here, so this file carries no self-referential hash.)
+   Watch for a `ng-roseline-330e68c4-<timestamp>` release in
+   `Erudite885/tenant-distribution`:
+   `gh release list --repo Erudite885/tenant-distribution --limit 100 | grep -i roseline`
+
+2. **Device e2e (`8.a.iii.zr`):** install the APK on a real device/emulator and
+   browse the catalog (expect 7 plans, MTN/AIRTEL/9MOBILE), then attempt a
+   purchase.
+
+**Caveat:** the workflow's success callback POSTs to
+`$API_URL/api/reseller/ng/webhooks/build`, which 404s (Task 7, still open), so
+`global_reseller_app_configs.build_status` for Roseline
+(`330e68c4-af17-4a57-be7e-76f67bf0f492`) will likely stay `building`. Judge build
+success by the `tenant-distribution` release, **not** the DB row.
+
+### (superseded) Next atomic step — `8.d.iv` (apply patches, migrate, deploy)
+
+Done as of 2026-10-17: both patches landed on origin (web `be040bb` / mobile
+`fe92bb2`), the notifications migration is applied live, and all 10
+`global-store-*` functions are deployed + live-verified.
+
+### Handoff commands (Task 8, 2026-10-17)
+
+**Both patches have landed** — web origin tip `be040bb` (tree `481cd06c…`),
+mobile origin tip `fe92bb2` (tree `e4216570…`). The local sandbox commits
+`370a411` / `87dab5b` are content-identical (same trees), so there is **no
+divergence and nothing to apply**. The migration is applied live and all 10
+functions are deployed.
+
+The only agent deliverable outstanding is this **doc-only update** (HANDOVER.md +
+TASK-8-BOARD.md), delivered as a `.patch` (the sandbox has no push access for new
+commits; the two code commits already reached origin via the person):
 
 ```bash
-# WEB (base 14af274) and MOBILE (base d923185) — same shape, one per repo:
+# WEB — apply the doc patch on top of be040bb:
 git fetch origin && git checkout handover/supabase-dump && git pull --rebase origin handover/supabase-dump
-git am edges-task8-full-agent-work.patch     # mobile: reseller-app-task8-global-model.patch
+git am edges-task8-doc-refresh.patch
 git push origin handover/supabase-dump
 ```
 
-Migration (Ubuntu, direct `psql` — table creation does not go through a patch):
-
-```bash
-PGPASSWORD="$SUPABASE_DB_PASSWORD" psql \
-  -h "$SUPABASE_DB_HOST" -p "${SUPABASE_DB_PORT:-5432}" \
-  -U "${SUPABASE_DB_USER:-postgres}" -d "${SUPABASE_DB_NAME:-postgres}" \
-  -f supabase/migrations/20261015_create_global_notifications.sql
-```
-
-Deploy the new functions (each `--no-verify-jwt`; identity is enforced inside
-the function from the JWT): `global-store-customer-context`,
-`global-store-wallet`, `global-store-transactions`, `global-store-pin`,
-`global-store-update-profile`, `global-store-notifications`,
-`global-store-notifications-settings`, `global-store-register-customer`,
-`global-store-customer-auth-email`, and the updated `global-store-catalog`.
-
-Everything below this line was the pre-8.a/8.b/8.c pointer and is superseded.
+DB migrations and schema snapshots are not delivered via patch — they are applied
+directly from Ubuntu with `psql` (already done for `20261015`).
 
 ### (superseded) Next atomic step — `8.a.iii.zo.x.z` (end-to-end catalog test)
 
@@ -4558,3 +4575,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-15 | Status check — both repos landed | Confirmed delivery against origin, then the mobile patch was pushed. **Web landed**: origin tip `cc0914f` -> `ed325c3`, all three patches present by patch-id match (function `cc0914f`, deploy+verify `6551097`, app-wired `fdf48fa`, board `ed325c3`); local tree == origin tree (`0c34f55d…`). **Mobile landed**: origin tip `c556096` -> `d923185`, tree `7bfd8ff3…` (matches local), catalog-read present by patch-id. The 8.a.iii.zq blocker is cleared. Re-probed `global-store-catalog` live (anon key, no JWT): HTTP 200, 7 plans, no cost/markup leakage. Pointer unchanged at `8.a.iii.zq` — only the device/build e2e test remains. |
 | 2026-10-15 | Task 8 — scripted catalog e2e (`8.a.iii.zq`) + pointer advance | Mobile patch landed: `reseller-app` origin tip `c556096` -> `d923185` (tree `7bfd8ff3…`, matches local), so the storefront now reads `global-store-catalog` on the branch. Ran the scripted e2e — pushed the live function response through the exact `hooks/useDataPlans.ts` filter/map for a NG store (`roseline`, 7 plans; MTN/AIRTEL/9MOBILE filter 4/1/2) and a GH store (`marcel-data`, 6 plans; AirtelTigo/MTN filter 2/4), plus shape and negative cases — **ALL PASS**. Finding (data, not code): GH base plans carry `data_amount` but no `validity`, which is why `DataPlan.validity` is optional; the carousel renders empty rather than crashing. Split the old `8.a.iii.zq` into scripted (`8.a.iii.zq` ✅) and device (`8.a.iii.zr` ⬜, person). Pointer advanced to `8.a.ii.zi`. Note: this is a weaker check than a device run — it does not exercise the RN render or the signed-in session path. |
 | 2026-10-15 | Task 8 — full agent execution (`8.a.ii`, `8.b`, `8.c`) + pointer advance | Completed every agent-owned Task 8 leaf in one session, verified after each and at the end (mobile `tsc` 0; every web function parses via esbuild; every selected/written column cross-checked field-by-field against `supabase/schema.sql`). **8.a.ii** — new functions `global-store-customer-context`, `global-store-wallet`, `global-store-transactions`, `global-store-pin`, `global-store-update-profile`, `global-store-notifications`, `global-store-notifications-settings`, `global-store-register-customer`, `global-store-customer-auth-email`, plus `_shared/storeIdentity.ts` (identity from JWT only; `resellerId` is a routing hint, never authorization) and `_shared/countryCurrency.ts`. All app reads/writes repointed: `useProfiles`, `useTransactionPin`, `useWallet`, `useVirtualAccounts`, `useTransactions`, `useNotifications`, `useNotificationSetings`, `useResellerLegal`, `login`, `register`, `_layout`, `contact`, `security`, `settings`. **8.b** — `constants/countryConfig.ts` (ported country data: currency/symbol/locale/phone bounds/telecoms) and de-hardcoded the remaining naira/`en-NG`/Nigerian-copy sites (`index.tsx`, `PlanCarousel`, `transaction-history`, `settings`, `help`, `legalTextGenerator`); removed the dead `allDataPlans`/`userData`/`quickAmounts` block (~255 lines) from `constants/helpers.ts`. **8.c** — `usePurchaseVTU` repointed to `global-purchase-data`/`global-purchase-airtime` (8.c.i); notifications moved to `global_*` (8.c.iii) with migration `20261015_create_global_notifications.sql` (two tables + push-token columns, RLS on with no customer policy). Catalog function gained a public `store` block (name/email/country_code) for header + legal copy. **Live read-only DB checks** (service role): `global_reseller_plan_configs` has enabled rows for real stores (Roseline/ng 7, Kwam Two/gh 30, 10 stores / 72 rows total); **the notifications migration is NOT yet applied live** (`global_notifications` → 42P01; `global_reseller_applications.push_token` → 42703), so it must run on Ubuntu before deploy. Pointer advanced to `8.d.iv` (person: patches + `psql` migration + deploy + device e2e). No push (sandbox); delivered via `git format-patch`.
+| 2026-10-17 | Task 8 — doc refresh (state verified live) | Bootstrapped both repos from fresh clones (web `be040bb` tree `481cd06c`; mobile `fe92bb2` tree `e4216570`) — both match HANDOVER exactly; local sandbox commits `370a411`/`87dab5b` are content-identical (same trees), no divergence. Live-verified section 2's claims: migration `20261015` IS applied (`global_notifications`, `global_customer_notifications`, and `push_token` on `global_reseller_applications`/`global_customers` all HTTP 200 via service-role REST); all 10 `global-store-*` functions deployed and behaving (catalog 200 with 7 NG plans; auth-email returns success:true/authEmail:null; identity fns 401 Invalid authorization token with no JWT; -pin/-update-profile 400). Confirmed the dispatch blocker: gh workflow run build-global-reseller-apk.yml returns 403 Resource not accessible by integration (App installation token, repo push but no actions:write), and no ng-roseline-* release exists in Erudite885/tenant-distribution — the Roseline build was never dispatched. Also found PAT_TOKEN is invalid (401 Bad credentials); GITHUB_TOKEN works as Phoenix-Boss. Doc-only update (this file + TASK-8-BOARD.md): marked 8.a.ii.zr and 8.d.iv done, migration applied, functions deployed; pointer advanced to 8.a.iii.zr (device e2e), gated on the Roseline build. Delivered via git format-patch. |
