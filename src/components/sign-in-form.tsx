@@ -20,7 +20,7 @@ export function SignInForm() {
 
   // Check if both email and password are filled
   const isSignInEnabled = email.trim() !== "" && password.trim() !== "";
-  
+ 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!isSignInEnabled) return;

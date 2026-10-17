@@ -1,0 +1,57 @@
+// src/config/countries/ma.ts
+import { CountryConfig } from "./index";
+import { flags } from "@/constants/flags";
+
+export const COUNTRY_MA: CountryConfig = {
+  code: "ma",
+  name: "Morocco",
+  nativeName: "المغرب",
+  flag: flags.Morocco, // ✅ SVG flag
+  flagEmoji: "🇲🇦",
+  currency: "MAD",
+  currencySymbol: "DH",
+  phoneCode: "+212",
+  phoneNumber: { minDigits: 9, maxDigits: 9 },
+  language: {
+    code: "fr",
+    name: "French",
+    direction: "ltr",
+  },
+  locale: "fr-MA",
+  timezone: "Africa/Casablanca",
+  defaultMarkup: 0,
+  features: {
+    data: true,
+    airtime: true,
+    electricity: false,
+    cableTV: false,
+    betting: false,
+  },
+  providers: {
+    data: ["zendit"],
+    airtime: ["zendit"],
+    payment: ["flutterwave", "korapay"],
+  },
+  paymentGateway: {
+    provider: "korapay",
+    currency: "XOF",
+    methods: ["mobile_money"],
+  },
+  serviceProvider: "zendit",
+  region: "xof",
+  kyc: {
+    requiredDocuments: ["government_id", "selfie"],
+    optionalDocuments: ["business_reg"],
+  },
+  applyUrl: "/ma/apply",
+  stats: {
+    activeResellers: 900,
+    apkDeliveryDays: "3–5",
+    storeGoesLive: "Instant",
+    monthlyProfit: "DH 1,500 – DH 2,500",
+  },
+  telecoms: [
+    { id: "mtn", name: "MTN", code: "MTN" },
+    { id: "orange", name: "Orange", code: "ORANGE" },
+  ],
+};

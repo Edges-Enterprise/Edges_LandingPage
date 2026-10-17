@@ -1,8 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { flags } from "@/constants/flags";
+
 
 const links = [
   { label: "How It Works", href: "#how-it-works" },
@@ -11,15 +14,35 @@ const links = [
   { label: "FAQ", href: "#faq" },
 ];
 
+const countryRoutes = {
+  Ghana: { path: "/gh", flag: flags.Ghana },
+  Nigeria: { path: "/reseller", flag: flags.Nigeria },
+  Egypt: { path: "/eg", flag: flags.Egypt },
+  DRC: { path: "/cd", flag: flags.DRC },
+  Rwanda: { path: "/rw", flag: flags.Rwanda },
+  Zambia: { path: "/zm", flag: flags.Zambia },
+};
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", handler);
     return () => window.removeEventListener("scroll", handler);
   }, []);
+
+  const handleCountrySelect = (country: string) => {
+    const route = countryRoutes[country as keyof typeof countryRoutes];
+    if (route) {
+      router.push(route.path);
+      setCountryDropdownOpen(false);
+      setOpen(false);
+    }
+  };
 
   return (
     <nav
@@ -49,18 +72,27 @@ export default function Navbar() {
         }}
       >
         <Link href="/" className="flex items-center space-x-2">
-          {/* <Image
-            src="/edgesnetworkicon.png"
-            alt="Edges Network Logo"
-            width={40}
-            height={40}
-          /> */}
           <span
             style={{ fontFamily: "'Playfair Display', serif" }}
-            className="text-[#FFFFFF] font-bold text-xl tracking-wider"
+            className="text-[#FFFFFF] font-bold text-3xl tracking-wider"
           >
             Telcos
           </span>
+          {Object.entries(countryRoutes)
+            .slice(0, 6)
+            .map(([country, { flag }]) => (
+              <span
+                key={country}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  cursor: "default", // No pointer cursor
+                  // marginLeft: "0.25rem",
+                }}
+              >
+                {flag}
+              </span>
+            ))}
         </Link>
 
         <div
@@ -88,6 +120,96 @@ export default function Navbar() {
               {l.label}
             </a>
           ))}
+
+          {/* Country Dropdown - Only for Ghana */}
+          <div
+            style={{ position: "relative" }}
+            onMouseEnter={() => setCountryDropdownOpen(true)}
+            onMouseLeave={() => setCountryDropdownOpen(false)}
+          >
+            <button
+              style={{
+                background: "transparent",
+                border: "1px solid rgba(201,138,84,0.3)",
+                color: "var(--text)",
+                padding: "0.4rem 1rem",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontSize: "0.88rem",
+                fontWeight: 500,
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.borderColor =
+                  "rgba(201,138,84,0.6)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.borderColor =
+                  "rgba(201,138,84,0.3)";
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center" }}>
+                {flags.Ghana}
+              </span>
+              Ghana
+              <ChevronDown size={16} />
+            </button>
+
+            {countryDropdownOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "110%",
+                  right: 0,
+                  background: "var(--bg2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  minWidth: 180,
+                  padding: "0.4rem 0",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+                }}
+              >
+                {Object.entries(countryRoutes).map(
+                  ([country, { path, flag }]) => (
+                    <button
+                      key={country}
+                      onClick={() => handleCountrySelect(country)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        width: "100%",
+                        padding: "0.6rem 1.2rem",
+                        background: "transparent",
+                        border: "none",
+                        color: "var(--text)",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        fontSize: "0.85rem",
+                        transition: "background 0.2s",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background =
+                          "rgba(201,138,84,0.1)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "transparent")
+                      }
+                    >
+                      <span style={{ display: "flex", alignItems: "center" }}>
+                        {flag}
+                      </span>
+                      {country}
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+
           <a
             href="/reseller"
             style={{
@@ -156,8 +278,59 @@ export default function Navbar() {
               {l.label}
             </a>
           ))}
+
+          {/* Mobile Country Selector */}
+          <div
+            style={{
+              marginTop: "0.7rem",
+              borderBottom: "1px solid var(--border)",
+              paddingBottom: "0.7rem",
+            }}
+          >
+            <p
+              style={{
+                color: "var(--muted)",
+                fontSize: "0.8rem",
+                marginBottom: "0.5rem",
+              }}
+            >
+              Select Country:
+            </p>
+            {Object.entries(countryRoutes).map(([country, { path, flag }]) => (
+              <button
+                key={country}
+                onClick={() => handleCountrySelect(country)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  width: "100%",
+                  padding: "0.5rem 0",
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text)",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  fontSize: "0.9rem",
+                  transition: "color 0.2s",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.color = "var(--accent)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.color = "var(--text)")
+                }
+              >
+                <span style={{ display: "flex", alignItems: "center" }}>
+                  {flag}
+                </span>
+                {country}
+              </button>
+            ))}
+          </div>
+
           <a
-            href="#join"
+            href="/reseller"
             onClick={() => setOpen(false)}
             style={{
               display: "block",

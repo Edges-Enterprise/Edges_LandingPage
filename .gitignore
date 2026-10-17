@@ -9,7 +9,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
+*.ps1
 # testing
 /coverage
 /src/app/api/test-build
@@ -44,7 +44,10 @@ next-env.d.ts
 temp-signature.js
 
 structure.txt
+s*.txt
 text.txt
 
 *.ps1
 s*.txt
+sz*.json
+supabase/dumps/

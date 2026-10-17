@@ -1,0 +1,58 @@
+// src/config/countries/cd.ts
+import { CountryConfig } from "./index";
+import { flags } from "@/constants/flags";
+
+export const COUNTRY_CD: CountryConfig = {
+  code: "cd",
+  name: "DRC",
+  nativeName: "République Démocratique du Congo",
+  flag: flags.DRC, // ✅ SVG flag
+  flagEmoji: "🇨🇩",
+  currency: "CDF",
+  currencySymbol: "FC",
+  phoneCode: "+243",
+  phoneNumber: { minDigits: 9, maxDigits: 9 },
+  language: {
+    code: "fr",
+    name: "French",
+    direction: "ltr",
+  },
+  locale: "fr-CD",
+  timezone: "Africa/Kinshasa",
+  defaultMarkup: 0,
+  features: {
+    data: true,
+    airtime: true,
+    electricity: false,
+    cableTV: false,
+    betting: false,
+  },
+  providers: {
+    data: ["zendit"],
+    airtime: ["zendit"],
+    payment: ["korapay"],
+  },
+  paymentGateway: {
+    provider: "korapay",
+    currency: "XOF",
+    methods: ["mobile_money"],
+  },
+  serviceProvider: "zendit",
+  region: "xof",
+  kyc: {
+    requiredDocuments: ["government_id", "selfie"],
+    optionalDocuments: ["business_reg"],
+  },
+  applyUrl: "/cd/apply",
+  stats: {
+    activeResellers: 500,
+    apkDeliveryDays: "3–5",
+    storeGoesLive: "Instant",
+    monthlyProfit: "FC 100,000 – FC 150,000",
+  },
+  telecoms: [
+    { id: "africell", name: "Africell", code: "AFRICELL" },
+    { id: "airtel", name: "Airtel", code: "AIRTEL" },
+    { id: "orange", name: "Orange", code: "ORANGE" },
+  ],
+};
