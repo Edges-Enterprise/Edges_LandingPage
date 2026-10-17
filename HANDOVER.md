@@ -4129,13 +4129,23 @@ read the browser cannot make through **edge functions** (the trusted server
 layer the web already uses) rather than opening the tables with new RLS
 policies. Support all countries the web supports.
 
-**Status: IN PROGRESS. Active pointer: `8.a.iii.zr` (device e2e). All agent work
-for `8.a`/`8.b`/`8.c` is code-complete, verified (mobile `tsc` 0, all functions
-parse, columns cross-checked against `supabase/schema.sql`) AND landed on origin
-(web `be040bb` / mobile `fe92bb2`). The notifications migration is applied live
-and all 10 `global-store-*` functions are deployed + live-verified. The sole
-remaining leaf is the device e2e, which is gated on the Roseline APK build
-(not yet dispatched — see below).**
+**Status: IN PROGRESS. Active pointer: `8.d.v` (deploy the web to production).
+All agent work for `8.a`/`8.b`/`8.c` is code-complete, verified (mobile `tsc` 0,
+all functions parse, columns cross-checked against `supabase/schema.sql`) AND
+landed on origin (web `8bc1c00` / mobile `fe92bb2`). The notifications migration
+is applied live and all 10 `global-store-*` functions are deployed +
+live-verified.**
+
+**2026-10-17 (second session): the Roseline APK build was dispatched for the
+first time — the new `P_TOKEN` has `actions:write` — and it immediately exposed
+the real blocker: the web app has never been deployed to production.** The
+workflow got past "Setup Expo" (the Node 22 fix is confirmed working in CI) and
+"Install dependencies", then failed at "Generate global reseller assets": the
+config-fetch API returns a 404. That is not a workflow or app bug — Vercel has
+**no Production deployment** for this repo (all 100 deployments are `Preview`),
+so `edges-landing-page.vercel.app` serves a stale `main` build whose lineage
+predates Tasks 4–8; every Task 4–8 route 404s there. See "The web has never been
+deployed to production" below.
 
 **The full Task 8 to-do board lives in `TASK-8-BOARD.md`** — every leaf, owner
 (agent vs person), gate, blocker, and the critical path, in one place. That
@@ -4331,14 +4341,76 @@ Verification: mobile `tsc --noEmit` 0 (after `npm ci`). The function's own
 behaviour is covered by the live verification above; the app wiring is not yet
 run on a device.
 
-### Next atomic step — `8.a.iii.zr` (device e2e)
+### The web has never been deployed to production (FOUND 2026-10-17)
+
+**This is the real gate on the whole Task 8 rollout, and it was hiding behind the
+old `actions:write` blocker.** With the new `P_TOKEN` (classic PAT, `repo` +
+`workflow` scopes, login `Phoenix-Boss`) the Roseline APK build was dispatched for
+the first time (`gh workflow run build-global-reseller-apk.yml --ref
+handover/supabase-dump`, run `39058017316`). It advanced past "Setup Expo" and
+"Install dependencies" — **confirming the Node 22 fix works in CI** — then failed
+at "Generate global reseller assets":
+
+```
+⚠️ Country-specific endpoint returned HTML, trying generic endpoint...
+❌ API returned error: Config not found
+```
+
+`scripts/generate-global-reseller-assets.sh` fetches the build config from
+`${API_URL}/api/reseller/${COUNTRY_CODE}/config/${CONFIG_ID}`. `API_URL` is the
+repo secret, defaulting to `https://edges-landing-page.vercel.app`. Evidence
+collected (all read-only):
+
+- The country route exists **only on `handover/supabase-dump`**, not on `main`
+  (`git ls-tree origin/main` for that path is empty; the route's commit
+  `5081575` is contained only by the Task-4+ branches). The generic fallback
+  (`/api/build-config`) reads the **legacy** `reseller_app_configs` table, so its
+  "Config not found" is expected for a `global_*` config id — the primary route is
+  the one that matters.
+- The live production host 404s **every** Task 4–8 route:
+  `/api/reseller/ng/config/<id>` → 404, `/api/reseller/ng/countries` → 404,
+  `/ng/roseline` → 404, `/ng` → 404, `/gh/kwam-two` → 404. Only legacy routes
+  answer (`/` → 200 old "Telcos" landing page, `/api/build-config` → 401,
+  `/api/reseller-configs` → 401).
+- `origin/main` tip is `57b3d1c` and contains **none** of the Task 4–8 work
+  (`global-store-catalog` count = 0; the `[countryCode]/[storeName]/page.tsx`
+  storefront is absent). Production is serving a `main` lineage that predates
+  Task 4.
+- The GitHub deployments API shows **100 deployments, all `Preview`, zero
+  `Production`**. The previews (e.g. `edges-landing-page-95snnuvyx-….vercel.app`
+  for my doc push `8bc1c00`) are Vercel-Authentication protected (302 → 401), so
+  they are not a substitute for production.
+
+**Consequence:** the Roseline (and any) APK build cannot fetch its config, so
+`8.a.iii.zr` (device e2e) is blocked until the web is deployed to production
+serving the `handover/supabase-dump` lineage. This also explains Task 7's
+"webhook 404" from the other direction: `API_URL` points at a deployment that
+never had those routes. The `global_reseller_app_configs.build_status` row for
+Roseline still reads `building` with a null `error_message` (the failure callback
+also 404s), exactly as Task 7 predicted.
+
+**Not an agent-side code bug.** The workflow, the asset script and the config
+route are all correct on the branch; the deployment is missing. A production
+deploy is a person/Vercel-dashboard step (no `VERCEL_TOKEN` is available in this
+sandbox). Options, in order of preference: (a) promote/alias a preview of
+`handover/supabase-dump` to production and set the `API_URL` repo secret to that
+host; or (b) merge `handover/supabase-dump` → `main` and let the Production
+deployment build (the standing "revert `BUILD_WORKFLOW_REF` to `main`" note then
+also applies).
+
+### Next atomic step — `8.d.v` (person: deploy the web to production)
 
 All agent-side Task 8 code is complete, verified and **landed**; the migration
-and function deploys are **done and live-verified** (2026-10-17). The single
-remaining leaf is the device e2e, gated on the Roseline APK build:
+and function deploys are **done and live-verified** (2026-10-17). Two person
+steps remain, in this order:
 
-1. **Dispatch the Roseline build** (person; needs an `Actions:write` token —
-   this sandbox's App token lacks it, so `gh workflow run …` returns 403):
+1. **Deploy the web to production** (`8.d.v`, new leaf) — promote a preview of
+   `handover/supabase-dump` to production (or merge to `main`), then confirm the
+   config route answers:
+   `curl -s -o /dev/null -w "%{http_code}\n" "$API_URL/api/reseller/ng/config/330e68c4-af17-4a57-be7e-76f67bf0f492"`
+   should be 200 (not 404/401). Set the `Erudite885/reseller-app` `API_URL`
+   secret to that host.
+2. **Dispatch the Roseline build**, then the device e2e (`8.a.iii.zr`):
 
    ```bash
    gh workflow run build-global-reseller-apk.yml \
@@ -4352,12 +4424,12 @@ remaining leaf is the device e2e, gated on the Roseline APK build:
    `Erudite885/tenant-distribution`:
    `gh release list --repo Erudite885/tenant-distribution --limit 100 | grep -i roseline`
 
-2. **Device e2e (`8.a.iii.zr`):** install the APK on a real device/emulator and
+3. **Device e2e (`8.a.iii.zr`):** install the APK on a real device/emulator and
    browse the catalog (expect 7 plans, MTN/AIRTEL/9MOBILE), then attempt a
    purchase.
 
-**Caveat:** the workflow's success callback POSTs to
-`$API_URL/api/reseller/ng/webhooks/build`, which 404s (Task 7, still open), so
+**Caveat (unchanged):** the workflow's success/failure callback POSTs to
+`$API_URL/api/reseller/ng/webhooks/build`, which 404s until step 1 lands, so
 `global_reseller_app_configs.build_status` for Roseline
 (`330e68c4-af17-4a57-be7e-76f67bf0f492`) will likely stay `building`. Judge build
 success by the `tenant-distribution` release, **not** the DB row.
@@ -4370,21 +4442,15 @@ Done as of 2026-10-17: both patches landed on origin (web `be040bb` / mobile
 
 ### Handoff commands (Task 8, 2026-10-17)
 
-**Both patches have landed** — web origin tip `be040bb` (tree `481cd06c…`),
-mobile origin tip `fe92bb2` (tree `e4216570…`). The local sandbox commits
-`370a411` / `87dab5b` are content-identical (same trees), so there is **no
-divergence and nothing to apply**. The migration is applied live and all 10
-functions are deployed.
-
-The only agent deliverable outstanding is this **doc-only update** (HANDOVER.md +
-TASK-8-BOARD.md), delivered as a `.patch` (the sandbox has no push access for new
-commits; the two code commits already reached origin via the person):
+**Both patches have landed, and the doc refresh has now landed too** — web origin
+tip `8bc1c00` (tree `5bd5390…`, = `be040bb` + the doc commit), mobile origin tip
+`fe92bb2` (tree `e4216570…`). There is **no divergence and nothing to apply**.
+The migration is applied live and all 10 functions are deployed. The remaining
+work is the person-owned production deploy (`8.d.v`) plus the device e2e.
 
 ```bash
-# WEB — apply the doc patch on top of be040bb:
-git fetch origin && git checkout handover/supabase-dump && git pull --rebase origin handover/supabase-dump
-git am edges-task8-doc-refresh.patch
-git push origin handover/supabase-dump
+# Nothing to apply. If you need to re-derive the doc commit, it is web d48fc7e
+# (delivered as edges-task8-doc-refresh.patch, now pushed as 8bc1c00).
 ```
 
 DB migrations and schema snapshots are not delivered via patch — they are applied
@@ -4576,3 +4642,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-15 | Task 8 — scripted catalog e2e (`8.a.iii.zq`) + pointer advance | Mobile patch landed: `reseller-app` origin tip `c556096` -> `d923185` (tree `7bfd8ff3…`, matches local), so the storefront now reads `global-store-catalog` on the branch. Ran the scripted e2e — pushed the live function response through the exact `hooks/useDataPlans.ts` filter/map for a NG store (`roseline`, 7 plans; MTN/AIRTEL/9MOBILE filter 4/1/2) and a GH store (`marcel-data`, 6 plans; AirtelTigo/MTN filter 2/4), plus shape and negative cases — **ALL PASS**. Finding (data, not code): GH base plans carry `data_amount` but no `validity`, which is why `DataPlan.validity` is optional; the carousel renders empty rather than crashing. Split the old `8.a.iii.zq` into scripted (`8.a.iii.zq` ✅) and device (`8.a.iii.zr` ⬜, person). Pointer advanced to `8.a.ii.zi`. Note: this is a weaker check than a device run — it does not exercise the RN render or the signed-in session path. |
 | 2026-10-15 | Task 8 — full agent execution (`8.a.ii`, `8.b`, `8.c`) + pointer advance | Completed every agent-owned Task 8 leaf in one session, verified after each and at the end (mobile `tsc` 0; every web function parses via esbuild; every selected/written column cross-checked field-by-field against `supabase/schema.sql`). **8.a.ii** — new functions `global-store-customer-context`, `global-store-wallet`, `global-store-transactions`, `global-store-pin`, `global-store-update-profile`, `global-store-notifications`, `global-store-notifications-settings`, `global-store-register-customer`, `global-store-customer-auth-email`, plus `_shared/storeIdentity.ts` (identity from JWT only; `resellerId` is a routing hint, never authorization) and `_shared/countryCurrency.ts`. All app reads/writes repointed: `useProfiles`, `useTransactionPin`, `useWallet`, `useVirtualAccounts`, `useTransactions`, `useNotifications`, `useNotificationSetings`, `useResellerLegal`, `login`, `register`, `_layout`, `contact`, `security`, `settings`. **8.b** — `constants/countryConfig.ts` (ported country data: currency/symbol/locale/phone bounds/telecoms) and de-hardcoded the remaining naira/`en-NG`/Nigerian-copy sites (`index.tsx`, `PlanCarousel`, `transaction-history`, `settings`, `help`, `legalTextGenerator`); removed the dead `allDataPlans`/`userData`/`quickAmounts` block (~255 lines) from `constants/helpers.ts`. **8.c** — `usePurchaseVTU` repointed to `global-purchase-data`/`global-purchase-airtime` (8.c.i); notifications moved to `global_*` (8.c.iii) with migration `20261015_create_global_notifications.sql` (two tables + push-token columns, RLS on with no customer policy). Catalog function gained a public `store` block (name/email/country_code) for header + legal copy. **Live read-only DB checks** (service role): `global_reseller_plan_configs` has enabled rows for real stores (Roseline/ng 7, Kwam Two/gh 30, 10 stores / 72 rows total); **the notifications migration is NOT yet applied live** (`global_notifications` → 42P01; `global_reseller_applications.push_token` → 42703), so it must run on Ubuntu before deploy. Pointer advanced to `8.d.iv` (person: patches + `psql` migration + deploy + device e2e). No push (sandbox); delivered via `git format-patch`.
 | 2026-10-17 | Task 8 — doc refresh (state verified live) | Bootstrapped both repos from fresh clones (web `be040bb` tree `481cd06c`; mobile `fe92bb2` tree `e4216570`) — both match HANDOVER exactly; local sandbox commits `370a411`/`87dab5b` are content-identical (same trees), no divergence. Live-verified section 2's claims: migration `20261015` IS applied (`global_notifications`, `global_customer_notifications`, and `push_token` on `global_reseller_applications`/`global_customers` all HTTP 200 via service-role REST); all 10 `global-store-*` functions deployed and behaving (catalog 200 with 7 NG plans; auth-email returns success:true/authEmail:null; identity fns 401 Invalid authorization token with no JWT; -pin/-update-profile 400). Confirmed the dispatch blocker: gh workflow run build-global-reseller-apk.yml returns 403 Resource not accessible by integration (App installation token, repo push but no actions:write), and no ng-roseline-* release exists in Erudite885/tenant-distribution — the Roseline build was never dispatched. Also found PAT_TOKEN is invalid (401 Bad credentials); GITHUB_TOKEN works as Phoenix-Boss. Doc-only update (this file + TASK-8-BOARD.md): marked 8.a.ii.zr and 8.d.iv done, migration applied, functions deployed; pointer advanced to 8.a.iii.zr (device e2e), gated on the Roseline build. Delivered via git format-patch. |
+| 2026-10-17 | Task 8 — doc push landed + Roseline build dispatched; **web never deployed to production** (new blocker) | Bootstrapped both repos from fresh clones (web `be040bb` tree `481cd06c`, mobile `fe92bb2` tree `e4216570` — both match HANDOVER exactly), downloaded and sha256-verified all four served artifacts (patch + 2 bundles + `HANDOFF-PROMPT.md`; all OK), then applied and **pushed the doc-only commit** `d48fc7e` via `git am` + `P_TOKEN` — web origin tip `be040bb` → `8bc1c00` (tree `5bd5390`); mobile already at `fe92bb2`, nothing to push. **New token found:** `P_TOKEN` (literal, uppercase) is present and works — HTTP 200, 5000/hr, classic PAT with `repo`+`workflow`+`admin:org` scopes, login `Phoenix-Boss` (the old `PAT_TOKEN` is absent; `GITHUB_TOKEN` is the App token). Live-verified section 2's claims: migration `20261015` applied (`global_notifications`, `global_customer_notifications`, `push_token` on `global_reseller_applications`/`global_customers` all 200 via service-role REST) and `global-store-catalog` returns 200 with 7 NG plans for Roseline (store block Roseline/ng). **Dispatched the Roseline APK build for the first time** (`gh workflow run build-global-reseller-apk.yml --ref handover/supabase-dump`, run `39058017316`) — it cleared "Setup Expo" (Node 22 fix confirmed in CI) and "Install dependencies", then failed at "Generate global reseller assets": the config endpoint 404s. **Root cause (new, material): the web app has never been deployed to production.** All 100 GitHub deployments for the repo are `Preview` (zero `Production`); production `edges-landing-page.vercel.app` serves an old `main` lineage (`57b3d1c`) that predates Tasks 4–8 — the config route, `/ng/roseline`, `/ng`, `/api/reseller/ng/countries`, `/gh/kwam-two` all 404; only legacy routes answer. The country route exists only on `handover/supabase-dump` (commit `5081575`), and the generic fallback reads the legacy `reseller_app_configs` table, so its "Config not found" is expected. Previews are Vercel-Auth protected (302→401), so they can't stand in. This also re-frames Task 7's "webhook 404": `API_URL` points at a deployment with no such routes. Roseline `build_status` stays `building` with null `error_message`, as predicted. Doc-only update (this file + TASK-8-BOARD.md): added leaf `8.d.v` (person: deploy web to production) and advanced the pointer to it; the device e2e (`8.a.iii.zr`) is gated on that deploy. No code changed this session. |

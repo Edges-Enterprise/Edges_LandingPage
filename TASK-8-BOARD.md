@@ -8,12 +8,14 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-17 - all agent-owned Task 8 leaves complete; **both patches
-landed on origin** (web `be040bb` / mobile `fe92bb2`), the notifications
-migration **is applied live**, and all **10 `global-store-*` functions are
-deployed + live-verified**. The sole open leaf is the **device e2e
-(`8.a.iii.zr`)**, which is gated on the Roseline APK build (not yet dispatched —
-this sandbox's token lacks `actions:write`).
+Last updated: 2026-10-17 (second session) - all agent-owned Task 8 leaves complete;
+**both repos landed** (web `8bc1c00` = `be040bb` + the doc commit, mobile
+`fe92bb2`), the notifications migration **is applied live**, and all **10
+`global-store-*` functions are deployed + live-verified**. The Roseline APK build
+was dispatched for the first time with the new `P_TOKEN` and cleared the old
+Node-22 failure — which exposed the real blocker: **the web has never been
+deployed to production** (Blocker 3). New active leaf **`8.d.v` (person: deploy
+the web to production)**; the device e2e (`8.a.iii.zr`) is gated on it.
 
 ## Decisions already locked (do not re-litigate)
 
@@ -62,20 +64,25 @@ this sandbox's token lacks `actions:write`).
 | 8.c.i | Repoint `usePurchaseVTU` → `global-purchase-data` / `global-purchase-airtime` | 🤖 | ✅ | catalog done (8.a.iii) |
 | 8.c.ii | Wallet / VA / transaction hooks read the new functions | 🤖 | ✅ | 8.a.ii.zq |
 | 8.c.iii | Notifications on `global_*` | 🤖 | ✅ | migration `20261015` **applied live** (2026-10-17) |
-| **8.d** | **Verification & rollout** | | ⬜ | — |
-| 8.d.i | Mobile `tsc --noEmit` = 0 (gate after every leaf) | 🤖 | 🔄 | — |
-| 8.d.ii | APK build for `ng` + `gh` + one more (e.g. `ke`/`zm`) | 🧑 | ⬜ | Roseline build not yet dispatched (needs `actions:write`) |
+| **8.d** | **Verification & rollout** | | 🔄 | — |
+| 8.d.i | Mobile `tsc --noEmit` = 0 (gate after every leaf) | 🤖 | ✅ | 0 after every leaf (2026-10-15) |
+| 8.d.ii | APK build for `ng` + `gh` + one more (e.g. `ke`/`zm`) | 🧑 | 🚫 | Roseline dispatched `39058017316`; blocked at config fetch by **Blocker 3** |
 | 8.d.iii | Signed-out vs signed-in storefront parity | 🧑 | ⬜ | 8.d.ii |
-| 8.d.iv | Push mobile + web | 🧑 | ✅ | web `be040bb` / mobile `fe92bb2` on origin (2026-10-17) |
+| 8.d.iv | Push mobile + web | 🧑 | ✅ | web `8bc1c00` / mobile `fe92bb2` on origin (2026-10-17) |
+| 8.d.v | **Deploy the web to production** (Vercel has zero Production deployments; prod serves stale `main`) | 🧑 | ⬜ | **NEW + on the critical path** — see Blocker 3 |
 
 ## Critical path
 
 ```
 8.a.iii.zq (catalog e2e)  ──►  8.c.i (purchase repoint)  ──►  8.d.ii (APK)
-        │                              ▲
-        └──►  8.a.ii.zi→zp (functions) ─┘   [wallet must exist to buy]
-                        │
-                        └──►  8.a.ii.zq (app identity/money wiring) ──► 8.c.ii
+        │                              ▲                            ▲
+        └──►  8.a.ii.zi→zp (functions) ─┘   [wallet must exist]     │
+                        │                                          │
+                        └──►  8.a.ii.zq (app identity/money) ──► 8.c.ii
+                                                                   │
+8.d.v (web → production)  ─────────────────────────────────────────┘
+        [the APK build fetches its config from the deployed web, so this
+         is now a hard prerequisite for 8.d.ii → 8.a.iii.zr]
 
 8.b (presentation) can proceed in parallel once 8.b.i shape is picked.
 8.c.iii is blocked on Blocker 2 and is NOT on the critical path.
@@ -170,7 +177,8 @@ lands, browsing a catalog works but buying fails.**
 
 | # | Blocker | Impact | Resolution options |
 |---|---|---|---|
-| 2 | ~~**No `global_*` notifications table**~~ **RESOLVED** — migration `20261015_create_global_notifications.sql` adds `global_notifications` + `global_customer_notifications` + push-token columns | 8.c.iii done (person applies the migration on Ubuntu) | (a) chosen |
+| 2 | ~~**No `global_*` notifications table**~~ **RESOLVED** — migration `20261015_create_global_notifications.sql` adds `global_notifications` + `global_customer_notifications` + push-token columns | 8.c.iii done (migration applied live) | (a) chosen |
+| 3 | **The web has never been deployed to production.** Vercel shows 100 deployments, all `Preview`, zero `Production`; `edges-landing-page.vercel.app` serves a stale `main` lineage (`57b3d1c`) that predates Tasks 4–8, so every Task 4–8 route 404s — including the config API the APK build fetches. | Blocks the APK build (`8.d.ii`) → device e2e (`8.a.iii.zr`); also the cause of Task 7's webhook 404 | (a) promote a preview of `handover/supabase-dump` to production + set the mobile `API_URL` secret to that host; (b) merge `handover/supabase-dump` → `main` and let Production build. **Person/Vercel-dashboard step** — no `VERCEL_TOKEN` in the sandbox. |
 
 Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B**.
 
@@ -178,10 +186,11 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 
 | Step | When | Command / action |
 |---|---|---|
-| ~~Apply the 1 web patch + 1 mobile patch, push~~ | **DONE** | both landed on origin (`be040bb` / `fe92bb2`) |
+| ~~Apply the 1 web patch + 1 mobile patch, push~~ | **DONE** | both landed on origin (`8bc1c00` / `fe92bb2`) |
 | ~~Apply the notifications migration (Ubuntu, direct psql)~~ | **DONE** | `20261015_create_global_notifications.sql` applied (tables + columns return 200) |
 | ~~Deploy the new `global-store-*` functions~~ | **DONE** | all 10 deployed `--no-verify-jwt` + live-verified |
-| **Dispatch the Roseline APK build** | now | `gh workflow run build-global-reseller-apk.yml …` (needs `actions:write`) |
+| **Deploy the web to production** (`8.d.v`) | **now — new blocker** | promote a `handover/supabase-dump` preview to Production (or merge to `main`); confirm `$API_URL/api/reseller/ng/config/<id>` → 200; set the mobile `API_URL` secret |
+| **Dispatch the Roseline APK build** | after the deploy | `gh workflow run build-global-reseller-apk.yml …` (dispatched `39058017316`; re-run once the config API answers) |
 | **Device/APK test for `ng` + `gh`** | after build | install the release APK; browse + buy (`8.a.iii.zr`) |
 
 ## Delivery
@@ -189,23 +198,28 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 ### ✅ Web — LANDED
 
 Web (`Edges-Enterprise/Edges_LandingPage`, `handover/supabase-dump`) is
-**pushed and current**. Origin tip is now `ed325c3`; all three patches landed
+**pushed and current**. Origin tip is now `8bc1c00` (= `be040bb` + the
+2026-10-17 doc refresh, tree `5bd5390…`); all prior patches landed
 (verified by patch-id match): the `global-store-catalog` function, the deploy +
-live-verify docs, and this board. Local tree == origin tree
-(`0c34f55d…`). Nothing to apply.
+live-verify docs, and this board. Local tree == origin tree. Nothing to apply.
 
 | Patch | Landed as | sha256 |
 |---|---|---|
 | `edges-task8-catalog-deployed.patch` | `6551097` | `62806ae2315f5a3ce44f71fc86ac32f52c01690cd19c7d373d5c5baed2d476d0` |
 | `edges-task8-app-wired.patch` | `fdf48fa` | `9f50e5f6f165778d06391001b0703bd58833e2bd6d0789b200da9253dfbf6d4a` |
 | `edges-task8-board.patch` | `ed325c3` | `8e279418623c91f490305f5ceba793e88cf4f99dea18cae1d9baefff07e3998e` |
+| `edges-task8-doc-refresh.patch` | `8bc1c00` | `cd021e54cc078ce802203bf4095063a8860eddce04246792b4ec0a6eb661c3d1` |
+
+**Deployed to production? NO — see Blocker 3.** The branch is pushed but Vercel
+has only ever produced `Preview` deployments for this repo.
 
 ### ✅ Mobile — LANDED
 
 Mobile (`Erudite885/reseller-app`, `handover/supabase-dump`) — pushed. Origin
-tip is now `d923185` (`c556096..d923185`), tree `7bfd8ff3…` (matches local); the
-catalog-read change is present by patch-id. **The 8.a.iii.zq blocker is
-cleared** — the storefront now reads the function on this branch.
+tip is now `fe92bb2` (tree `e4216570…`, matches local); the catalog-read change
+is present by patch-id. **The 8.a.iii.zq blocker is cleared** — the storefront
+now reads the function on this branch. The workflow on this branch carries the
+Node 22 fix (CI-confirmed 2026-10-17).
 
 | Patch | Landed as | sha256 |
 |---|---|---|
@@ -217,11 +231,12 @@ The full agent work is on origin on both repos; nothing is left to apply.
 
 | Repo | Branch tip | Tree | Content |
 |---|---|---|---|
-| `Edges-Enterprise/Edges_LandingPage` | `be040bb` | `481cd06c…` | 10 `global-store-*` functions, `_shared` helpers, `constants/countryConfig.ts`, de-hardcoded presentation, `usePurchaseVTU` repoint, migration `20261015_create_global_notifications.sql`, board |
+| `Edges-Enterprise/Edges_LandingPage` | `8bc1c00` | `5bd5390…` | 10 `global-store-*` functions, `_shared` helpers, `constants/countryConfig.ts`, de-hardcoded presentation, `usePurchaseVTU` repoint, migration `20261015_create_global_notifications.sql`, board (+ 2026-10-17 doc refresh) |
 | `Erudite885/reseller-app` | `fe92bb2` | `e4216570…` | app moved onto the `global_*` model: catalog via `global-store-catalog`, identity/money/notifications hooks on the `global-store-*` functions, country presentation |
 
-Local sandbox commits `370a411` / `87dab5b` are content-identical (same trees);
-no divergence from origin.
+The earlier `be040bb` tip was the code commit; `8bc1c00` adds the doc refresh on
+top. Local sandbox commits `370a411` / `87dab5b` are content-identical (same
+trees); no divergence from origin.
 
 **Applied / deployed / verified live (2026-10-17):**
 
@@ -237,13 +252,23 @@ no divergence from origin.
   `Invalid authorization token` with no JWT; field-validation
   (`-pin`, `-update-profile`) → 400.
 
-### ⬜ Remaining — device e2e (`8.a.iii.zr`), needs the Roseline build
+### ⬜ Remaining — deploy web to production (`8.d.v`), then APK + device e2e (`8.d.ii` / `8.a.iii.zr`)
 
-The Roseline build has **not** been dispatched (no `ng-roseline-*` release in
-`Erudite885/tenant-distribution`). This sandbox cannot dispatch it: its GitHub
-token is an App installation token with repo `push` but no `actions:write`
-(`gh workflow run …` → 403 `Resource not accessible by integration`). The person
-dispatches with an Actions-write token:
+**First, and newly discovered (2026-10-17): the web must be deployed to
+production.** The Roseline build *was* dispatched this session (`P_TOKEN` has
+`actions:write`, run `39058017316`) and cleared "Setup Expo" + "Install
+dependencies", then failed at "Generate global reseller assets" because the
+config API 404s. Root cause: Vercel has **zero Production deployments** for
+`Edges-Enterprise/Edges_LandingPage` — all 100 are `Preview`, and
+`edges-landing-page.vercel.app` serves a stale `main` (`57b3d1c`) that predates
+Tasks 4–8. So no APK build can fetch its config until the branch is live in
+production.
+
+1. **Deploy the web to production** (person): promote a `handover/supabase-dump`
+   preview to Production, or merge to `main` and let Production build. Then
+   `curl -s -o /dev/null -w "%{http_code}\n" "$API_URL/api/reseller/ng/config/330e68c4-af17-4a57-be7e-76f67bf0f492"`
+   should return 200, and the mobile `API_URL` secret must point at that host.
+2. **Re-dispatch the Roseline build:**
 
 ```bash
 gh workflow run build-global-reseller-apk.yml \
@@ -254,11 +279,11 @@ gh workflow run build-global-reseller-apk.yml \
 ```
 
 **Known caveat (from Task 7, still open):** the workflow's success callback
-POSTs to `$API_URL/api/reseller/ng/webhooks/build`, which 404s, so
-`global_reseller_app_configs.build_status` for Roseline
-(`330e68c4-af17-4a57-be7e-76f67bf0f492`) will likely stay `building`. Judge build
-success by the `tenant-distribution` release, **not** the DB row. A successful
-build appears as `ng-roseline-330e68c4-<timestamp>`.
+POSTs to `$API_URL/api/reseller/ng/webhooks/build`, which 404s until the
+production deploy lands, so `global_reseller_app_configs.build_status` for
+Roseline (`330e68c4-af17-4a57-be7e-76f67bf0f492`) will likely stay `building`.
+Judge build success by the `tenant-distribution` release, **not** the DB row. A
+successful build appears as `ng-roseline-330e68c4-<timestamp>`.
 
 ## Progress summary
 
@@ -269,16 +294,15 @@ build appears as `ng-roseline-330e68c4-<timestamp>`.
 | 8.a.iii | 4 | 5 | 🔄 device e2e left (scripted e2e ✅) |
 | 8.b | 6 | 6 | ✅ complete |
 | 8.c | 3 | 3 | ✅ complete |
-| 8.d | 1 | 4 | 🔄 push done; APK + parity left |
+| 8.d | 2 | 5 | 🔄 push + tsc done; **web deploy (`8.d.v`) is the new gate**, then APK + parity |
 
-**Next atomic step:** `8.a.iii.zr` (person) — confirm the **Roseline APK build
-completes**, then run the device e2e (browse the catalog: expect 7 plans,
+**Next atomic step:** `8.d.v` (person) — **deploy the web to production** so the
+config API answers; then re-dispatch the Roseline APK build (`8.d.ii`) and run
+the device e2e (`8.a.iii.zr`: browse the catalog, expect 7 plans,
 MTN/AIRTEL/9MOBILE; then attempt a purchase). Everything upstream is done: both
-patches landed on origin, the migration is applied live, and all 10 functions
-are deployed + live-verified. The build is **not yet dispatched** — this
-sandbox's GitHub token is an App installation token without `actions:write`
-(dispatch → 403), so the person must dispatch it (command below) or register an
-`Actions:write` PAT as a secret.
+repos landed on origin, the migration is applied live, all 10 functions are
+deployed + live-verified, and the Roseline build now clears the Node-22 step in
+CI — it is blocked solely on the production deploy (Blocker 3).
 
 ## Not part of Task 8 (recorded for completeness)
 
