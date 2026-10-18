@@ -19,6 +19,39 @@ export async function POST(
 
     const supabase = await createServerClient();
 
+    const UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!UUID_RE.test(buildId)) {
+      return NextResponse.json(
+        { error: "buildId must be a UUID" },
+        { status: 400 },
+      );
+    }
+
+    // The build workflow posts the *config* id as `buildId` — it never learns
+    // the global_app_builds row id — and global_app_builds.config_id links back
+    // to it. Accept either so the endpoint also serves callers that post the
+    // build row id directly.
+    const { data: buildRow, error: lookupError } = await supabase
+      .from("global_app_builds")
+      .select("id")
+      .or(`config_id.eq.${buildId},id.eq.${buildId}`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error("Build lookup error:", lookupError);
+      return NextResponse.json(
+        { error: "Failed to look up build" },
+        { status: 500 },
+      );
+    }
+
+    if (!buildRow) {
+      return NextResponse.json({ error: "Build not found" }, { status: 404 });
+    }
+
     // ✅ Update build status
     const updateData: any = {
       build_status: status,
@@ -42,7 +75,7 @@ export async function POST(
     const { data: build, error: updateError } = await supabase
       .from("global_app_builds")
       .update(updateData)
-      .eq("id", buildId)
+      .eq("id", buildRow.id)
       .select("application_id")
       .single();
 
