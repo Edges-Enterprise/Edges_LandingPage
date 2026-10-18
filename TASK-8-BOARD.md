@@ -74,7 +74,7 @@ leaf **`8.d.ix` (deploy the webhook fix, then re-dispatch or backfill).**
 | 8.d.v | Deploy the web to production | 🧑 | ✅ | **DONE** — PR #25 → `main` `50e2b7c`; Production deploy `7145175251` success |
 | 8.d.vi | Fix config route select (`apk_url, aab_url` not on `global_reseller_app_configs`) | 🤖 | ✅ | **DONE** — `e9e7a6b`, merged to `main` (PR #26 `f842969`); prod endpoint 200 |
 | 8.d.vii | **Merge web branch to `main`** | 🧑 | ✅ | **DONE** — PR #26 → `f842969`; Production deploy `7145723808` |
-| 8.d.viii | **Merge mobile branch to `main`** (clean fast-forward, no conflicts) | 🧑 | ✅ | **DONE** — PR #6 → `64303e1`; `main` tree identical to the branch |
+| 8.d.viii | **Merge mobile branch to `main`** (clean fast-forward, no conflicts) | 🧑 | ✅ | **DONE** — PR #6 → `64303e1` — but it merged `778e937`, so `main` still lacks the Blocker 5 fix `462fa82`; re-merge needed |
 | 8.d.ix | **Deploy the build-webhook `config_id` fix + re-dispatch** (Blocker 6) | 🧑+🤖 | 🔄 | Web fix `5cf4d2b` committed; needs merge to `main` + prod deploy, then re-dispatch (or backfill the DB row) |
 
 ## Critical path
@@ -206,6 +206,7 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 | ~~Merge mobile to `main`~~ (`8.d.viii`) | **DONE** | PR #6 → `64303e1`; `main` is now the correct build source |
 | ~~Dispatch the Roseline APK build~~ | **DONE** | run `39089167745` on `462fa82`; config fetch + assets + secrets pass, APK building |
 | **Deploy the Blocker 6 webhook fix** (`8.d.ix`) | **now** | merge `5cf4d2b` to `main` + let Production deploy, then re-dispatch Roseline (or backfill `global_app_builds.apk_url` / `build_status` for row `a0b2c6ad-...`) |
+| **Re-merge mobile `462fa82` to `main`** | **now** | PR #6 merged `778e937`, which *predates* the Blocker 5 jq fix; mobile `main` (`64303e1`) still has the broken line 72. Clean fast-forward — merge it, or keep dispatching with `--ref handover/supabase-dump` |
 | **Device/APK test for `ng` + `gh`** | after build | install the release APK; browse + buy (`8.a.iii.zr`) |
 
 ## Delivery
