@@ -8,16 +8,17 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-17 (seventh check) - **the Roseline APK build
-SUCCEEDED and the APK is published; a new blocker was found in the success
-callback.** Both branches are on `main`. Run `39089167745` finished green:
-`roseline.apk` (110,167,935 bytes) is live at
-`Erudite885/tenant-distribution` tag `ng-roseline-330e68c4-20261018_022744`.
-But the success callback returned 500 and `global_app_builds` stayed
-`building` — **Blocker 6**: the workflow posts the *config* id as `buildId`,
-while the webhook looked it up in `global_app_builds.id`. Fixed in web
-`5cf4d2b` (resolve via `config_id` too); needs merge + deploy. New active
-leaf **`8.d.ix` (deploy the webhook fix, then re-dispatch or backfill).**
+Last updated: 2026-10-17 (eighth check) - **the build pipeline now works
+end to end.** Web merged (PR #27 → `100d71d`), mobile re-merged (PR #7 →
+`72d9b8d`, so `main` finally carries the Blocker 5 jq fix), and Roseline was
+re-dispatched from `main`: run `39095674274` **succeeded**, published
+`roseline.apk` (110 MB, tag `ng-roseline-330e68c4-20261018_041601`), and the
+success callback returned **`{"success":true}`** — `global_app_builds` row
+`a0b2c6ad-...` is now `completed` with the APK url (Blocker 6 fixed and live).
+Watching that callback surfaced two more silent defects, both fixed in web
+`c16a34d` (**Blocker 7**): a phantom `android_app_status` write (42703, swallowed)
+and a swallowed `functions.invoke` error for the undeployed
+`send-app-build-complete`. Next: deploy `c16a34d` + device e2e.
 
 ## Decisions already locked (do not re-litigate)
 
@@ -75,7 +76,8 @@ leaf **`8.d.ix` (deploy the webhook fix, then re-dispatch or backfill).**
 | 8.d.vi | Fix config route select (`apk_url, aab_url` not on `global_reseller_app_configs`) | 🤖 | ✅ | **DONE** — `e9e7a6b`, merged to `main` (PR #26 `f842969`); prod endpoint 200 |
 | 8.d.vii | **Merge web branch to `main`** | 🧑 | ✅ | **DONE** — PR #26 → `f842969`; Production deploy `7145723808` |
 | 8.d.viii | **Merge mobile branch to `main`** (clean fast-forward, no conflicts) | 🧑 | ✅ | **DONE** — PR #6 → `64303e1` — but it merged `778e937`, so `main` still lacks the Blocker 5 fix `462fa82`; re-merge needed |
-| 8.d.ix | **Deploy the build-webhook `config_id` fix + re-dispatch** (Blocker 6) | 🧑+🤖 | 🔄 | Web fix `5cf4d2b` committed; needs merge to `main` + prod deploy, then re-dispatch (or backfill the DB row) |
+| 8.d.ix | **Deploy the build-webhook `config_id` fix + re-dispatch** (Blocker 6) | 🧑+🤖 | ✅ | **DONE** — web `5cf4d2b` live in Production (probe: non-UUID `buildId` → 400, old code returned 500); run `39095674274` callback returned `{"success":true}` and the build row is `completed` |
+| 8.d.x | **Deploy `c16a34d` (Blocker 7) + device e2e** | 🧑+🤖 | 🔄 | Web fix `c16a34d` committed; needs merge to `main` + prod deploy, then install `roseline.apk` and run `8.a.iii.zr` |
 
 ## Critical path
 
@@ -191,6 +193,7 @@ lands, browsing a catalog works but buying fails.**
 | 4 | ~~**Config route selects columns that do not exist.**~~ **RESOLVED (2026-10-17)** — fixed in `e9e7a6b`. Originally: `src/app/api/reseller/[countryCode]/config/[configId]/route.ts:25` selects `apk_url, aab_url` off `global_reseller_app_configs` (which lacks them; they are on `global_app_builds`), so PostgREST returns `42703` and the route maps any error to its 404 branch. | Blocks the APK build (`8.d.ii`) → device e2e (`8.a.iii.zr`) even now that production serves the branch | (a) drop `apk_url, aab_url` from the select + the `fullConfig` echoes — no caller reads them from this endpoint (the build script uses storeName/appName/theme/assets; the app reads neither; the real APK-URL source is `global_app_builds`, which the storefront already queries). Legacy carry-over: the old `reseller_app_configs` had these columns, the global table does not. (b) if a consumer ever needs them here, source them from `global_app_builds` by `application_id`. Agent fix. |
 | 5 | ~~**Asset script uses a shell variable as a jq variable.**~~ **RESOLVED (2026-10-17)** — fixed in mobile `462fa82`. `scripts/generate-global-reseller-assets.sh:72` ran `jq -r '.appName // .config.appName // $STORE_NAME'`: `$STORE_NAME` is a **shell** variable, but inside the single-quoted jq program jq parses it as an (undefined) **jq** variable, which is a *compile-time* error — so the script aborted with `jq: error: $STORE_NAME is not defined` even though `.appName` exists. Latent since `13d7123` (2026-07-21) because the config fetch failed first (Blockers 3/4) and this line was never reached. Fix: pass the fallback via `--arg fallback "$STORE_NAME"`. | Blocked the Roseline APK build (`8.d.ii`) the moment Blocker 4 was fixed | Agent fix (one line); verified against the live production response (`STORE_NAME=roseline`, `APP_NAME=Roseline`). |
 | 6 | ~~**Build webhook resolves the wrong id — success callbacks 500.**~~ **RESOLVED (2026-10-17)** — fixed in web `5cf4d2b` (merge + deploy pending). The APK workflow posts the **config** id as `buildId` (its only id input is `config_id`; it never learns the build row id), but `src/app/api/reseller/[countryCode]/webhooks/build/route.ts` looked that value up in `global_app_builds.id`. The ids differ, so every callback matched nothing, `.single()` raised `PGRST116`, and the route returned 500 `Failed to update build status`. Observed live: run `39089167745` built + uploaded `roseline.apk` yet the success callback 500'd and `global_app_builds` stayed `building`. Fix: resolve with `or(config_id.eq.<id>, id.eq.<id>)` so both callers work; distinguish not-found (404) from a real fault (500); validate the UUID shape. | Silently breaks the whole build-status pipeline (dashboard status, APK install banner, "built" application status, build-complete email) even though the APK itself is fine | Agent fix (web); verified against live data. The legacy workflow sent `configId` and the legacy route read `config_id` — the mismatch came in with the global rewrite. |
+| 7 | ~~**Two silent failures in the build-complete path.**~~ **RESOLVED (2026-10-17)** — fixed in web `c16a34d` (merge + deploy pending). (a) `android_app_status` **does not exist** on `global_reseller_applications` (nor in the schema or any migration); the build webhook and `completeBuild.ts` both set it fire-and-forget, so PostgREST’s `42703` was swallowed and no record that a build finished was ever written. No reader consumes it — the table exposes the `android_app` boolean. Removed both writes. (b) `supabase.functions.invoke` returns `{ error }` rather than throwing, so the build-complete email failed silently against `send-app-build-complete`, which is **not deployed** (404). Now logged, kept non-fatal. | Both are invisible failures that made a working build look broken and hid the email step | Agent fix (web); found by watching run `39095674274` end to end. |
 
 Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B**.
 
@@ -205,8 +208,9 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 | ~~Merge the `8.d.vi` fix to `main`~~ | **DONE** | PR #26 merged `handover/supabase-dump` → `main` (`f842969`); Production deploy `7145723808`; prod config endpoint 200 |
 | ~~Merge mobile to `main`~~ (`8.d.viii`) | **DONE** | PR #6 → `64303e1`; `main` is now the correct build source |
 | ~~Dispatch the Roseline APK build~~ | **DONE** | run `39089167745` on `462fa82`; config fetch + assets + secrets pass, APK building |
-| **Deploy the Blocker 6 webhook fix** (`8.d.ix`) | **now** | merge `5cf4d2b` to `main` + let Production deploy, then re-dispatch Roseline (or backfill `global_app_builds.apk_url` / `build_status` for row `a0b2c6ad-...`) |
-| **Re-merge mobile `462fa82` to `main`** | **now** | PR #6 merged `778e937`, which *predates* the Blocker 5 jq fix; mobile `main` (`64303e1`) still has the broken line 72. Clean fast-forward — merge it, or keep dispatching with `--ref handover/supabase-dump` |
+| ~~Deploy the Blocker 6 webhook fix~~ (`8.d.ix`) | **DONE** | `5cf4d2b` is live in Production; callback returned `{"success":true}` |
+| **Deploy the Blocker 7 fix** (`8.d.x`) | **now** | merge `c16a34d` to `main` + let Production deploy |
+| ~~Re-merge mobile `462fa82` to `main`~~ | **DONE** | PR #7 → `72d9b8d`; `main` line 72 now uses `--arg fallback` |
 | **Device/APK test for `ng` + `gh`** | after build | install the release APK; browse + buy (`8.a.iii.zr`) |
 
 ## Delivery
@@ -310,16 +314,17 @@ by the `tenant-distribution` release.
 | 8.a.iii | 4 | 5 | 🔄 device e2e left (scripted e2e ✅) |
 | 8.b | 6 | 6 | ✅ complete |
 | 8.c | 3 | 3 | ✅ complete |
-| 8.d | 7 | 10 | 🔄 web+mobile on `main`; Roseline APK **built + published** (`39089167745`); Blocker 6 (webhook id) fixed in `5cf4d2b` pending deploy; then parity + device e2e |
+| 8.d | 8 | 11 | 🔄 web+mobile merged; Roseline **built + published + status recorded** (`39095674274`); Blockers 5–7 fixed; `c16a34d` needs deploy, then parity + device e2e |
 
-**Next atomic step:** `8.d.ix` — merge the Blocker 6 webhook fix (`5cf4d2b`) to
-`main` and let Production deploy, then either re-dispatch the Roseline build or
-backfill `global_app_builds` row `a0b2c6ad-57fd-45e6-b71d-b735e79b5c6a`
-(`build_status=completed`, `apk_url` = the published release URL). Then run the
-device e2e (`8.a.iii.zr`) on `roseline.apk`: browse the catalog (expect 7 plans,
-MTN/AIRTEL/9MOBILE) and attempt a purchase. The APK itself is already built and
-downloadable — only the status pipeline is behind. Both branches are on `main`;
-the migration is applied live; all 10 functions are deployed + live-verified.
+**Next atomic step:** `8.d.x` — merge `c16a34d` (Blocker 7) to `main` and let
+Production deploy, then install `roseline.apk`
+(`https://github.com/Erudite885/tenant-distribution/releases/download/ng-roseline-330e68c4-20261018_041601/roseline.apk`)
+and run the device e2e (`8.a.iii.zr`): browse the catalog (expect 7 plans,
+MTN/AIRTEL/9MOBILE) and attempt a purchase. The whole build pipeline is now proven
+end to end — dispatch → build → publish → status recorded. Both branches are on
+`main`; the migration is applied live; all 10 functions are deployed +
+live-verified. Open loose end: `send-app-build-complete` is referenced but not
+deployed, so the build-complete email does not send.
 
 ## Not part of Task 8 (recorded for completeness)
 
