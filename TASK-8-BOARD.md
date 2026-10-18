@@ -8,14 +8,15 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-17 (fifth check) - **the web is merged to `main` and
-live in Production** (PR #26 → `f842969`; Production deploy `7145723808`,
-2026-10-17T21:02Z; the production config endpoint returns 200). `8.d.v` and
-`8.d.vi` are DONE and Blocker 4 is RESOLVED. **Mobile is NOT yet merged** —
-`origin/main` (`2a9c6d0`) is a clean ancestor of
-`origin/handover/supabase-dump` (`778e937`), so the merge would be a
-fast-forward with no conflicts; recommended (see the board note). New active
-leaf **`8.d.ii` (re-dispatch the Roseline APK build)**.
+Last updated: 2026-10-17 (sixth check) - **web merged + live; mobile merged
+(PR #6 → `64303e1`); Roseline build dispatched and now past the config gate.**
+Both branches are on `main`. The build ran twice: the first run
+(`39088813638`, `--ref main`) proved Blocker 4 is fixed — the config fetch
+returned 200 — but died at a **new** latent bug (Blocker 5: `$STORE_NAME`
+used as a jq variable), fixed in mobile `462fa82`. The second run
+(`39089167745`, `--ref handover/supabase-dump`) passes steps 7–9 (assets,
+google-services, secrets) and is building the APK. New active leaf
+**`8.d.ii` (Roseline APK build)** — in progress.
 
 ## Decisions already locked (do not re-litigate)
 
@@ -66,13 +67,13 @@ leaf **`8.d.ii` (re-dispatch the Roseline APK build)**.
 | 8.c.iii | Notifications on `global_*` | 🤖 | ✅ | migration `20261015` **applied live** (2026-10-17) |
 | **8.d** | **Verification & rollout** | | 🔄 | — |
 | 8.d.i | Mobile `tsc --noEmit` = 0 (gate after every leaf) | 🤖 | ✅ | 0 after every leaf (2026-10-15) |
-| 8.d.ii | APK build for `ng` + `gh` + one more (e.g. `ke`/`zm`) | 🧑 | 🚫 | Roseline dispatched `39058017316`; re-dispatch now that Blocker 4 is fixed (fix must be live where the build fetches) |
+| 8.d.ii | APK build for `ng` + `gh` + one more (e.g. `ke`/`zm`) | 🧑 | 🔄 | **Roseline re-dispatched `39089167745`** (`462fa82`); past config fetch + assets; APK building |
 | 8.d.iii | Signed-out vs signed-in storefront parity | 🧑 | ⬜ | 8.d.ii |
 | 8.d.iv | Push mobile + web | 🧑 | ✅ | web `9be9e80` (merged to `main`) / mobile `778e937` (2026-10-17) |
 | 8.d.v | Deploy the web to production | 🧑 | ✅ | **DONE** — PR #25 → `main` `50e2b7c`; Production deploy `7145175251` success |
 | 8.d.vi | Fix config route select (`apk_url, aab_url` not on `global_reseller_app_configs`) | 🤖 | ✅ | **DONE** — `e9e7a6b`, merged to `main` (PR #26 `f842969`); prod endpoint 200 |
 | 8.d.vii | **Merge web branch to `main`** | 🧑 | ✅ | **DONE** — PR #26 → `f842969`; Production deploy `7145723808` |
-| 8.d.viii | **Merge mobile branch to `main`** (clean fast-forward, no conflicts) | 🧑 | ⬜ | **NEW** — recommended; makes `main` the correct build source |
+| 8.d.viii | **Merge mobile branch to `main`** (clean fast-forward, no conflicts) | 🧑 | ✅ | **DONE** — PR #6 → `64303e1`; `main` tree identical to the branch |
 
 ## Critical path
 
@@ -186,6 +187,7 @@ lands, browsing a catalog works but buying fails.**
 | 2 | ~~**No `global_*` notifications table**~~ **RESOLVED** — migration `20261015_create_global_notifications.sql` adds `global_notifications` + `global_customer_notifications` + push-token columns | 8.c.iii done (migration applied live) | (a) chosen |
 | 3 | ~~**The web has never been deployed to production.**~~ **RESOLVED (2026-10-17)** — PR #25 merged the branch to `main` (`50e2b7c`) and Production deployment `7145175251` succeeded. Originally: Vercel showed 100 deployments, all `Preview`, zero `Production`; `edges-landing-page.vercel.app` serves a stale `main` lineage (`57b3d1c`) that predates Tasks 4–8, so every Task 4–8 route 404s — including the config API the APK build fetches. | Blocks the APK build (`8.d.ii`) → device e2e (`8.a.iii.zr`); also the cause of Task 7's webhook 404 | (a) promote a preview of `handover/supabase-dump` to production + set the mobile `API_URL` secret to that host; (b) merge `handover/supabase-dump` → `main` and let Production build. **Person/Vercel-dashboard step** — no `VERCEL_TOKEN` in the sandbox. |
 | 4 | ~~**Config route selects columns that do not exist.**~~ **RESOLVED (2026-10-17)** — fixed in `e9e7a6b`. Originally: `src/app/api/reseller/[countryCode]/config/[configId]/route.ts:25` selects `apk_url, aab_url` off `global_reseller_app_configs` (which lacks them; they are on `global_app_builds`), so PostgREST returns `42703` and the route maps any error to its 404 branch. | Blocks the APK build (`8.d.ii`) → device e2e (`8.a.iii.zr`) even now that production serves the branch | (a) drop `apk_url, aab_url` from the select + the `fullConfig` echoes — no caller reads them from this endpoint (the build script uses storeName/appName/theme/assets; the app reads neither; the real APK-URL source is `global_app_builds`, which the storefront already queries). Legacy carry-over: the old `reseller_app_configs` had these columns, the global table does not. (b) if a consumer ever needs them here, source them from `global_app_builds` by `application_id`. Agent fix. |
+| 5 | ~~**Asset script uses a shell variable as a jq variable.**~~ **RESOLVED (2026-10-17)** — fixed in mobile `462fa82`. `scripts/generate-global-reseller-assets.sh:72` ran `jq -r '.appName // .config.appName // $STORE_NAME'`: `$STORE_NAME` is a **shell** variable, but inside the single-quoted jq program jq parses it as an (undefined) **jq** variable, which is a *compile-time* error — so the script aborted with `jq: error: $STORE_NAME is not defined` even though `.appName` exists. Latent since `13d7123` (2026-07-21) because the config fetch failed first (Blockers 3/4) and this line was never reached. Fix: pass the fallback via `--arg fallback "$STORE_NAME"`. | Blocked the Roseline APK build (`8.d.ii`) the moment Blocker 4 was fixed | Agent fix (one line); verified against the live production response (`STORE_NAME=roseline`, `APP_NAME=Roseline`). |
 
 Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B**.
 
@@ -198,8 +200,8 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 | ~~Deploy the new `global-store-*` functions~~ | **DONE** | all 10 deployed `--no-verify-jwt` + live-verified |
 | ~~Deploy the web to production~~ (`8.d.v`) | **DONE** | PR #25 merged `handover/supabase-dump` → `main` (`50e2b7c`); Production deploy `7145175251` success |
 | ~~Merge the `8.d.vi` fix to `main`~~ | **DONE** | PR #26 merged `handover/supabase-dump` → `main` (`f842969`); Production deploy `7145723808`; prod config endpoint 200 |
-| **Merge mobile to `main`** (`8.d.viii`) | recommended, before/with `8.d.ii` | `origin/main` (`2a9c6d0`) is a clean ancestor of the branch (`778e937`) — fast-forward, no conflicts. Until it lands, dispatch the build with `--ref handover/supabase-dump`. |
-| **Dispatch the Roseline APK build** | **now** | `gh workflow run build-global-reseller-apk.yml …` (config endpoint is live in production; may use `--ref main` once mobile is merged) |
+| ~~Merge mobile to `main`~~ (`8.d.viii`) | **DONE** | PR #6 → `64303e1`; `main` is now the correct build source |
+| ~~Dispatch the Roseline APK build~~ | **DONE** | run `39089167745` on `462fa82`; config fetch + assets + secrets pass, APK building |
 | **Device/APK test for `ng` + `gh`** | after build | install the release APK; browse + buy (`8.a.iii.zr`) |
 
 ## Delivery
@@ -303,15 +305,16 @@ by the `tenant-distribution` release.
 | 8.a.iii | 4 | 5 | 🔄 device e2e left (scripted e2e ✅) |
 | 8.b | 6 | 6 | ✅ complete |
 | 8.c | 3 | 3 | ✅ complete |
-| 8.d | 5 | 8 | 🔄 tsc + push + prod deploy + config-route fix + web merged to `main`; **`8.d.ii` (re-dispatch APK)** is the gate, then parity |
+| 8.d | 6 | 9 | 🔄 web+mobile merged to `main`; Roseline APK build running (`39089167745`) after fixing Blocker 5; then parity + device e2e |
 
-**Next atomic step:** `8.d.ii` (agent + person) — the web is merged to `main`
-and live, so the config endpoint answers 200; re-dispatch the Roseline APK build
-and run the device e2e (`8.a.iii.zr`: browse the catalog, expect 7 plans,
-MTN/AIRTEL/9MOBILE; then attempt a purchase). Recommended first: merge mobile to
-`main` (`8.d.viii`) — a clean fast-forward — so `main` is the correct build
-source. Everything else is done: web merged + deployed, config route fixed, the
-migration applied live, and all 10 functions deployed + live-verified.
+**Next atomic step:** `8.d.ii` — watch run `39089167745` to completion; on
+success, download the `ng-roseline-330e68c4-<timestamp>` release APK from
+`Erudite885/tenant-distribution` and run the device e2e (`8.a.iii.zr`: browse the
+catalog, expect 7 plans, MTN/AIRTEL/9MOBILE; then attempt a purchase). On failure,
+read the step log — Blockers 4 and 5 are both resolved, so any new failure is a
+fresh one. Both branches are merged to `main`; the config endpoint is live in
+production; the migration is applied live; all 10 functions are deployed +
+live-verified.
 
 ## Not part of Task 8 (recorded for completeness)
 
