@@ -87,18 +87,12 @@ export async function POST(
       );
     }
 
-    // ✅ If completed, update the application status
-    if (status === "completed" && build?.application_id) {
-      await supabase
-        .from("global_reseller_applications")
-        .update({ android_app_status: "built" })
-        .eq("id", build.application_id);
-    }
-
-    // ✅ If completed, send notification to reseller
+    // Best-effort build-complete email. `functions.invoke` does not throw on
+    // an HTTP error (it returns { error }), so check it explicitly — otherwise
+    // a missing/failed function is silent. Keep it non-fatal: the build is
+    // already published and the status row is correct.
     if (status === "completed" && build?.application_id) {
       try {
-        // Get application details
         const { data: app } = await supabase
           .from("global_reseller_applications")
           .select("email, first_name")
@@ -106,15 +100,24 @@ export async function POST(
           .single();
 
         if (app?.email) {
-          // Trigger email notification via Edge Function
-          await supabase.functions.invoke("send-app-build-complete", {
-            body: {
-              email: app.email,
-              firstName: app.first_name || "Reseller",
-              apkUrl: apkUrl,
-              applicationId: build.application_id,
+          const { error: notifError } = await supabase.functions.invoke(
+            "send-app-build-complete",
+            {
+              body: {
+                email: app.email,
+                firstName: app.first_name || "Reseller",
+                apkUrl: apkUrl,
+                applicationId: build.application_id,
+              },
             },
-          });
+          );
+
+          if (notifError) {
+            console.error(
+              "Build notification function unavailable (non-fatal):",
+              notifError,
+            );
+          }
         }
       } catch (notifError) {
         console.error("Failed to send build notification:", notifError);
