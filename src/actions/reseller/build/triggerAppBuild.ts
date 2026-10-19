@@ -4,10 +4,11 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Build workflows are dispatched from the mobile repo. While fixes are in
-// flight, dispatch from the handover branch so unreleased workflow changes
-// take effect; revert to "main" once everything is merged.
-const BUILD_WORKFLOW_REF = "handover/supabase-dump";
+// Build workflows are dispatched from the mobile repo. Both branches are
+// merged, so dispatch from "main" — the ref here is the *build source*, not
+// this web repo's branch. Point it at a handover branch only while an
+// unreleased workflow change must take effect.
+const BUILD_WORKFLOW_REF = "main";
 
 interface TriggerAppBuildParams {
   applicationId: string;
