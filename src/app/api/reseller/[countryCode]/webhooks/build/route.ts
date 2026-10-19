@@ -1,6 +1,7 @@
 // src/app/api/reseller/[countryCode]/webhooks/build/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { sendAdminEmail } from "@/lib/email/email";
 
 export async function POST(
   req: NextRequest,
@@ -87,37 +88,39 @@ export async function POST(
       );
     }
 
-    // Best-effort build-complete email. `functions.invoke` does not throw on
-    // an HTTP error (it returns { error }), so check it explicitly — otherwise
-    // a missing/failed function is silent. Keep it non-fatal: the build is
-    // already published and the status row is correct.
+    // Build-complete email. Sent from the app's own mailer rather than an edge
+    // function: the legacy flow used the same mailer (notifyBuildComplete.ts),
+    // the global rewrite replaced it with an `invoke("send-app-build-complete")`
+    // to a function that was never created, and this app already owns the
+    // transport + credentials. Best-effort: the APK is published and the status
+    // row is written, so a mail failure must not fail the webhook.
     if (status === "completed" && build?.application_id) {
       try {
         const { data: app } = await supabase
           .from("global_reseller_applications")
-          .select("email, first_name")
+          .select("email, first_name, store_name, store_slug")
           .eq("id", build.application_id)
           .single();
 
         if (app?.email) {
-          const { error: notifError } = await supabase.functions.invoke(
-            "send-app-build-complete",
-            {
-              body: {
-                email: app.email,
-                firstName: app.first_name || "Reseller",
-                apkUrl: apkUrl,
-                applicationId: build.application_id,
-              },
-            },
-          );
+          const rawName = app.store_name || app.store_slug || "Your";
+          const displayName = rawName
+            .split(/[-_ ]+/)
+            .filter(Boolean)
+            .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" ");
 
-          if (notifError) {
-            console.error(
-              "Build notification function unavailable (non-fatal):",
-              notifError,
-            );
-          }
+          await sendAdminEmail({
+            to: app.email,
+            subject: `📱 Your ${displayName} App is Ready!`,
+            recipientName: app.first_name || displayName,
+            isHtml: false,
+            message: `Your branded Android app for ${displayName} has been built successfully!
+
+📱 Download it here: ${apkUrl}
+
+You can also re-download it any time from your dashboard.`,
+          });
         }
       } catch (notifError) {
         console.error("Failed to send build notification:", notifError);
