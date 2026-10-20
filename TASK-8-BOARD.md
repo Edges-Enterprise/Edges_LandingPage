@@ -8,15 +8,16 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-17 (tenth check) - **PR #29 is open; the build-complete
-email is fixed.** PR
-[#29](https://github.com/Edges-Enterprise/Edges_LandingPage/pull/29)
-(`handover/supabase-dump` → `main`, 5 commits) carries Blockers 7 + 8 and the
-email fix. **Blocker 9**: the build-complete email invoked an edge function
-`send-app-build-complete` that was never created (404) — the legacy flow sent
-it from the app’s own mailer, and the rewrite dropped that. Now sent from the
-app mailer again (`9721e0a`), so no new function or deploy is needed. Waiting on
-a Production deploy of `9721e0a`.
+Last updated: 2026-10-20 (eleventh check) - **PR #29 MERGED and deployed to
+Production.** PR
+[#29](https://github.com/Edges-Enterprise/Edges_LandingPage/pull/29) merged by
+Phoenix-Boss at 2026-10-20T08:37:19Z as **`bcf4db3`**; `main` tip is `bcf4db3`.
+The Production deployment for that sha (`7195314279`) reports **success**. All
+three fixes are confirmed present in `main`: `BUILD_WORKFLOW_REF = "main"` in both
+dispatch paths (Blocker 8), no `android_app_status` write (Blocker 7), and
+`sendAdminEmail` in place of the never-created invoke (Blocker 9). Remaining:
+re-submit from the web and confirm `head_branch: main` + the email arrives, then
+the signed-in purchase check (`8.a.iii.zr`).
 
 ## Decisions already locked (do not re-litigate)
 
@@ -75,7 +76,8 @@ a Production deploy of `9721e0a`.
 | 8.d.vii | **Merge web branch to `main`** | 🧑 | ✅ | **DONE** — PR #26 → `f842969`; Production deploy `7145723808` |
 | 8.d.viii | **Merge mobile branch to `main`** (clean fast-forward, no conflicts) | 🧑 | ✅ | **DONE** — PR #6 → `64303e1` — but it merged `778e937`, so `main` still lacks the Blocker 5 fix `462fa82`; re-merge needed |
 | 8.d.ix | **Deploy the build-webhook `config_id` fix + re-dispatch** (Blocker 6) | 🧑+🤖 | ✅ | **DONE** — web `5cf4d2b` live in Production (probe: non-UUID `buildId` → 400, old code returned 500); run `39095674274` callback returned `{"success":true}` and the build row is `completed` |
-| 8.d.x | **Merge PR #29 (Blockers 7 + 8 + email)** | 🧑 | 🔄 | PR [#29](https://github.com/Edges-Enterprise/Edges_LandingPage/pull/29) open (`c16a34d`, `38805a0`, `9721e0a`); needs merge to `main` + prod deploy. Device e2e catalog half already passes |
+| 8.d.x | **Merge PR #29 (Blockers 7 + 8 + email)** | 🧑 | ✅ | **DONE** — PR [#29](https://github.com/Edges-Enterprise/Edges_LandingPage/pull/29) merged as `bcf4db3`; Production deploy `7195314279` **success**; all three fixes verified in `main` |
+| 8.d.xi | **Confirm the fixes live**: re-submit from the web, check `head_branch: main` + email arrives | 🧑 | 🔄 | Now unblocked — `main` is deployed; needs a fresh submission to exercise both paths end to end |
 
 ## Critical path
 
@@ -209,7 +211,8 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 | ~~Merge mobile to `main`~~ (`8.d.viii`) | **DONE** | PR #6 → `64303e1`; `main` is now the correct build source |
 | ~~Dispatch the Roseline APK build~~ | **DONE** | run `39089167745` on `462fa82`; config fetch + assets + secrets pass, APK building |
 | ~~Deploy the Blocker 6 webhook fix~~ (`8.d.ix`) | **DONE** | `5cf4d2b` is live in Production; callback returned `{"success":true}` |
-| **Merge PR #29** (`8.d.x`) | **now** | merge [#29](https://github.com/Edges-Enterprise/Edges_LandingPage/pull/29) (`c16a34d`, `38805a0`, `9721e0a`) to `main` + let Production deploy |
+| ~~Merge PR #29~~ (`8.d.x`) | **DONE** | merged `bcf4db3`; Production deploy success |
+| **Confirm the fixes live** (`8.d.xi`) | **now** | re-submit an application from the web; confirm the run’s `head_branch` is `main` and the build-complete email arrives |
 | ~~Re-merge mobile `462fa82` to `main`~~ | **DONE** | PR #7 → `72d9b8d`; `main` line 72 now uses `--arg fallback` |
 | **Device/APK test for `ng` + `gh`** | after build | install the release APK; browse + buy (`8.a.iii.zr`) |
 
@@ -314,14 +317,13 @@ by the `tenant-distribution` release.
 | 8.a.iii | 4 | 5 | 🔄 device e2e left (scripted e2e ✅) |
 | 8.b | 6 | 6 | ✅ complete |
 | 8.c | 3 | 3 | ✅ complete |
-| 8.d | 10 | 13 | 🔄 build pipeline proven end to end; device e2e catalog half PASSES; Blockers 5–9 fixed; PR #29 open, awaiting merge + deploy, then signed-in purchase check |
+| 8.d | 10 | 14 | 🔄 Blockers 5–9 fixed, merged (`bcf4db3`) and deployed; device e2e catalog half PASSES; remaining: live re-submit confirm + signed-in purchase check |
 
-**Next atomic step:** `8.d.x` — merge PR
-[#29](https://github.com/Edges-Enterprise/Edges_LandingPage/pull/29)
-(`c16a34d` Blocker 7, `38805a0` Blocker 8, `9721e0a` Blocker 9) to `main` and let
-Production deploy. Then re-submit an application from the web and confirm the run’s
-`head_branch` is `main` (the reported bug) and that the build-complete email
-arrives, and finish `8.a.iii.zr` by installing `roseline.apk`
+**Next atomic step:** `8.d.xi` — re-submit an application from the web and confirm
+two things in one shot: the resulting run’s `head_branch` is **`main`** (Blocker 8)
+and the build-complete email **arrives** (Blocker 9). Both fixes are already merged
+(`bcf4db3`) and deployed to Production, so this is a pure confirmation. Then finish
+`8.a.iii.zr` with the signed-in + purchase check on `roseline.apk`.
 (`https://github.com/Erudite885/tenant-distribution/releases/download/ng-roseline-330e68c4-20261018_041601/roseline.apk`)
 and run the device e2e (`8.a.iii.zr`): browse the catalog (expect 7 plans,
 MTN/AIRTEL/9MOBILE) and attempt a purchase. The whole build pipeline is now proven
