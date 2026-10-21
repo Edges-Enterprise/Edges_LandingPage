@@ -12,6 +12,7 @@
 // customer row. It is a login-support lookup, matching the legacy function's
 // trust model.
 import { adminClient, corsHeaders, jsonResponse } from "../_shared/storeIdentity.ts";
+import { resolveStoreAuthEmail } from "../_shared/storeAuthEmail.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -27,15 +28,13 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Missing required fields" }, 400);
     }
 
-    const admin = adminClient();
-    const { data } = await admin
-      .from("global_customers")
-      .select("auth_email")
-      .eq("reseller_id", resellerId)
-      .eq("email", String(email).trim().toLowerCase())
-      .maybeSingle();
+    const authEmail = await resolveStoreAuthEmail(
+      adminClient(),
+      resellerId,
+      email,
+    );
 
-    return jsonResponse({ success: true, authEmail: data?.auth_email ?? null });
+    return jsonResponse({ success: true, authEmail });
   } catch (error) {
     console.error("global-store-customer-auth-email error:", error);
     return jsonResponse({ success: true, authEmail: null });
