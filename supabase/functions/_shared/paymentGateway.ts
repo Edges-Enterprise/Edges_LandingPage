@@ -59,6 +59,21 @@ export function getPaymentProvider(countryCode: string): PaymentProvider {
   return COUNTRY_PROVIDER[(countryCode || "").toLowerCase()] || "korapay";
 }
 
+// Korapay rejects `charges/initialize` with "One or more fields are invalid.
+// Please fix them and try again." when customer.name contains any of
+// + ( ) % < > = , or when it is empty (all verified live against the
+// sandbox). A payer name is derived from the email local part at signup, so
+// an alias like `bob+kesh-data1` reaches the gateway verbatim and every such
+// funding attempt fails. Replace the rejected set with spaces and fall back
+// to a placeholder when nothing usable remains.
+export function sanitizeCustomerName(name: string): string {
+  const cleaned = (name || "")
+    .replace(/[+()%<>=]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || "Customer";
+}
+
 const KORAPAY_BASE_URL = "https://api.korapay.com/merchant/api/v1";
 const FLUTTERWAVE_BASE_URL = "https://api.flutterwave.com/v3";
 
@@ -129,7 +144,7 @@ async function initiateKorapay(params: InitiateParams): Promise<InitiateResult> 
       currency: getCountryCurrency(params.countryCode),
       reference,
       customer: {
-        name: params.customerName,
+        name: sanitizeCustomerName(params.customerName),
         email: params.customerEmail,
       },
       merchant_bears_cost: true,
@@ -234,7 +249,7 @@ async function initiateFlutterwave(
       redirect_url: callbackUrl(reference, params.returnPath),
       customer: {
         email: params.customerEmail,
-        name: params.customerName,
+        name: sanitizeCustomerName(params.customerName),
         phone_number: params.mobileMoney.number,
       },
       payment_options: "mobilemoney",

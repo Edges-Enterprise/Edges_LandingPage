@@ -12,6 +12,21 @@ const KORAPAY_SECRET_KEY = process.env.KORAPAY_SECRET_KEY || "";
 // ✅ Feature flag - toggle this when API access is granted
 export const USE_DIRECT_API = false;
 
+// Korapay rejects `charges/initialize` with "One or more fields are invalid.
+// Please fix them and try again." when customer.name contains any of
+// + ( ) % < > = , or when it is empty (all verified live against the
+// sandbox). Payer names are derived from the email local part at signup, so
+// an alias like `bob+kesh-data1` reaches the gateway verbatim and every such
+// funding attempt fails. Replace the rejected set with spaces and fall back
+// to a placeholder when nothing usable remains.
+export function sanitizeKorapayName(name: string): string {
+  const cleaned = (name || "")
+    .replace(/[+()%<>=]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || "Customer";
+}
+
 function getHeaders(): HeadersInit {
   return {
     Authorization: `Bearer ${KORAPAY_SECRET_KEY}`,
@@ -104,7 +119,7 @@ export const korapay: PaymentGateway = {
         currency: resolvedCurrency,
         reference,
         customer: {
-          name: customerName,
+          name: sanitizeKorapayName(customerName),
           email: customerEmail,
         },
         merchant_bears_cost: true,
