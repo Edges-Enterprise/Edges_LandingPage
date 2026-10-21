@@ -9,6 +9,12 @@ export interface PaymentInitiateParams {
   countryCode: string;
   source?: "web" | "app";
   metadata?: Record<string, any>;
+  /**
+   * Relative path the gateway should send the payer back to once the
+   * payment completes. Lets the customer storefront return to the store
+   * instead of the reseller dashboard's hardcoded callback target.
+   */
+  returnPath?: string;
   // Korapay specific
   customer?: {
     name?: string;

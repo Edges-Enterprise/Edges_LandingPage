@@ -26,6 +26,8 @@ interface FundGlobalCustomerWalletParams {
     number: string;
     network?: string;
   };
+  /** Relative path to return the customer to after the gateway redirects back. */
+  returnPath?: string;
 }
 
 interface FundGlobalCustomerWalletResult {
@@ -47,6 +49,7 @@ export async function fundGlobalCustomerWallet({
   countryCode,
   source = "web",
   mobileMoney,
+  returnPath,
 }: FundGlobalCustomerWalletParams): Promise<FundGlobalCustomerWalletResult> {
   try {
     const supabase = await createServerClient();
@@ -104,6 +107,7 @@ export async function fundGlobalCustomerWallet({
       currency: currencyCode,
       countryCode,
       source,
+      returnPath,
       customer: {
         name: customerName,
         email: customer.email,

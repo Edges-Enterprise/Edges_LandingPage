@@ -69,6 +69,7 @@ export const flutterwave: PaymentGateway = {
         metadata,
         customer,
         mobileMoney,
+        returnPath,
       } = params;
 
       const upperCountry = countryCode.toUpperCase();
@@ -126,7 +127,7 @@ export const flutterwave: PaymentGateway = {
         tx_ref: reference,
         amount,
         currency: resolvedCurrency,
-        redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/callback?reference=${reference}`,
+        redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/callback?reference=${reference}${returnPath ? `&returnTo=${encodeURIComponent(returnPath)}` : ""}`,
         customer: {
           email: customerEmail,
           name: customerName,

@@ -14,6 +14,7 @@ import StoreSupportModal from "./StoreSupportModal";
 import { useRouter } from "next/navigation";
 import { CountryConfig } from "@/config/countries";
 import { createGlobalCustomerVirtualAccount } from "@/actions/reseller/customers/createGlobalCustomerVirtualAccount";
+import { fundGlobalCustomerWallet } from "@/actions/reseller/customers/fundGlobalCustomerWallet";
 import { useStoreCustomerAuth } from "@/hooks/store/useStoreCustomerAuth";
 import { useStoreCustomerWallet } from "@/hooks/store/useStoreCustomerWallet";
 import { useStorePurchase } from "@/hooks/store/useStorePurchase";
@@ -91,6 +92,56 @@ export default function StoreContent({
       setTimeout(() => wallet.setShowVirtualForm(false), 2000);
     }
     wallet.setVirtualLoading(false);
+  };
+
+  // Non-xixapay countries fund by mobile money (korapay/flutterwave), the
+  // same initiate-then-redirect model the reseller dashboard uses. The
+  // server action resolves the customer and store from the session, so no
+  // ids are passed from here.
+  const handleFundMobileMoney = async ({
+    amount,
+    mobileNumber,
+  }: {
+    amount: number;
+    mobileNumber: string;
+  }): Promise<{ ok: boolean; error?: string }> => {
+    const result = await fundGlobalCustomerWallet({
+      resellerId: storeData.application.id,
+      amount,
+      countryCode: config.code,
+      source: "web",
+      mobileMoney: mobileNumber ? { number: mobileNumber } : undefined,
+      returnPath: `/${storeData.application.country_code}/${storeData.application.store_slug}`,
+    });
+
+    if (!result.success) {
+      return { ok: false, error: result.error };
+    }
+
+    // Korapay Direct API confirms via STK prompt; korapay-checkout and
+    // flutterwave return a URL the customer must visit to pay.
+    if (result.data?.authModel === "STK_PROMPT") {
+      wallet.setVirtualMessage({
+        type: "success",
+        text: "Check your phone for the payment prompt to complete funding.",
+      });
+      wallet.setShowVirtualForm(false);
+      await wallet.refreshWalletData();
+      return { ok: true };
+    }
+
+    if (result.data?.redirectUrl) {
+      window.location.href = result.data.redirectUrl;
+      return { ok: true };
+    }
+
+    wallet.setVirtualMessage({
+      type: "success",
+      text: `Payment initiated. Reference: ${result.data?.reference ?? ""}`,
+    });
+    wallet.setShowVirtualForm(false);
+    await wallet.refreshWalletData();
+    return { ok: true };
   };
 
   const copyToClipboard = async (text: string, key: string) => {
@@ -190,6 +241,7 @@ export default function StoreContent({
             wallet.setShowVirtualForm(false);
           }}
           config={config}
+          countryCode={storeData.application.country_code}
           balance={wallet.walletBalance}
           virtualAccounts={wallet.virtualAccounts}
           loading={wallet.virtualLoading}
@@ -197,6 +249,7 @@ export default function StoreContent({
           copiedAccount={wallet.copiedAccount}
           onCopy={copyToClipboard}
           onCreateVirtualAccount={handleCreateVirtualAccount}
+          onFundMobileMoney={handleFundMobileMoney}
         />
 
         <StoreSupportModal
