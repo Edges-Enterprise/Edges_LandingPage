@@ -63,6 +63,7 @@ export const korapay: PaymentGateway = {
         source,
         metadata,
         customer,
+        returnPath,
       } = params;
 
       const upperCountry = countryCode.toUpperCase();
@@ -117,7 +118,7 @@ export const korapay: PaymentGateway = {
         },
         channels: ["mobile_money"],
         default_channel: "mobile_money",
-        redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/callback?reference=${reference}`,
+        redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payment/callback?reference=${reference}${returnPath ? `&returnTo=${encodeURIComponent(returnPath)}` : ""}`,
         notification_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/korapay`,
       };
 
