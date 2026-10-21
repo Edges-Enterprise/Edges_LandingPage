@@ -11,10 +11,13 @@ the authoritative narrative; where they disagree, HANDOVER wins.
 Last updated: 2026-10-20 (twelfth check) - **live re-submit CONFIRMED; the person
 filed 7 follow-up defects, all diagnosed.** `8.d.xi` PASSES: a web submission now
 dispatches from `main` and the build-complete email arrives. New work is
-`8.e` (defect batch, below). Two fixes done: the build-complete email now goes out **as the store**
+`8.e` (defect batch, below). Three fixes done: the build-complete email now goes out **as the store**
 (store display name on the From line, owner’s address as Reply-To) instead of as
-"Edges Network" (web `090dd0f`); and the mobile balance is **symbol-only**
-(`81654a7`) instead of "GH₵50.00".
+"Edges Network" (web `090dd0f`); the mobile balance is **symbol-only**
+(`81654a7`) instead of "GH₵50.00"; and the mobile virtual-account button now
+calls the new `global-create-customer-virtual-account` function instead of the
+legacy one that 404s for every store (web `e1c623c`, mobile `d660884`) —
+**deploy pending (person)**.
 
 ## Decisions already locked (do not re-litigate)
 
@@ -80,7 +83,7 @@ dispatches from `main` and the build-complete email arrives. New work is
 | 8.e.ii | Currency shows country code + symbol for non-NG; should be symbol only (web + mobile) | 🤖 | ✅ | **MOBILE DONE** (`81654a7`) — reproduced exactly: `Intl.NumberFormat(style:"currency")` on a small-ICU runtime prints `GH₵1,500.00` for GHS (and `KSh`/`USh`/`RF`), while NGN renders as a lone `₦`. `index.tsx` formatCurrency now formats the number with the country locale and prefixes `country.currencySymbol`, matching the web storefront. The other mobile price sites already used the symbol directly. Web `formatStorePrice` is already symbol-only — the web half of the report is still to be located |
 | 8.e.iii | Web fund-wallet for non-NG countries → "authorization token invalid" | 🤖 | 🔄 | **DIAGNOSED** — Korapay returns literally `invalid authorization key` (reproduced live: HTTP 403 `{"error":"not_authorized","message":"invalid authorization key"}`). Non-NG fund uses `korapay.ts`; NG uses `xixapay.ts`. So `KORAPAY_SECRET_KEY` is unset/invalid in Production — **env fix, person step** |
 | 8.e.iv | Mobile wallet not dynamic per country; should mirror web (virtual account vs mobile money) | 🤖 | 🔄 | **DIAGNOSED** — `wallet.tsx` is VA-only; web branches on `config.paymentGateway.provider` (xixapay→VA, korapay/flutterwave→mobile money). Needs the same branch + a mobile money funding path |
-| 8.e.v | Mobile "create virtual account" → "store not found" | 🤖 | 🔄 | **DIAGNOSED** — reproduced live: legacy `create-mobile-customer-virtual-account` returns 404 `{"error":"Store not found"}`. `useVirtualAccounts.ts` sends `storeSlug: config.storeName` — but `triggerAppBuild` writes `storeName: storeSlug`, so the value is the slug; the legacy function resolves by a store-name lookup that no longer matches. Fix = call the global VA action/function instead |
+| 8.e.v | Mobile "create virtual account" → "store not found" | 🤖🧑 | 🔄 | **CODE DONE** (`e1c623c` web + `d660884` mobile); **deploy pending (person)**. Reproduced live: legacy `create-mobile-customer-virtual-account` returns 404 `{"error":"Store not found"}` for **every** store (roseline, toms-sub, kwams-sub, marcel-data …), by slug *and* by store_name — it is dead under the global_* model, not a slug-vs-name bug. Added `global-create-customer-virtual-account` (mirrors the web action; store + customer from the JWT, customer-only, same waitlist/BVN + Xixapay + insert path) and repointed `useVirtualAccounts.ts` at it via `callStoreFunction`. **Deploy:** `supabase functions deploy global-create-customer-virtual-account --no-verify-jwt` |
 | 8.e.vi | Mobile login "invalid login credentials" for a user registered on the web | 🤖 | 🔄 | **DIAGNOSED** — web signup derives a *random* suffix (`Math.floor(Math.random()*9)+1`, `useCustomerAuth.ts`) but mobile login *reconstructs* a *deterministic* suffix (31-multiplier hash, `login.tsx`). When `auth_email` lookup misses, the reconstruction cannot match the random value. Fix = rely on `auth_email` and stop guessing (or store the scheme) |
 | 8.e.vii | Mobile: non-NG plans, phone numbers, networks not recognized | 🤖 | 🔄 | **DIAGNOSED** — `constants/helpers.ts` `NETWORK_PREFIXES` is NG-only (MTN/Airtel/Glo/9mobile) and `handlePhoneChange` caps input at 11 digits; `index.tsx` auto-detect iterates those prefixes only. Needs per-country prefixes from `countryConfig.telecoms` + country phone-length bounds |
 
