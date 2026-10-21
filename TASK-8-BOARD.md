@@ -11,9 +11,10 @@ the authoritative narrative; where they disagree, HANDOVER wins.
 Last updated: 2026-10-20 (twelfth check) - **live re-submit CONFIRMED; the person
 filed 7 follow-up defects, all diagnosed.** `8.d.xi` PASSES: a web submission now
 dispatches from `main` and the build-complete email arrives. New work is
-`8.e` (defect batch, below). First fix done: the build-complete email now goes out
-**as the store** (store display name on the From line, owner’s address as
-Reply-To) instead of as "Edges Network".
+`8.e` (defect batch, below). Two fixes done: the build-complete email now goes out **as the store**
+(store display name on the From line, owner’s address as Reply-To) instead of as
+"Edges Network" (web `090dd0f`); and the mobile balance is **symbol-only**
+(`81654a7`) instead of "GH₵50.00".
 
 ## Decisions already locked (do not re-litigate)
 
@@ -76,7 +77,7 @@ Reply-To) instead of as "Edges Network".
 | 8.d.xi | **Confirm the fixes live**: re-submit from the web, check `head_branch: main` + email arrives | 🧑 | ✅ | **PASSES** — web submission dispatched from `main` and the build-complete email arrived (2026-10-20) |
 | **8.e** | **Defect batch (person-filed 2026-10-20)** | | 🔄 | — |
 | 8.e.i | Build email must come from the store, not "Edges Network" | 🤖 | ✅ | **DONE** — From display name = store name, Reply-To = owner’s address (`sendAdminEmail` gained `fromName`/`replyTo`); web route updated. NOTE: the sending *address/domain* must stay the verified mail account — a per-store From address needs a per-store verified domain + credentials, which do not exist in the schema |
-| 8.e.ii | Currency shows country code + symbol for non-NG; should be symbol only (web + mobile) | 🤖 | 🔄 | **DIAGNOSED** — mobile `Intl.NumberFormat(style:"currency")` (Hermes, no full ICU) emits the code, e.g. "GHS50" (`index.tsx` formatCurrency); fix = format the number, prefix `country.currencySymbol`. Web `formatStorePrice` is already symbol-only, so the web symptom is a different site |
+| 8.e.ii | Currency shows country code + symbol for non-NG; should be symbol only (web + mobile) | 🤖 | ✅ | **MOBILE DONE** (`81654a7`) — reproduced exactly: `Intl.NumberFormat(style:"currency")` on a small-ICU runtime prints `GH₵1,500.00` for GHS (and `KSh`/`USh`/`RF`), while NGN renders as a lone `₦`. `index.tsx` formatCurrency now formats the number with the country locale and prefixes `country.currencySymbol`, matching the web storefront. The other mobile price sites already used the symbol directly. Web `formatStorePrice` is already symbol-only — the web half of the report is still to be located |
 | 8.e.iii | Web fund-wallet for non-NG countries → "authorization token invalid" | 🤖 | 🔄 | **DIAGNOSED** — Korapay returns literally `invalid authorization key` (reproduced live: HTTP 403 `{"error":"not_authorized","message":"invalid authorization key"}`). Non-NG fund uses `korapay.ts`; NG uses `xixapay.ts`. So `KORAPAY_SECRET_KEY` is unset/invalid in Production — **env fix, person step** |
 | 8.e.iv | Mobile wallet not dynamic per country; should mirror web (virtual account vs mobile money) | 🤖 | 🔄 | **DIAGNOSED** — `wallet.tsx` is VA-only; web branches on `config.paymentGateway.provider` (xixapay→VA, korapay/flutterwave→mobile money). Needs the same branch + a mobile money funding path |
 | 8.e.v | Mobile "create virtual account" → "store not found" | 🤖 | 🔄 | **DIAGNOSED** — reproduced live: legacy `create-mobile-customer-virtual-account` returns 404 `{"error":"Store not found"}`. `useVirtualAccounts.ts` sends `storeSlug: config.storeName` — but `triggerAppBuild` writes `storeName: storeSlug`, so the value is the slug; the legacy function resolves by a store-name lookup that no longer matches. Fix = call the global VA action/function instead |
