@@ -110,11 +110,18 @@ export async function POST(
             .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
             .join(" ");
 
+          // Send as the store, not as Edges Network: the app's shared mail
+          // account is the transport, but the store owner's own address is
+          // the Reply-To, so replies reach the reseller. The From *domain*
+          // cannot change per store (it must stay on the verified sending
+          // domain), so only the display name varies.
           await sendAdminEmail({
             to: app.email,
             subject: `📱 Your ${displayName} App is Ready!`,
             recipientName: app.first_name || displayName,
             isHtml: false,
+            fromName: displayName,
+            replyTo: app.email,
             message: `Your branded Android app for ${displayName} has been built successfully!
 
 📱 Download it here: ${apkUrl}

@@ -36,14 +36,18 @@ export async function sendAdminEmail({
   message,
   recipientName, // ← NEW: optional
   isHtml = true,
+  fromName, // ← optional: display name on the From line (default "Edges Network")
+  replyTo, // ← optional: Reply-To (e.g. the store owner's own address)
 }: {
   to: string | string[];
   subject: string;
   message: string;
   recipientName?: string; // e.g. "John" or "John Doe"
   isHtml?: boolean;
+  fromName?: string;
+  replyTo?: string;
 }) {
-  const from = `"Edges Network" <${process.env.EMAIL_FROM}>`;
+  const from = `"${fromName || "Edges Network"}" <${process.env.EMAIL_FROM}>`;
 
   // Personalization
   const greeting = recipientName ? `Hello ${recipientName},` : `Hello,`;
@@ -110,8 +114,9 @@ export async function sendAdminEmail({
       from,
       to,
       subject,
-      text: `${greeting}\n\n${message}\n\n— Edges Network Team`,
+      text: `${greeting}\n\n${message}\n\n— ${fromName || "Edges Network"} Team`,
       html,
+      ...(replyTo ? { replyTo } : {}),
       // Optional: helps a tiny bit with deliverability
       headers: {
         "X-Entity-Ref-ID": "edges-admin-email",

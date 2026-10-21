@@ -8,16 +8,12 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-20 (eleventh check) - **PR #29 MERGED and deployed to
-Production.** PR
-[#29](https://github.com/Edges-Enterprise/Edges_LandingPage/pull/29) merged by
-Phoenix-Boss at 2026-10-20T08:37:19Z as **`bcf4db3`**; `main` tip is `bcf4db3`.
-The Production deployment for that sha (`7195314279`) reports **success**. All
-three fixes are confirmed present in `main`: `BUILD_WORKFLOW_REF = "main"` in both
-dispatch paths (Blocker 8), no `android_app_status` write (Blocker 7), and
-`sendAdminEmail` in place of the never-created invoke (Blocker 9). Remaining:
-re-submit from the web and confirm `head_branch: main` + the email arrives, then
-the signed-in purchase check (`8.a.iii.zr`).
+Last updated: 2026-10-20 (twelfth check) - **live re-submit CONFIRMED; the person
+filed 7 follow-up defects, all diagnosed.** `8.d.xi` PASSES: a web submission now
+dispatches from `main` and the build-complete email arrives. New work is
+`8.e` (defect batch, below). First fix done: the build-complete email now goes out
+**as the store** (store display name on the From line, owner’s address as
+Reply-To) instead of as "Edges Network".
 
 ## Decisions already locked (do not re-litigate)
 
@@ -77,7 +73,15 @@ the signed-in purchase check (`8.a.iii.zr`).
 | 8.d.viii | **Merge mobile branch to `main`** (clean fast-forward, no conflicts) | 🧑 | ✅ | **DONE** — PR #6 → `64303e1` — but it merged `778e937`, so `main` still lacks the Blocker 5 fix `462fa82`; re-merge needed |
 | 8.d.ix | **Deploy the build-webhook `config_id` fix + re-dispatch** (Blocker 6) | 🧑+🤖 | ✅ | **DONE** — web `5cf4d2b` live in Production (probe: non-UUID `buildId` → 400, old code returned 500); run `39095674274` callback returned `{"success":true}` and the build row is `completed` |
 | 8.d.x | **Merge PR #29 (Blockers 7 + 8 + email)** | 🧑 | ✅ | **DONE** — PR [#29](https://github.com/Edges-Enterprise/Edges_LandingPage/pull/29) merged as `bcf4db3`; Production deploy `7195314279` **success**; all three fixes verified in `main` |
-| 8.d.xi | **Confirm the fixes live**: re-submit from the web, check `head_branch: main` + email arrives | 🧑 | 🔄 | Now unblocked — `main` is deployed; needs a fresh submission to exercise both paths end to end |
+| 8.d.xi | **Confirm the fixes live**: re-submit from the web, check `head_branch: main` + email arrives | 🧑 | ✅ | **PASSES** — web submission dispatched from `main` and the build-complete email arrived (2026-10-20) |
+| **8.e** | **Defect batch (person-filed 2026-10-20)** | | 🔄 | — |
+| 8.e.i | Build email must come from the store, not "Edges Network" | 🤖 | ✅ | **DONE** — From display name = store name, Reply-To = owner’s address (`sendAdminEmail` gained `fromName`/`replyTo`); web route updated. NOTE: the sending *address/domain* must stay the verified mail account — a per-store From address needs a per-store verified domain + credentials, which do not exist in the schema |
+| 8.e.ii | Currency shows country code + symbol for non-NG; should be symbol only (web + mobile) | 🤖 | 🔄 | **DIAGNOSED** — mobile `Intl.NumberFormat(style:"currency")` (Hermes, no full ICU) emits the code, e.g. "GHS50" (`index.tsx` formatCurrency); fix = format the number, prefix `country.currencySymbol`. Web `formatStorePrice` is already symbol-only, so the web symptom is a different site |
+| 8.e.iii | Web fund-wallet for non-NG countries → "authorization token invalid" | 🤖 | 🔄 | **DIAGNOSED** — Korapay returns literally `invalid authorization key` (reproduced live: HTTP 403 `{"error":"not_authorized","message":"invalid authorization key"}`). Non-NG fund uses `korapay.ts`; NG uses `xixapay.ts`. So `KORAPAY_SECRET_KEY` is unset/invalid in Production — **env fix, person step** |
+| 8.e.iv | Mobile wallet not dynamic per country; should mirror web (virtual account vs mobile money) | 🤖 | 🔄 | **DIAGNOSED** — `wallet.tsx` is VA-only; web branches on `config.paymentGateway.provider` (xixapay→VA, korapay/flutterwave→mobile money). Needs the same branch + a mobile money funding path |
+| 8.e.v | Mobile "create virtual account" → "store not found" | 🤖 | 🔄 | **DIAGNOSED** — reproduced live: legacy `create-mobile-customer-virtual-account` returns 404 `{"error":"Store not found"}`. `useVirtualAccounts.ts` sends `storeSlug: config.storeName` — but `triggerAppBuild` writes `storeName: storeSlug`, so the value is the slug; the legacy function resolves by a store-name lookup that no longer matches. Fix = call the global VA action/function instead |
+| 8.e.vi | Mobile login "invalid login credentials" for a user registered on the web | 🤖 | 🔄 | **DIAGNOSED** — web signup derives a *random* suffix (`Math.floor(Math.random()*9)+1`, `useCustomerAuth.ts`) but mobile login *reconstructs* a *deterministic* suffix (31-multiplier hash, `login.tsx`). When `auth_email` lookup misses, the reconstruction cannot match the random value. Fix = rely on `auth_email` and stop guessing (or store the scheme) |
+| 8.e.vii | Mobile: non-NG plans, phone numbers, networks not recognized | 🤖 | 🔄 | **DIAGNOSED** — `constants/helpers.ts` `NETWORK_PREFIXES` is NG-only (MTN/Airtel/Glo/9mobile) and `handlePhoneChange` caps input at 11 digits; `index.tsx` auto-detect iterates those prefixes only. Needs per-country prefixes from `countryConfig.telecoms` + country phone-length bounds |
 
 ## Critical path
 
