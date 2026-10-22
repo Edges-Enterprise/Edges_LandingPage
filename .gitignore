@@ -51,3 +51,4 @@ text.txt
 s*.txt
 sz*.json
 supabase/dumps/
+supabase/.temp/
