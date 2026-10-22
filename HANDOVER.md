@@ -4130,12 +4130,13 @@ layer the web already uses) rather than opening the tables with new RLS
 policies. Support all countries the web supports.
 
 **Status: IN PROGRESS. Active pointer: `8.g.ii`** (the live half of bug B — one
-non-NG fund attempt on Production, which first needs `e4e36ae` + `5ee2f54`
-merged to `main`). `8.g.i` (bug A) and `8.g.iii` (bug C) are code-complete, and
-their **edge-function halves are now deployed and live-verified** (2026-10-22,
-both functions at version 4). `8.g.ii`'s **env half is confirmed**: the Vercel
-Production environment does hold `KORAPAY_SECRET_KEY`, and a read-only HMAC
-oracle proves the Production runtime sees a non-empty key. Earlier Task 8
+non-NG fund attempt on Production; the code and config halves are both done).
+`8.g.i` (bug A) and `8.g.iii` (bug C) are code-complete, **merged to `main`
+(PR #32 → `72faffe`), and deployed** — the edge functions at version 4, and the
+web via a Production deploy of `72faffef` (`READY`, 2026-10-22T11:28Z). `8.g.ii`'s
+env half is confirmed: the Vercel Production environment holds
+`KORAPAY_SECRET_KEY`, and a read-only HMAC oracle proves the Production runtime
+sees a non-empty key. Earlier Task 8
 milestones: `8.d.v` (deploy the web to production) and `8.d.vi`
 (fix the config route) are both DONE, and the web branch has been merged to
 `main` (PR #26, merge commit `f842969`) with a **Production** deployment
