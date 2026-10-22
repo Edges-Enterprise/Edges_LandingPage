@@ -8,16 +8,42 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-20 (twelfth check) - **live re-submit CONFIRMED; the person
-filed 7 follow-up defects, all diagnosed.** `8.d.xi` PASSES: a web submission now
-dispatches from `main` and the build-complete email arrives. New work is
-`8.e` (defect batch, below). Three fixes done: the build-complete email now goes out **as the store**
-(store display name on the From line, owner’s address as Reply-To) instead of as
-"Edges Network" (web `090dd0f`); the mobile balance is **symbol-only**
-(`81654a7`) instead of "GH₵50.00"; and the mobile virtual-account button now
-calls the new `global-create-customer-virtual-account` function instead of the
-legacy one that 404s for every store (web `e1c623c`, mobile `d660884`) — **deployed and
-live-verified 2026-10-20** (a fresh APK is still needed to ship the hook).
+Last updated: 2026-10-22 (fourteenth check) - **step (a) DONE: both changed
+edge functions deployed + live-verified; bug B's env half CONFIRMED.**
+
+- **Deploy (step a) - DONE.** `global-store-customer-auth-email` and
+  `global-store-fund-wallet` are both at **version 4**, deployed from a checkout
+  of `handover/supabase-dump` with `--no-verify-jwt`; the deploy log proves the
+  changed `_shared` files were bundled (`storeAuthEmail.ts`; `paymentGateway.ts`
+  + `countryCurrency.ts`).
+- **Live verification (step a) - PASSES.** On the deployed function, `kesh-data`
+  (`ke`) legacy aliased rows resolve exactly (`tan289+1@maxxspace.com` →
+  `tan289+1kesh-data1@maxxspace.com`; `tan289@maxxspace.com` →
+  `tan289+kesh-data2@maxxspace.com`), casing normalises, and `roseline` (`ng`)
+  resolves `exploit7492+100@gmail.com` → `exploit7492+100roseline7@gmail.com`;
+  owner / unknown address / unknown `resellerId` all resolve `null`. Negatives
+  correct (400 / 405). `global-store-fund-wallet` probes: 400 on empty body, 401
+  on no/garbage token, 405 on GET.
+- **Bug B (8.g.ii) env half - CONFIRMED, not assumed.** `KORAPAY_SECRET_KEY` is
+  present in Vercel **Production** (`type: sensitive`, `updatedAt`
+  2026-10-21T08:23:56Z, i.e. before the latest Production deploy at
+  16:26:41Z). Its value is unreadable by design (`decrypt=true` →
+  `decrypted:false`; `vercel env pull` writes `[SENSITIVE]`), so it was proven
+  with a read-only oracle: the Production Korapay **webhook** HMACs with this
+  same key, and an empty-key signature is rejected `401 Invalid signature` —
+  so the runtime holds a **non-empty** key.
+- **Still open on bug B (person):** the literal 403 needs a real gateway call
+  from a signed-in customer of a non-NG store with a real mobile-money number.
+  No test credentials exist, the only web path is a `"use server"` action (not
+  HTTP-reachable), and it writes a pending DB row (HOLD).
+- **New finding (material):** the web's `e4e36ae` + `5ee2f54` are **not on
+  `origin/main`** (tip `776f103`), so Production does not yet serve either fix.
+  Merge them before the live fund attempt, or the attempt still hits the
+  unsanitized payer name. The deployed **edge** functions already carry both.
+
+Earlier (2026-10-17, thirteenth check) - **defect batch: bug A + bug C
+fixed in code** (web `e4e36ae` / `5ee2f54`, verified against live data).
+Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 
 ## Decisions already locked (do not re-litigate)
 
@@ -81,7 +107,7 @@ live-verified 2026-10-20** (a fresh APK is still needed to ship the hook).
 | **8.e** | **Defect batch (person-filed 2026-10-20)** | | 🔄 | — |
 | 8.e.i | Build email must come from the store, not "Edges Network" | 🤖 | ✅ | **DONE** — From display name = store name, Reply-To = owner’s address (`sendAdminEmail` gained `fromName`/`replyTo`); web route updated. NOTE: the sending *address/domain* must stay the verified mail account — a per-store From address needs a per-store verified domain + credentials, which do not exist in the schema |
 | 8.e.ii | Currency shows country code + symbol for non-NG; should be symbol only (web + mobile) | 🤖 | ✅ | **MOBILE DONE** (`81654a7`) — reproduced exactly: `Intl.NumberFormat(style:"currency")` on a small-ICU runtime prints `GH₵1,500.00` for GHS (and `KSh`/`USh`/`RF`), while NGN renders as a lone `₦`. `index.tsx` formatCurrency now formats the number with the country locale and prefixes `country.currencySymbol`, matching the web storefront. The other mobile price sites already used the symbol directly. Web `formatStorePrice` is already symbol-only — the web half of the report is still to be located |
-| 8.e.iii | Web fund-wallet for non-NG countries → "authorization token invalid" | 🤖🧑 | ⏳ | **AWAITING LIVE CHECK** — `KORAPAY_SECRET_KEY` has now been set in the Vercel environment (person step done 2026-10-21); needs a non-NG fund attempt on Production to confirm the 403 is gone. Root cause was — Korapay returns literally `invalid authorization key` (reproduced live: HTTP 403 `{"error":"not_authorized","message":"invalid authorization key"}`). Non-NG fund uses `korapay.ts`; NG uses `xixapay.ts`. So `KORAPAY_SECRET_KEY` is unset/invalid in Production — **env fix, person step** |
+| 8.e.iii | Web fund-wallet for non-NG countries → "authorization token invalid" | 🤖🧑 | ⏳ | **ENV HALF CONFIRMED 2026-10-22; live attempt still open.** Root cause: Korapay returns literally `invalid authorization key` (reproduced live: HTTP 403 `{"error":"not_authorized","message":"invalid authorization key"}`). Non-NG fund uses `korapay.ts`; NG uses `xixapay.ts`. **`KORAPAY_SECRET_KEY` is now verified present in the Vercel Production env** (`type: sensitive`, `updatedAt 2026-10-21T08:23:56Z`, before the latest Production deploy at 16:26:41Z), and a read-only oracle confirms the runtime holds a **non-empty** key (the Production Korapay webhook rejects an empty-key HMAC with `401 Invalid signature`). What is left is a real gateway call from a signed-in customer of a non-NG store (person step; writes a pending row). **Merge `e4e36ae` + `5ee2f54` to `main` first** — they are not on `origin/main` yet, so Production still serves the unsanitized payer name |
 | 8.e.iv | Mobile wallet not dynamic per country; should mirror web (virtual account vs mobile money) | 🤖 | ✅ | **DONE** (`51897a2`) — the branch is now in place: `countryConfig` gained `paymentGateway { provider, methods }` for all 24 countries (copied from the web source of truth, verified byte-for-byte against `src/config/countries/*.ts`), and both `wallet.tsx` and the home wallet card branch on `provider === "xixapay"` — Nigeria keeps the one-click virtual account; every other country shows an “Add Money” contact-support fallback instead of a virtual-account form its gateway cannot issue. **Mobile-money funding is deliberately NOT built:** the web’s *customer* modal (`StoreFundWalletModal`) shows the identical “coming soon — contact the store owner” fallback for non-xixapay stores, and the only mobile-money path that exists is the reseller-dashboard fund (`FundWalletModal` → `/api/reseller/[countryCode]/wallet/fund`), which is a different flow. So mobile now *mirrors* the web storefront rather than diverging from it. Mobile `tsc` = 0. Remaining: a fresh APK to ship it. **SUPERSEDED IN PART by 8.f** — the person has since asked for customer wallet funding on both surfaces, so the "contact the store owner" fallback is being replaced by a real mobile-money flow (8.f.i web, 8.f.ii mobile). The mirror is still accurate for what this commit shipped |
 | 8.e.v | Mobile "create virtual account" → "store not found" | 🤖🧑 | ✅ | **DONE + DEPLOYED + LIVE-VERIFIED** (`e1c623c` web + `d660884` mobile; deployed 2026-10-20). Reproduced live: legacy `create-mobile-customer-virtual-account` returns 404 `{"error":"Store not found"}` for **every** store (roseline, toms-sub, kwams-sub, marcel-data …), by slug *and* by store_name — it is dead under the global_* model, not a slug-vs-name bug. Added `global-create-customer-virtual-account` (mirrors the web action; store + customer from the JWT, customer-only, same waitlist/BVN + Xixapay + insert path) and repointed `useVirtualAccounts.ts` at it via `callStoreFunction`. Deployed with `--no-verify-jwt`; live probes confirm the deployed function (no auth → 401 "Missing authorization token"; anon key → 401 "Invalid authorization token"; missing resellerId → 400) — the legacy function never returned these. **Remaining:** rebuild the app so the repointed hook ships (the endpoint is live now, but the fix reaches a device only in a fresh APK) |
 | 8.e.vi | Mobile login "invalid login credentials" for a user registered on the web | 🤖 | ✅ | **DONE + LIVE-VERIFIED** — the cause was exactly the guess: when the `auth_email` lookup missed, `login.tsx` reconstructed a derived email with its own **deterministic** suffix, while web signup writes a **random** one (`Math.floor(Math.random()*9)+1`), so the guess was wrong and surfaced as "invalid credentials". `login.tsx` now mirrors the web storefront: resolve the typed address through `global-store-customer-auth-email`, fall back to the typed address when there is no mapping (owners; pre-suffix accounts), and **never reconstruct**. Also switched the lookup from a hand-built `fetch` (which read `EXPO_PUBLIC_BIMBO_SUPABASE_ANON_KEY`, an env var that is *not* set — the client uses `..._PUBLISHABLE_KEY`, so the request went out with no `Authorization` and could 401) to the configured Supabase client, and now send the trimmed, lowercased address (the web lookup is case-sensitive and signup never lowercases). **Verified live end-to-end** on a temporary account: typed `edgesvi@example.com` → lookup returned the derived `edgesvi+probe1@example.com` → `token?grant_type=password` with the typed password returned an `access_token`. Probe rows deleted. Mobile `tsc` = 0 |
@@ -90,6 +116,10 @@ live-verified 2026-10-20** (a fresh APK is still needed to ship the hook).
 | 8.f.i | Web: storefront customer can fund by mobile money (korapay/flutterwave), not just xixapay VA | 🤖 | ✅ | **DONE** — `StoreFundWalletModal` non-xixapay branch no longer shows the "coming soon — contact the store owner" fallback; it now renders an amount + mobile-money form (mobile-number field only when the gateway needs it: flutterwave, or korapay direct-API) and calls the previously-dead `fundGlobalCustomerWallet` action (1.c.iv). `returnPath` was threaded action → gateway → `/api/payment/callback` so the customer lands back on the **store**, not the reseller dashboard (open-redirect-guarded: only a same-origin `/…` path is honoured). Completion already existed: both the korapay and flutterwave webhooks fall back to `global_customer_transactions` → `handleSuccessfulCustomerDeposit` (which credits `global_customer_wallets`). Web `tsc` = 0 |
 | 8.f.ii | Mobile: customer/reseller wallet funding for non-NG countries | 🤖🧑 | ✅ | **CODE DONE** (web `3bc4054` + mobile `733e5e5`; deploy is a person step). Added `global-store-fund-wallet` (web) — the Deno port of **both** web actions (`fundWallet.ts` for the owner, `fundGlobalCustomerWallet.ts` for a customer), because the app cannot invoke a Next `"use server"` action. Identity comes from the JWT via `resolveStoreIdentity`, so a caller can only fund their own wallet; the gateway and currency come from the **store's** `country_code` in the DB, not the request body. It inserts the PENDING row (`global_transactions` for an owner, `global_customer_transactions` for a customer — the split the webhooks already route on) and returns the checkout URL. New `_shared/paymentGateway.ts` mirrors the web's korapay/flutterwave initiate step (Deno cannot import the React-flavoured `src/lib/payments/*`); its country→provider map is asserted **byte-identical** to `src/config/countries/*.ts` (24/24) by `paymentGateway.test.ts` (5 tests, all pass; the tests caught a module-load `Deno.env` bug). `returnPath` is derived server-side as `/{country}/{store_slug}`, so the payer lands on the store, not the dashboard, and no client-supplied value reaches the redirect. Mobile: new `hooks/useFundWallet.ts` invokes the function and opens the checkout with `WebBrowser.openBrowserAsync`, refreshing wallet/transactions on return; `wallet.tsx`'s "coming soon" card (8.e.iv) is replaced by a real amount + mobile-money form (number field only for flutterwave), and the home card now routes to the wallet screen instead of saying "coming soon". `deno check` clean; mobile `tsc` = 0. **DEPLOYED + VERIFIED LIVE 2026-10-17** — `supabase functions deploy global-store-fund-wallet --no-verify-jwt` run by the operator, and `KORAPAY_SECRET_KEY` / `FLUTTERWAVE_SECRET_KEY` / `APP_URL` are all present in the Supabase secret store (confirmed via `supabase secrets list`, digests only). Probed the live endpoint: `POST` with no body → `400 {"error":"Amount must be greater than 0"}` (function executing); with a valid amount but no token → `401 {"error":"Missing authorization token"}`; with a garbage token → `401 {"error":"Invalid authorization token"}`. So `--no-verify-jwt` is correct and the function does its own JWT check, exactly as designed. **Still unproven:** the gateway leg. The next gate after identity is the korapay/flutterwave `initiate` call, which needs a real signed-in customer of a non-NG store — not reachable from a sandbox, so no live end-to-end payment has been run. Code-complete and reachable, not yet proven end-to-end |
 | 8.f.iii | Ship a fresh APK carrying 8.e.iv–vii + 8.f.ii | 🧑 | ✅ | **DONE 2026-10-17 — `kesh-data` APK built and released.** Dispatched `build-global-reseller-apk.yml` on mobile `main`; run [39617638115](https://github.com/Erudite885/reseller-app/actions/runs/39617638115) succeeded end-to-end, and its `head_sha` is `c54e142` — i.e. it built exactly the merged commit, so the APK carries 8.e.iv–vii + 8.f.ii. Release: [`ke-kesh-data-96408a53-20261021_144915`](https://github.com/Erudite885/tenant-distribution/releases/download/ke-kesh-data-96408a53-20261021_144915/kesh-data.apk) (~110 MB) in `Erudite885/tenant-distribution`; backend webhook closed the loop (`global_app_builds` row `b29d4ff2` → `build_status: completed` + `apk_url`). **The old "config route 404" blocker is now genuinely disproven, not assumed:** step 7 `Generate global reseller assets` completed success, and `/api/reseller/ke/config/96408a53…` returns 200 with every field the script needs (`storeName`, `appName`, `theme.primary`, all 5 asset URLs, `config.androidPackageName`). Inputs used: `reseller_id=43d24f2f-80df-4f75-bd9e-5960982db222`, `config_id=96408a53-9c5a-474d-97f7-8777cfbcd2cd`, `store_name=kesh-data`, `country_code=ke`. **`kesh-data` is a Kenya (non-NG) store**, so this is also the right vehicle for the 8.f.ii end-to-end test: install it, sign in as a Kesh Data customer, and fund by mobile money |
+| **8.g** | **Defect batch (person-filed, from the merged mobile branch)** — three bugs surfaced by the APK build | | 🔄 | — |
+| 8.g.i | Bug A: login "invalid login credentials" for a legacy customer row | 🤖 | ✅ | **DONE + DEPLOYED + LIVE-VERIFIED** (web `e4e36ae`; edge fn **v4**, 2026-10-22). `global_customers` has two row shapes: the current one (`email` = typed address, `auth_email` = derived alias) and a legacy one where `email` **is** the alias (`email == auth_email`). The lookup matched `email` to the typed address only, so legacy rows resolved to nothing. Both login lookups now fall back to recovering the alias from Supabase Auth's `user_metadata.original_email`, scoped to the store slug and confirmed against the customer row. Extracted to `_shared/storeAuthEmail.ts` (6 new Deno tests, `deno check` clean). **Verified live against the deployed function** (publishable key, no JWT): `tan289+1@maxxspace.com` → `tan289+1kesh-data1@maxxspace.com` and `tan289@maxxspace.com` → `tan289+kesh-data2@maxxspace.com` (kesh-data/ke), `TAN289+1@MAXXSPACE.COM` normalises to the same value, `exploit7492+100@gmail.com` → `exploit7492+100roseline7@gmail.com` (roseline/ng); owner, unknown address and unknown `resellerId` all resolve `null`; missing fields → 400, GET → 405. Web `tsc` = 0. Follow-up (not gating): mobile `setupCustomerForReseller` still passes the alias as `email` |
+| 8.g.ii | Bug B: web fund-wallet non-NG → "invalid authorization key" | 🧑 | ⏳ | **ENV HALF CONFIRMED (2026-10-22); live attempt still a person step.** `KORAPAY_SECRET_KEY` **is present in Vercel Production** — `GET /v10/projects/prj_jxynbeusJCMYJKscqALL3iVpZKyc/env` → key `KORAPAY_SECRET_KEY`, `target:["production"]`, `type:sensitive`, `updatedAt 2026-10-21T08:23:56Z`, i.e. **before** the latest Production deploy (`776f103`, `2026-10-21T16:26:41Z`), so that build captured it. The value is unreadable by design (`decrypt=true` → `decrypted:false`; `vercel env pull` writes `[SENSITIVE]`), so it was proven with a read-only oracle: the Production Korapay **webhook** HMACs with this same key, and an empty-key signature is rejected `401 Invalid signature` — therefore the runtime holds a **non-empty** key. The Supabase-side key is separately known valid (the `global-store-fund-wallet` function returns live Korapay checkout URLs). **What remains:** the literal `403 invalid authorization key` can only be reproduced by a real gateway call — needs a signed-in customer of a non-NG store + a real mobile-money number. No test credentials exist in either repo or the handover; the only web path to `korapay.initiatePayment` is the `"use server"` action `fundGlobalCustomerWallet` (not HTTP-reachable); and an attempt writes a pending row to `global_customer_transactions` (DB write → HOLD). **Blocker found:** web `e4e36ae` + `5ee2f54` are **not on `origin/main`** (tip `776f103`), so Production does not yet serve bug C's sanitizer — merge first, or the attempt still hits the unsanitized payer name |
+| 8.g.iii | Bug C: funding "One or more fields are invalid" | 🤖 | ✅ | **DONE + DEPLOYED** (web `5ee2f54`; edge fn **v4**, 2026-10-22). Reproduced live: Korapay `charges/initialize` 400s with that message when `customer.name` contains `+ ( ) % < > =` or is empty; `-`, `_`, `.`, `,`, `'`, spaces and normal names pass. A payer name is derived from the email local part at signup, so alias-shaped names reached the gateway verbatim. `sanitizeCustomerName` replaces the rejected set with spaces and falls back to `"Customer"`, applied at both gateway boundaries (`_shared/paymentGateway.ts` and `korapay.ts`); Flutterwave untouched (only Korapay rejects these). 5 new Deno tests, `deno check` clean, web `tsc` = 0. The app-side half is **deployed** (function v4 bundles `paymentGateway.ts`); the web-side half still needs `5ee2f54` merged to `main` for Production to serve it |
 
 ## Critical path
 
@@ -224,9 +254,12 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 | ~~Dispatch the Roseline APK build~~ | **DONE** | run `39089167745` on `462fa82`; config fetch + assets + secrets pass, APK building |
 | ~~Deploy the Blocker 6 webhook fix~~ (`8.d.ix`) | **DONE** | `5cf4d2b` is live in Production; callback returned `{"success":true}` |
 | ~~Merge PR #29~~ (`8.d.x`) | **DONE** | merged `bcf4db3`; Production deploy success |
-| **Confirm the fixes live** (`8.d.xi`) | **now** | re-submit an application from the web; confirm the run’s `head_branch` is `main` and the build-complete email arrives |
+| ~~Confirm the fixes live~~ (`8.d.xi`) | **DONE** | web submission dispatched from `main`; build-complete email arrived (2026-10-20) |
+| ~~Deploy the two changed edge functions~~ | **DONE 2026-10-22** | both `global-store-customer-auth-email` and `global-store-fund-wallet` at **v4**, `--no-verify-jwt`, from a `handover/supabase-dump` checkout; live-verified |
+| **Merge `e4e36ae` + `5ee2f54` to `main`** | **now — gates the fund attempt** | `origin/main` is `776f103` and contains neither commit, so Production does not yet serve bug A's web half or bug C's sanitizer |
+| **One non-NG fund attempt on Production** (`8.g.ii` / `8.e.iii`) | after that merge | sign in as a customer of a non-NG store, fund by mobile money; confirm the `403 invalid authorization key` is gone |
+| **Device/APK test for `ng` + `gh` + `ke`** | after build | install the release APK; browse + buy (`8.a.iii.zr`); the `kesh-data` (ke) APK is the 8.f.ii gateway-leg vehicle |
 | ~~Re-merge mobile `462fa82` to `main`~~ | **DONE** | PR #7 → `72d9b8d`; `main` line 72 now uses `--arg fallback` |
-| **Device/APK test for `ng` + `gh`** | after build | install the release APK; browse + buy (`8.a.iii.zr`) |
 
 ## Delivery
 
@@ -329,20 +362,31 @@ by the `tenant-distribution` release.
 | 8.a.iii | 4 | 5 | 🔄 device e2e left (scripted e2e ✅) |
 | 8.b | 6 | 6 | ✅ complete |
 | 8.c | 3 | 3 | ✅ complete |
-| 8.d | 10 | 14 | 🔄 Blockers 5–9 fixed, merged (`bcf4db3`) and deployed; device e2e catalog half PASSES; remaining: live re-submit confirm + signed-in purchase check |
+| 8.d | 10 | 14 | 🔄 Blockers 5–9 fixed, merged (`bcf4db3`) and deployed; device e2e catalog half PASSES |
+| 8.e | 7 | 7 | ✅ complete (8.e.iii Vercel key set; one live non-NG fund attempt still unconfirmed) |
+| 8.f | 3 | 3 | ✅ complete (8.f.iii shipped the `kesh-data` APK) |
+| 8.g | 2 | 3 | 🔄 bug A + bug C fixed **and their edge-function halves deployed + live-verified (fn v4, 2026-10-22)**; bug B's env half is now CONFIRMED in Production, but the literal 403 still needs one live non-NG fund attempt (person) |
 
-**Next atomic step:** `8.d.xi` — re-submit an application from the web and confirm
-two things in one shot: the resulting run’s `head_branch` is **`main`** (Blocker 8)
-and the build-complete email **arrives** (Blocker 9). Both fixes are already merged
-(`bcf4db3`) and deployed to Production, so this is a pure confirmation. Then finish
-`8.a.iii.zr` with the signed-in + purchase check on `roseline.apk`.
-(`https://github.com/Erudite885/tenant-distribution/releases/download/ng-roseline-330e68c4-20261018_041601/roseline.apk`)
-and run the device e2e (`8.a.iii.zr`): browse the catalog (expect 7 plans,
-MTN/AIRTEL/9MOBILE) and attempt a purchase. The whole build pipeline is now proven
-end to end — dispatch → build → publish → status recorded. Both branches are on
-`main`; the migration is applied live; all 10 functions are deployed +
-live-verified. Open loose end: `send-app-build-complete` is referenced but not
-deployed, so the build-complete email does not send.
+**Next atomic step:** `8.g.ii` — the **live** half of bug B only. The deploy step
+is done (both functions at v4, verified live) and the env half is confirmed, so
+what remains is a real gateway call. Do it in this order:
+
+1. **Merge the web branch to `main` first** — `e4e36ae` (bug A) and `5ee2f54`
+   (bug C) are **not** on `origin/main` (tip `776f103`), so Production does not
+   yet serve the sanitizer and a fund attempt there would still hit the
+   unsanitized payer name. (The **edge** functions already carry both fixes.)
+2. Then sign in as a customer of a **non-NG** store and fund the wallet by
+   mobile money on the Production storefront (`KORAPAY_SECRET_KEY` is present in
+   the Production env — `type: sensitive`, set before the latest deploy). If the
+   `403 invalid authorization key` is gone, the defect batch is fully closed.
+   This needs a real customer account + a real mobile-money number, and it writes
+   a pending row to `global_customer_transactions` — hence a person step.
+
+**Then the standing real end-to-end test (8.f.ii gateway leg):** install the
+`kesh-data` APK and fund a customer wallet by mobile money to exercise the
+`global-store-fund-wallet` gateway leg that no sandbox can reach — and which bug
+C's sanitizer (`5ee2f54`) now protects. That function is already deployed and
+live-probed (v4): empty body → 400, no/garbage token → 401, GET → 405.
 
 ## Not part of Task 8 (recorded for completeness)
 

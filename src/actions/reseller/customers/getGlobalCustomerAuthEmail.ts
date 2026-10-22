@@ -13,11 +13,17 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Auth user rows are scanned at most this far; this is a login-support
+// lookup and current scale is a few hundred accounts.
+const MAX_PAGES = 10;
+const PER_PAGE = 1000;
+
 export async function getGlobalCustomerAuthEmail(
   originalEmail: string,
   storeSlug: string,
 ): Promise<string | null> {
   const admin = createAdminClient();
+  const typed = String(originalEmail).trim().toLowerCase();
 
   // store_slug is globally unique — no country_code needed to scope
   // this lookup, same reasoning as registerCustomerToGlobalReseller.
@@ -35,9 +41,46 @@ export async function getGlobalCustomerAuthEmail(
   const { data: customer } = await admin
     .from("global_customers")
     .select("auth_email")
-    .eq("email", originalEmail)
+    .eq("email", typed)
     .eq("reseller_id", reseller.id)
     .maybeSingle();
 
-  return customer?.auth_email || null;
+  if (customer?.auth_email) return customer.auth_email;
+
+  // Rows written before the original address was stored hold the derived
+  // alias in `email` too (email == auth_email), so the typed address can't
+  // find them. Recover the alias from Supabase Auth's own
+  // user_metadata.original_email — the authoritative record of what the
+  // customer typed at signup — scoped to this store and confirmed against
+  // the customer row. Without this, an affected customer's login resolves
+  // to nothing and surfaces as "invalid login credentials".
+  const slug = storeSlug.trim().toLowerCase();
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const { data: list, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: PER_PAGE,
+    });
+    if (error || !list?.users?.length) break;
+
+    for (const user of list.users) {
+      const original = String(user.user_metadata?.original_email || "")
+        .trim()
+        .toLowerCase();
+      const alias = String(user.email || "").toLowerCase();
+      if (original !== typed || !alias.includes(slug)) continue;
+
+      const { data: row } = await admin
+        .from("global_customers")
+        .select("auth_email")
+        .eq("reseller_id", reseller.id)
+        .eq("auth_email", alias)
+        .maybeSingle();
+      if (row?.auth_email) return row.auth_email;
+    }
+
+    if (list.users.length < PER_PAGE) break;
+  }
+
+  return null;
 }

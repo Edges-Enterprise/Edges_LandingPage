@@ -6,7 +6,7 @@
 // src/config/countries/*.ts (the source of truth) — the pair is checked in
 // the same way 8.e.iv checked the mobile copy.
 import assert from "node:assert/strict";
-import { getPaymentProvider } from "./paymentGateway.ts";
+import { getPaymentProvider, sanitizeCustomerName } from "./paymentGateway.ts";
 import { getCountryCurrency } from "./countryCurrency.ts";
 
 Deno.test("ng resolves to xixapay (virtual-account country)", () => {
@@ -44,4 +44,31 @@ Deno.test("currency is the country's own, with NGN as the fallback", () => {
   assert.equal(getCountryCurrency("zm"), "ZMW");
   assert.equal(getCountryCurrency("ng"), "NGN");
   assert.equal(getCountryCurrency("xx"), "NGN");
+});
+
+Deno.test("a rejected character in the payer name is replaced, not passed through", () => {
+  // The alias-shaped name a customer row actually holds; Korapay 400s on the
+  // '+' with "One or more fields are invalid. Please fix them and try again."
+  assert.equal(sanitizeCustomerName("bob+kesh-data1"), "bob kesh-data1");
+  for (const ch of ["(", ")", "%", "<", ">", "="]) {
+    const out = sanitizeCustomerName(`a${ch}b`);
+    assert.ok(!out.includes(ch), `${ch} should not survive`);
+  }
+});
+
+Deno.test("accepted punctuation and normal names are preserved", () => {
+  assert.equal(sanitizeCustomerName("Kesh-Data"), "Kesh-Data");
+  assert.equal(sanitizeCustomerName("O'Brien"), "O'Brien");
+  assert.equal(sanitizeCustomerName("a.b,c"), "a.b,c");
+});
+
+Deno.test("an empty or fully-replaced name falls back to a placeholder", () => {
+  assert.equal(sanitizeCustomerName(""), "Customer");
+  assert.equal(sanitizeCustomerName("   "), "Customer");
+  assert.equal(sanitizeCustomerName("+++"), "Customer");
+  assert.equal(sanitizeCustomerName(undefined as unknown as string), "Customer");
+});
+
+Deno.test("runs of replaced characters collapse to a single space", () => {
+  assert.equal(sanitizeCustomerName("a+()+b"), "a b");
 });
