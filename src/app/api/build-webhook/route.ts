@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { configId, resellerId, status, apkUrl } = body;
+    const { configId, resellerId, status, apkUrl, aabUrl } = body;
 
     if (!configId || !resellerId || !status) {
       return NextResponse.json(
@@ -33,6 +33,13 @@ export async function POST(request: NextRequest) {
     if (apkUrl) {
       updateData.apk_url = apkUrl;
       console.log("Storing APK URL:", apkUrl);
+    }
+
+    // `reseller_app_configs` (the legacy table) has no `aab_url` column, and
+    // adding one is a schema change that needs approval, so the AAB is only
+    // logged here. The global flow (global_app_builds) does persist it.
+    if (aabUrl) {
+      console.log("AAB URL (not persisted - legacy table has no column):", aabUrl);
     }
 
     console.log("Updating build status:", {
@@ -60,6 +67,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: `Build status updated to: ${status}`,
       apkUrl: apkUrl || null,
+      aabUrl: aabUrl || null,
     });
   } catch (error: any) {
     console.error("Webhook error:", error);

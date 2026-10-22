@@ -171,6 +171,19 @@ export default function BuildHistory({
                     APK
                   </a>
                 )}
+                {build.aab_url && (
+                  <a
+                    href={build.aab_url}
+                    download
+                    style={{
+                      color: "var(--brand-color)",
+                      textDecoration: "none",
+                      fontSize: "0.7rem",
+                    }}
+                  >
+                    AAB
+                  </a>
+                )}
               </div>
             </div>
           );
