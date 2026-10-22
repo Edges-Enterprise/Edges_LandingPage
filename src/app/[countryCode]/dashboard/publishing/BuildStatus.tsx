@@ -178,7 +178,7 @@ export default function BuildStatus({
                   {t?.downloadAPK || "Download APK"}
                 </a>
               )}
-              {/* {build.aab_url && (
+              {build.aab_url && (
                 <a
                   href={build.aab_url}
                   download
@@ -205,7 +205,7 @@ export default function BuildStatus({
                   <Download size={16} />
                   {t?.downloadAAB || "Download AAB"}
                 </a>
-              )} */}
+              )}
             </div>
           )}
       </div>
