@@ -172,9 +172,9 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 
 | **8.h** | **Person request (2026-10-22): remove the pawns module; build an AAB beside the APK** | | ✅ | — |
 | 8.h.i | Remove the pawns module + every surface that fed it | 🤖 | ✅ | **DONE** (mobile `c1c16be`). Deleted `module/pawns/` (native Kotlin module `PawnsModule.kt` / `PawnsBootReceiver.kt`, the `pawns-ndk-1.8.1.aar` + `internet-sharing-1.8.1.aar` binaries, manifest, drawables/strings, gradle state, `index.ts`, `expo-module.config.json`) and `components/EarningsConsentGate.tsx`. Stripped the consent-gate wiring from `app/_layout.tsx` (gate render, `showConsentGate`/`isCheckingConsent`/`isNavigatingToSettings`/`previousPathname` state, `checkConsentStatus` effect, three consent handlers, the early-return, and the now-unused `usePathname`/`useCallback`/`useState` imports) and the Bandwidth Sharing section from `app/(app)/(protected)/security.tsx` (`BandwidthSharingSection`, the `"bandwidth"` union member, `previewMode`, and the `@/module/pawns`/`AsyncStorage`/`Switch`/`ActivityIndicator`/`useRouter` imports). Dropped the `pawns-sdk` dependency, regenerated `package-lock.json`, removed the stale `node_modules/pawns-sdk` symlink, and removed the `Honeygain - bandwidth sharing` line from both legal-text blocks in `constants/legalTextGenerator.ts`. Repo-wide grep for `pawn` now matches only unrelated npm packages (`@expo/spawn-async`, `cross-spawn`) |
-| 8.h.ii | Build an AAB alongside the APK in the pipeline | 🤖 | ✅ | **DONE** (mobile `c1c16be` + web `e63623a`). New `production-aab` profile in `eas.json` (`android.buildType: "app-bundle"` → `:app:bundleRelease`, the store-submission default, per Expo's `eas.json` schema). Both workflows now run a second `eas build --profile production-aab --local --output=./<store>.aab` step after the APK step with identical env, attach **both** artifacts to the one GitHub release, and post `aabUrl` to the build webhook; job timeout 45 → 90 min. Web: the `BuildStatus.tsx` AAB link (previously written but commented out) is now live, `BuildHistory.tsx` shows an `AAB` link beside `APK`, and the global webhook already persists `aab_url`. The **legacy** `api/build-webhook/route.ts` accepts `aabUrl` and logs only, because `reseller_app_configs` has no `aab_url` column — adding one is a schema change, so it is left as a decision for the person |
+| 8.h.ii | Build an AAB alongside the APK in the pipeline | 🤖 | ✅ | **DONE** (mobile `c1c16be` + web `e63623a`). New `production-aab` profile in `eas.json` (`android.buildType: "app-bundle"` → `:app:bundleRelease`, the store-submission default, per Expo's `eas.json` schema). Both workflows now run a second `eas build --profile production-aab --local --output=./<store>.aab` step after the APK step with identical env, attach **both** artifacts to the one GitHub release, and post `aabUrl` to the build webhook; job timeout 45 → 90 min. Web: the `BuildStatus.tsx` AAB link (previously written but commented out) is now live, `BuildHistory.tsx` shows an `AAB` link beside `APK`, and the global webhook already persists `aab_url`. The **legacy** `api/build-webhook/route.ts` is left untouched (my earlier `aabUrl` log-only branch was reverted): the person has confirmed the legacy `reseller_app_configs` table is not used, and the evidence agrees — its last write is **2026-10-07** (48 rows, all pre-migration) while `global_app_builds` is current (2026-10-21), and the legacy workflow last ran 2026-10-07 (last success 2026-08-04) against the global one's 2026-10-21. So there is no schema decision to make: the AAB is carried on the global path only |
 | 8.h.iii | Verify the removal + the new build config | 🤖 | ✅ | Mobile `tsc --noEmit` = 0 (sanity-checked: injecting a deliberate type error made tsc report it, then reverted); web `tsc --noEmit` = 0; both workflow YAMLs re-parsed and each lists 15 steps with the AAB step between the APK and the release; `expo lint` 55 problems (23 errors) → 42 (12 errors), no new finding in any touched file |
-| 8.h.iv | **Merge PR #10, then prove the AAB actually builds** (dispatch a real run) | 🧑 | ⬜ | **NOT DONE — needs a person, and the order matters.** The web dispatches this workflow with `ref: "main"` (`triggerAppBuild.ts` `BUILD_WORKFLOW_REF`), and mobile `main` does **not** have the AAB step yet (`origin/main` workflow: `timeout-minutes: 45`, one `Build Android APK` step), so **PR #10 must merge first** — otherwise a dispatch silently builds only an APK from the old workflow. After the merge, one real dispatch proves the `production-aab` profile builds in CI (it adds a second full Android build per dispatch, hence the timeout bump). Also open: whether to add `aab_url` to the legacy `reseller_app_configs` table (schema change → HOLD) |
+| 8.h.iv | **Prove the AAB actually builds** (dispatch a real run) | 🧑 | ⬜ | **MERGE DONE (2026-10-22) — the dispatch is the remaining half.** Mobile PR #10 merged as `ecd3ef6` and web PR #35 as `0b5dadc`; mobile `main` now carries the AAB step (`timeout-minutes: 90`, `Build Android AAB` at line 106, `aabUrl` in the webhook) and web `main` the live AAB link, both verified by reading the merged files. The merge order mattered because the web dispatches at `ref: "main"` (`triggerAppBuild.ts` `BUILD_WORKFLOW_REF`) — that gate is now satisfied, so a dispatch will pick the AAB step up. **Still not proven:** no build has run since, so the `production-aab` profile is unproven in CI (it adds a second full Android build per dispatch, hence the timeout bump). Dispatching writes DB rows → person step |
 
 ## Critical path
 
@@ -424,20 +424,27 @@ by the `tenant-distribution` release.
 | 8.e | 7 | 7 | ✅ complete (8.e.ii web half now fixed too; 8.e.iii Vercel key set — one live non-NG fund attempt still unconfirmed) |
 | 8.f | 3 | 3 | ✅ complete (8.f.iii shipped the `kesh-data` APK) |
 | 8.g | 3 | 3 | 🔄 bug A + bug C fixed; **all code merged to `main` and deployed** (edge fns v5 + Production `0570bcc`); bug B's only remaining piece is the live non-NG fund attempt (person). Mobile follow-up done |
-| 8.h | 3 | 4 | ✅ code done (mobile `c1c16be`, web `e63623a`) — pawns module + consent gate + bandwidth section removed; AAB now built beside the APK in both workflows. **Not proven:** no real build has run since, so 8.h.iv (dispatch one) is a person step |
+| 8.h | 3 | 4 | ✅ code done **and merged** (mobile `ecd3ef6`, web `0b5dadc`) — pawns module + consent gate + bandwidth section removed; AAB now built beside the APK in both workflows. **Not proven:** no real build has run since, so 8.h.iv (dispatch one) is the remaining person step |
 
-**Next atomic step:** `8.h.iv` — **merge mobile PR #10** (the web dispatches the
-build workflow at `ref: "main"`, and `main` has no AAB step yet), **then dispatch
-one build to prove the AAB step works** — then `8.g.ii` / `8.e.iii` — the **live** half of bug B, which is the only
+**Next atomic step:** `8.h.iv` — **dispatch one build to prove the AAB step
+works** (the merge gate is satisfied: mobile PR #10 → `ecd3ef6`, web PR #35 →
+`0b5dadc`, both verified on `main`) — then `8.g.ii` / `8.e.iii` — the **live** half of bug B, which is the only
 thing left in the defect batch.
 
-`8.h` (2026-10-22 person request) is code-complete: the pawns module, its consent
-gate and the bandwidth-sharing section are gone from the mobile app (mobile
-`c1c16be`), and both build workflows now emit a `.aab` beside the `.apk` and post
-`aabUrl` to the build webhook (web `e63623a` surfaces it in the dashboard). Both
-repos type-check clean and the workflow YAMLs re-parse. What is **not** proven is
-that the new `production-aab` profile actually builds — that needs one real
-dispatch, which also writes DB rows, so it is a person step. Everything on the code and config side is
+`8.h` (2026-10-22 person request) is code-complete **and merged**: the pawns
+module, its consent gate and the bandwidth-sharing section are gone from the
+mobile app, and both build workflows now emit a `.aab` beside the `.apk` and post
+`aabUrl` to the build webhook (the dashboard surfaces it). Both repos type-check
+clean and the workflow YAMLs re-parse. What is **not** proven is that the new
+`production-aab` profile actually builds — that needs one real dispatch, which
+also writes DB rows, so it is a person step.
+
+Also settled this session: the **legacy `reseller_app_configs` table is not in
+use** (person-confirmed, and the evidence agrees — last write 2026-10-07 vs
+`global_app_builds` 2026-10-21; legacy workflow last run 2026-10-07 vs the global
+one's 2026-10-21). The `aabUrl` log-only branch I had added to the legacy
+`api/build-webhook/route.ts` was therefore reverted as a half-measure, so there is
+no outstanding schema decision on that table. Everything on the code and config side is
 now done: both edge functions are at **v5** and live-verified, `KORAPAY_SECRET_KEY`
 is present in the Production env with a provably non-empty value, and Production
 serves the bug A + bug C fixes (PR #32 → `72faffe`, PR #33 → `0570bcc`).
