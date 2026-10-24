@@ -8,9 +8,19 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-24 (seventeenth check) - **the four built apps were tested
-on-device: the funding defect batch is CLOSED and the gateway leg is PROVEN; the
-only item still needing a person is the post-checkout webhook leg (8.f.ii).**
+Last updated: 2026-10-24 (eighteenth check) - **the four built apps were tested
+on-device: the funding defect batch is CLOSED and the gateway leg is PROVEN; a
+new defect surfaced in that same test — store owners could not sign in on mobile
+— and is now fixed, deployed and live-verified (8.i).**
+
+- **New defect from the same device test (8.i, person-filed 2026-10-24):
+  reseller/owner login on mobile failed while customers succeeded.** The login
+  screen's email resolver only searched `global_customers`, so an owner — whose
+  Auth identity is the application's own `+reseller-<cc>-<slug>-<rand>` alias —
+  resolved to nothing and got "Invalid login credentials". Fixed in the shared
+  resolver (store-scoped, exact-match), deployed as edge function **v6**, and
+  live-verified. 3 new tests fail on the old code and pass on the new; full
+  suite 56/56. Reaches a device in the next APK build.
 
 - **The four APKs were downloaded and tested on a device (person, 2026-10-23 →
   2026-10-24).** `roseline` (ng), `kesh-data` (ke), `sweet-data` (cm) and
@@ -231,6 +241,9 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 | 8.h.ii | Build an AAB alongside the APK in the pipeline | 🤖 | ✅ | **DONE** (mobile `c1c16be` + web `e63623a`). New `production-aab` profile in `eas.json` (`android.buildType: "app-bundle"` → `:app:bundleRelease`, the store-submission default, per Expo's `eas.json` schema). Both workflows now run a second `eas build --profile production-aab --local --output=./<store>.aab` step after the APK step with identical env, attach **both** artifacts to the one GitHub release, and post `aabUrl` to the build webhook; job timeout 45 → 90 min. Web: the `BuildStatus.tsx` AAB link (previously written but commented out) is now live, `BuildHistory.tsx` shows an `AAB` link beside `APK`, and the global webhook already persists `aab_url`. The **legacy** `api/build-webhook/route.ts` is left untouched (my earlier `aabUrl` log-only branch was reverted): the person has confirmed the legacy `reseller_app_configs` table is not used, and the evidence agrees — its last write is **2026-10-07** (48 rows, all pre-migration) while `global_app_builds` is current (2026-10-21), and the legacy workflow last ran 2026-10-07 (last success 2026-08-04) against the global one's 2026-10-21. So there is no schema decision to make: the AAB is carried on the global path only |
 | 8.h.iii | Verify the removal + the new build config | 🤖 | ✅ | Mobile `tsc --noEmit` = 0 (sanity-checked: injecting a deliberate type error made tsc report it, then reverted); web `tsc --noEmit` = 0; both workflow YAMLs re-parsed and each lists 15 steps with the AAB step between the APK and the release; `expo lint` 55 problems (23 errors) → 42 (12 errors), no new finding in any touched file |
 | 8.h.iv | **Prove the AAB actually builds** (dispatch a real run) | 🤖 | ✅ | **DONE — PROVEN LIVE 2026-10-22, four builds, all green.** Person-approved dispatch of **roseline** (`ng`), **kesh-data** (`ke`), **sweet-data** (`cm`), **kwam-two** (`gh`) from `main` `210c295` (runs 34–37 in `Erudite885/reseller-app`; all four `completed success`, every step green incl. `Build Android AAB`). Each release carries **both** artifacts: `roseline.aab` 41.5 MB + `.apk` 79.0 MB (`ng-roseline-330e68c4-20261022_145011`), `kesh-data.aab` 41.5 + 79.0 (`ke-kesh-data-96408a53-20261022_144509`), `sweet-data.aab` 41.5 + 79.0 (`cm-sweet-data-b58d3aa6-20261022_145050`), `kwam-two.aab` 41.6 + 79.1 (`gh-kwam-two-aaaf1cff-20261022_145445`). The `global_app_builds` row for each config updated in place with **both** `apk_url` and `aab_url` (kesh-data `14:45:18`, roseline `14:50:20`, sweet-data `14:50:56`, kwam-two `14:54:51`), so the dashboard's AAB link now has real data. **This also closes 8.d.ii's `gh` leg** (`kwam-two` is a `gh` store). Inputs were resolved from live `global_reseller_applications` + `global_reseller_app_configs` and cross-checked against the deployed config route, which echoes the authoritative `resellerId`/`countryCode` — all four matched exactly |
+
+| **8.i** | **Defect batch (person-filed 2026-10-24, from the device test): store owners cannot sign in on mobile** | | ✅ | — |
+| 8.i.i | Mobile: reseller/owner login fails while customers succeed | 🤖 | ✅ | **DONE + DEPLOYED + LIVE-VERIFIED 2026-10-24** (web `storeAuthEmail.ts`; edge fn **v6**). Root cause: the mobile login screen resolves the typed address to the Auth identity behind it via `global-store-customer-auth-email` → `resolveStoreAuthEmail`, which only searched **`global_customers`**. Resellers have no customer row — their Auth identity is the application's own derived alias (`<local>+reseller-<cc>-<slug>-<rand>@<domain>`, `generateAuthEmail` in `submitApplication.ts`), e.g. `erudite885@gmail.com` → `erudite885+reseller-zm-zam-store-neh5u@gmail.com`. So the lookup returned `null`, the screen fell back to the typed address, and `signInWithPassword` failed with "Invalid login credentials" — the same symptom as bug A, different cause. Customers were unaffected because they *do* have rows. **Fix:** the resolver now also matches the typed address against **this store's** `global_reseller_applications` row and returns its `auth_email`. Matching is exact + store-scoped, and compared in code (not via a case-insensitive SQL filter) because `_` is a wildcard in `ilike` and is common in email local parts. Ordering is deliberate: the customer lookup still runs first, so a customer of the store keeps resolving. **Verified live on the deployed function** (publishable key, no JWT): `erudite885@gmail.com` and ` ERUDITE885@GMAIL.COM ` (case/trim) both → `erudite885+reseller-zm-zam-store-neh5u@gmail.com`; unknown address → `null`; customer regressions intact (`tan289+1@maxxspace.com` → `tan289+1kesh-data1@maxxspace.com`, `exploit7492+100@gmail.com` → `exploit7492+100roseline7@gmail.com`); `GET` → 405. **Proven the tests catch it:** 3 new owner tests **fail on the old resolver** and pass on the new one; full suite **56/56**. Confirmed all **43** `global_reseller_applications` rows carry a non-null `auth_email` (so no owner is left unresolvable) and the resolved alias maps to a real, email-confirmed Auth user (124 of 382 Auth users are `role: reseller`). `deno check` clean. Post-login is sound for owners: `global-store-register-customer` already skips the owner, and `(app)/_layout.tsx` tolerates a reseller. Web reseller login is a *different* path (`global_reseller_applications.original_email` via `getAuthEmail`) and was not affected. **Person step:** none for the login itself — the function is deployed; the fix reaches a device in the next APK build |
 
 ## Critical path
 
@@ -482,10 +495,12 @@ by the `tenant-distribution` release.
 | 8.f | 3 | 3 | ✅ complete (8.f.iii shipped the `kesh-data` APK; **8.f.ii gateway leg PROVEN LIVE 2026-10-24** — three non-NG fund attempts from the app returned live Korapay checkouts. Only the post-checkout **webhook → wallet credit** leg remains unexercised) |
 | 8.g | 3 | 3 | ✅ complete — bug A + bug C fixed and deployed; **bug B (8.g.ii) CLOSED 2026-10-24, proven live from the app** |
 | 8.h | 4 | 4 | ✅ complete — pawns module + consent gate + bandwidth section removed from the app; the AAB is built beside the APK and **proven live** (4 stores built 2026-10-22, each release carrying `.aab` + `.apk`, both URLs persisted to `global_app_builds`) |
+| 8.i | 1 | 1 | ✅ complete — **owner login on mobile fixed, deployed (edge fn v6) and live-verified** (2026-10-24) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
-gateway from the app). The remaining open work is verification, not code:
+gateway from the app) and `8.i` (owner login) is fixed and deployed. The
+remaining open work is verification, not code:
 
 1. **Post-checkout funding leg (person):** the three fund attempts are still
    `pending` and every wallet is `0.0`, so no checkout was completed. Complete one
@@ -493,7 +508,9 @@ gateway from the app). The remaining open work is verification, not code:
    credits the wallet — this is the last unexercised step of the fund flow.
 2. **Signed-in purchase (`8.a.iii.zr`, person):** needs a funded wallet (i.e. #1
    first); `global_orders` is empty and there are no purchase rows yet.
-3. **Optional, new scope (not a Task 8 leaf):** the web storefront has no
+3. **Ship a fresh APK (person):** the owner-login fix (8.i) is deployed on the
+   edge function but only reaches a device in a new build.
+4. **Optional, new scope (not a Task 8 leaf):** the web storefront has no
    HTTP-reachable **customer** fund path (its only fund route is owner-only), so
    mobile is currently the only surface that can fund a customer wallet by mobile
    money.
