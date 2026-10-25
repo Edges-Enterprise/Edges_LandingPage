@@ -548,13 +548,13 @@ remaining open work is verification, not code:
    been seen on a device yet. Dispatch `build-global-reseller-apk.yml` on
    `handover/supabase-dump`, then confirm plans appear after 6 digits and match
    the number's network — with the trunk `0` required (`0803…` resolves, `803…`
-   does not). **Push note:** the mobile rework (`725fff9`) and the docs commit
-   (`a2b27c1`) are pushed. The session's `GITHUB_TOKEN` (account `Phoenix-Boss`)
-   is denied `Contents: write` on `Erudite885/reseller-app` (`git push` → 403
-   "Permission … denied"; API ref-create → 403 "Resource not accessible by
-   integration") even though earlier commits on this branch pushed, so its scope
-   appears to have narrowed; `P_TOKEN` (full `repo` scope) pushed both. Use a
-   token with `Contents: write` for further pushes.
+   does not). **Push note:** the mobile rework (`725fff9`) and the docs commits
+   on `handover/supabase-dump` are pushed. The session's `GITHUB_TOKEN` (account
+   `Phoenix-Boss`) is denied `Contents: write` on `Erudite885/reseller-app`
+   (`git push` → 403 "Permission … denied"; API ref-create → 403 "Resource not
+   accessible by integration") even though earlier commits on this branch pushed,
+   so its scope appears to have narrowed; `P_TOKEN` (full `repo` scope) pushed
+   both. Use a token with `Contents: write` for further pushes.
 5. **Optional, new scope (not a Task 8 leaf):** the web storefront has no
    HTTP-reachable **customer** fund path (its only fund route is owner-only), so
    mobile is currently the only surface that can fund a customer wallet by mobile
