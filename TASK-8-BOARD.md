@@ -8,12 +8,21 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-24 (nineteenth check) - **the four built apps were tested
-on-device: the funding defect batch is CLOSED and the gateway leg is PROVEN; a
-new defect surfaced in that same test — store owners could not sign in on mobile
-— and is now fixed, deployed, live-verified (8.i) and shipped in fresh APKs for
-all four test stores (8.i.ii).**
+Last updated: 2026-10-24 (twentieth check) - **the four built apps were tested
+on-device: the funding defect batch is CLOSED and the gateway leg is PROVEN.
+Store owners can now sign in on mobile (8.i fixed, deployed, live-verified,
+shipped in fresh APKs — 8.i.ii). A new person request (8.j) is now CODE DONE:
+plans appear only after the phone number identifies the network, the network
+tabs are gone, and auto-detection covers all 24 countries.**
 
+- **New person request (8.j, 2026-10-24): show plans only after the phone number
+  identifies the network.** The buy screen showed the network tabs before any
+  number was typed, so a user tapped a tab, saw that network's plans, then had to
+  retype the number for another network. Now the plans appear only after the first
+  **6** digits, the tabs are removed, and the network is resolved from the prefix.
+  Every country now has a prefix table (generated from Google's libphonenumber
+  carrier data), not just Nigeria. Code done + verified (`78fa753`); shipping it
+  to a device is the remaining person step (8.j.ii).
 - **New defect from the same device test (8.i, person-filed 2026-10-24):
   reseller/owner login on mobile failed while customers succeeded.** The login
   screen's email resolver only searched `global_customers`, so an owner — whose
@@ -250,6 +259,11 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 | **8.i** | **Defect batch (person-filed 2026-10-24, from the device test): store owners cannot sign in on mobile** | | ✅ | — |
 | 8.i.i | Mobile: reseller/owner login fails while customers succeed | 🤖 | ✅ | **DONE + DEPLOYED + LIVE-VERIFIED 2026-10-24** (web `storeAuthEmail.ts`; edge fn **v6**). Root cause: the mobile login screen resolves the typed address to the Auth identity behind it via `global-store-customer-auth-email` → `resolveStoreAuthEmail`, which only searched **`global_customers`**. Resellers have no customer row — their Auth identity is the application's own derived alias (`<local>+reseller-<cc>-<slug>-<rand>@<domain>`, `generateAuthEmail` in `submitApplication.ts`), e.g. `erudite885@gmail.com` → `erudite885+reseller-zm-zam-store-neh5u@gmail.com`. So the lookup returned `null`, the screen fell back to the typed address, and `signInWithPassword` failed with "Invalid login credentials" — the same symptom as bug A, different cause. Customers were unaffected because they *do* have rows. **Fix:** the resolver now also matches the typed address against **this store's** `global_reseller_applications` row and returns its `auth_email`. Matching is exact + store-scoped, and compared in code (not via a case-insensitive SQL filter) because `_` is a wildcard in `ilike` and is common in email local parts. Ordering is deliberate: the customer lookup still runs first, so a customer of the store keeps resolving. **Verified live on the deployed function** (publishable key, no JWT): `erudite885@gmail.com` and ` ERUDITE885@GMAIL.COM ` (case/trim) both → `erudite885+reseller-zm-zam-store-neh5u@gmail.com`; unknown address → `null`; customer regressions intact (`tan289+1@maxxspace.com` → `tan289+1kesh-data1@maxxspace.com`, `exploit7492+100@gmail.com` → `exploit7492+100roseline7@gmail.com`); `GET` → 405. **Proven the tests catch it:** 3 new owner tests **fail on the old resolver** and pass on the new one; full suite **56/56**. Confirmed all **43** `global_reseller_applications` rows carry a non-null `auth_email` (so no owner is left unresolvable) and the resolved alias maps to a real, email-confirmed Auth user (124 of 382 Auth users are `role: reseller`). `deno check` clean. Post-login is sound for owners: `global-store-register-customer` already skips the owner, and `(app)/_layout.tsx` tolerates a reseller. Web reseller login is a *different* path (`global_reseller_applications.original_email` via `getAuthEmail`) and was not affected. **Person step:** none for the login itself — the function is deployed; the fix reaches a device in the next APK build |
 | 8.i.ii | Ship the fix in fresh APKs for the four test stores | 🤖 | ✅ | **DONE — DISPATCHED + PROVEN LIVE 2026-10-24.** Person-requested. Four `workflow_dispatch` runs of `build-global-reseller-apk.yml` in `Erudite885/reseller-app`, all on ref **`handover/supabase-dump` @ `aeb8dea`** — the commit carrying the owner-login fix (verified: every run's `head_sha` = `aeb8dea`). **Note on the ref:** the dashboard's own trigger uses `BUILD_WORKFLOW_REF = "main"`, but `main` (`210c295`, a merge of the older branch head `6721a4b`) does **not** contain the fix, so dispatching on `main` would have shipped the bug. Built from the branch ref instead; `main` is left untouched pending a person decision on merging. All four runs `completed/success`, job `build` success (runs **40134953636** roseline, **40134955279** kesh-data, **40134956730** sweet-data, **40134958352** kwam-two; ~20–27 min each). Each release carries **both** artifacts in `Erudite885/tenant-distribution`: `ng-roseline-330e68c4-20261024_215615` (`.apk` 79.0 MB + `.aab` 41.5), `ke-kesh-data-96408a53-20261024_220251` (79.0 + 41.5), `cm-sweet-data-b58d3aa6-20261024_220012` (79.0 + 41.5), `gh-kwam-two-aaaf1cff-20261024_220021` (79.1 + 41.6). **Fix confirmed inside the shipped bundles, not just in git:** all four `assets/index.android.bundle` files contain `resolveAuthEmail` (1×) and `global-store-customer-auth-email` (1×), and **zero** occurrences of the old `getCustomerAuthEmail`. APK HTTP 200 on every URL; SHA-256 recorded for the download instructions. `global_app_builds` updated in place by the workflow's success webhook |
+
+| **8.j** | **Person request (2026-10-24, after 8.i closed): show plans only after the phone number identifies the network** | | ✅ | — |
+| 8.j.i | Mobile: gate plans on the typed number, remove the network tabs, auto-detect the network from the prefix | 🤖 | ✅ | **CODE DONE + VERIFIED 2026-10-24** (mobile `78fa753`). The buy screen showed the network tabs before any number was typed — tap a tab, see that network's plans, then retype the number for another network. Now the plans appear only once the first **6** digits are typed, the tabs are gone, and the network is resolved from the prefix. **Every country now has a prefix table, not just NG:** `constants/networkPrefixes.ts` is **generated** from Google's libphonenumber carrier data (the dataset Android's own phone stack uses) by `scripts/generate-network-prefixes.mjs`, covering all **24** countries in `countryConfig`. Detection moved to `constants/networkDetection.ts`, deliberately free of the image imports in `constants/helpers.ts` so it runs under plain Node; `scripts/verify-network-prefixes.mjs` runs **44 checks, all pass**. Six-digit gating is proven safe, not assumed: for all **438** published prefixes, 6-digit detection equals full-length detection. Prefixes match on the national significant number, so `0803…` and `803…` both resolve; the input now allows the trunk `0` (`maxDigits + 1`), matching the web storefront and the providers' expected local format. **Coverage audited against live data:** every network any active store sells is in its country's table; the only gap in a shipped country is the duplicate NG label `NineMobile`, which **no store enables** (0 `global_reseller_plan_configs` rows). `tsc --noEmit` = 0; `expo lint` unchanged at 42 problems (12 errors), none in a touched file |
+| 8.j.ii | Ship the change in fresh APKs for the four test stores | 🧑 | ⬜ | **Person step (not yet requested).** No APK has been built from `78fa753`; the four test stores still run the `aeb8dea` builds from 8.i.ii, which predate this change. Dispatch `build-global-reseller-apk.yml` on ref `handover/supabase-dump` (NOT `main` — `main` is still `210c295` and carries neither this change nor the 8.i fix), then test on-device that plans appear after 6 digits and match the number's network |
+
 
 ## Critical path
 
@@ -502,6 +516,7 @@ by the `tenant-distribution` release.
 | 8.g | 3 | 3 | ✅ complete — bug A + bug C fixed and deployed; **bug B (8.g.ii) CLOSED 2026-10-24, proven live from the app** |
 | 8.h | 4 | 4 | ✅ complete — pawns module + consent gate + bandwidth section removed from the app; the AAB is built beside the APK and **proven live** (4 stores built 2026-10-22, each release carrying `.aab` + `.apk`, both URLs persisted to `global_app_builds`) |
 | 8.i | 2 | 2 | ✅ complete — **owner login on mobile fixed, deployed (edge fn v6) and live-verified; fresh APKs for all four test stores built from the fix commit (`aeb8dea`) and published, fix confirmed present inside each shipped bundle** (2026-10-24) |
+| 8.j | 1 | 2 | 🔄 **CODE DONE + verified** (`78fa753`) — plans gated on the first 6 digits, network tabs removed, auto-detection now covers all 24 countries from generated prefix tables. Remaining: **8.j.ii** ship it in fresh APKs (person) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
@@ -518,7 +533,12 @@ remaining open work is verification, not code:
    from the fix commit (`aeb8dea`) — see 8.i.ii for the download commands.
    Installing one and signing in as the owner is the on-device confirmation that
    8.i is closed.
-4. **Optional, new scope (not a Task 8 leaf):** the web storefront has no
+4. **Ship the 8.j change to a device (person, 8.j.ii):** the four test-store APKs
+   predate `78fa753`, so the number-first plan display has not been seen on a
+   device yet. Dispatch `build-global-reseller-apk.yml` on
+   `handover/supabase-dump`, then confirm plans appear after 6 digits and match
+   the number's network.
+5. **Optional, new scope (not a Task 8 leaf):** the web storefront has no
    HTTP-reachable **customer** fund path (its only fund route is owner-only), so
    mobile is currently the only surface that can fund a customer wallet by mobile
    money.
