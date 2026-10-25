@@ -8,12 +8,12 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-24 (twentieth check) - **the four built apps were tested
+Last updated: 2026-10-24 (twenty-first check) - **the four built apps were tested
 on-device: the funding defect batch is CLOSED and the gateway leg is PROVEN.
 Store owners can now sign in on mobile (8.i fixed, deployed, live-verified,
-shipped in fresh APKs — 8.i.ii). A new person request (8.j) is now CODE DONE:
-plans appear only after the phone number identifies the network, the network
-tabs are gone, and auto-detection covers all 24 countries.**
+shipped in fresh APKs — 8.i.ii). The 8.j number-first plan gating is CODE DONE
+and now corrected to match on the FULL dialed number (trunk `0` included), for
+every country, per the person's follow-up.**
 
 - **New person request (8.j, 2026-10-24): show plans only after the phone number
   identifies the network.** The buy screen showed the network tabs before any
@@ -21,8 +21,18 @@ tabs are gone, and auto-detection covers all 24 countries.**
   retype the number for another network. Now the plans appear only after the first
   **6** digits, the tabs are removed, and the network is resolved from the prefix.
   Every country now has a prefix table (generated from Google's libphonenumber
-  carrier data), not just Nigeria. Code done + verified (`78fa753`); shipping it
-  to a device is the remaining person step (8.j.ii).
+  carrier data), not just Nigeria. Code done + verified, then corrected to
+  full-form matching (`725fff9`); shipping it to a device is the remaining person
+  step (8.j.ii).
+- **Person correction to 8.j (2026-10-24, latest): matching must be on the FULL
+  dialed form — do NOT strip the trunk `0`.** `0803…` resolves; bare `803…` must
+  NOT. The first cut stripped a leading `0` to match the web convention, which is
+  wrong here for two reasons: the providers expect the trunk form, and the
+  countries with no trunk at all (Benin, Côte d'Ivoire, Congo, Gabon) have numbers
+  that legitimately **start with `0`**, so stripping broke them. The tables are now
+  keyed on the full dialed form (trunk read back from libphonenumber's metadata and
+  prepended), detection never strips, and the same rule applies to every country
+  with a trunk. Reworked and re-verified; mobile commit updated (see 8.j.i).
 - **New defect from the same device test (8.i, person-filed 2026-10-24):
   reseller/owner login on mobile failed while customers succeeded.** The login
   screen's email resolver only searched `global_customers`, so an owner — whose
@@ -261,8 +271,8 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 | 8.i.ii | Ship the fix in fresh APKs for the four test stores | 🤖 | ✅ | **DONE — DISPATCHED + PROVEN LIVE 2026-10-24.** Person-requested. Four `workflow_dispatch` runs of `build-global-reseller-apk.yml` in `Erudite885/reseller-app`, all on ref **`handover/supabase-dump` @ `aeb8dea`** — the commit carrying the owner-login fix (verified: every run's `head_sha` = `aeb8dea`). **Note on the ref:** the dashboard's own trigger uses `BUILD_WORKFLOW_REF = "main"`, but `main` (`210c295`, a merge of the older branch head `6721a4b`) does **not** contain the fix, so dispatching on `main` would have shipped the bug. Built from the branch ref instead; `main` is left untouched pending a person decision on merging. All four runs `completed/success`, job `build` success (runs **40134953636** roseline, **40134955279** kesh-data, **40134956730** sweet-data, **40134958352** kwam-two; ~20–27 min each). Each release carries **both** artifacts in `Erudite885/tenant-distribution`: `ng-roseline-330e68c4-20261024_215615` (`.apk` 79.0 MB + `.aab` 41.5), `ke-kesh-data-96408a53-20261024_220251` (79.0 + 41.5), `cm-sweet-data-b58d3aa6-20261024_220012` (79.0 + 41.5), `gh-kwam-two-aaaf1cff-20261024_220021` (79.1 + 41.6). **Fix confirmed inside the shipped bundles, not just in git:** all four `assets/index.android.bundle` files contain `resolveAuthEmail` (1×) and `global-store-customer-auth-email` (1×), and **zero** occurrences of the old `getCustomerAuthEmail`. APK HTTP 200 on every URL; SHA-256 recorded for the download instructions. `global_app_builds` updated in place by the workflow's success webhook |
 
 | **8.j** | **Person request (2026-10-24, after 8.i closed): show plans only after the phone number identifies the network** | | ✅ | — |
-| 8.j.i | Mobile: gate plans on the typed number, remove the network tabs, auto-detect the network from the prefix | 🤖 | ✅ | **CODE DONE + VERIFIED 2026-10-24** (mobile `78fa753`). The buy screen showed the network tabs before any number was typed — tap a tab, see that network's plans, then retype the number for another network. Now the plans appear only once the first **6** digits are typed, the tabs are gone, and the network is resolved from the prefix. **Every country now has a prefix table, not just NG:** `constants/networkPrefixes.ts` is **generated** from Google's libphonenumber carrier data (the dataset Android's own phone stack uses) by `scripts/generate-network-prefixes.mjs`, covering all **24** countries in `countryConfig`. Detection moved to `constants/networkDetection.ts`, deliberately free of the image imports in `constants/helpers.ts` so it runs under plain Node; `scripts/verify-network-prefixes.mjs` runs **44 checks, all pass**. Six-digit gating is proven safe, not assumed: for all **438** published prefixes, 6-digit detection equals full-length detection. Prefixes match on the national significant number, so `0803…` and `803…` both resolve; the input now allows the trunk `0` (`maxDigits + 1`), matching the web storefront and the providers' expected local format. **Coverage audited against live data:** every network any active store sells is in its country's table; the only gap in a shipped country is the duplicate NG label `NineMobile`, which **no store enables** (0 `global_reseller_plan_configs` rows). `tsc --noEmit` = 0; `expo lint` unchanged at 42 problems (12 errors), none in a touched file |
-| 8.j.ii | Ship the change in fresh APKs for the four test stores | 🧑 | ⬜ | **Person step (not yet requested).** No APK has been built from `78fa753`; the four test stores still run the `aeb8dea` builds from 8.i.ii, which predate this change. Dispatch `build-global-reseller-apk.yml` on ref `handover/supabase-dump` (NOT `main` — `main` is still `210c295` and carries neither this change nor the 8.i fix), then test on-device that plans appear after 6 digits and match the number's network |
+| 8.j.i | Mobile: gate plans on the typed number, remove the network tabs, auto-detect the network from the prefix | 🤖 | ✅ | **CODE DONE + VERIFIED + CORRECTED 2026-10-24** (mobile `725fff9`, reworking `78fa753`). The buy screen showed the network tabs before any number was typed — tap a tab, see that network's plans, then retype the number for another network. Now the plans appear only once the first **6** digits are typed, the tabs are gone, and the network is resolved from the prefix. **Every country now has a prefix table, not just NG:** `constants/networkPrefixes.ts` is **generated** from Google's libphonenumber data by `scripts/generate-network-prefixes.mjs`, covering all **24** countries in `countryConfig`. Detection moved to `constants/networkDetection.ts`, deliberately free of the image imports in `constants/helpers.ts` so it runs under plain Node. **Person correction applied (`725fff9`): matching is on the FULL dialed form — the trunk `0` is NOT stripped.** `0803…` resolves; bare `803…` does NOT, in every country that has a trunk. The first cut stripped a leading `0` (to mirror the web's `normalizePhoneDigits`); that was wrong twice over — the providers expect the trunk form, and the countries with **no** trunk (Benin, Côte d'Ivoire, Congo, Gabon) have numbers that legitimately **start with `0`**, so stripping made them unresolvable. The generator now reads each country's trunk prefix out of libphonenumber's `PhoneNumberMetadata.xml` and prepends it, so the tables are keyed on the full dialed form; `detectNetwork` matches the typed digits as-is; `isValidNationalPhoneNumber` requires and removes the country's **own** trunk by value (not any leading `0`) and now takes the country code; the buy screen caps input at `maxDigits` + the country's trunk length. **Verified, not assumed** (`scripts/verify-network-prefixes.mjs`, all checks pass): all **438** published prefixes resolve once typed in full; the 6-digit gate **never mis-resolves** to the wrong network (38 seven-digit South African landline ranges simply defer one digit, and the screen re-runs detection per keystroke); every network in the table is reachable; and all **24** libphonenumber mobile example numbers validate as complete. **Coverage audited against live data:** every network any active store sells is in its country's table; the only gap in a shipped country is the duplicate NG label `NineMobile`, which **no store enables** (0 `global_reseller_plan_configs` rows). `tsc --noEmit` = 0; `expo lint` unchanged at 42 problems (12 errors), none in a touched file |
+| 8.j.ii | Ship the change in fresh APKs for the four test stores | 🧑 | ⬜ | **Person step (not yet requested).** No APK has been built from the 8.j work (now `725fff9`); the four test stores still run the `aeb8dea` builds from 8.i.ii, which predate this change. Dispatch `build-global-reseller-apk.yml` on ref `handover/supabase-dump` (NOT `main` — `main` is still `210c295` and carries neither this change nor the 8.i fix), then test on-device that plans appear after 6 digits and match the number's network — including that the trunk `0` is required (`0803…` resolves, `803…` does not) |
 
 
 ## Critical path
@@ -516,7 +526,7 @@ by the `tenant-distribution` release.
 | 8.g | 3 | 3 | ✅ complete — bug A + bug C fixed and deployed; **bug B (8.g.ii) CLOSED 2026-10-24, proven live from the app** |
 | 8.h | 4 | 4 | ✅ complete — pawns module + consent gate + bandwidth section removed from the app; the AAB is built beside the APK and **proven live** (4 stores built 2026-10-22, each release carrying `.aab` + `.apk`, both URLs persisted to `global_app_builds`) |
 | 8.i | 2 | 2 | ✅ complete — **owner login on mobile fixed, deployed (edge fn v6) and live-verified; fresh APKs for all four test stores built from the fix commit (`aeb8dea`) and published, fix confirmed present inside each shipped bundle** (2026-10-24) |
-| 8.j | 1 | 2 | 🔄 **CODE DONE + verified** (`78fa753`) — plans gated on the first 6 digits, network tabs removed, auto-detection now covers all 24 countries from generated prefix tables. Remaining: **8.j.ii** ship it in fresh APKs (person) |
+| 8.j | 1 | 2 | 🔄 **CODE DONE + verified + corrected** (`725fff9`) — plans gated on the first 6 digits, network tabs removed, auto-detection covers all 24 countries from generated prefix tables, and matching is on the FULL dialed form (trunk `0` required: `0803…` resolves, `803…` does not). Remaining: **8.j.ii** ship it in fresh APKs (person) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
@@ -534,10 +544,18 @@ remaining open work is verification, not code:
    Installing one and signing in as the owner is the on-device confirmation that
    8.i is closed.
 4. **Ship the 8.j change to a device (person, 8.j.ii):** the four test-store APKs
-   predate `78fa753`, so the number-first plan display has not been seen on a
-   device yet. Dispatch `build-global-reseller-apk.yml` on
+   predate the 8.j work (now `725fff9`), so the number-first plan display has not
+   been seen on a device yet. Dispatch `build-global-reseller-apk.yml` on
    `handover/supabase-dump`, then confirm plans appear after 6 digits and match
-   the number's network.
+   the number's network — with the trunk `0` required (`0803…` resolves, `803…`
+   does not). **Blocker before this can happen:** the mobile rework (`725fff9`)
+   and this docs commit are **committed locally but not yet pushed** — the
+   `GITHUB_TOKEN` in this session (account `Phoenix-Boss`) is denied
+   `Contents: write` on `Erudite885/reseller-app` (`git push` → 403 "Permission
+   … denied"; the API ref-create probe → 403 "Resource not accessible by
+   integration"), although earlier commits on this branch did push, so the token's
+   scope appears to have narrowed. **Push both branches once a token with
+   `Contents: write` is available**, then dispatch the build from `725fff9`.
 5. **Optional, new scope (not a Task 8 leaf):** the web storefront has no
    HTTP-reachable **customer** fund path (its only fund route is owner-only), so
    mobile is currently the only surface that can fund a customer wallet by mobile
