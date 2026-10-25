@@ -114,3 +114,85 @@ Deno.test("unknown typed address resolves to null", async () => {
   });
   assert.equal(await resolveStoreAuthEmail(admin, STORE, "nobody@b.com"), null);
 });
+
+Deno.test("owner: the store's own application resolves to its derived alias", async () => {
+  const admin = fakeAdmin({
+    customers: [],
+    stores: [{
+      id: STORE,
+      store_slug: SLUG,
+      email: "owner@b.com",
+      original_email: "owner@b.com",
+      auth_email: "owner+reseller-ke-kesh-data-neh5u@b.com",
+    }],
+    users: [],
+  });
+  assert.equal(
+    await resolveStoreAuthEmail(admin, STORE, "owner@b.com"),
+    "owner+reseller-ke-kesh-data-neh5u@b.com",
+  );
+});
+
+Deno.test("owner: typed address is matched case-insensitively and trimmed", async () => {
+  const admin = fakeAdmin({
+    customers: [],
+    stores: [{
+      id: STORE,
+      store_slug: SLUG,
+      original_email: "Owner@B.com",
+      auth_email: "owner+reseller-ke-kesh-data-neh5u@b.com",
+    }],
+    users: [],
+  });
+  assert.equal(
+    await resolveStoreAuthEmail(admin, STORE, "  OWNER@b.COM "),
+    "owner+reseller-ke-kesh-data-neh5u@b.com",
+  );
+});
+
+Deno.test("owner: a different address does not resolve to the owner's alias", async () => {
+  const admin = fakeAdmin({
+    customers: [],
+    stores: [{
+      id: STORE,
+      store_slug: SLUG,
+      original_email: "owner@b.com",
+      auth_email: "owner+reseller-ke-kesh-data-neh5u@b.com",
+    }],
+    users: [],
+  });
+  assert.equal(await resolveStoreAuthEmail(admin, STORE, "someone-else@b.com"), null);
+});
+
+Deno.test("owner: falls back to the application's email when original_email is absent", async () => {
+  const admin = fakeAdmin({
+    customers: [],
+    stores: [{
+      id: STORE,
+      store_slug: SLUG,
+      email: "owner@b.com",
+      auth_email: "owner+reseller-ke-kesh-data-neh5u@b.com",
+    }],
+    users: [],
+  });
+  assert.equal(
+    await resolveStoreAuthEmail(admin, STORE, "owner@b.com"),
+    "owner+reseller-ke-kesh-data-neh5u@b.com",
+  );
+});
+
+Deno.test("a customer row still wins over the owner match for the same typed address", async () => {
+  // Guards the ordering: the customer lookup runs first, so a customer of this
+  // store keeps resolving even if the owner application shares the address.
+  const admin = fakeAdmin({
+    customers: [{ reseller_id: STORE, email: "a@b.com", auth_email: "a+kesh-data1@b.com" }],
+    stores: [{
+      id: STORE,
+      store_slug: SLUG,
+      original_email: "a@b.com",
+      auth_email: "a+reseller-ke-kesh-data-neh5u@b.com",
+    }],
+    users: [],
+  });
+  assert.equal(await resolveStoreAuthEmail(admin, STORE, "a@b.com"), "a+kesh-data1@b.com");
+});

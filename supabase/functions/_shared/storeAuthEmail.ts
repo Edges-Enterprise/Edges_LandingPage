@@ -1,18 +1,29 @@
 // supabase/functions/_shared/storeAuthEmail.ts
 //
-// Task 8, defect batch (bug A). Resolve the address a customer typed to the
+// Task 8, defect batch (bug A). Resolve the address a user typed to the
 // per-store derived auth email Supabase Auth actually has on file.
 //
-// The store suffix is internal: registration signs up as
-// local+<slug>N@domain, so a plain email/password login must map back to it.
-// Two row shapes exist in global_customers:
+// Both roles sign in with the address they registered with, but Supabase Auth
+// holds a derived alias for each:
+//   * reseller/owner: <local>+reseller-<cc>-<slug>-<rand>@<domain>
+//     (generateAuthEmail in submitApplication.ts)
+//   * customer:       <local>+<slug>N@<domain>
+//   * legacy customer: email = auth_email = the alias (rows written before the
+//     original address was stored)
+// The suffix is internal, so a plain email/password login must map back to it.
+//
+// Owner resolution is exact and store-scoped: the typed address is compared
+// against THIS store's `original_email` (the authoritative record of what was
+// typed at signup) and its `auth_email` returned. Comparing in code rather than
+// with a case-insensitive SQL filter avoids wildcard hazards, because `_` is a
+// common character in email local parts.
+//
+// Customer resolution has two shapes in global_customers:
 //   * email = the typed address, auth_email = the alias  (the current shape)
-//   * email = auth_email = the alias                     (rows written before
-//     the original address was stored)
-// The direct lookup handles the first. The second is invisible to a lookup
-// by the typed address, so it is recovered from Supabase Auth's own
-// user_metadata.original_email - the authoritative record of what the
-// customer typed at signup - scoped to this store's slug and confirmed
+//   * email = auth_email = the alias                     (legacy rows)
+// The direct lookup handles the first. The second is invisible to a lookup by
+// the typed address, so it is recovered from Supabase Auth's own
+// user_metadata.original_email, scoped to this store's slug and confirmed
 // against the customer row. Without the fallback those customers resolve to
 // nothing and are told "invalid login credentials".
 //
@@ -42,9 +53,19 @@ export async function resolveStoreAuthEmail(
 
   const { data: store } = await admin
     .from("global_reseller_applications")
-    .select("store_slug")
+    .select("store_slug, auth_email, original_email, email")
     .eq("id", resellerId)
     .maybeSingle();
+
+  // Store owner. Their Auth identity is the derived alias, which a lookup by
+  // the typed address never finds, so match the application row instead.
+  if (store?.auth_email) {
+    const original = String(store.original_email || store.email || "")
+      .trim()
+      .toLowerCase();
+    if (original === typed) return store.auth_email;
+  }
+
   const slug = String(store?.store_slug || "").trim().toLowerCase();
   if (!slug) return null;
 
@@ -76,3 +97,4 @@ export async function resolveStoreAuthEmail(
 
   return null;
 }
+
