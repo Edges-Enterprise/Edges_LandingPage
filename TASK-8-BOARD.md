@@ -8,10 +8,11 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-24 (eighteenth check) - **the four built apps were tested
+Last updated: 2026-10-24 (nineteenth check) - **the four built apps were tested
 on-device: the funding defect batch is CLOSED and the gateway leg is PROVEN; a
 new defect surfaced in that same test — store owners could not sign in on mobile
-— and is now fixed, deployed and live-verified (8.i).**
+— and is now fixed, deployed, live-verified (8.i) and shipped in fresh APKs for
+all four test stores (8.i.ii).**
 
 - **New defect from the same device test (8.i, person-filed 2026-10-24):
   reseller/owner login on mobile failed while customers succeeded.** The login
@@ -20,7 +21,11 @@ new defect surfaced in that same test — store owners could not sign in on mobi
   resolved to nothing and got "Invalid login credentials". Fixed in the shared
   resolver (store-scoped, exact-match), deployed as edge function **v6**, and
   live-verified. 3 new tests fail on the old code and pass on the new; full
-  suite 56/56. Reaches a device in the next APK build.
+  suite 56/56.
+- **Fresh APKs for all four test stores are built and published (8.i.ii,
+  person-requested).** Four green runs from the fix commit `aeb8dea`; each
+  release carries `.apk` + `.aab`. The fix was confirmed **inside each shipped
+  bundle** (not just in git). Download commands are in the 8.i.ii row.
 
 - **The four APKs were downloaded and tested on a device (person, 2026-10-23 →
   2026-10-24).** `roseline` (ng), `kesh-data` (ke), `sweet-data` (cm) and
@@ -244,6 +249,7 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 
 | **8.i** | **Defect batch (person-filed 2026-10-24, from the device test): store owners cannot sign in on mobile** | | ✅ | — |
 | 8.i.i | Mobile: reseller/owner login fails while customers succeed | 🤖 | ✅ | **DONE + DEPLOYED + LIVE-VERIFIED 2026-10-24** (web `storeAuthEmail.ts`; edge fn **v6**). Root cause: the mobile login screen resolves the typed address to the Auth identity behind it via `global-store-customer-auth-email` → `resolveStoreAuthEmail`, which only searched **`global_customers`**. Resellers have no customer row — their Auth identity is the application's own derived alias (`<local>+reseller-<cc>-<slug>-<rand>@<domain>`, `generateAuthEmail` in `submitApplication.ts`), e.g. `erudite885@gmail.com` → `erudite885+reseller-zm-zam-store-neh5u@gmail.com`. So the lookup returned `null`, the screen fell back to the typed address, and `signInWithPassword` failed with "Invalid login credentials" — the same symptom as bug A, different cause. Customers were unaffected because they *do* have rows. **Fix:** the resolver now also matches the typed address against **this store's** `global_reseller_applications` row and returns its `auth_email`. Matching is exact + store-scoped, and compared in code (not via a case-insensitive SQL filter) because `_` is a wildcard in `ilike` and is common in email local parts. Ordering is deliberate: the customer lookup still runs first, so a customer of the store keeps resolving. **Verified live on the deployed function** (publishable key, no JWT): `erudite885@gmail.com` and ` ERUDITE885@GMAIL.COM ` (case/trim) both → `erudite885+reseller-zm-zam-store-neh5u@gmail.com`; unknown address → `null`; customer regressions intact (`tan289+1@maxxspace.com` → `tan289+1kesh-data1@maxxspace.com`, `exploit7492+100@gmail.com` → `exploit7492+100roseline7@gmail.com`); `GET` → 405. **Proven the tests catch it:** 3 new owner tests **fail on the old resolver** and pass on the new one; full suite **56/56**. Confirmed all **43** `global_reseller_applications` rows carry a non-null `auth_email` (so no owner is left unresolvable) and the resolved alias maps to a real, email-confirmed Auth user (124 of 382 Auth users are `role: reseller`). `deno check` clean. Post-login is sound for owners: `global-store-register-customer` already skips the owner, and `(app)/_layout.tsx` tolerates a reseller. Web reseller login is a *different* path (`global_reseller_applications.original_email` via `getAuthEmail`) and was not affected. **Person step:** none for the login itself — the function is deployed; the fix reaches a device in the next APK build |
+| 8.i.ii | Ship the fix in fresh APKs for the four test stores | 🤖 | ✅ | **DONE — DISPATCHED + PROVEN LIVE 2026-10-24.** Person-requested. Four `workflow_dispatch` runs of `build-global-reseller-apk.yml` in `Erudite885/reseller-app`, all on ref **`handover/supabase-dump` @ `aeb8dea`** — the commit carrying the owner-login fix (verified: every run's `head_sha` = `aeb8dea`). **Note on the ref:** the dashboard's own trigger uses `BUILD_WORKFLOW_REF = "main"`, but `main` (`210c295`, a merge of the older branch head `6721a4b`) does **not** contain the fix, so dispatching on `main` would have shipped the bug. Built from the branch ref instead; `main` is left untouched pending a person decision on merging. All four runs `completed/success`, job `build` success (runs **40134953636** roseline, **40134955279** kesh-data, **40134956730** sweet-data, **40134958352** kwam-two; ~20–27 min each). Each release carries **both** artifacts in `Erudite885/tenant-distribution`: `ng-roseline-330e68c4-20261024_215615` (`.apk` 79.0 MB + `.aab` 41.5), `ke-kesh-data-96408a53-20261024_220251` (79.0 + 41.5), `cm-sweet-data-b58d3aa6-20261024_220012` (79.0 + 41.5), `gh-kwam-two-aaaf1cff-20261024_220021` (79.1 + 41.6). **Fix confirmed inside the shipped bundles, not just in git:** all four `assets/index.android.bundle` files contain `resolveAuthEmail` (1×) and `global-store-customer-auth-email` (1×), and **zero** occurrences of the old `getCustomerAuthEmail`. APK HTTP 200 on every URL; SHA-256 recorded for the download instructions. `global_app_builds` updated in place by the workflow's success webhook |
 
 ## Critical path
 
@@ -495,7 +501,7 @@ by the `tenant-distribution` release.
 | 8.f | 3 | 3 | ✅ complete (8.f.iii shipped the `kesh-data` APK; **8.f.ii gateway leg PROVEN LIVE 2026-10-24** — three non-NG fund attempts from the app returned live Korapay checkouts. Only the post-checkout **webhook → wallet credit** leg remains unexercised) |
 | 8.g | 3 | 3 | ✅ complete — bug A + bug C fixed and deployed; **bug B (8.g.ii) CLOSED 2026-10-24, proven live from the app** |
 | 8.h | 4 | 4 | ✅ complete — pawns module + consent gate + bandwidth section removed from the app; the AAB is built beside the APK and **proven live** (4 stores built 2026-10-22, each release carrying `.aab` + `.apk`, both URLs persisted to `global_app_builds`) |
-| 8.i | 1 | 1 | ✅ complete — **owner login on mobile fixed, deployed (edge fn v6) and live-verified** (2026-10-24) |
+| 8.i | 2 | 2 | ✅ complete — **owner login on mobile fixed, deployed (edge fn v6) and live-verified; fresh APKs for all four test stores built from the fix commit (`aeb8dea`) and published, fix confirmed present inside each shipped bundle** (2026-10-24) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
@@ -508,8 +514,10 @@ remaining open work is verification, not code:
    credits the wallet — this is the last unexercised step of the fund flow.
 2. **Signed-in purchase (`8.a.iii.zr`, person):** needs a funded wallet (i.e. #1
    first); `global_orders` is empty and there are no purchase rows yet.
-3. **Ship a fresh APK (person):** the owner-login fix (8.i) is deployed on the
-   edge function but only reaches a device in a new build.
+3. **Install the fresh APKs (person):** all four test stores now have new builds
+   from the fix commit (`aeb8dea`) — see 8.i.ii for the download commands.
+   Installing one and signing in as the owner is the on-device confirmation that
+   8.i is closed.
 4. **Optional, new scope (not a Task 8 leaf):** the web storefront has no
    HTTP-reachable **customer** fund path (its only fund route is owner-only), so
    mobile is currently the only surface that can fund a customer wallet by mobile
