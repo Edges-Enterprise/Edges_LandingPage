@@ -8,11 +8,12 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-26 (twenty-fourth check) - **the storefront's "Customer
+Last updated: 2026-10-26 (twenty-fifth check) - **the storefront's "Customer
 record not found" is fixed (two independent causes: an owner-only RLS policy and
-an owner-misclassification in the auth hook), and the storefront wallet is now
-reachable on a phone. 8.j, 8.k and the two new storefront items (8.l, 8.m) are
-done in code; the only remaining work is person-side device testing.**
+an owner-misclassification in the auth hook), the storefront wallet is now
+reachable on a phone, and the follow-on fund error ("authorization token is
+invalid") is diagnosed and fixed. 8.j, 8.k, 8.l, 8.m and 8.n are done in code;
+the only remaining work is person-side device testing.**
 
 - **New finding + fix (8.l, 2026-10-26): the storefront fund path failed with
   "Customer record not found" for two independent reasons.** (1) **RLS:**
@@ -34,6 +35,20 @@ done in code; the only remaining work is person-side device testing.**
   `desktop-nav`, hidden below 768px, and the mobile drawer had no wallet row, so
   the wallet was unreachable on mobile. The drawer now shows a wallet link
   (owner) or the balance + fund action (customer).
+
+- **New finding + fix (8.n, 2026-10-26): the fund step then said "authorization
+  token is invalid".** That is Korapay's own wording for an **empty** bearer —
+  reproduced live: an empty `Authorization: Bearer ` gives `401 "authorization
+  token is invalid"`, a non-empty but wrong key gives `403 "invalid
+  authorization key"`, and no header gives `"no authorization token found"`. The
+  web fund path calls the gateway directly with `process.env.KORAPAY_SECRET_KEY`,
+  which the module defaulted to `""` and sent unguarded. `korapay.ts` /
+  `flutterwave.ts` now fail with "Payment provider is not configured. Please
+  contact support." when the secret is blank. `KORAPAY_SECRET_KEY` /
+  `FLUTTERWAVE_SECRET_KEY` are Vercel **`production`-only** targets, so a preview
+  deployment or the sandbox dev server has no key — test the **production** URL.
+  Production holds the secrets (both production webhooks reject an empty-key
+  signature). Web commit `4f792bc`.
 
 - **New person request (8.k, 2026-10-25): the fund-account/wallet checkout opens
   in a browser outside the app.** NG was fine (its gateway, xixapay, issues a
@@ -321,6 +336,8 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 | 8.l.ii | Web: detect the store owner by `store_slug`, not `store_name` | 🤖 | ✅ | **DONE 2026-10-26** (`9b8a36b`). `useStoreCustomerAuth` compared `user_metadata.store_name` against the store **slug** ("Kwam Two" vs "kwam-two") — never equal — so an owner was classified as a customer and fell into the customer branch, and an owner has **no** `global_customers` row at all (verified for every test store), producing the same error. Now compares `store_slug`, matching `useCustomerAuth`. `StoreContent`'s fund and virtual-account handlers branch on the role (owner → `fundWallet`/`createVirtualAccount`), mirroring the mobile `global-store-fund-wallet` edge function |
 | **8.m** | **Storefront wallet unreachable on a phone (found 2026-10-26, same diagnosis)** | | ✅ | — |
 | 8.m.i | Web: add a wallet entry to the storefront mobile drawer | 🤖 | ✅ | **DONE 2026-10-26** (`9b8a36b`). The only wallet entry point was the balance pill inside `desktop-nav`, which is `display:none` below 768px, and the mobile drawer carried Theme/Notifications/Dashboard/Contact/Sign out but **no** wallet row. The drawer now shows a wallet link (owner) or the balance + fund action (customer). **Person step:** confirm on a real phone browser that the drawer wallet row appears and funds end-to-end (no APK needed — this is the web storefront) |
+| **8.n** | **Storefront fund now says "authorization token is invalid" (person-filed 2026-10-26, immediately after 8.l/8.m shipped)** | | ✅ | — |
+| 8.n.i | Web: fail legibly when the gateway secret is missing, instead of forwarding Korapay's empty-token message | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`4f792bc`). Reproduced the exact wording live: Korapay returns `401 {"status":false,"error":"not_authenticated","message":"authorization token is invalid"}` **only** for an empty bearer (`Authorization: Bearer `); a non-empty but wrong key gives `403 "invalid authorization key"` and a missing header gives `"no authorization token found"`. The web fund path (`fundGlobalCustomerWallet` for a customer, `fundWallet` for an owner) calls the gateway directly with `process.env.KORAPAY_SECRET_KEY`, which the module defaulted to `""` and sent unguarded — so any runtime without the secret produces exactly that message. `korapay.ts`/`flutterwave.ts` now return `"Payment provider is not configured. Please contact support."` when the secret is blank, the same guard `createGlobalCustomerVirtualAccount` already used for Xixapay. `tsc --noEmit` = 0. **Where the person hit it:** `KORAPAY_SECRET_KEY`/`FLUTTERWAVE_SECRET_KEY` are set in Vercel for the **`production` target only** (`GET /v9/projects/…/env`), so a **preview deployment** or the sandbox **dev server** has no key and produces this. Production itself is populated — a read-only HMAC oracle (a webhook body signed with an **empty** key) is **rejected** (`401 Invalid signature`) on both the Korapay and Flutterwave production webhooks, which only happens when the runtime key is non-empty. **Person step:** run the fund test on the **production** URL (`edges-landing-page.vercel.app`, alias → `dpl_4HjQdG1r…` = `25727560`), not a preview URL; if a preview must be tested, add `KORAPAY_SECRET_KEY`/`FLUTTERWAVE_SECRET_KEY` to the Preview environment |
 
 ## Critical path
 
@@ -578,19 +595,29 @@ by the `tenant-distribution` release.
 | 8.k | 2 | 2 | ✅ complete — **8.k.i code done + verified (`8b18d03`): the Korapay/Flutterwave checkout renders in an in-app WebView sheet instead of the OS browser, and 8.k.ii shipped: merged to `main` (`814b0fd`) and the four test-store APKs rebuilt from `main` (`40280088780`/`40280090379`/`40280091941`/`40280093608`, all green, `head_sha` `814b0fd`) and published with the in-app markers present and `openBrowserAsync` absent** (2026-10-26) |
 | 8.l | 2 | 2 | ✅ complete — **the storefront "Customer record not found" is fixed (`9b8a36b`): the three customer actions read the customer row through the service-role client past the owner-only `global_customers` RLS policy, and `useStoreCustomerAuth` now detects the owner by `store_slug`** (2026-10-26) |
 | 8.m | 1 | 1 | ✅ complete — **the storefront mobile drawer now carries a wallet row, so the wallet is reachable on a phone (`9b8a36b`); person-side phone check outstanding** (2026-10-26) |
+| 8.n | 1 | 1 | ✅ complete — **the fund path no longer surfaces Korapay's "authorization token is invalid"; a blank gateway secret now reads "Payment provider is not configured" (`4f792bc`). Production holds the secrets (an empty-key HMAC signature is rejected by both production webhooks); the person's error came from a non-production runtime — preview or dev — where `KORAPAY_SECRET_KEY`/`FLUTTERWAVE_SECRET_KEY` are absent (Vercel `production`-only targets)** (2026-10-26) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
 gateway from the app), `8.i` (owner login) is fixed and deployed, `8.j`
 (number-first plan gating) and `8.k` (in-app gateway checkout) are **DONE and
-shipped**, and the two storefront items found while diagnosing the fund failure
-(`8.l` RLS + owner detection, `8.m` mobile wallet reach) are **done in code**.
-The remaining open work is verification, not code:
+shipped**, the two storefront items found while diagnosing the fund failure
+(`8.l` RLS + owner detection, `8.m` mobile wallet reach) are **done in code**,
+and the follow-on fund error (`8.n` "authorization token is invalid") is fixed
+and diagnosed. The remaining open work is verification, not code:
 
-0. **Storefront fund on web (person, 8.l/8.m):** sign in to a store on a phone
-   browser, open the drawer, and confirm the wallet row appears and funds
+0. **Storefront fund on web (person, 8.l/8.m/8.n):** sign in to a store on a
+   phone browser, open the drawer, and confirm the wallet row appears and funds
    end-to-end. This is the web storefront, so no APK is needed — the two causes
-   are already fixed and verified in the browser here.
+   are already fixed and verified in the browser here. **Run it on the
+   production URL** (`edges-landing-page.vercel.app`): `KORAPAY_SECRET_KEY` and
+   `FLUTTERWAVE_SECRET_KEY` are set for the Vercel **`production` target only**,
+   so a preview URL funds with an empty key. Production is populated (both
+   production webhooks reject an empty-key signature), so a production fund
+   attempt reaches the gateway. If the fund step instead reads "Payment provider
+   is not configured", the deployment being tested is missing the secret (add
+   it to that environment) — that is the legible replacement for 8.n's
+   "authorization token is invalid".
 
 1. **Post-checkout funding leg (person):** the three fund attempts are still
    `pending` and every wallet is `0.0`, so no checkout was completed. Complete one
