@@ -576,8 +576,10 @@ and shipped**. The remaining open work is verification, not code:
    the four 8.k builds were dispatched from mobile `main` at `814b0fd`; a
    docs-only merge on top brings the current tip to `e1e4bbc` (identical tree,
    `656cfb0…`, so the shipped builds are unaffected). Mobile `handover/supabase-dump`
-   is `85e4e0a`; web `main` and `handover/supabase-dump` are both `a95a7b5`. All
-   four refs are pushed. The session's `GITHUB_TOKEN` (account `Phoenix-Boss`) is denied
+   is `85e4e0a`. Web `main` and `handover/supabase-dump` are kept in lockstep and
+   carry the 8.k board + log entries (the exact tip advances with each docs
+   commit, so read it from the branch rather than from here). All four refs are
+   pushed. The session's `GITHUB_TOKEN` (account `Phoenix-Boss`) is denied
    `Contents: write` on `Erudite885/reseller-app` (`git push` → 403 "Permission …
    denied"; API ref-create → 403 "Resource not accessible by integration") even
    though earlier commits on this branch pushed, so its scope appears to have
