@@ -15,6 +15,8 @@ import { useRouter } from "next/navigation";
 import { CountryConfig } from "@/config/countries";
 import { createGlobalCustomerVirtualAccount } from "@/actions/reseller/customers/createGlobalCustomerVirtualAccount";
 import { fundGlobalCustomerWallet } from "@/actions/reseller/customers/fundGlobalCustomerWallet";
+import { createVirtualAccount } from "@/actions/reseller/wallet/createVirtualAccount";
+import { fundWallet } from "@/actions/reseller/wallet/fundWallet";
 import { useStoreCustomerAuth } from "@/hooks/store/useStoreCustomerAuth";
 import { useStoreCustomerWallet } from "@/hooks/store/useStoreCustomerWallet";
 import { useStorePurchase } from "@/hooks/store/useStorePurchase";
@@ -77,16 +79,28 @@ export default function StoreContent({
   const handleCreateVirtualAccount = async () => {
     wallet.setVirtualLoading(true);
     wallet.setVirtualMessage(null);
-    const result = await createGlobalCustomerVirtualAccount(
-      storeData.application.id,
-      storeData.application.store_slug,
-    );
+    // An owner has no `global_customers` row (the customer action requires
+    // one), so branch by role — same split as the fund handler below and as
+    // the mobile `global-store-fund-wallet` edge function.
+    const result = auth.isStoreOwner
+      ? await createVirtualAccount({
+          applicationId: storeData.application.id,
+          countryCode: storeData.application.country_code,
+        })
+      : await createGlobalCustomerVirtualAccount(
+          storeData.application.id,
+          storeData.application.store_slug,
+        );
     if (result.error) {
       wallet.setVirtualMessage({ type: "error", text: result.error });
     } else {
       wallet.setVirtualMessage({
         type: "success",
-        text: result.message || "Virtual account created successfully!",
+        // The owner action reports success via `data`; only the customer
+        // action carries a `message`.
+        text:
+          ("message" in result && result.message) ||
+          "Virtual account created successfully!",
       });
       await wallet.refreshWalletData();
       setTimeout(() => wallet.setShowVirtualForm(false), 2000);
@@ -95,9 +109,11 @@ export default function StoreContent({
   };
 
   // Non-xixapay countries fund by mobile money (korapay/flutterwave), the
-  // same initiate-then-redirect model the reseller dashboard uses. The
-  // server action resolves the customer and store from the session, so no
-  // ids are passed from here.
+  // same initiate-then-redirect model the reseller dashboard uses. Both
+  // actions resolve the caller and store from the session, so no ids are
+  // passed from here. The owner and the customer are different identity
+  // classes (the owner has no `global_customers` row), so the branch is by
+  // role — mirroring the mobile `global-store-fund-wallet` edge function.
   const handleFundMobileMoney = async ({
     amount,
     mobileNumber,
@@ -105,14 +121,21 @@ export default function StoreContent({
     amount: number;
     mobileNumber: string;
   }): Promise<{ ok: boolean; error?: string }> => {
-    const result = await fundGlobalCustomerWallet({
-      resellerId: storeData.application.id,
-      amount,
-      countryCode: config.code,
-      source: "web",
-      mobileMoney: mobileNumber ? { number: mobileNumber } : undefined,
-      returnPath: `/${storeData.application.country_code}/${storeData.application.store_slug}`,
-    });
+    const result = auth.isStoreOwner
+      ? await fundWallet({
+          amount,
+          countryCode: config.code,
+          source: "web",
+          mobileMoney: mobileNumber ? { number: mobileNumber } : undefined,
+        })
+      : await fundGlobalCustomerWallet({
+          resellerId: storeData.application.id,
+          amount,
+          countryCode: config.code,
+          source: "web",
+          mobileMoney: mobileNumber ? { number: mobileNumber } : undefined,
+          returnPath: `/${storeData.application.country_code}/${storeData.application.store_slug}`,
+        });
 
     if (!result.success) {
       return { ok: false, error: result.error };

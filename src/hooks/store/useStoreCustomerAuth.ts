@@ -56,7 +56,12 @@ export function useStoreCustomerAuth(storeSlug: string, resellerId: string) {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       setLoggedIn(true);
-      setIsStoreOwner(user.user_metadata?.store_name === storeSlug);
+      // Resellers' Auth accounts carry store_slug in user_metadata
+      // (set by submitApplication.ts) — compare that, not store_name.
+      // The slug is the same value this hook is given; store_name is the
+      // display name ("Kwam Two" vs "kwam-two") and never matched, so the
+      // owner was misclassified as a customer on the storefront.
+      setIsStoreOwner(user.user_metadata?.store_slug === storeSlug);
     });
   }, [storeSlug]);
 
@@ -132,7 +137,7 @@ export function useStoreCustomerAuth(storeSlug: string, resellerId: string) {
     }
 
     if (data.user) {
-      const owner = data.user.user_metadata?.store_name === storeSlug;
+      const owner = data.user.user_metadata?.store_slug === storeSlug;
       setIsStoreOwner(owner);
       setLoggedIn(true);
       if (owner) router.push("/dashboard");
