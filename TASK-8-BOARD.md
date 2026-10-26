@@ -8,10 +8,32 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-26 (twenty-third check) - **8.j is merged and shipped, and
-8.k is done: the Korapay/Flutterwave checkout now opens inside the app instead
-of a browser. All four test-store APKs have been rebuilt from `main` and are
-ready to install.**
+Last updated: 2026-10-26 (twenty-fourth check) - **the storefront's "Customer
+record not found" is fixed (two independent causes: an owner-only RLS policy and
+an owner-misclassification in the auth hook), and the storefront wallet is now
+reachable on a phone. 8.j, 8.k and the two new storefront items (8.l, 8.m) are
+done in code; the only remaining work is person-side device testing.**
+
+- **New finding + fix (8.l, 2026-10-26): the storefront fund path failed with
+  "Customer record not found" for two independent reasons.** (1) **RLS:**
+  `global_customers` grants SELECT **only to the store owner**, so a customer
+  reading their **own** row through the session client got `200 []`; the three
+  customer actions (`fundGlobalCustomerWallet`, `getCurrentCustomerWallet`,
+  `getCurrentCustomerPinStatus`) all resolved that row that way, so every
+  customer was `null`. They now read it through the service-role client after
+  the session check — the same pattern the working NG path
+  (`createGlobalCustomerVirtualAccount`) already used. (2) **Owner identity:**
+  `useStoreCustomerAuth` compared `user_metadata.store_name` against the store
+  **slug** ("Kwam Two" vs "kwam-two"), so an owner was classified as a customer
+  and fell into the customer branch — where no `global_customers` row exists at
+  all. It now compares `store_slug`. `StoreContent`'s fund and virtual-account
+  handlers also branch on the role, mirroring the mobile
+  `global-store-fund-wallet` edge function. Web commit `9b8a36b`.
+- **New fix (8.m, 2026-10-26): the storefront wallet is now reachable on a
+  phone.** The only wallet entry point was the balance pill inside
+  `desktop-nav`, hidden below 768px, and the mobile drawer had no wallet row, so
+  the wallet was unreachable on mobile. The drawer now shows a wallet link
+  (owner) or the balance + fund action (customer).
 
 - **New person request (8.k, 2026-10-25): the fund-account/wallet checkout opens
   in a browser outside the app.** NG was fine (its gateway, xixapay, issues a
@@ -90,15 +112,17 @@ ready to install.**
   completed, so the Korapay **webhook → `handleSuccessfulCustomerDeposit` →
   `global_customer_wallets` credit** step is not proven. That is the one item
   left for a person, and it needs a real mobile-money payment.
-- **New finding (material, web gap): the web has no HTTP-reachable
-  customer-fund path.** The web's only reachable fund route is
-  `POST /api/reseller/[countryCode]/wallet/fund`, and it resolves the caller as
-  a **reseller owner** (`global_reseller_applications` by `auth_user_id`) — so a
-  storefront **customer** funding on the web has no route to `fundGlobalCustomerWallet`
-  (which is a Next `"use server"` action). Mobile is fine (it calls the edge
-  function directly). So `8.f.ii` is genuinely complete for mobile, and the web
-  customer-fund path is a separate, smaller gap if it is wanted. Recorded, not
-  fixed: it is new scope, not a Task 8 leaf.
+- **Correction (2026-10-26): the web DOES have a customer-fund path, and it was
+  broken.** This finding previously concluded the web had "no route to
+  `fundGlobalCustomerWallet`". That was wrong: `StoreContent`'s
+  `handleFundMobileMoney` calls that server action directly (8.f.i shipped the
+  amount + mobile-money form for it), and a Next `"use server"` action is
+  reachable from the client without its own REST route. What was actually wrong
+  was inside the action — it resolved the customer row through the session client
+  against an owner-only RLS policy, so it failed with "Customer record not
+  found". That is fixed in `8.l.i`. So both surfaces (web storefront and mobile)
+  can fund a customer wallet; the mobile edge function was simply the first one
+  proven live.
 - **Purchase (`8.a.iii.zr`) — still NOT exercised.** `global_orders` is empty,
   `global_customer_transactions` has only the five `deposit` rows above (no
   purchase rows), and every `global_customer_wallets.balance` is `0.0`. The
@@ -292,7 +316,11 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 | 8.k.i | Mobile: render the gateway checkout in-app instead of the OS browser | 🤖 | ✅ | **CODE DONE + VERIFIED 2026-10-25** (mobile `8b18d03`). Root cause: `hooks/useFundWallet.ts` handed the checkout URL from `global-store-fund-wallet` to `WebBrowser.openBrowserAsync`, which opens a Chrome Custom Tab / Safari sheet — so a non-NG payer visibly left the app, and on some devices landed in the full browser with the app's session behind them. NG was unaffected because its gateway (xixapay) issues a virtual account and never redirects. **Fix:** the checkout now renders in an in-app full-screen `Modal` + `WebView` (`components/PaymentWebView.tsx`), with a header/close, loading overlay, error state with retry and an "open in browser instead" fallback, and interception of the gateway's redirect back to the app's own `/api/payment/callback` — the moment the payer is done, the sheet closes and the wallet query refreshes. `constants/paymentReturn.ts` does that recognition and is deliberately import-free and `URL`-class-free, so it compiles and runs under plain Node and needs no polyfill on device. `react-native-webview` was already a dependency (13.13.5) and its Android classes are already in every shipped APK (`com/reactnativecommunity/webview` ×67 in the dex), so **no new native module** — this is a JS-only change, no rebuild of native config needed. Only http(s) loads are allowed through; other schemes (`tel:`, USSD) are handed to the OS so they still work without the checkout leaving the app. `useFundWallet` now only initiates; `setSupportMultipleWindows={false}` keeps any `window.open` inside the WebView, and `thirdPartyCookiesEnabled`/`sharedCookiesEnabled` carry the gateway's session cookies through the redirects. **Verified:** `node scripts/verify-payment-return.mjs` — **27/27** (callback recognised as absolute, protocol-relative and bare path, and on a *different* origin than the build baked in; the gateway pages, the storefront and a `/api/payment/callback/extra` lookalike are all rejected; query parsing handles encoding, `+`, and missing keys). `tsc --noEmit` = 0; `expo lint` unchanged at 42 problems (12 errors), none in a touched file. The 8.j verification still passes. **Crediting is unchanged:** the korapay/flutterwave webhooks still complete the deposit; "returned" only means "stop showing checkout". **Person step:** see 8.k.ii |
 | 8.k.ii | Ship the change in fresh APKs for the four test stores | 🤖 | ✅ | **DONE — MERGED + DISPATCHED + PROVEN IN THE SHIPPED BYTES 2026-10-26.** Mobile `handover/supabase-dump` → `main`: `1d8465b` → **`814b0fd`** (`--no-ff` merge of `8b18d03`; merged `main` tree byte-identical to the handover tip, `cb6d3be…`). Four `workflow_dispatch` runs of `build-global-reseller-apk.yml` **on `main`** — all `completed/success`, job `build` green, **every `head_sha` = `814b0fd`** (runs **40280088780** roseline, **40280090379** kesh-data, **40280091941** sweet-data, **40280093608** kwam-two). **Releases** in `Erudite885/tenant-distribution`, each with `.apk` + `.aab`: `ng-roseline-330e68c4-20261026_065249`, `ke-kesh-data-96408a53-20261026_064622`, `cm-sweet-data-b58d3aa6-20261026_065223`, `gh-kwam-two-aaaf1cff-20261026_065235`. **Proven in the shipped bytes:** all four `assets/index.android.bundle` files contain `api/payment/callback` (1×), `isPaymentReturnUrl` (1×) and `PaymentWebView` (1×), with **zero** `openBrowserAsync` — the browser call is gone — and each APK's dex still carries `com/reactnativecommunity/webview` (67 refs), so the in-app WebView will load. The 8.j and 8.i markers are still present. APK HTTP 200 on every URL; SHA-256 (`roseline` `80e5104a…722485f`, `kesh-data` `4a0fcb62…0b281cfd`, `sweet-data` `3d10cfea…3172feb8`, `kwam-two` `537519b6…dcedd647c9`) recorded below. **Person step (remaining):** install a build, fund the wallet on a non-NG store (ke/cm/gh), and confirm the Korapay/Flutterwave checkout opens **inside the app** and returns to the wallet without ever leaving it. **Termux download (public releases, no auth):** `cd /sdcard/Download 2>/dev/null || cd ~` then, one per line — `curl -L -O https://github.com/Erudite885/tenant-distribution/releases/download/ng-roseline-330e68c4-20261026_065249/roseline.apk` · `curl -L -O https://github.com/Erudite885/tenant-distribution/releases/download/ke-kesh-data-96408a53-20261026_064622/kesh-data.apk` · `curl -L -O https://github.com/Erudite885/tenant-distribution/releases/download/cm-sweet-data-b58d3aa6-20261026_065223/sweet-data.apk` · `curl -L -O https://github.com/Erudite885/tenant-distribution/releases/download/gh-kwam-two-aaaf1cff-20261026_065235/kwam-two.apk` · verify with `sha256sum roseline.apk kesh-data.apk sweet-data.apk kwam-two.apk` → expect `80e5104a…722485f`, `4a0fcb62…0b281cfd`, `3d10cfea…3172feb8`, `537519b6…dcedd647c9` · install with `termux-open roseline.apk` (etc.) |
 
-
+| **8.l** | **Storefront fund fails with "Customer record not found" (found 2026-10-26 while diagnosing the storefront)** | | ✅ | — |
+| 8.l.i | Web: resolve the customer row past the owner-only RLS policy in the three customer actions | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`9b8a36b`). `global_customers` grants SELECT **only to the store owner** (`auth.uid() IN (SELECT auth_user_id FROM global_reseller_applications …)`), so a customer reading their **own** row through `createServerClient()` — which sends the user's JWT — got `200 []` (proven with a throwaway user: same filtered query returns the row under the service role, `[]` under the customer's JWT). `fundGlobalCustomerWallet.ts`, `getCurrentCustomerWallet.ts` and `getCurrentCustomerPinStatus.ts` all did that lookup, so every customer resolved to `null`. They now read that one lookup through the **service-role** client after the session check — the pattern `createGlobalCustomerVirtualAccount` (the working NG path) already used; the filter stays the authenticated user's own id, so only their own row is reachable. **Verified live:** a signed-in customer that previously read a null wallet now renders `₵250.75`; both actions return 200. `tsc --noEmit` = 0 |
+| 8.l.ii | Web: detect the store owner by `store_slug`, not `store_name` | 🤖 | ✅ | **DONE 2026-10-26** (`9b8a36b`). `useStoreCustomerAuth` compared `user_metadata.store_name` against the store **slug** ("Kwam Two" vs "kwam-two") — never equal — so an owner was classified as a customer and fell into the customer branch, and an owner has **no** `global_customers` row at all (verified for every test store), producing the same error. Now compares `store_slug`, matching `useCustomerAuth`. `StoreContent`'s fund and virtual-account handlers branch on the role (owner → `fundWallet`/`createVirtualAccount`), mirroring the mobile `global-store-fund-wallet` edge function |
+| **8.m** | **Storefront wallet unreachable on a phone (found 2026-10-26, same diagnosis)** | | ✅ | — |
+| 8.m.i | Web: add a wallet entry to the storefront mobile drawer | 🤖 | ✅ | **DONE 2026-10-26** (`9b8a36b`). The only wallet entry point was the balance pill inside `desktop-nav`, which is `display:none` below 768px, and the mobile drawer carried Theme/Notifications/Dashboard/Contact/Sign out but **no** wallet row. The drawer now shows a wallet link (owner) or the balance + fund action (customer). **Person step:** confirm on a real phone browser that the drawer wallet row appears and funds end-to-end (no APK needed — this is the web storefront) |
 
 ## Critical path
 
@@ -432,6 +460,7 @@ Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B*
 | ~~Merge `e4e36ae` + `5ee2f54` to `main`~~ | **DONE 2026-10-22** | PR #32 → `main` = `72faffe`; clean merge, tree byte-identical to the branch tip; Vercel Production built from `72faffef` and is `READY` |
 | ~~**One non-NG fund attempt on Production**~~ (`8.g.ii` / `8.e.iii`) | **DONE 2026-10-24** | three non-NG fund attempts from the app (kesh-data/`ke`/`KES`, sweet-data/`cm`/`XAF`, kwam-two/`gh`/`GHS`) returned live Korapay checkout URLs + `pending` rows. The `403 invalid authorization key` is gone (a 403 writes no row). **Bug B closed.** |
 | **Complete one non-NG mobile-money checkout** (`8.f.ii`, person) | **now — the last unexercised leg** | pay one of the pending Korapay checkouts (e.g. the `kesh-data`/`KES` one) with a real mobile-money number and confirm the webhook credits `global_customer_wallets` (balance moves off `0.0`, row leaves `pending`). This also unblocks the signed-in purchase test |
+| **Storefront fund on web — check on a phone browser** (`8.l` / `8.m`, person) | **now — no APK needed** | sign in to a store (`/gh/kwam-two` etc.), open the drawer on a narrow viewport, and confirm the wallet row appears and the fund flow completes. Both causes are fixed and verified in-browser already; this is the phone confirmation |
 | ~~Fix web 8.e.ii (currency symbol map)~~ | **DONE 2026-10-22** | `18e7644` — `CDF` added, `MAD` corrected, guard test added; on `main` via PR #33 → `0570bcc` |
 | ~~Fix mobile `setupCustomerForReseller` row shape~~ | **DONE 2026-10-22** | `31b3c6c` — sends `original_email` as `email`; on mobile `main` via PR #8 → `501eff9` |
 | ~~Merge the full-Task-8 work to `main`~~ | **DONE 2026-10-22** | web PR #33 → `0570bcc` (Production `READY` from `0570bcc`); mobile PR #8 → `501eff9`; both dry runs clean, trees byte-identical to the branch tips |
@@ -547,12 +576,21 @@ by the `tenant-distribution` release.
 | 8.i | 2 | 2 | ✅ complete — **owner login on mobile fixed, deployed (edge fn v6) and live-verified; fresh APKs for all four test stores built from the fix commit (`aeb8dea`) and published, fix confirmed present inside each shipped bundle** (2026-10-24) |
 | 8.j | 2 | 2 | ✅ complete — **8.j.i code done + verified + corrected (`725fff9`), and 8.j.ii shipped: `handover/supabase-dump` merged into `main` (mobile `1d8465b`, web `fdab108`) and the four test-store APKs rebuilt from `main` (`40222128214`/`40222129764`/`40222131711`/`40222133318`, all green, `head_sha` `1d8465b`) and published with both the full-form detection and the 8.i resolver present in the shipped bundles** (2026-10-25) |
 | 8.k | 2 | 2 | ✅ complete — **8.k.i code done + verified (`8b18d03`): the Korapay/Flutterwave checkout renders in an in-app WebView sheet instead of the OS browser, and 8.k.ii shipped: merged to `main` (`814b0fd`) and the four test-store APKs rebuilt from `main` (`40280088780`/`40280090379`/`40280091941`/`40280093608`, all green, `head_sha` `814b0fd`) and published with the in-app markers present and `openBrowserAsync` absent** (2026-10-26) |
+| 8.l | 2 | 2 | ✅ complete — **the storefront "Customer record not found" is fixed (`9b8a36b`): the three customer actions read the customer row through the service-role client past the owner-only `global_customers` RLS policy, and `useStoreCustomerAuth` now detects the owner by `store_slug`** (2026-10-26) |
+| 8.m | 1 | 1 | ✅ complete — **the storefront mobile drawer now carries a wallet row, so the wallet is reachable on a phone (`9b8a36b`); person-side phone check outstanding** (2026-10-26) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
-gateway from the app) and `8.i` (owner login) is fixed and deployed. `8.j`
-(number-first plan gating) and `8.k` (in-app gateway checkout) are both **DONE
-and shipped**. The remaining open work is verification, not code:
+gateway from the app), `8.i` (owner login) is fixed and deployed, `8.j`
+(number-first plan gating) and `8.k` (in-app gateway checkout) are **DONE and
+shipped**, and the two storefront items found while diagnosing the fund failure
+(`8.l` RLS + owner detection, `8.m` mobile wallet reach) are **done in code**.
+The remaining open work is verification, not code:
+
+0. **Storefront fund on web (person, 8.l/8.m):** sign in to a store on a phone
+   browser, open the drawer, and confirm the wallet row appears and funds
+   end-to-end. This is the web storefront, so no APK is needed — the two causes
+   are already fixed and verified in the browser here.
 
 1. **Post-checkout funding leg (person):** the three fund attempts are still
    `pending` and every wallet is `0.0`, so no checkout was completed. Complete one

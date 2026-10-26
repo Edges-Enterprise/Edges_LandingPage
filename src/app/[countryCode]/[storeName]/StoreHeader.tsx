@@ -841,6 +841,64 @@ export default function StoreHeader({
           </button>
         </div>
 
+        {/* Wallet — the header's wallet pill sits inside `desktop-nav` and is
+            hidden below 768px, so the drawer is the only place a phone user
+            can reach funding. Owner gets the dashboard wallet link; a
+            customer gets their balance + fund action. */}
+        {loggedIn &&
+          (isStoreOwner ? (
+            <Link
+              href={`/${storeData.application.country_code}/dashboard/wallet`}
+              onClick={() => setIsMobileMenuOpen(false)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                padding: "0.75rem 0",
+                borderBottom: "1px solid var(--border)",
+                color: "var(--text)",
+                textDecoration: "none",
+                fontSize: "0.9rem",
+              }}
+            >
+              <Wallet size={16} />
+              Wallet
+            </Link>
+          ) : (
+            walletBalance != null && (
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onFundClick?.();
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.75rem",
+                  padding: "0.75rem 0",
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: "1px solid var(--border)",
+                  color: "var(--text)",
+                  cursor: "pointer",
+                  width: "100%",
+                  textAlign: "left",
+                  fontSize: "0.9rem",
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <Wallet size={16} />
+                  Wallet
+                </span>
+                <span style={{ fontWeight: 700 }}>
+                  {formatStorePrice(walletBalance, config)}
+                </span>
+              </button>
+            )
+          ))}
+
+
         {/* Theme Toggle */}
         <button
           onClick={() => {

@@ -71,7 +71,15 @@ export async function fundGlobalCustomerWallet({
     // lookup pattern - see 1.c.ii's findings for why this comes before
     // any wallet/account lookup rather than trusting a client-supplied
     // customer id).
-    const { data: customer, error: customerError } = await supabase
+    //
+    // Read via the service-role client: `global_customers` SELECT is
+    // owner-only under RLS (policy "Users can view their own customers"),
+    // so the session client returns no row for the customer themself and
+    // this action always failed with "Customer record not found". The
+    // session check above still establishes identity, and the filter is
+    // the authenticated user's own id.
+    const adminClient = createAdminClient();
+    const { data: customer, error: customerError } = await adminClient
       .from("global_customers")
       .select("id, first_name, last_name, email")
       .eq("reseller_id", resellerId)
@@ -140,8 +148,6 @@ export async function fundGlobalCustomerWallet({
         error: paymentResult.error || "Payment initiation failed",
       };
     }
-
-    const adminClient = createAdminClient();
 
     // Insert into global_customer_transactions (1.c.iii), not
     // global_transactions - the latter has no customer_id column at

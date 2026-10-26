@@ -15,6 +15,7 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getGlobalCustomerWallet,
   type GlobalCustomerVirtualAccount,
@@ -42,7 +43,15 @@ export async function getCurrentCustomerWallet(
     return { error: "Not signed in" };
   }
 
-  const { data: customer, error: customerError } = await supabase
+  // `global_customers` SELECT is owner-only under RLS (policy "Users can
+  // view their own customers"), so the session client reads no row for the
+  // customer themself and this returned "Customer record not found" for
+  // every signed-in customer. Read through the service-role client after
+  // the session check above; the filter is still the authenticated user's
+  // own id, so only their own row can be returned.
+  const admin = createAdminClient();
+
+  const { data: customer, error: customerError } = await admin
     .from("global_customers")
     .select("id")
     .eq("reseller_id", resellerId)

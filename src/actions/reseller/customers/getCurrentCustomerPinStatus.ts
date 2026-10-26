@@ -13,6 +13,7 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function getCurrentCustomerPinStatus(
   resellerId: string,
@@ -40,7 +41,13 @@ export async function getCurrentCustomerPinStatus(
     return { hasPin: !!data?.transaction_pin };
   }
 
-  const { data, error } = await supabase
+  // Same RLS gap as getCurrentCustomerWallet: `global_customers` SELECT is
+  // owner-only, so the session client reads no row for the customer and
+  // every customer looked like they had no transaction PIN. Read through
+  // the service-role client after the session check; the filter is the
+  // authenticated user's own id.
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from("global_customers")
     .select("transaction_pin")
     .eq("reseller_id", resellerId)
