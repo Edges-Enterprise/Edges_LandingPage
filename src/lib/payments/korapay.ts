@@ -85,6 +85,18 @@ export const korapay: PaymentGateway = {
       const resolvedCurrency = currency || getCurrencyForCountry(countryCode);
       const reference = generateReference("KPY");
 
+      // A blank key yields `Authorization: Bearer ` and Korapay answers
+      // 401 "authorization token is invalid" - wording that reads like a
+      // user error but actually means the deployment secret is missing.
+      // Report the real cause instead of forwarding the gateway's text.
+      if (!KORAPAY_SECRET_KEY) {
+        return {
+          success: false,
+          reference,
+          error: "Payment provider is not configured. Please contact support.",
+        };
+      }
+
       // Get reseller details
       const supabase = await import("@/lib/supabase/server").then((m) =>
         m.createServerClient(),

@@ -76,6 +76,17 @@ export const flutterwave: PaymentGateway = {
       const resolvedCurrency = currency || getCurrencyForCountry(countryCode);
       const reference = generateReference("FLW");
 
+      // Same blank-key failure mode as korapay: `Authorization: Bearer `
+      // is rejected with "Invalid authorization key". Fail with the real
+      // cause (missing deployment secret) rather than the gateway's text.
+      if (!FLUTTERWAVE_SECRET_KEY) {
+        return {
+          success: false,
+          reference,
+          error: "Payment provider is not configured. Please contact support.",
+        };
+      }
+
       // Only support mobile money for Rwanda and Uganda
       if (!supportsMobileMoney(countryCode)) {
         return {
