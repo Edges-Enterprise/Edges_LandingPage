@@ -573,8 +573,11 @@ and shipped**. The remaining open work is verification, not code:
    row for the release tags, SHA-256s and the Termux download commands. On-device,
    confirm plans appear only after 6 digits, match the number's network, and that
    the trunk `0` is required (`0803…` resolves, `803…` does not). **Push note:**
-   mobile `main` (`814b0fd`), web `main` (`93fd477`) and both handover branches are
-   pushed. The session's `GITHUB_TOKEN` (account `Phoenix-Boss`) is denied
+   the four 8.k builds were dispatched from mobile `main` at `814b0fd`; a
+   docs-only merge on top brings the current tip to `e1e4bbc` (identical tree,
+   `656cfb0…`, so the shipped builds are unaffected). Mobile `handover/supabase-dump`
+   is `85e4e0a`; web `main` and `handover/supabase-dump` are both `a95a7b5`. All
+   four refs are pushed. The session's `GITHUB_TOKEN` (account `Phoenix-Boss`) is denied
    `Contents: write` on `Erudite885/reseller-app` (`git push` → 403 "Permission …
    denied"; API ref-create → 403 "Resource not accessible by integration") even
    though earlier commits on this branch pushed, so its scope appears to have
