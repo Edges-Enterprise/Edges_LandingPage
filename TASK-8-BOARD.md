@@ -8,23 +8,50 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-26 (thirty-first check) - **storefront mobile drawer
-ordering is now role-aware, reseller sign-out lands on the reseller sign-in
-page, and the header's Sign In button opens the auth modal in place (8.r).**
-Reseller customers see Profile, Wallet, Notifications, light mode, Contact
-Store; resellers see Profile, Wallet, Dashboard, Notifications, light mode.
-Fixing that surfaced a real classification bug: `StoreHeader` decided "owner"
-by comparing `user_metadata.store_name` to the store's **display** name, but
-signup writes `store_name` as the slug and a reseller can rename the display
-name, so a genuine owner was silently treated as a customer — the header now
-compares `store_slug`, matching the auth hook and the profile page. Owner
-sign-out routes to `/[countryCode]/sign-in`; a reseller customer's sign-out
-keeps returning to the storefront. The drawer also had no
-`className="mobile-drawer"`, so its own CSS (which hides it at ≥769px) never
-applied; that is fixed too. Standing policy still applies: merge
+Last updated: 2026-10-27 (thirty-second check) - **storefront reseller
+sign-in now stays on the storefront, the wallet and store dashboard pages no
+longer show a horizontal scrollbar, the theme toggles from the Store > Theme
+tab and the sidebar, and the reseller sign-in page server-renders again (8.s
+through 8.v).** A reseller signing in from the storefront used to be pushed to
+`/[countryCode]/dashboard` the instant they authenticated; the owner redirect
+is gone, so sign-in always lands on the storefront and the owner reaches the
+dashboard deliberately through the header/drawer entry. The wallet action row,
+the transaction filter chips and the store tab strip were nowrap flex rows that
+overflowed a phone (379px of content in a 360px viewport on the wallet page,
+618px in 342px on the store page) — they now wrap. The Store > Theme tab wrote
+`data-theme` on `<html>`, which no stylesheet reads (the rules match
+`body.dashboard-theme[data-theme]`), so it did nothing; it now drives
+`ThemeProvider` like the header toggle, and the sidebar footer gained a toggle
+because the header's is hidden under 768px. The sign-in page touched
+`window.location` while rendering, which aborted SSR ("window is not defined");
+it now reads the country from `useParams`. Standing policy still applies: merge
 `handover/supabase-dump` into `main` in the same session it is pushed, for both
-repos. 8.j, 8.k, 8.l, 8.m, 8.n, 8.o, 8.p, 8.q and 8.r are done; the only
-remaining work is person-side device testing.**
+repos. 8.j, 8.k, 8.l, 8.m, 8.n, 8.o, 8.p, 8.q, 8.r, 8.s, 8.t, 8.u and 8.v are
+done; the only remaining work is person-side device testing.**
+
+- **Resolution (8.s, 2026-10-27): a reseller signing in from the storefront
+  stayed on the storefront.** `useStoreCustomerAuth.handleLogin` redirected an
+  owner to `/[countryCode]/dashboard`; that line is removed, so sign-in lands
+  on the storefront for owner and customer alike. The hook's `countryCode`
+  argument and its only `router` use went with it.
+
+- **Resolution (8.t, 2026-10-27): the wallet and store pages no longer scroll
+  sideways on a phone.** Their action rows are nowrap flex rows of fixed-width
+  children, so the row set a min-content floor wider than the viewport. Each
+  row now wraps; the store tab strip also drops `overflowX: auto` so its four
+  tabs wrap instead of scrolling.
+
+- **Resolution (8.u, 2026-10-27): the theme is now togglable from the Store >
+  Theme tab and the sidebar.** The Theme tab set `data-theme` on `<html>` but
+  the CSS matches `body.dashboard-theme[data-theme]`, so it never applied; it
+  now calls `ThemeProvider.setTheme`. The sidebar footer gained a toggle,
+  because on phones the header's toggle is `.desktop-only` (hidden) and the
+  sidebar is the only nav surface.
+
+- **Resolution (8.v, 2026-10-27): the reseller sign-in page can server-render
+  again.** It read `window.location` during render, aborting SSR with "window
+  is not defined" and forcing the whole page to client-render; it now reads the
+  country from `useParams`.
 
 - **Resolution (8.r, 2026-10-26): the storefront drawer was order-blind, and
   the header could not reliably tell an owner from a customer.** The drawer
@@ -447,6 +474,16 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 | 8.r.i | Web: order the mobile drawer per role (reseller customer vs reseller) | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`6f8eaa9`). The drawer rendered one fixed list regardless of role. It now orders by role: a **reseller customer** (storefront only) sees Profile, Wallet, Notifications, light mode, Contact Store; a **reseller** (owner) sees Profile, Wallet, Dashboard, Notifications, light mode. Ordering was blocked by a real classification bug — `StoreHeader` compared `user_metadata.store_name` against `storeData.application.store_name` (the *display* name, which a reseller can rename) while signup writes `store_name` as the **slug**, so a genuine owner could be silently treated as a customer; both the mount and the auth-change path now compare `store_slug`, matching `useStoreCustomerAuth` and the profile page. The drawer element also had no `className="mobile-drawer"`, so its own stylesheet (which hides it at ≥769px) never applied — added. Rows share one `drawerRow` style object. **Verified, not assumed** in headless Chromium at 390x900 against `/ng/toms-sub` with real accounts: customer drawer `["Profile","Wallet ₦0","Notifications","Dark Mode","Contact Store","Sign Out"]`, owner drawer `["Profile","Wallet","Dashboard","Notifications","Dark Mode","Sign Out"]`; desktop (1280px) computes `.mobile-drawer` `display: none` and `.mobile-toggle` `display: none`. `tsc --noEmit` = 0. Test customer, test owner and all rows deleted afterwards (verified clean) |
 | 8.r.ii | Web: reseller sign-out routes to the reseller sign-in page | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`6f8eaa9`). `StoreHeader.handleLogout` now sends a store owner to `/[countryCode]/sign-in` and keeps a reseller customer on the storefront they were browsing (the current behaviour). The dashboard sidebar's own sign-out (`DashboardSidebar.handleLogout`) had the same mismatch — it dropped the reseller on `/[countryCode]` (a country landing page with no sign-in form) — and now goes to `/[countryCode]/sign-in` too. **Verified, not assumed:** signed in as the owner, opened the storefront drawer, clicked Sign Out, and watched the main frame navigate to `/ng/sign-in` with the reseller sign-in form ("Welcome Back" + an email input) rendered; a reseller customer's sign-out stayed on `/ng/toms-sub`. `tsc --noEmit` = 0 |
 | 8.r.iii | Web: the header's Sign In button opens the auth modal, and a successful sign-in closes it | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`6f8eaa9`). The header's Sign In button previously navigated to `?login=true`; the storefront read that param once on mount, so a soft navigation to the same path did **not** reopen the modal, and the param was never cleared (it also made the modal reappear on refresh or Back). `StoreHeader` now takes an optional `onLoginClick` and, when present, calls it directly to open the modal in place — `StoreContent` passes `onLoginClick={() => setLoginOpen(true)}`; the profile page still omits it, so Sign In there keeps navigating to `?login=true`. `StoreContent` also clears the marker and closes the modal when `auth.loggedIn` flips true. The owner redirect from the modal pointed at the bare `/dashboard` (the legacy reseller shell, a different app) — it now goes to `/[countryCode]/dashboard`, the same route the storefront header links to; `useStoreCustomerAuth` takes `countryCode` for that. **Verified, not assumed:** from the storefront drawer, clicking Sign In opened the modal ("Welcome Back" visible); signing up as a customer left `hasModalText: false` (modal closed) on `/ng/toms-sub`; signing in as the owner from `/ng/sign-in` landed on `/ng/dashboard` and the storefront drawer then rendered the owner order. `tsc --noEmit` = 0. All test rows deleted afterwards (verified clean) |
+| **8.s** | **Reseller sign-in from the storefront ejects the visitor to the dashboard (person-filed 2026-10-27)** | | ✅ | — |
+| 8.s.i | Web: sign-in from the storefront stays on the storefront for a reseller too | 🤖 | ✅ | **DONE + VERIFIED 2026-10-27** (`2774623`). Person: "fix the storefront sign in so that resellers can also be able to sign in from the storefront. When resellers sign in from the storefront, they are not routed to the dashboard, they will be on the storefront too just like a customer would." 8.r had done the opposite — `useStoreCustomerAuth.handleLogin` ran `if (owner) router.push(\`/${countryCode}/dashboard\`)`, so a reseller was thrown out of the store on authentication. The redirect is removed; sign-in always lands on the storefront, and the owner reaches the dashboard deliberately via the header/drawer `Dashboard` entry. That removes the hook's only `router` use and its `countryCode` argument, so both are deleted and the two call sites (`StoreContent`, `profile/StoreProfileClient`) no longer pass `countryCode`. **Verified, not assumed, in headless Chromium against `/gh/oh-test-1793114478438`:** owner sign-in leaves the URL on the storefront (it was `/gh/dashboard`), and the mobile drawer then renders `["Profile","Wallet","Dashboard","Notifications","Dark Mode","Sign Out"]`. `tsc --noEmit` = 0 |
+| **8.t** | **Horizontal scrollbar on the dashboard wallet page and store page (person-filed 2026-10-27)** | | ✅ | — |
+| 8.t.i | Web: remove the horizontal scrollbar on the wallet page | 🤖 | ✅ | **DONE + VERIFIED 2026-10-27** (`abb69ea`). Person: "why is there a scroll bar in the fund wallet page in the dashboard if [it wasn't] there before, take it out." The wallet page header's action row (Fund Wallet / Withdraw / refresh) is a `display:flex` row with no wrap and fixed-width buttons (~330px, starting at the content column's left inset); as a flex item of the page header it set a min-content floor wider than a phone, pushing `<main>` to `scrollWidth` **379** vs `clientWidth` **360**. The transaction filter chip row overflowed at 360px too. Both rows now `flexWrap: "wrap"`. **Verified, not assumed:** swept 9 viewports (360–1920px) before and after; every horizontal overflow is gone (`documentElement.scrollWidth == clientWidth`, no inner element reports a horizontal scroll delta). `tsc --noEmit` = 0 |
+| 8.t.ii | Web: remove the horizontal scrollbar on the store page | 🤖 | ✅ | **DONE + VERIFIED 2026-10-27** (`abb69ea`). Person: "Also remove the scrollbar in the store page." The store header's "View Store" row overflowed, and the tab strip carried `overflowX: "auto"`, so it rendered the tabs as a scroll container showing a scrollbar (`scrollWidth` **618** vs `clientWidth` **342** at 360px) rather than wrapping. The header row now wraps and the tab strip drops `overflowX: auto`, so the four tabs wrap onto a second line on a phone. **Verified, not assumed:** same 9-viewport sweep; no horizontal overflow on the store page at any width. `tsc --noEmit` = 0 |
+| **8.u** | **Dashboard theme cannot be toggled from the Store > Theme tab or the sidebar (person-filed 2026-10-27)** | | ✅ | — |
+| 8.u.i | Web: the Store > Theme tab actually applies the theme | 🤖 | ✅ | **DONE + VERIFIED 2026-10-27** (`8786ec7`). `ThemeSettings.handleThemeChange` wrote `document.documentElement.setAttribute("data-theme", theme)`, but `dashboard-theme.css` matches `body.dashboard-theme[data-theme="light"]` — the attribute was written on `<html>` where no rule reads it — and it bypassed `ThemeProvider`. `ThemeProvider` now exposes `setTheme`, and `ThemeSettings` calls it (the stale `<html>`/`localStorage` lines are removed), so picking Light/Dark applies immediately and persists like the header toggle. **Verified, not assumed, in headless Chromium:** picking `Dark` flips `body[data-theme]` to `dark`, the body background from light `srgb 0.98…` to dark `srgb 0.084…`, and `localStorage.theme` = `dark`. `tsc --noEmit` = 0 |
+| 8.u.ii | Web: a theme toggle on mobile, where the header's is hidden | 🤖 | ✅ | **DONE + VERIFIED 2026-10-27** (`8786ec7`). The header toggle lives in a `.desktop-only` wrapper (`display: none` under 768px), and the sidebar is the only nav surface on a phone — so there was no way to switch theme there. The sidebar footer now carries a theme toggle above Sign Out. **Verified, not assumed:** at 390px the header toggle is invisible (`offsetParent === null`) while the new sidebar toggle is visible and switches the theme back to light. `tsc --noEmit` = 0 |
+| **8.v** | **Reseller sign-in page cannot server-render (`window is not defined`) (found 2026-10-27 while reproducing the mobile sign-in report)** | | ✅ | — |
+| 8.v.i | Web: read the country from the route, not `window`, on the sign-in page | 🤖 | ✅ | **DONE + VERIFIED 2026-10-27** (`c7dcf7b`). `/[countryCode]/sign-in/page.tsx` touched `window.location` **during render** twice — to derive the post-login country and for the Apply link href — which aborts SSR, so every visit logged `Switched to client rendering because the server rendering errored: window is not defined` and the page was client-only. It now reads the country from `useParams` (the route already provides it) for both. **Verified, not assumed, in headless Chromium at 390x844 and 360x640:** the SSR error is gone and a reseller signs in to `/gh/dashboard`. `tsc --noEmit` = 0 |
 
 
 ## Critical path
@@ -710,6 +747,10 @@ by the `tenant-distribution` release.
 | 8.p | 1 | 1 | ✅ complete — **the storefront mobile-money input is now visible: it was `background: var(--bg-muted, #F9FAFB)` (white) with `var(--text)` (near-white) text, because `--bg-muted` is undefined and the storefront theme only overrides `div`, not `input`; it now uses the amount field's wrapper + transparent-input structure and matches it exactly** (2026-10-26) |
 | 8.q | 3 | 3 | ✅ complete — **the dashboard stat grids are horizontal on phones: the Plans trio is always one row of three and the Customers quartet is one row of four at ≥1024px with a 2x2 fallback below (both were `auto-fit` and collapsed to a single column); customer labels shortened to Total/Active/New; and the storefront gained a signed-in profile page at `/[countryCode]/[storeName]/profile`, reachable from the header avatar and the mobile drawer, responsive 320–1440px for owner and customer alike** (2026-10-26) |
 | 8.r | 3 | 3 | ✅ complete — **the storefront mobile drawer is role-aware (customer: Profile, Wallet, Notifications, light mode, Contact Store; reseller: Profile, Wallet, Dashboard, Notifications, light mode), owner detection compares `store_slug` instead of the editable display name, the drawer carries the `mobile-drawer` class its CSS targets, owner sign-out lands on `/[countryCode]/sign-in` (customer sign-out keeps returning to the storefront), and the header's Sign In button opens the auth modal in place with the owner sent to `/[countryCode]/dashboard` on success** (2026-10-26) |
+| 8.s | 1 | 1 | ✅ complete — **a reseller signing in from the storefront now stays on the storefront (the 8.r owner redirect is removed), verified in the browser; the hook's `countryCode` argument and its only `router` use went with it (`2774623`)** (2026-10-27) |
+| 8.t | 2 | 2 | ✅ complete — **the wallet and store dashboard pages no longer show a horizontal scrollbar: their nowrap action rows (wallet buttons + transaction filter chips; store "View Store" row + tab strip) now wrap, and the tab strip drops `overflowX: auto`; verified across 9 viewports (`abb69ea`)** (2026-10-27) |
+| 8.u | 2 | 2 | ✅ complete — **the theme is now togglable from the Store > Theme tab (it wrote `data-theme` on `<html>`, which no stylesheet reads; it now calls `ThemeProvider.setTheme`) and from the sidebar footer (the header's toggle is hidden under 768px); verified in the browser (`8786ec7`)** (2026-10-27) |
+| 8.v | 1 | 1 | ✅ complete — **the reseller sign-in page can server-render again: it read `window.location` during render (aborting SSR with "window is not defined"); it now reads the country from `useParams`, verified at 390px and 360px (`c7dcf7b`)** (2026-10-27) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
@@ -721,8 +762,10 @@ and the follow-on fund error (`8.n` "authorization token is invalid") is fixed
 and diagnosed, the dashboard responsiveness defect (`8.o`) is fixed and
 verified across widths, the follow-up layout/profile batch (`8.q`) is done and
 verified in the browser, and the storefront drawer/sign-out/sign-in batch
-(`8.r`) is done and verified in the browser. The remaining open work is
-verification, not code:
+(`8.r`) is done and verified in the browser. The follow-on person report
+(`8.s` reseller sign-in stays on the storefront, `8.t` wallet/store scrollbars,
+`8.u` theme toggles, `8.v` sign-in SSR) is done and verified in the browser
+too. The remaining open work is verification, not code:
 
 0. **Storefront fund on web (person, 8.l/8.m/8.n):** sign in to a store on a
    phone browser, open the drawer, and confirm the wallet row appears and funds
