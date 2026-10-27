@@ -39,6 +39,7 @@ export default function DashboardHeader({
         alignItems: "center",
         justifyContent: "space-between",
         width: "100%",
+        minWidth: 0,
         background: "transparent",
       }}
     >

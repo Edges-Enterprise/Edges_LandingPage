@@ -134,13 +134,19 @@ export default function DashboardLayout({
           />
           <div
             className="dashboard-content"
-            style={{ flex: 1, display: "flex", flexDirection: "column" }}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+            }}
           >
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
+                minWidth: 0,
                 padding: "0.5rem 1.5rem",
                 borderBottom: "1px solid var(--border, rgba(201,138,84,0.12))",
                 background: "var(--bg, #0D0A08)",
@@ -161,6 +167,7 @@ export default function DashboardLayout({
             <main
               style={{
                 flex: 1,
+                minWidth: 0,
                 padding: "1.5rem",
                 overflow: "auto",
                 background: "var(--bg, #0D0A08)",
