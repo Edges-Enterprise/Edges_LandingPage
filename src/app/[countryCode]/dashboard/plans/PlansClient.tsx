@@ -410,13 +410,28 @@ export default function PlansClient({
       </div>
 
       {/* Stats */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-          gap: "1rem",
-        }}
-      >
+      <style>{`
+        .plans-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 1rem;
+        }
+        @media (max-width: 767px) {
+          .plans-stats-grid {
+            gap: 0.5rem;
+          }
+          .plans-stats-grid > div {
+            padding: 0.6rem 0.35rem !important;
+          }
+          .plans-stats-grid > div > p:first-child {
+            font-size: 0.6rem !important;
+          }
+          .plans-stats-grid > div > p:last-child {
+            font-size: 1.2rem !important;
+          }
+        }
+      `}</style>
+      <div className="plans-stats-grid">
         <div
           style={{
             background: "var(--card)",

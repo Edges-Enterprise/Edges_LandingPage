@@ -8,16 +8,48 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-26 (twenty-ninth check) - **storefront mobile-money
-input made visible (8.p): it was `background: var(--bg-muted, #F9FAFB)`
-(white) with `var(--text)` (near-white) text because `--bg-muted` is undefined
-and the storefront theme only overrides `div`, not `input`; it now uses the
-amount field's wrapper + transparent-input structure and matches it exactly.
-The dashboard responsiveness fix (8.o) is also in. Standing policy still
-applies: merge `handover/supabase-dump` into `main` in the same session it is
-pushed, for both repos. 8.j, 8.k, 8.l, 8.m, 8.n, 8.o and 8.p are done; the only
-remaining work is person-side device testing.**
+Last updated: 2026-10-26 (thirtieth check) - **dashboard stat cards go
+horizontal on phones and the storefront gets a profile page (8.q). The Plans
+"Plan Management" trio and the Customers quartet were `auto-fit` grids that
+collapsed to one column on a phone; both are now fixed-track grids (Plans 3
+across, Customers 4 across with a 2x2 fallback below 1024px) with tightened
+mobile type. Customer labels shortened to Total / Active / New (Inactive
+unchanged). New signed-in storefront profile page at
+`/[countryCode]/[storeName]/profile` — responsive 320-1440px, works for both
+the store owner and a customer. Standing policy still applies: merge
+`handover/supabase-dump` into `main` in the same session it is pushed, for both
+repos. 8.j, 8.k, 8.l, 8.m, 8.n, 8.o, 8.p and 8.q are done; the only remaining
+work is person-side device testing.**
 
+- **Resolution (8.q, 2026-10-26): the dashboard stat cards were one-per-row on
+  a phone, and the storefront had no profile page.** Both stats grids were
+  `grid-template-columns: repeat(auto-fit, minmax(Npx, 1fr))`. `auto-fit` drops
+  to a single track when the container is narrower than the min, so on a phone
+  the Plans trio (`minmax(150px,1fr)`) and the Customers quartet
+  (`minmax(180px,1fr)`) each stacked vertically — while desktop showed them in
+  one row. Fix: fixed-track grids behind a class (`plans-stats-grid`,
+  `customers-stats-grid`) — Plans is always `repeat(3, minmax(0,1fr))`;
+  Customers is `repeat(4, minmax(0,1fr))` at ≥1024px and `repeat(2, …)` below,
+  which is the 2x2 the person asked for when four will not fit. Below 768px the
+  gap tightens to `0.5rem`, card padding shrinks, and the label/value font
+  sizes step down so three cards still read cleanly at 320px. Customer labels
+  are now `Total` / `Active` / `New` (new keys added to the `en`/`fr`/`ar`
+  customer message files) with `Inactive` unchanged. The storefront profile page
+  is new: `/[countryCode]/[storeName]/profile` (server page + client), reachable
+  from the header avatar (desktop) and a `Profile` row in the mobile drawer. It
+  resolves the signed-in visitor through two new actions
+  (`getCurrentStoreProfile` / `updateCurrentStoreProfile`, service-role reads
+  past the owner-only `global_customers` RLS policy, identity from the session),
+  renders owner and customer alike, and lets the visitor edit name/phone.
+  `useStoreCustomerAuth` gained an `authReady` flag so the page can tell
+  "signed out" from "not yet known" instead of spinning forever. **Verified, not
+  assumed** in headless Chromium: Plans is one row of three at
+  320/375/414/768/1024/1440px with no overflow and no clipped text; Customers is
+  2x2 below 1024px and one row of four at 1024/1440px; the profile page is clean
+  (no horizontal overflow) at 320–1440px in both themes, the edit/save round-trip
+  persists, and an anonymous visitor sees the sign-in prompt rather than a
+  spinner. `tsc --noEmit` = 0. Test users/rows deleted afterwards (verified
+  clean).
 - **Resolution (8.p, 2026-10-26): the storefront mobile-money field was white
   text on a white box.** `StoreFundWalletModal`'s `<input type="tel">` set its
   own `background: var(--bg-muted, #F9FAFB)`, but `--bg-muted` is **not defined
@@ -392,6 +424,10 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 | 8.o.i | Web: stop the dashboard shell overflowing horizontally on phones | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`7bbf172`). Root cause: the dashboard shell's flex children had no `min-width: 0`, so a flex item defaults to `min-width: auto` and refuses to shrink below its content's min-content width. The greeting in `DashboardHeader` is `white-space: nowrap` ("Good morning, &lt;name&gt; 👋"), and the whole dashboard content column is a flex child of the `display:flex` shell — so on a narrow viewport the **header's nowrap text set a 666px floor** on the entire shell, producing a horizontal scrollbar and pushing the theme toggle off-screen on every dashboard page (reproduced at 320/375/414px with a headless Chromium session: `documentElement.scrollWidth` = **666** vs `clientWidth` = **320/375/414**; 768px measured 906). Added `minWidth: 0` to `.dashboard-content`, the header bar, and `<main>` in `dashboard/layout.tsx`, plus the `<header>` in `DashboardHeader.tsx`. Nothing else changed — the tab strip's intentional `overflow-x: auto` is untouched. **Verified, not assumed:** after the fix `scrollWidth == clientWidth` at 320/375/414/768/1024px on the store page, and on **all seven** dashboard routes (overview, wallet, customers, orders, plans, store, settings) at 320/375/768px — 21/21 clean, and the greeting now ellipsises (`text-overflow: ellipsis` at 188px wide at 320px) while the mobile menu button shows and the desktop theme toggle correctly stays hidden. Every store-page tab (Store Settings, Branding, Theme, Store Preview) was exercised at 320/375/768/1024px — 16/16 clean. `tsc --noEmit` = 0. Test user + rows deleted afterwards (verified clean) |
 | **8.p** | **Storefront mobile-money number field is white/invisible (person-filed 2026-10-26)** | | ✅ | — |
 | 8.p.i | Web: make the storefront mobile-money input match the amount field | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`8d9a9dc`). The mobile-money `<input type="tel">` in `StoreFundWalletModal` carried its own `background: var(--bg-muted, #F9FAFB)`, and `--bg-muted` is **not defined anywhere in the codebase** (only ever used as `var(--bg-muted, <fallback>)`) — so it resolved to the light `#F9FAFB` fallback on every storefront, including the dark storefront theme, while the text stayed `var(--text)` (`#F5F0EB`, near-white). White text on a white box: the customer could not see what they typed. The **amount** field never had this bug because its `<input>` is `background: transparent` inside a wrapper `<div>`, and `store-theme.css` forces `body.storefront-theme div { background-color: var(--bg) !important }` — it targets `div`/`section`/`main`/`header`/… but **not `input`**, so a bare themed input keeps its own background. Fix: wrap the mobile input in the same flex wrapper the amount field uses (border + radius on the wrapper, `background: transparent` and `color: var(--text)` on the input) so both fields render identically. **Verified, not assumed** — reproduced and fixed in a real headless-Chromium session against a throwaway harness page rendering the actual component with `store-theme.css` loaded: before, the tel input computed `background: rgb(249,250,251)` with `color: rgb(245,240,235)` (contrast ~1.1, invisible); after, it computes `background: transparent` inside a `var(--bg)` wrapper, identical to the amount input (`sameColors` and `sameBg` both `true`), contrast 18.54 in dark and matching the amount field in light. `tsc --noEmit` = 0. Harness page, `.env.local` and the Playwright scratch dir removed afterwards |
+| **8.q** | **Dashboard stat cards stack one-per-row on phones, and the storefront has no profile page (person-filed 2026-10-26)** | | ✅ | — |
+| 8.q.i | Web: make the Plans and Customers stat grids horizontal on mobile | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26.** Both grids were `repeat(auto-fit, minmax(Npx, 1fr))`, which collapses to **one column** whenever the container is narrower than the min — so the Plans trio (`150px`) and the Customers quartet (`180px`) each stacked vertically on a phone while desktop showed one row. Replaced with fixed-track grids behind a class: `.plans-stats-grid` is always `repeat(3, minmax(0,1fr))`; `.customers-stats-grid` is `repeat(4, minmax(0,1fr))` at ≥1024px and `repeat(2, minmax(0,1fr))` below (the 2x2 the person specified when four will not fit). Sub-768px media rules tighten the gap to `0.5rem`, shrink card padding, and step the label/value font sizes down so the row still reads at 320px. Customer labels shortened to `Total` / `Active` / `New` (`Inactive` unchanged); `total`/`new` keys added to `src/messages/{en,fr,ar}/customers.json`. **Verified, not assumed** in headless Chromium on the **real** dashboard routes signed in as a reseller: Plans renders one row of three (`cols` `103.656px 103.672px 103.656px`) at 320/375/414/768/1024/1440px; Customers renders `159.5px 159.5px` (2x2) at 375px and one row of four at 1024/1440px; `documentElement.scrollWidth == clientWidth` at every width, and no label or value clips (`scrollWidth <= clientWidth`). Rendered labels confirmed as `Total 0 / Active 0 / New 0 / Inactive 0`. `tsc --noEmit` = 0 |
+| 8.q.ii | Web: add a responsive profile page to the storefront | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26.** New route `src/app/[countryCode]/[storeName]/profile/` (server `page.tsx` + `StoreProfileClient.tsx`). Entry points: the header avatar is now a `Link` to it (desktop), and the mobile drawer gained a `Profile` row — the account cluster is hidden below 768px, so the drawer needed its own entry. Two new server actions resolve identity the same way `getCurrentCustomerWallet` does — the session client proves who is calling, then the **service-role** client reads/writes the row, because `global_customers` SELECT is owner-only under RLS and the owner has no `global_customers` row at all: `getCurrentStoreProfile` (owner vs customer branch on `global_reseller_applications.auth_user_id`) and `updateCurrentStoreProfile` (name/phone, own row only). The page shows an identity card, account-type badge, email/phone/status/member-since grid, an inline edit form, and a wallet summary for customers. `useStoreCustomerAuth` gained an `authReady` flag so the page can distinguish "signed out" from "not yet known" — without it an anonymous visitor sat on an infinite spinner (found and fixed during verification). 14 new keys added to `src/messages/{en,fr,ar,es}/storefront.json`. **Verified, not assumed:** loaded as a real customer (created via the admin API) and as a real store owner (temporary application row); the owner sees `Store Owner` and the store's own name/phone, the customer sees `Customer` and their own row; edit→save round-trip persisted and re-rendered (`Renamed Profile`); anonymous visit shows the sign-in prompt (not a spinner); no horizontal overflow at 320/375/414/768/1024/1440px in both dark and light themes; cards compute `var(--card)` correctly in each theme. `tsc --noEmit` = 0. Test customer, test application and both auth users deleted afterwards (verified clean) |
+
 
 ## Critical path
 
@@ -652,6 +688,7 @@ by the `tenant-distribution` release.
 | 8.n | 2 | 2 | ✅ complete — **`8.n.i`: the fund path no longer surfaces Korapay's "authorization token is invalid"; a blank gateway secret now reads "Payment provider is not configured" (`4f792bc`). `8.n.ii`: root-caused definitively — the keys were set but scoped to the Vercel `production` target only, so every preview deployment had no key; the six payment variables now also target `preview` (values preserved), verified by running code in each environment, and the error now names the environment (`5cd2383`, `1942c2f`)** (2026-10-26) |
 | 8.o | 1 | 1 | ✅ complete — **the dashboard shell no longer overflows horizontally on phones: `min-width: 0` on the dashboard content column, header bar, `<main>` and `<header>` stops the nowrap greeting from setting a 666px floor; verified `scrollWidth == clientWidth` at 320–1024px on the store page, on all seven dashboard routes, and on all four store tabs** (2026-10-26) |
 | 8.p | 1 | 1 | ✅ complete — **the storefront mobile-money input is now visible: it was `background: var(--bg-muted, #F9FAFB)` (white) with `var(--text)` (near-white) text, because `--bg-muted` is undefined and the storefront theme only overrides `div`, not `input`; it now uses the amount field's wrapper + transparent-input structure and matches it exactly** (2026-10-26) |
+| 8.q | 3 | 3 | ✅ complete — **the dashboard stat grids are horizontal on phones: the Plans trio is always one row of three and the Customers quartet is one row of four at ≥1024px with a 2x2 fallback below (both were `auto-fit` and collapsed to a single column); customer labels shortened to Total/Active/New; and the storefront gained a signed-in profile page at `/[countryCode]/[storeName]/profile`, reachable from the header avatar and the mobile drawer, responsive 320–1440px for owner and customer alike** (2026-10-26) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
@@ -660,8 +697,9 @@ gateway from the app), `8.i` (owner login) is fixed and deployed, `8.j`
 shipped**, the two storefront items found while diagnosing the fund failure
 (`8.l` RLS + owner detection, `8.m` mobile wallet reach) are **done in code**,
 and the follow-on fund error (`8.n` "authorization token is invalid") is fixed
-and diagnosed, and the dashboard responsiveness defect (`8.o`) is fixed and
-verified across widths. The remaining open work is verification, not code:
+and diagnosed, the dashboard responsiveness defect (`8.o`) is fixed and
+verified across widths, and the follow-up layout/profile batch (`8.q`) is done
+and verified in the browser. The remaining open work is verification, not code:
 
 0. **Storefront fund on web (person, 8.l/8.m/8.n):** sign in to a store on a
    phone browser, open the drawer, and confirm the wallet row appears and funds

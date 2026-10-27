@@ -32,5 +32,19 @@
   "inactive": "Inactivo",
   "rating": "Valoración",
   "customers": "Clientes",
-  "processing": "Procesando..."
+  "processing": "Procesando...",
+  "profile": "Perfil",
+  "profileInfo": "Información del Perfil",
+  "profileUpdated": "Perfil actualizado",
+  "firstName": "Nombre",
+  "lastName": "Apellido",
+  "phoneNumber": "Número de teléfono",
+  "memberSince": "Miembro desde",
+  "walletBalance": "Saldo de la cartera",
+  "storeOwner": "Propietario",
+  "customer": "Cliente",
+  "signInPrompt": "Inicia sesión para ver tu perfil",
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "edit": "Editar"
 }

@@ -50,10 +50,15 @@ export function useStoreCustomerAuth(storeSlug: string, resellerId: string) {
   const [hasTransactionPin, setHasTransactionPin] = useState<boolean | null>(
     null,
   );
+  // false until the initial getUser() settles. Consumers that must tell
+  // "signed out" from "not yet known" (e.g. the profile page) gate on this;
+  // without it they cannot distinguish the two and render the wrong state.
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
+      setAuthReady(true);
       if (!user) return;
       setLoggedIn(true);
       // Resellers' Auth accounts carry store_slug in user_metadata
@@ -158,6 +163,7 @@ export function useStoreCustomerAuth(storeSlug: string, resellerId: string) {
 
   return {
     loggedIn,
+    authReady,
     isStoreOwner,
     authMode,
     email,

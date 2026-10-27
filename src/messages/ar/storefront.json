@@ -32,5 +32,19 @@
   "inactive": "غير نشط",
   "rating": "التقييم",
   "customers": "العملاء",
-  "processing": "جاري المعالجة..."
+  "processing": "جاري المعالجة...",
+  "profile": "الملف الشخصي",
+  "profileInfo": "معلومات الملف الشخصي",
+  "profileUpdated": "تم تحديث الملف الشخصي",
+  "firstName": "الاسم الأول",
+  "lastName": "اسم العائلة",
+  "phoneNumber": "رقم الهاتف",
+  "memberSince": "عضو منذ",
+  "walletBalance": "رصيد المحفظة",
+  "storeOwner": "مالك المتجر",
+  "customer": "عميل",
+  "signInPrompt": "سجّل الدخول لعرض ملفك الشخصي",
+  "save": "حفظ",
+  "cancel": "إلغاء",
+  "edit": "تعديل"
 }

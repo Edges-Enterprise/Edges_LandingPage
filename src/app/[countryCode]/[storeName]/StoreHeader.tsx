@@ -683,7 +683,9 @@ export default function StoreHeader({
                       {formatStorePrice(walletBalance, config)}
                     </button>
                   )}
-                  <div
+                  <Link
+                    href={`/${storeData.application.country_code}/${storeData.application.store_slug}/profile`}
+                    title={t?.profile || "Profile"}
                     style={{
                       width: 28,
                       height: 28,
@@ -695,12 +697,13 @@ export default function StoreHeader({
                       fontSize: "0.7rem",
                       fontWeight: 600,
                       color: "var(--text)",
+                      textDecoration: "none",
                     }}
                   >
                     {storeData.application.store_name
                       ?.charAt(0)
                       .toUpperCase() || "U"}
-                  </div>
+                  </Link>
                   <button
                     onClick={handleLogout}
                     style={navBtnStyle}
@@ -948,6 +951,27 @@ export default function StoreHeader({
         {/* Auth / Account */}
         {loggedIn ? (
           <>
+            {/* Profile — the desktop avatar links here; the drawer needs
+                its own row since the header's account cluster is hidden
+                below 768px. */}
+            <Link
+              href={`/${storeData.application.country_code}/${storeData.application.store_slug}/profile`}
+              onClick={() => setIsMobileMenuOpen(false)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.75rem",
+                padding: "0.75rem 0",
+                borderBottom: "1px solid var(--border)",
+                color: "var(--text)",
+                textDecoration: "none",
+                fontSize: "0.9rem",
+              }}
+            >
+              <User size={16} />
+              {t?.profile || "Profile"}
+            </Link>
+
             {/* Dashboard - Only for Store Owner */}
             {isStoreOwner && (
               <Link

@@ -53,5 +53,7 @@
   "errorAdding": "Failed to add customer",
   "firstNameRequired": "First name is required",
   "emailInvalid": "Please enter a valid email",
-  "phoneInvalid": "Please enter a valid phone number"
+  "phoneInvalid": "Please enter a valid phone number",
+  "total": "Total",
+  "new": "New"
 }

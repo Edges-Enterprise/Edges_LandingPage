@@ -177,14 +177,34 @@ export default function CustomersClient({
       </div>
 
       {/* Stats Cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: "1rem",
-          marginBottom: "1.5rem",
-        }}
-      >
+      <style>{`
+        .customers-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+        @media (max-width: 1023px) {
+          .customers-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+        @media (max-width: 767px) {
+          .customers-stats-grid {
+            gap: 0.5rem;
+          }
+          .customers-stats-grid > div {
+            padding: 0.6rem 0.5rem !important;
+          }
+          .customers-stats-grid > div > div > p {
+            font-size: 0.62rem !important;
+          }
+          .customers-stats-grid > div > p {
+            font-size: 1.25rem !important;
+          }
+        }
+      `}</style>
+      <div className="customers-stats-grid">
         <div
           style={{
             background: "var(--card)",
@@ -209,7 +229,7 @@ export default function CustomersClient({
                 margin: 0,
               }}
             >
-              {t?.totalCustomers || "Total Customers"}
+              {t?.total || "Total"}
             </p>
             <Users size={16} style={{ color: "var(--brand-color)" }} />
           </div>
@@ -250,7 +270,7 @@ export default function CustomersClient({
                 margin: 0,
               }}
             >
-              {t?.activeCustomers || "Active Customers"}
+              {t?.active || "Active"}
             </p>
             <UserCheck size={16} style={{ color: "#6EBD8A" }} />
           </div>
@@ -291,7 +311,7 @@ export default function CustomersClient({
                 margin: 0,
               }}
             >
-              {t?.newCustomers || "New Customers (30d)"}
+              {t?.new || "New"}
             </p>
             <TrendingUp size={16} style={{ color: "#F59E0B" }} />
           </div>

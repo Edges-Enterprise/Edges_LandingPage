@@ -53,5 +53,7 @@
   "errorAdding": "Échec de l'ajout du client",
   "firstNameRequired": "Le prénom est requis",
   "emailInvalid": "Veuillez saisir un e-mail valide",
-  "phoneInvalid": "Veuillez saisir un numéro de téléphone valide"
+  "phoneInvalid": "Veuillez saisir un numéro de téléphone valide",
+  "total": "Total",
+  "new": "Nouveaux"
 }
