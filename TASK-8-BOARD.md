@@ -8,15 +8,34 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-26 (twenty-eighth check) - **dashboard store page
-responsiveness fixed (8.o): the dashboard shell overflowed horizontally on
-phones because its flex children had no `min-width: 0`, so the nowrap greeting
-set a 666px floor on the whole shell; adding `min-width: 0` fixes it and
-`scrollWidth == clientWidth` now holds at 320–1024px on every dashboard route.
-Standing policy still applies: merge `handover/supabase-dump` into `main` in the
-same session it is pushed, for both repos. 8.j, 8.k, 8.l, 8.m, 8.n and 8.o are
-done; the only remaining work is person-side device testing.**
+Last updated: 2026-10-26 (twenty-ninth check) - **storefront mobile-money
+input made visible (8.p): it was `background: var(--bg-muted, #F9FAFB)`
+(white) with `var(--text)` (near-white) text because `--bg-muted` is undefined
+and the storefront theme only overrides `div`, not `input`; it now uses the
+amount field's wrapper + transparent-input structure and matches it exactly.
+The dashboard responsiveness fix (8.o) is also in. Standing policy still
+applies: merge `handover/supabase-dump` into `main` in the same session it is
+pushed, for both repos. 8.j, 8.k, 8.l, 8.m, 8.n, 8.o and 8.p are done; the only
+remaining work is person-side device testing.**
 
+- **Resolution (8.p, 2026-10-26): the storefront mobile-money field was white
+  text on a white box.** `StoreFundWalletModal`'s `<input type="tel">` set its
+  own `background: var(--bg-muted, #F9FAFB)`, but `--bg-muted` is **not defined
+  anywhere in the codebase** — it only ever appears as `var(--bg-muted,
+  <fallback>)` — so it always resolved to the light `#F9FAFB` fallback, even in
+  the dark storefront theme, while the text stayed `var(--text)` (`#F5F0EB`).
+  The **amount** field never had the bug: its `<input>` is `background:
+  transparent` inside a wrapper `<div>`, and `store-theme.css` forces
+  `body.storefront-theme div { background-color: var(--bg) !important }` — the
+  selector list covers `div`/`section`/`main`/`header`/`footer`/`article`/`aside`
+  but **not `input`**, so a bare themed input keeps whatever background it sets.
+  Fix: give the mobile input the same flex wrapper the amount field uses, with
+  `background: transparent` and `color: var(--text)` on the input. Verified in a
+  real headless-Chromium session against a harness page rendering the actual
+  component with `store-theme.css` loaded: before, the tel input computed
+  `background: rgb(249,250,251)` with `color: rgb(245,240,235)` (contrast ~1.1 —
+  invisible); after, it matches the amount input exactly (`sameColors` and
+  `sameBg` both `true`), contrast 18.54 in dark and consistent in light.
 - **Resolution (8.o, 2026-10-26): the dashboard was not responsive because the
   shell could not shrink.** The dashboard shell is a `display: flex` row; its
   content column, header bar and `<main>` are flex items, and a flex item
@@ -371,6 +390,8 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 | 8.n.ii | Vercel: make the payment secrets available to `preview`, and name the environment in the error | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`5cd2383`, `1942c2f`). The person was right that the keys are set — the earlier "len 0" reading was the Vercel API **redacting** `type: sensitive` values (`value: ""`, `decrypted: false`; `vercel env pull` writes `[SENSITIVE]`), not a blank secret. Proved by running code, not reading config: a temporary route deployed to each environment reported **production** `KORAPAY_SECRET_KEY` present **48** chars and `FLUTTERWAVE_SECRET_KEY` present **56** chars, with a real `korapay.initiatePayment()` for kesh-data returning `success: true` (checkout `KPY-MVQB7I64-T60RZC`); a **preview** deployment of the same commit reported **both `{present: false}`** (and `XIXAPAY_SECRET_KEY`, target `development,preview,production`, present) — the secrets were `target: ["production"]` only. A target-only `PATCH /v9/projects/…/env/{id}` preserves a sensitive value (verified on a disposable `sensitive` variable first: its value survived and a fresh deployment saw it), so all six payment variables — `KORAPAY_SECRET_KEY`, `KORAPAY_PUBLIC_KEY`, `KORAPAY_ENCRYPTION_KEY`, `FLUTTERWAVE_SECRET_KEY`, `FLUTTERWAVE_PUBLIC_KEY`, `FLUTTERWAVE_ENCRYPTION_KEY` — were extended to `["preview","production"]` **without rewriting their values**. A fresh preview then reported `KORAPAY_SECRET_KEY` **48** chars and `FLUTTERWAVE_SECRET_KEY` **56** chars — error gone. The guard now also logs the serving deployment and names the environment in the message (`Payment provider is not configured (preview).`). Production redeployed clean; `/` and `/ke/kesh-data` 200. `tsc --noEmit` = 0. **Person step:** re-run the fund flow on a fresh preview (or the production URL) for both a reseller and a reseller customer |
 | **8.o** | **Dashboard store page is not responsive across devices (person-filed 2026-10-26)** | | ✅ | — |
 | 8.o.i | Web: stop the dashboard shell overflowing horizontally on phones | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`7bbf172`). Root cause: the dashboard shell's flex children had no `min-width: 0`, so a flex item defaults to `min-width: auto` and refuses to shrink below its content's min-content width. The greeting in `DashboardHeader` is `white-space: nowrap` ("Good morning, &lt;name&gt; 👋"), and the whole dashboard content column is a flex child of the `display:flex` shell — so on a narrow viewport the **header's nowrap text set a 666px floor** on the entire shell, producing a horizontal scrollbar and pushing the theme toggle off-screen on every dashboard page (reproduced at 320/375/414px with a headless Chromium session: `documentElement.scrollWidth` = **666** vs `clientWidth` = **320/375/414**; 768px measured 906). Added `minWidth: 0` to `.dashboard-content`, the header bar, and `<main>` in `dashboard/layout.tsx`, plus the `<header>` in `DashboardHeader.tsx`. Nothing else changed — the tab strip's intentional `overflow-x: auto` is untouched. **Verified, not assumed:** after the fix `scrollWidth == clientWidth` at 320/375/414/768/1024px on the store page, and on **all seven** dashboard routes (overview, wallet, customers, orders, plans, store, settings) at 320/375/768px — 21/21 clean, and the greeting now ellipsises (`text-overflow: ellipsis` at 188px wide at 320px) while the mobile menu button shows and the desktop theme toggle correctly stays hidden. Every store-page tab (Store Settings, Branding, Theme, Store Preview) was exercised at 320/375/768/1024px — 16/16 clean. `tsc --noEmit` = 0. Test user + rows deleted afterwards (verified clean) |
+| **8.p** | **Storefront mobile-money number field is white/invisible (person-filed 2026-10-26)** | | ✅ | — |
+| 8.p.i | Web: make the storefront mobile-money input match the amount field | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`8d9a9dc`). The mobile-money `<input type="tel">` in `StoreFundWalletModal` carried its own `background: var(--bg-muted, #F9FAFB)`, and `--bg-muted` is **not defined anywhere in the codebase** (only ever used as `var(--bg-muted, <fallback>)`) — so it resolved to the light `#F9FAFB` fallback on every storefront, including the dark storefront theme, while the text stayed `var(--text)` (`#F5F0EB`, near-white). White text on a white box: the customer could not see what they typed. The **amount** field never had this bug because its `<input>` is `background: transparent` inside a wrapper `<div>`, and `store-theme.css` forces `body.storefront-theme div { background-color: var(--bg) !important }` — it targets `div`/`section`/`main`/`header`/… but **not `input`**, so a bare themed input keeps its own background. Fix: wrap the mobile input in the same flex wrapper the amount field uses (border + radius on the wrapper, `background: transparent` and `color: var(--text)` on the input) so both fields render identically. **Verified, not assumed** — reproduced and fixed in a real headless-Chromium session against a throwaway harness page rendering the actual component with `store-theme.css` loaded: before, the tel input computed `background: rgb(249,250,251)` with `color: rgb(245,240,235)` (contrast ~1.1, invisible); after, it computes `background: transparent` inside a `var(--bg)` wrapper, identical to the amount input (`sameColors` and `sameBg` both `true`), contrast 18.54 in dark and matching the amount field in light. `tsc --noEmit` = 0. Harness page, `.env.local` and the Playwright scratch dir removed afterwards |
 
 ## Critical path
 
@@ -630,6 +651,7 @@ by the `tenant-distribution` release.
 | 8.m | 1 | 1 | ✅ complete — **the storefront mobile drawer now carries a wallet row, so the wallet is reachable on a phone (`9b8a36b`); person-side phone check outstanding** (2026-10-26) |
 | 8.n | 2 | 2 | ✅ complete — **`8.n.i`: the fund path no longer surfaces Korapay's "authorization token is invalid"; a blank gateway secret now reads "Payment provider is not configured" (`4f792bc`). `8.n.ii`: root-caused definitively — the keys were set but scoped to the Vercel `production` target only, so every preview deployment had no key; the six payment variables now also target `preview` (values preserved), verified by running code in each environment, and the error now names the environment (`5cd2383`, `1942c2f`)** (2026-10-26) |
 | 8.o | 1 | 1 | ✅ complete — **the dashboard shell no longer overflows horizontally on phones: `min-width: 0` on the dashboard content column, header bar, `<main>` and `<header>` stops the nowrap greeting from setting a 666px floor; verified `scrollWidth == clientWidth` at 320–1024px on the store page, on all seven dashboard routes, and on all four store tabs** (2026-10-26) |
+| 8.p | 1 | 1 | ✅ complete — **the storefront mobile-money input is now visible: it was `background: var(--bg-muted, #F9FAFB)` (white) with `var(--text)` (near-white) text, because `--bg-muted` is undefined and the storefront theme only overrides `div`, not `input`; it now uses the amount field's wrapper + transparent-input structure and matches it exactly** (2026-10-26) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
