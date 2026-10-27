@@ -127,7 +127,7 @@ export default function TransactionHistory({
           {t?.transactions || "Transaction History"}
         </h3>
 
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
           {filterOptions.map((option) => (
             <button
               key={option.value}

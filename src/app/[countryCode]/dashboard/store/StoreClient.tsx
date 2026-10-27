@@ -124,7 +124,7 @@ export default function StoreClient({
             {t?.subtitle || "Configure your store settings and branding"}
           </p>
         </div>
-        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
           <a
             href={storeUrl}
             target="_blank"
@@ -188,10 +188,10 @@ export default function StoreClient({
       <div
         style={{
           display: "flex",
+          flexWrap: "wrap",
           gap: "0.5rem",
           borderBottom: "1px solid var(--border)",
           marginBottom: "1.5rem",
-          overflowX: "auto",
           paddingBottom: "1px",
         }}
       >

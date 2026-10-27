@@ -195,7 +195,11 @@ export default function WalletClient({
             {t?.manageYourFunds || "Manage your funds and transactions"}
           </p>
         </div>
-        <div style={{ display: "flex", gap: "0.75rem" }}>
+        {/* The action buttons must wrap: three fixed-width buttons on one
+            nowrap row are wider than a 360px phone, and the row is a flex
+            item of the page header, so it pushed <main> into a horizontal
+            scrollbar. */}
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           {isXixapay ? (
             <button
               onClick={() => {
