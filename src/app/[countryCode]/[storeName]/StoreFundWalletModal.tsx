@@ -434,25 +434,36 @@ export default function StoreFundWalletModal({
                     >
                       Mobile Money Number
                     </label>
-                    <input
-                      type="tel"
-                      value={mobileNumber}
-                      onChange={(e) => setMobileNumber(e.target.value)}
-                      placeholder={
-                        MOBILE_PLACEHOLDERS[countryCode] || "e.g. 233241234567"
-                      }
+                    <div
                       style={{
-                        width: "100%",
-                        padding: "0.75rem 1rem",
+                        display: "flex",
+                        alignItems: "center",
                         background: "var(--bg-muted, #F9FAFB)",
                         border: "1px solid var(--border)",
-                        borderRadius: 8,
-                        color: "var(--text)",
-                        fontSize: "0.9rem",
-                        outline: "none",
-                        fontFamily: "inherit",
+                        borderRadius: 10,
+                        overflow: "hidden",
                       }}
-                    />
+                    >
+                      <input
+                        type="tel"
+                        value={mobileNumber}
+                        onChange={(e) => setMobileNumber(e.target.value)}
+                        placeholder={
+                          MOBILE_PLACEHOLDERS[countryCode] || "e.g. 233241234567"
+                        }
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          padding: "0.75rem 1rem",
+                          background: "transparent",
+                          border: "none",
+                          color: "var(--text)",
+                          fontSize: "1rem",
+                          outline: "none",
+                          fontFamily: "inherit",
+                        }}
+                      />
+                    </div>
                     <p
                       style={{
                         fontSize: "0.7rem",
