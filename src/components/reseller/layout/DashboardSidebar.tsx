@@ -13,8 +13,11 @@ import {
   Smartphone,
   Settings,
   LogOut,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useTheme } from "@/providers/ThemeProvider";
 
 interface DashboardSidebarProps {
   countryCode: string;
@@ -41,6 +44,7 @@ export default function DashboardSidebar({
   onClose,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
 
   const isActive = (href: string) => {
     const currentPath = pathname.replace(`/${countryCode}/dashboard`, "") || "";
@@ -173,6 +177,42 @@ export default function DashboardSidebar({
             borderTop: "1px solid var(--border)",
           }}
         >
+          {/* Theme toggle. On phones the header's toggle is hidden
+              (.desktop-only), so the sidebar — the only nav surface there —
+              has to carry one too. */}
+          <button
+            onClick={toggleTheme}
+            aria-label={
+              theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+            }
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.75rem",
+              padding: "0.6rem 0.75rem",
+              borderRadius: 8,
+              color: "var(--muted)",
+              background: "transparent",
+              border: "none",
+              width: "100%",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+              marginBottom: "0.25rem",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background =
+                "rgba(var(--brand-color-rgb), 0.05)";
+              e.currentTarget.style.color = "var(--text)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "var(--muted)";
+            }}
+          >
+            {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+            {theme === "light" ? "Dark Mode" : "Light Mode"}
+          </button>
           <button
             onClick={handleLogout}
             style={{

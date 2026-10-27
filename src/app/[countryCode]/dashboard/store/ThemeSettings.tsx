@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Moon, Sun, Check } from "lucide-react";
 import { CountryConfig } from "@/config/countries";
 import { StoreSettings } from "@/types/reseller/store";
+import { useTheme } from "@/providers/ThemeProvider";
 
 interface ThemeSettingsProps {
   application: {
@@ -28,6 +29,7 @@ export default function ThemeSettings({
 }: ThemeSettingsProps) {
   const t = translations;
   const supabase = createClient();
+  const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<"light" | "dark">(
     settings.theme || "light"
@@ -68,6 +70,13 @@ export default function ThemeSettings({
     setError(null);
     setIsLoading(true);
 
+    // Apply the dashboard theme immediately. The previous code set
+    // data-theme on <html>, but dashboard-theme.css matches
+    // `body.dashboard-theme[data-theme="light"]`, so it never took effect;
+    // ThemeProvider owns the attribute (on <body>) and the localStorage
+    // write, keeping this in step with the header toggle.
+    setTheme(theme);
+
     try {
       const { error } = await supabase
         .from("global_reseller_settings")
@@ -87,10 +96,6 @@ export default function ThemeSettings({
         ...settings,
         theme,
       });
-
-      // Apply theme to document
-      document.documentElement.setAttribute("data-theme", theme);
-      localStorage.setItem("theme", theme);
 
       onSave();
     } catch (error) {

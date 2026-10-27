@@ -12,6 +12,7 @@ import {
 interface ThemeContextType {
   theme: "light" | "dark";
   toggleTheme: () => void;
+  setTheme: (theme: "light" | "dark") => void;
   brandColor: string;
   setBrandColor: (color: string) => void;
 }
@@ -93,7 +94,7 @@ export function ThemeProvider({
 
   return (
     <ThemeContext.Provider
-      value={{ theme, toggleTheme, brandColor, setBrandColor }}
+      value={{ theme, toggleTheme, setTheme, brandColor, setBrandColor }}
     >
       {children}
     </ThemeContext.Provider>
