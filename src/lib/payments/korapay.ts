@@ -90,6 +90,15 @@ export const korapay: PaymentGateway = {
       // user error but actually means the deployment secret is missing.
       // Report the real cause instead of forwarding the gateway's text.
       if (!KORAPAY_SECRET_KEY) {
+        console.error("korapay: missing KORAPAY_SECRET_KEY", {
+          env: process.env.VERCEL_ENV,
+          deployment: process.env.VERCEL_DEPLOYMENT_ID,
+          url: process.env.VERCEL_URL,
+          defined: Object.prototype.hasOwnProperty.call(
+            process.env,
+            "KORAPAY_SECRET_KEY",
+          ),
+        });
         return {
           success: false,
           reference,

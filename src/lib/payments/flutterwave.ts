@@ -80,6 +80,15 @@ export const flutterwave: PaymentGateway = {
       // is rejected with "Invalid authorization key". Fail with the real
       // cause (missing deployment secret) rather than the gateway's text.
       if (!FLUTTERWAVE_SECRET_KEY) {
+        console.error("flutterwave: missing FLUTTERWAVE_SECRET_KEY", {
+          env: process.env.VERCEL_ENV,
+          deployment: process.env.VERCEL_DEPLOYMENT_ID,
+          url: process.env.VERCEL_URL,
+          defined: Object.prototype.hasOwnProperty.call(
+            process.env,
+            "FLUTTERWAVE_SECRET_KEY",
+          ),
+        });
         return {
           success: false,
           reference,
