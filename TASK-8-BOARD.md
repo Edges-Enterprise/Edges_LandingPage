@@ -8,12 +8,30 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-26 (twenty-seventh check) - **standing policy added:
-merge `handover/supabase-dump` into `main` in the same session it is pushed,
-for both repos — everything is live on web and mobile, so a fix left only on the
-branch is a fix neither live app has. 8.j, 8.k, 8.l, 8.m and 8.n are done; the
-only remaining work is person-side device testing.**
+Last updated: 2026-10-26 (twenty-eighth check) - **dashboard store page
+responsiveness fixed (8.o): the dashboard shell overflowed horizontally on
+phones because its flex children had no `min-width: 0`, so the nowrap greeting
+set a 666px floor on the whole shell; adding `min-width: 0` fixes it and
+`scrollWidth == clientWidth` now holds at 320–1024px on every dashboard route.
+Standing policy still applies: merge `handover/supabase-dump` into `main` in the
+same session it is pushed, for both repos. 8.j, 8.k, 8.l, 8.m, 8.n and 8.o are
+done; the only remaining work is person-side device testing.**
 
+- **Resolution (8.o, 2026-10-26): the dashboard was not responsive because the
+  shell could not shrink.** The dashboard shell is a `display: flex` row; its
+  content column, header bar and `<main>` are flex items, and a flex item
+  defaults to `min-width: auto`, i.e. it refuses to shrink below its content's
+  min-content width. `DashboardHeader`'s greeting is `white-space: nowrap`, so on
+  a phone that one line set a **666px** floor on the entire dashboard — a
+  horizontal scrollbar, and the theme toggle pushed off-screen — on *every*
+  dashboard page. Reproduced with a headless Chromium session at 320/375/414px
+  (`scrollWidth` 666 vs `clientWidth` 320/375/414; 768px → 906). Fix: `min-width:
+  0` on `.dashboard-content`, the header bar and `<main>` in
+  `dashboard/layout.tsx`, and on `<header>` in `DashboardHeader.tsx`. Verified
+  after: `scrollWidth == clientWidth` at 320/375/414/768/1024px on the store
+  page, on all seven dashboard routes (320/375/768px, 21/21), and on all four
+  store tabs (320/375/768/1024px, 16/16); the greeting now ellipsises and the
+  mobile menu button shows.
 - **Resolution (8.n, 2026-10-26): the keys really were set — but only for
   `production`.** The earlier "len 0" reading was the Vercel API **redacting**
   `type: sensitive` values (`value: ""`, `decrypted: false`; `vercel env pull`
@@ -351,6 +369,8 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 | **8.n** | **Storefront fund now says "authorization token is invalid" (person-filed 2026-10-26, immediately after 8.l/8.m shipped)** | | ✅ | — |
 | 8.n.i | Web: fail legibly when the gateway secret is missing, instead of forwarding Korapay's empty-token message | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`4f792bc`). Reproduced the exact wording live: Korapay returns `401 {"status":false,"error":"not_authenticated","message":"authorization token is invalid"}` **only** for an empty bearer (`Authorization: Bearer `); a non-empty but wrong key gives `403 "invalid authorization key"` and a missing header gives `"no authorization token found"`. The web fund path (`fundGlobalCustomerWallet` for a customer, `fundWallet` for an owner) calls the gateway directly with `process.env.KORAPAY_SECRET_KEY`, which the module defaulted to `""` and sent unguarded — so any runtime without the secret produces exactly that message. `korapay.ts`/`flutterwave.ts` now return `"Payment provider is not configured. Please contact support."` when the secret is blank, the same guard `createGlobalCustomerVirtualAccount` already used for Xixapay. `tsc --noEmit` = 0. **Where the person hit it (now fixed):** `KORAPAY_SECRET_KEY`/`FLUTTERWAVE_SECRET_KEY` were set in Vercel for the **`production` target only**, so a **preview deployment** had no key and produced this. **RESOLVED 2026-10-26 — see 8.n.ii** |
 | 8.n.ii | Vercel: make the payment secrets available to `preview`, and name the environment in the error | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`5cd2383`, `1942c2f`). The person was right that the keys are set — the earlier "len 0" reading was the Vercel API **redacting** `type: sensitive` values (`value: ""`, `decrypted: false`; `vercel env pull` writes `[SENSITIVE]`), not a blank secret. Proved by running code, not reading config: a temporary route deployed to each environment reported **production** `KORAPAY_SECRET_KEY` present **48** chars and `FLUTTERWAVE_SECRET_KEY` present **56** chars, with a real `korapay.initiatePayment()` for kesh-data returning `success: true` (checkout `KPY-MVQB7I64-T60RZC`); a **preview** deployment of the same commit reported **both `{present: false}`** (and `XIXAPAY_SECRET_KEY`, target `development,preview,production`, present) — the secrets were `target: ["production"]` only. A target-only `PATCH /v9/projects/…/env/{id}` preserves a sensitive value (verified on a disposable `sensitive` variable first: its value survived and a fresh deployment saw it), so all six payment variables — `KORAPAY_SECRET_KEY`, `KORAPAY_PUBLIC_KEY`, `KORAPAY_ENCRYPTION_KEY`, `FLUTTERWAVE_SECRET_KEY`, `FLUTTERWAVE_PUBLIC_KEY`, `FLUTTERWAVE_ENCRYPTION_KEY` — were extended to `["preview","production"]` **without rewriting their values**. A fresh preview then reported `KORAPAY_SECRET_KEY` **48** chars and `FLUTTERWAVE_SECRET_KEY` **56** chars — error gone. The guard now also logs the serving deployment and names the environment in the message (`Payment provider is not configured (preview).`). Production redeployed clean; `/` and `/ke/kesh-data` 200. `tsc --noEmit` = 0. **Person step:** re-run the fund flow on a fresh preview (or the production URL) for both a reseller and a reseller customer |
+| **8.o** | **Dashboard store page is not responsive across devices (person-filed 2026-10-26)** | | ✅ | — |
+| 8.o.i | Web: stop the dashboard shell overflowing horizontally on phones | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`7bbf172`). Root cause: the dashboard shell's flex children had no `min-width: 0`, so a flex item defaults to `min-width: auto` and refuses to shrink below its content's min-content width. The greeting in `DashboardHeader` is `white-space: nowrap` ("Good morning, &lt;name&gt; 👋"), and the whole dashboard content column is a flex child of the `display:flex` shell — so on a narrow viewport the **header's nowrap text set a 666px floor** on the entire shell, producing a horizontal scrollbar and pushing the theme toggle off-screen on every dashboard page (reproduced at 320/375/414px with a headless Chromium session: `documentElement.scrollWidth` = **666** vs `clientWidth` = **320/375/414**; 768px measured 906). Added `minWidth: 0` to `.dashboard-content`, the header bar, and `<main>` in `dashboard/layout.tsx`, plus the `<header>` in `DashboardHeader.tsx`. Nothing else changed — the tab strip's intentional `overflow-x: auto` is untouched. **Verified, not assumed:** after the fix `scrollWidth == clientWidth` at 320/375/414/768/1024px on the store page, and on **all seven** dashboard routes (overview, wallet, customers, orders, plans, store, settings) at 320/375/768px — 21/21 clean, and the greeting now ellipsises (`text-overflow: ellipsis` at 188px wide at 320px) while the mobile menu button shows and the desktop theme toggle correctly stays hidden. Every store-page tab (Store Settings, Branding, Theme, Store Preview) was exercised at 320/375/768/1024px — 16/16 clean. `tsc --noEmit` = 0. Test user + rows deleted afterwards (verified clean) |
 
 ## Critical path
 
@@ -609,6 +629,7 @@ by the `tenant-distribution` release.
 | 8.l | 2 | 2 | ✅ complete — **the storefront "Customer record not found" is fixed (`9b8a36b`): the three customer actions read the customer row through the service-role client past the owner-only `global_customers` RLS policy, and `useStoreCustomerAuth` now detects the owner by `store_slug`** (2026-10-26) |
 | 8.m | 1 | 1 | ✅ complete — **the storefront mobile drawer now carries a wallet row, so the wallet is reachable on a phone (`9b8a36b`); person-side phone check outstanding** (2026-10-26) |
 | 8.n | 2 | 2 | ✅ complete — **`8.n.i`: the fund path no longer surfaces Korapay's "authorization token is invalid"; a blank gateway secret now reads "Payment provider is not configured" (`4f792bc`). `8.n.ii`: root-caused definitively — the keys were set but scoped to the Vercel `production` target only, so every preview deployment had no key; the six payment variables now also target `preview` (values preserved), verified by running code in each environment, and the error now names the environment (`5cd2383`, `1942c2f`)** (2026-10-26) |
+| 8.o | 1 | 1 | ✅ complete — **the dashboard shell no longer overflows horizontally on phones: `min-width: 0` on the dashboard content column, header bar, `<main>` and `<header>` stops the nowrap greeting from setting a 666px floor; verified `scrollWidth == clientWidth` at 320–1024px on the store page, on all seven dashboard routes, and on all four store tabs** (2026-10-26) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
@@ -617,7 +638,8 @@ gateway from the app), `8.i` (owner login) is fixed and deployed, `8.j`
 shipped**, the two storefront items found while diagnosing the fund failure
 (`8.l` RLS + owner detection, `8.m` mobile wallet reach) are **done in code**,
 and the follow-on fund error (`8.n` "authorization token is invalid") is fixed
-and diagnosed. The remaining open work is verification, not code:
+and diagnosed, and the dashboard responsiveness defect (`8.o`) is fixed and
+verified across widths. The remaining open work is verification, not code:
 
 0. **Storefront fund on web (person, 8.l/8.m/8.n):** sign in to a store on a
    phone browser, open the drawer, and confirm the wallet row appears and funds
