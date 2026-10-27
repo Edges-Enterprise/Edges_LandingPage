@@ -8,18 +8,34 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-26 (thirtieth check) - **dashboard stat cards go
-horizontal on phones and the storefront gets a profile page (8.q). The Plans
-"Plan Management" trio and the Customers quartet were `auto-fit` grids that
-collapsed to one column on a phone; both are now fixed-track grids (Plans 3
-across, Customers 4 across with a 2x2 fallback below 1024px) with tightened
-mobile type. Customer labels shortened to Total / Active / New (Inactive
-unchanged). New signed-in storefront profile page at
-`/[countryCode]/[storeName]/profile` — responsive 320-1440px, works for both
-the store owner and a customer. Standing policy still applies: merge
+Last updated: 2026-10-26 (thirty-first check) - **storefront mobile drawer
+ordering is now role-aware, reseller sign-out lands on the reseller sign-in
+page, and the header's Sign In button opens the auth modal in place (8.r).**
+Reseller customers see Profile, Wallet, Notifications, light mode, Contact
+Store; resellers see Profile, Wallet, Dashboard, Notifications, light mode.
+Fixing that surfaced a real classification bug: `StoreHeader` decided "owner"
+by comparing `user_metadata.store_name` to the store's **display** name, but
+signup writes `store_name` as the slug and a reseller can rename the display
+name, so a genuine owner was silently treated as a customer — the header now
+compares `store_slug`, matching the auth hook and the profile page. Owner
+sign-out routes to `/[countryCode]/sign-in`; a reseller customer's sign-out
+keeps returning to the storefront. The drawer also had no
+`className="mobile-drawer"`, so its own CSS (which hides it at ≥769px) never
+applied; that is fixed too. Standing policy still applies: merge
 `handover/supabase-dump` into `main` in the same session it is pushed, for both
-repos. 8.j, 8.k, 8.l, 8.m, 8.n, 8.o, 8.p and 8.q are done; the only remaining
-work is person-side device testing.**
+repos. 8.j, 8.k, 8.l, 8.m, 8.n, 8.o, 8.p, 8.q and 8.r are done; the only
+remaining work is person-side device testing.**
+
+- **Resolution (8.r, 2026-10-26): the storefront drawer was order-blind, and
+  the header could not reliably tell an owner from a customer.** The drawer
+  rendered one fixed list for everyone, the owner test compared
+  `user_metadata.store_name` against `storeData.application.store_name` (a
+  display name the reseller can edit, while signup stores the slug), and the
+  drawer element itself lacked the `mobile-drawer` class its own stylesheet
+  targets. The drawer is now ordered per role, owner detection compares
+  `store_slug` in both the mount and the auth-change paths, the element carries
+  its class, and the owner redirect from the auth modal points at
+  `/[countryCode]/dashboard` rather than the bare `/dashboard` legacy shell.
 
 - **Resolution (8.q, 2026-10-26): the dashboard stat cards were one-per-row on
   a phone, and the storefront had no profile page.** Both stats grids were
@@ -427,6 +443,10 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 | **8.q** | **Dashboard stat cards stack one-per-row on phones, and the storefront has no profile page (person-filed 2026-10-26)** | | ✅ | — |
 | 8.q.i | Web: make the Plans and Customers stat grids horizontal on mobile | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26.** Both grids were `repeat(auto-fit, minmax(Npx, 1fr))`, which collapses to **one column** whenever the container is narrower than the min — so the Plans trio (`150px`) and the Customers quartet (`180px`) each stacked vertically on a phone while desktop showed one row. Replaced with fixed-track grids behind a class: `.plans-stats-grid` is always `repeat(3, minmax(0,1fr))`; `.customers-stats-grid` is `repeat(4, minmax(0,1fr))` at ≥1024px and `repeat(2, minmax(0,1fr))` below (the 2x2 the person specified when four will not fit). Sub-768px media rules tighten the gap to `0.5rem`, shrink card padding, and step the label/value font sizes down so the row still reads at 320px. Customer labels shortened to `Total` / `Active` / `New` (`Inactive` unchanged); `total`/`new` keys added to `src/messages/{en,fr,ar}/customers.json`. **Verified, not assumed** in headless Chromium on the **real** dashboard routes signed in as a reseller: Plans renders one row of three (`cols` `103.656px 103.672px 103.656px`) at 320/375/414/768/1024/1440px; Customers renders `159.5px 159.5px` (2x2) at 375px and one row of four at 1024/1440px; `documentElement.scrollWidth == clientWidth` at every width, and no label or value clips (`scrollWidth <= clientWidth`). Rendered labels confirmed as `Total 0 / Active 0 / New 0 / Inactive 0`. `tsc --noEmit` = 0 |
 | 8.q.ii | Web: add a responsive profile page to the storefront | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26.** New route `src/app/[countryCode]/[storeName]/profile/` (server `page.tsx` + `StoreProfileClient.tsx`). Entry points: the header avatar is now a `Link` to it (desktop), and the mobile drawer gained a `Profile` row — the account cluster is hidden below 768px, so the drawer needed its own entry. Two new server actions resolve identity the same way `getCurrentCustomerWallet` does — the session client proves who is calling, then the **service-role** client reads/writes the row, because `global_customers` SELECT is owner-only under RLS and the owner has no `global_customers` row at all: `getCurrentStoreProfile` (owner vs customer branch on `global_reseller_applications.auth_user_id`) and `updateCurrentStoreProfile` (name/phone, own row only). The page shows an identity card, account-type badge, email/phone/status/member-since grid, an inline edit form, and a wallet summary for customers. `useStoreCustomerAuth` gained an `authReady` flag so the page can distinguish "signed out" from "not yet known" — without it an anonymous visitor sat on an infinite spinner (found and fixed during verification). 14 new keys added to `src/messages/{en,fr,ar,es}/storefront.json`. **Verified, not assumed:** loaded as a real customer (created via the admin API) and as a real store owner (temporary application row); the owner sees `Store Owner` and the store's own name/phone, the customer sees `Customer` and their own row; edit→save round-trip persisted and re-rendered (`Renamed Profile`); anonymous visit shows the sign-in prompt (not a spinner); no horizontal overflow at 320/375/414/768/1024/1440px in both dark and light themes; cards compute `var(--card)` correctly in each theme. `tsc --noEmit` = 0. Test customer, test application and both auth users deleted afterwards (verified clean) |
+| **8.r** | **Storefront mobile drawer is order-blind, owner/customer misclassified, reseller sign-out lands on the storefront (person-filed 2026-10-26)** | | ✅ | — |
+| 8.r.i | Web: order the mobile drawer per role (reseller customer vs reseller) | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`6f8eaa9`). The drawer rendered one fixed list regardless of role. It now orders by role: a **reseller customer** (storefront only) sees Profile, Wallet, Notifications, light mode, Contact Store; a **reseller** (owner) sees Profile, Wallet, Dashboard, Notifications, light mode. Ordering was blocked by a real classification bug — `StoreHeader` compared `user_metadata.store_name` against `storeData.application.store_name` (the *display* name, which a reseller can rename) while signup writes `store_name` as the **slug**, so a genuine owner could be silently treated as a customer; both the mount and the auth-change path now compare `store_slug`, matching `useStoreCustomerAuth` and the profile page. The drawer element also had no `className="mobile-drawer"`, so its own stylesheet (which hides it at ≥769px) never applied — added. Rows share one `drawerRow` style object. **Verified, not assumed** in headless Chromium at 390x900 against `/ng/toms-sub` with real accounts: customer drawer `["Profile","Wallet ₦0","Notifications","Dark Mode","Contact Store","Sign Out"]`, owner drawer `["Profile","Wallet","Dashboard","Notifications","Dark Mode","Sign Out"]`; desktop (1280px) computes `.mobile-drawer` `display: none` and `.mobile-toggle` `display: none`. `tsc --noEmit` = 0. Test customer, test owner and all rows deleted afterwards (verified clean) |
+| 8.r.ii | Web: reseller sign-out routes to the reseller sign-in page | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`6f8eaa9`). `StoreHeader.handleLogout` now sends a store owner to `/[countryCode]/sign-in` and keeps a reseller customer on the storefront they were browsing (the current behaviour). The dashboard sidebar's own sign-out (`DashboardSidebar.handleLogout`) had the same mismatch — it dropped the reseller on `/[countryCode]` (a country landing page with no sign-in form) — and now goes to `/[countryCode]/sign-in` too. **Verified, not assumed:** signed in as the owner, opened the storefront drawer, clicked Sign Out, and watched the main frame navigate to `/ng/sign-in` with the reseller sign-in form ("Welcome Back" + an email input) rendered; a reseller customer's sign-out stayed on `/ng/toms-sub`. `tsc --noEmit` = 0 |
+| 8.r.iii | Web: the header's Sign In button opens the auth modal, and a successful sign-in closes it | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`6f8eaa9`). The header's Sign In button previously navigated to `?login=true`; the storefront read that param once on mount, so a soft navigation to the same path did **not** reopen the modal, and the param was never cleared (it also made the modal reappear on refresh or Back). `StoreHeader` now takes an optional `onLoginClick` and, when present, calls it directly to open the modal in place — `StoreContent` passes `onLoginClick={() => setLoginOpen(true)}`; the profile page still omits it, so Sign In there keeps navigating to `?login=true`. `StoreContent` also clears the marker and closes the modal when `auth.loggedIn` flips true. The owner redirect from the modal pointed at the bare `/dashboard` (the legacy reseller shell, a different app) — it now goes to `/[countryCode]/dashboard`, the same route the storefront header links to; `useStoreCustomerAuth` takes `countryCode` for that. **Verified, not assumed:** from the storefront drawer, clicking Sign In opened the modal ("Welcome Back" visible); signing up as a customer left `hasModalText: false` (modal closed) on `/ng/toms-sub`; signing in as the owner from `/ng/sign-in` landed on `/ng/dashboard` and the storefront drawer then rendered the owner order. `tsc --noEmit` = 0. All test rows deleted afterwards (verified clean) |
 
 
 ## Critical path
@@ -689,6 +709,7 @@ by the `tenant-distribution` release.
 | 8.o | 1 | 1 | ✅ complete — **the dashboard shell no longer overflows horizontally on phones: `min-width: 0` on the dashboard content column, header bar, `<main>` and `<header>` stops the nowrap greeting from setting a 666px floor; verified `scrollWidth == clientWidth` at 320–1024px on the store page, on all seven dashboard routes, and on all four store tabs** (2026-10-26) |
 | 8.p | 1 | 1 | ✅ complete — **the storefront mobile-money input is now visible: it was `background: var(--bg-muted, #F9FAFB)` (white) with `var(--text)` (near-white) text, because `--bg-muted` is undefined and the storefront theme only overrides `div`, not `input`; it now uses the amount field's wrapper + transparent-input structure and matches it exactly** (2026-10-26) |
 | 8.q | 3 | 3 | ✅ complete — **the dashboard stat grids are horizontal on phones: the Plans trio is always one row of three and the Customers quartet is one row of four at ≥1024px with a 2x2 fallback below (both were `auto-fit` and collapsed to a single column); customer labels shortened to Total/Active/New; and the storefront gained a signed-in profile page at `/[countryCode]/[storeName]/profile`, reachable from the header avatar and the mobile drawer, responsive 320–1440px for owner and customer alike** (2026-10-26) |
+| 8.r | 3 | 3 | ✅ complete — **the storefront mobile drawer is role-aware (customer: Profile, Wallet, Notifications, light mode, Contact Store; reseller: Profile, Wallet, Dashboard, Notifications, light mode), owner detection compares `store_slug` instead of the editable display name, the drawer carries the `mobile-drawer` class its CSS targets, owner sign-out lands on `/[countryCode]/sign-in` (customer sign-out keeps returning to the storefront), and the header's Sign In button opens the auth modal in place with the owner sent to `/[countryCode]/dashboard` on success** (2026-10-26) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
@@ -698,8 +719,10 @@ shipped**, the two storefront items found while diagnosing the fund failure
 (`8.l` RLS + owner detection, `8.m` mobile wallet reach) are **done in code**,
 and the follow-on fund error (`8.n` "authorization token is invalid") is fixed
 and diagnosed, the dashboard responsiveness defect (`8.o`) is fixed and
-verified across widths, and the follow-up layout/profile batch (`8.q`) is done
-and verified in the browser. The remaining open work is verification, not code:
+verified across widths, the follow-up layout/profile batch (`8.q`) is done and
+verified in the browser, and the storefront drawer/sign-out/sign-in batch
+(`8.r`) is done and verified in the browser. The remaining open work is
+verification, not code:
 
 0. **Storefront fund on web (person, 8.l/8.m/8.n):** sign in to a store on a
    phone browser, open the drawer, and confirm the wallet row appears and funds
