@@ -8,14 +8,11 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-26 (twenty-sixth check) - **8.n is closed
-definitively. The payment secrets were scoped to the Vercel `production` target
-only, so every preview deployment had no gateway key — which is why the fund step
-said "authorization token is invalid" and then, once 8.n's guard landed, "Payment
-provider is not configured" on both the dashboard and the storefront. The six
-payment variables now also target `preview`, verified by running code in each
-environment. 8.j, 8.k, 8.l, 8.m and 8.n are done; the only remaining work is
-person-side device testing.**
+Last updated: 2026-10-26 (twenty-seventh check) - **standing policy added:
+merge `handover/supabase-dump` into `main` in the same session it is pushed,
+for both repos — everything is live on web and mobile, so a fix left only on the
+branch is a fix neither live app has. 8.j, 8.k, 8.l, 8.m and 8.n are done; the
+only remaining work is person-side device testing.**
 
 - **Resolution (8.n, 2026-10-26): the keys really were set — but only for
   `production`.** The earlier "len 0" reading was the Vercel API **redacting**

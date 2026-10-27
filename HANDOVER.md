@@ -34,6 +34,55 @@ fast (see the log table below), so `main` being stale is expected and
 is not a sign anything is wrong — always prefer the latest branch over
 `main` when picking up work here.
 
+> **Note (2026-10-26):** under the standing merge-to-`main` policy below,
+> `main` and `handover/supabase-dump` are now kept **identical** after every
+> session, so this "prefer the branch" tie-break rarely changes which commit
+> you land on. The bootstrap steps still run first (they also `git fetch`),
+> and the merge policy is what keeps the two refs from drifting again.
+
+## Standing policy — after every `handover/supabase-dump` update, merge to `main` (applies to every task, both repos)
+
+**Everything is live now, on both the web and the mobile app**, so
+`handover/supabase-dump` is no longer a "fixes in flight, keep off `main`"
+branch. From here on, treat the branch as a short-lived staging ref, not
+the place work rests:
+
+1. Do the work on `handover/supabase-dump` (or a topic branch off it) as
+   usual.
+2. **Immediately after pushing that branch, merge it into `main` and push
+   `main`** — in the same session, not left for a later one. Do this for
+   **both repos** (`Edges_LandingPage` and `reseller-app`) whenever either
+   branch is updated, since the web build and the APK build are both
+   dispatched from `main` now.
+3. Keep the two refs **identical** after the merge. The merge has been a
+   clean fast-forward in practice; verify rather than assume, then push.
+
+   ```bash
+   # web
+   (cd ~/Edges_LandingPage && \
+    git push origin handover/supabase-dump && \
+    git checkout main && git pull --ff-only && \
+    git merge --ff-only handover/supabase-dump && \
+    git push origin main && \
+    git checkout handover/supabase-dump)
+   ```
+
+   Repeat the same block in `~/reseller-app` for the mobile repo. If the
+   fast-forward fails (the branch is not a descendant of `main`), stop and
+   reconcile deliberately — do **not** force-push either ref.
+
+4. Because `main` is now current, the old "revert `BUILD_WORKFLOW_REF` to
+   `"main"`" chore and the "dispatch with `--ref handover/supabase-dump`"
+   workaround are **obsolete** — dispatch from `main` and keep the two refs
+   equal. (See Task 7's dispatch-ref note and "Should mobile be merged to
+   `main`?" for the history of that rule.)
+
+Rationale: both apps are shipped and live, so a fix that only exists on the
+handover branch is a fix the live site and the live app do not have.
+Merging immediately removes the stale-`main` class of bug entirely (it was
+the root of the earlier "build dispatched from `main` shipped a pre-Task-8
+app" trap).
+
 ## Task decomposition & session-pointer methodology (priority rule — applies to every task from here on)
 
 This is a **priority rule**, meaning it overrides other instinct about
@@ -4034,6 +4083,11 @@ const BUILD_WORKFLOW_REF = "handover/supabase-dump";
 **Revert to `"main"` once everything is merged** — change that one constant in
 each file. `tsc` = 0.
 
+> **Superseded 2026-10-26:** the revert was done long ago (`38805a0`) and both
+> refs are now kept identical — see the standing policy **"after every
+> `handover/supabase-dump` update, merge to `main`"** at the top of this file.
+> Do not re-pin this constant to the branch.
+
 Sequencing note: the dispatch target `handover/supabase-dump` did not yet
 contain the Node 22 fix when the ref was changed, so the Node 22 patch must be
 applied and pushed to that branch **before** a dispatch will succeed.
@@ -4533,6 +4587,11 @@ Why it matters:
 It is a person step (same as the web merge). Until it lands, dispatch the build
 with `--ref handover/supabase-dump` so it checks out the branch.
 
+> **Superseded 2026-10-26:** this merge has landed and is now a **standing
+> policy** — every session merges `handover/supabase-dump` into `main` in the
+> same session it pushes the branch (see the policy at the top of this file).
+> Dispatch from `main`; the two refs are kept identical.
+
 ### (superseded) Next atomic step — `8.d.iv` (apply patches, migrate, deploy)
 
 Done as of 2026-10-17: both patches landed on origin (web `be040bb` / mobile
@@ -4781,3 +4840,4 @@ pointer, blocked on Zendit's docs.
 | 2026-10-26 | Task 8 — **8.n: the fund step's "authorization token is invalid" is Korapay's empty-token message; the gateways now fail legibly when the secret is missing** | Person report, verbatim: "On the web, Now the wallet is displayed responsively across devices. It no longer says no customer record found, but it says `authorization token is invalid`." **Diagnosed by reproducing the exact string against the live gateway, not by guessing.** Korapay's `charges/initialize` returns `401 {"status":false,"error":"not_authenticated","message":"authorization token is invalid"}` **only** when the bearer token is empty (`Authorization: Bearer `); a **non-empty but wrong** key returns `403 {"error":"not_authorized","message":"invalid authorization key"}`, and **no** `Authorization` header returns `401 {"error":"not_authenticated","message":"no authorization token found"}`. So that exact wording means the key is **empty**, not wrong — which is why it differs from the `403 invalid authorization key` of the earlier `8.e.iii`/`8.g.ii`. The web fund path (`fundGlobalCustomerWallet` for a customer, `fundWallet` for an owner — both reachable now that `8.l` resolved the customer row and the owner branch) calls the gateway **directly** from the Next server action with `process.env.KORAPAY_SECRET_KEY`; `src/lib/payments/korapay.ts` defaulted that to `""` and sent `Bearer ` with no guard, so any runtime lacking the secret produces exactly this. **Fix (`4f792bc`):** `korapay.ts` and `flutterwave.ts` now return `"Payment provider is not configured. Please contact support."` when their secret is blank — the same guard `createGlobalCustomerVirtualAccount` already used for Xixapay — so a missing deployment secret is no longer surfaced as a user error. `tsc --noEmit` = 0. **Which runtime:** `GET /v9/projects/prj_jxynbeusJCMYJKscqALL3iVpZKyc/env` shows `KORAPAY_SECRET_KEY` and `FLUTTERWAVE_SECRET_KEY` are `type: sensitive` with `target: ["production"]` **only**, so a **preview deployment** (or the sandbox dev server, whose prior-session `.env.local` carried only the Supabase vars) has no key and reproduces this exactly. **Production is populated, proven read-only:** `src/app/api/webhooks/korapay/route.ts` and `.../flutterwave/route.ts` HMAC-verify with the *same* secret, so a webhook body signed with an **empty** key must be *accepted* if the runtime key were empty — it is **rejected** (`401 {"error":"Invalid signature"}`) on both, and a body signed with a single-key object (byte-identical under JS `JSON.stringify` and Python `json.dumps`) is likewise rejected, so the production key is non-empty (the person's report is therefore not from production). **Person step:** run the fund test on the **production** URL (`edges-landing-page.vercel.app`, alias → `dpl_4HjQdG1rGnwZuYcoJZgvP1evXbht` = `25727560`), not a preview URL; if a preview must be exercised, add `KORAPAY_SECRET_KEY`/`FLUTTERWAVE_SECRET_KEY` to the Preview environment. The `8.l`/`8.m` storefront work (`9b8a36b`) remains merged to `main` (`2572756`). |
 
 | 2026-10-26 | Task 8 — **8.n closed definitively: the payment secrets were Vercel `production`-only, so every preview deployment failed the fund step; the six payment variables now cover Preview too** | Person report: after 8.l, the fund step said `authorization token is invalid`, and after 8.n's guard it said `Payment provider is not configured. Please contact support.` — on **both** the reseller dashboard and the storefront, and the person asserted the keys *are* set in Vercel. **Both statements are true, and that was the whole puzzle.** The earlier sessions could not read the values: the Vercel API returns `type: sensitive` variables with `value: ""` and `decrypted: false`, and `vercel env pull` writes the literal `[SENSITIVE]` placeholder, so "len 0" meant **redacted**, not blank. **Proven by running code, not by reading config.** A temporary route deployed to each environment (`/api/diagpay`) reported: **production** → `KORAPAY_SECRET_KEY` present, **48** chars; `FLUTTERWAVE_SECRET_KEY` present, **56** chars; and a real `korapay.initiatePayment()` for kesh-data (`43d24f2f…`) returned `success: true` with a live checkout reference (`KPY-MVQB7I64-T60RZC`). **Preview** (same commit, `vercel curl` past SSO) → `KORAPAY_SECRET_KEY: {present: false}`, `FLUTTERWAVE_SECRET_KEY: {present: false}`, while `XIXAPAY_SECRET_KEY` (target `development,preview,production`) was present. So the secrets were scoped to the **`production` target only**, and every preview deployment lacked them — exactly the runtime the person was using. (The production webhook HMAC oracle in 8.n already pointed here: the server computed a non-empty key. The guard firing on "production" in the earlier notes was a mislabel of a preview URL.) **Fix (config, then code):** a target-only `PATCH /v9/projects/…/env/{id}` preserves a sensitive value — verified on a disposable `sensitive` variable before touching anything live, whose value survived and was seen by a fresh deployment — so all six payment variables (`KORAPAY_SECRET_KEY`, `KORAPAY_PUBLIC_KEY`, `KORAPAY_ENCRYPTION_KEY`, `FLUTTERWAVE_SECRET_KEY`, `FLUTTERWAVE_PUBLIC_KEY`, `FLUTTERWAVE_ENCRYPTION_KEY`) were extended from `["production"]` to `["preview","production"]` **without rewriting their values**. A fresh preview then reported `KORAPAY_SECRET_KEY` present **48** chars and `FLUTTERWAVE_SECRET_KEY` present **56** chars — the error is gone. Code commits `5cd2383` (log the serving deployment when a secret is missing) and `1942c2f` (the error now names the environment: `Payment provider is not configured (preview).`), `tsc --noEmit` = 0; production redeployed clean and `/`, `/ke/kesh-data` both 200. **The two messages, decoded:** `authorization token is invalid` is Korapay's *empty-bearer* wording, so it was the blank secret; `Payment provider is not configured` is 8.n's guard for the same blank secret, now self-identifying its environment. **"Customer record not found" for a customer** was the same class of fault in 8.l (RLS) and is fixed; if it recurs, the `NEXT_PUBLIC_SUPABASE_*` pair it depends on already targets all three environments. **Person step (remaining):** re-run the fund flow on a **fresh preview** deployment (or the production URL) for both a reseller and a reseller customer — it should now reach the gateway instead of the configuration error. |
+| 2026-10-26 | Docs — **standing policy: merge `handover/supabase-dump` into `main` in the same session it is pushed, for both repos** | Person instruction: "Update the handover file to always merge to main after the update of the handover/supabase-dump branch since everything is live now both on Web and mobile." Added a new top-level section, **"Standing policy — after every `handover/supabase-dump` update, merge to `main` (applies to every task, both repos)"**, immediately after Session bootstrap: work on the branch as usual, then **push the branch and merge it to `main` and push `main` in the same session** — for `Edges_LandingPage` *and* `reseller-app` — keeping the two refs identical (the merge has been a clean fast-forward; verify with `git merge-base --is-ancestor` rather than assuming, and never force-push either ref). Rationale recorded: both the web app and the mobile app are shipped and live, so a fix that exists only on the handover branch is a fix the live site and the live app do not have; merging immediately retires the stale-`main` class of bug that caused the earlier "build dispatched from `main` shipped a pre-Task-8 app" trap. Cross-referenced and marked **superseded**: Task 7's "revert `BUILD_WORKFLOW_REF` to `main`" chore and the "Should mobile be merged to `main`?" / "dispatch with `--ref handover/supabase-dump`" workaround (both already done in practice — `38805a0` and the 2026-10-25 merge) now point at the new policy instead of reading as live instructions. Also added a note to Session bootstrap so its "prefer the latest branch over `main`" tie-break does not read as contradicting the merge policy. Docs only; no code changed. Applied to `main` and `handover/supabase-dump` per the new rule. |

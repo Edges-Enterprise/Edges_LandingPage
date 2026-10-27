@@ -8,6 +8,12 @@ reseller dashboard).
 - Docs convention: `HANDOVER.md` (authoritative narrative) and
   `TASK-8-BOARD.md` (execution checklist). Update both after a fix, and note the
   commit hash. Task 8 is the current defect batch.
+- **Always merge `handover/supabase-dump` into `main` in the same session you
+  push the branch** (standing policy, HANDOVER.md top section) — for both this
+  repo and the mobile `reseller-app`. Everything is live on web and mobile, so
+  keep the two refs identical; the merge has been a clean fast-forward.
+  Verify with `git merge-base --is-ancestor origin/main origin/handover/supabase-dump`
+  rather than assuming, and never force-push either ref.
 - Typecheck: `npx tsc --noEmit` (must be 0 before committing).
 - Production URL: `https://edges-landing-page.vercel.app`.
 
