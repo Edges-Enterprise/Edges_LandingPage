@@ -8,13 +8,28 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-26 (twenty-fifth check) - **the storefront's "Customer
-record not found" is fixed (two independent causes: an owner-only RLS policy and
-an owner-misclassification in the auth hook), the storefront wallet is now
-reachable on a phone, and the follow-on fund error ("authorization token is
-invalid") is diagnosed and fixed. 8.j, 8.k, 8.l, 8.m and 8.n are done in code;
-the only remaining work is person-side device testing.**
+Last updated: 2026-10-26 (twenty-sixth check) - **8.n is closed
+definitively. The payment secrets were scoped to the Vercel `production` target
+only, so every preview deployment had no gateway key — which is why the fund step
+said "authorization token is invalid" and then, once 8.n's guard landed, "Payment
+provider is not configured" on both the dashboard and the storefront. The six
+payment variables now also target `preview`, verified by running code in each
+environment. 8.j, 8.k, 8.l, 8.m and 8.n are done; the only remaining work is
+person-side device testing.**
 
+- **Resolution (8.n, 2026-10-26): the keys really were set — but only for
+  `production`.** The earlier "len 0" reading was the Vercel API **redacting**
+  `type: sensitive` values (`value: ""`, `decrypted: false`; `vercel env pull`
+  writes `[SENSITIVE]`), not a blank secret. A temporary route deployed to each
+  environment proved it: **production** has `KORAPAY_SECRET_KEY` (48 chars) and
+  `FLUTTERWAVE_SECRET_KEY` (56 chars) and completes a real Korapay checkout
+  (`success: true`), while a **preview** deployment of the same commit reported
+  **both absent** (`{present: false}`) — they were `target: ["production"]`
+  only. All six payment variables were extended to `["preview","production"]`
+  with a target-only `PATCH` that preserves the stored value (verified on a
+  disposable sensitive variable first). A fresh preview then saw both keys. The
+  error message now names the environment (`… not configured (preview).`) so
+  this is self-evident next time. Code commits `5cd2383`, `1942c2f`.
 - **New finding + fix (8.l, 2026-10-26): the storefront fund path failed with
   "Customer record not found" for two independent reasons.** (1) **RLS:**
   `global_customers` grants SELECT **only to the store owner**, so a customer
@@ -337,7 +352,8 @@ Prior work: `8.d.xi` PASSES and `8.f.iii` shipped the `kesh-data` APK.
 | **8.m** | **Storefront wallet unreachable on a phone (found 2026-10-26, same diagnosis)** | | ✅ | — |
 | 8.m.i | Web: add a wallet entry to the storefront mobile drawer | 🤖 | ✅ | **DONE 2026-10-26** (`9b8a36b`). The only wallet entry point was the balance pill inside `desktop-nav`, which is `display:none` below 768px, and the mobile drawer carried Theme/Notifications/Dashboard/Contact/Sign out but **no** wallet row. The drawer now shows a wallet link (owner) or the balance + fund action (customer). **Person step:** confirm on a real phone browser that the drawer wallet row appears and funds end-to-end (no APK needed — this is the web storefront) |
 | **8.n** | **Storefront fund now says "authorization token is invalid" (person-filed 2026-10-26, immediately after 8.l/8.m shipped)** | | ✅ | — |
-| 8.n.i | Web: fail legibly when the gateway secret is missing, instead of forwarding Korapay's empty-token message | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`4f792bc`). Reproduced the exact wording live: Korapay returns `401 {"status":false,"error":"not_authenticated","message":"authorization token is invalid"}` **only** for an empty bearer (`Authorization: Bearer `); a non-empty but wrong key gives `403 "invalid authorization key"` and a missing header gives `"no authorization token found"`. The web fund path (`fundGlobalCustomerWallet` for a customer, `fundWallet` for an owner) calls the gateway directly with `process.env.KORAPAY_SECRET_KEY`, which the module defaulted to `""` and sent unguarded — so any runtime without the secret produces exactly that message. `korapay.ts`/`flutterwave.ts` now return `"Payment provider is not configured. Please contact support."` when the secret is blank, the same guard `createGlobalCustomerVirtualAccount` already used for Xixapay. `tsc --noEmit` = 0. **Where the person hit it:** `KORAPAY_SECRET_KEY`/`FLUTTERWAVE_SECRET_KEY` are set in Vercel for the **`production` target only** (`GET /v9/projects/…/env`), so a **preview deployment** or the sandbox **dev server** has no key and produces this. Production itself is populated — a read-only HMAC oracle (a webhook body signed with an **empty** key) is **rejected** (`401 Invalid signature`) on both the Korapay and Flutterwave production webhooks, which only happens when the runtime key is non-empty. **Person step:** run the fund test on the **production** URL (`edges-landing-page.vercel.app`, alias → `dpl_4HjQdG1r…` = `25727560`), not a preview URL; if a preview must be tested, add `KORAPAY_SECRET_KEY`/`FLUTTERWAVE_SECRET_KEY` to the Preview environment |
+| 8.n.i | Web: fail legibly when the gateway secret is missing, instead of forwarding Korapay's empty-token message | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`4f792bc`). Reproduced the exact wording live: Korapay returns `401 {"status":false,"error":"not_authenticated","message":"authorization token is invalid"}` **only** for an empty bearer (`Authorization: Bearer `); a non-empty but wrong key gives `403 "invalid authorization key"` and a missing header gives `"no authorization token found"`. The web fund path (`fundGlobalCustomerWallet` for a customer, `fundWallet` for an owner) calls the gateway directly with `process.env.KORAPAY_SECRET_KEY`, which the module defaulted to `""` and sent unguarded — so any runtime without the secret produces exactly that message. `korapay.ts`/`flutterwave.ts` now return `"Payment provider is not configured. Please contact support."` when the secret is blank, the same guard `createGlobalCustomerVirtualAccount` already used for Xixapay. `tsc --noEmit` = 0. **Where the person hit it (now fixed):** `KORAPAY_SECRET_KEY`/`FLUTTERWAVE_SECRET_KEY` were set in Vercel for the **`production` target only**, so a **preview deployment** had no key and produced this. **RESOLVED 2026-10-26 — see 8.n.ii** |
+| 8.n.ii | Vercel: make the payment secrets available to `preview`, and name the environment in the error | 🤖 | ✅ | **DONE + VERIFIED 2026-10-26** (`5cd2383`, `1942c2f`). The person was right that the keys are set — the earlier "len 0" reading was the Vercel API **redacting** `type: sensitive` values (`value: ""`, `decrypted: false`; `vercel env pull` writes `[SENSITIVE]`), not a blank secret. Proved by running code, not reading config: a temporary route deployed to each environment reported **production** `KORAPAY_SECRET_KEY` present **48** chars and `FLUTTERWAVE_SECRET_KEY` present **56** chars, with a real `korapay.initiatePayment()` for kesh-data returning `success: true` (checkout `KPY-MVQB7I64-T60RZC`); a **preview** deployment of the same commit reported **both `{present: false}`** (and `XIXAPAY_SECRET_KEY`, target `development,preview,production`, present) — the secrets were `target: ["production"]` only. A target-only `PATCH /v9/projects/…/env/{id}` preserves a sensitive value (verified on a disposable `sensitive` variable first: its value survived and a fresh deployment saw it), so all six payment variables — `KORAPAY_SECRET_KEY`, `KORAPAY_PUBLIC_KEY`, `KORAPAY_ENCRYPTION_KEY`, `FLUTTERWAVE_SECRET_KEY`, `FLUTTERWAVE_PUBLIC_KEY`, `FLUTTERWAVE_ENCRYPTION_KEY` — were extended to `["preview","production"]` **without rewriting their values**. A fresh preview then reported `KORAPAY_SECRET_KEY` **48** chars and `FLUTTERWAVE_SECRET_KEY` **56** chars — error gone. The guard now also logs the serving deployment and names the environment in the message (`Payment provider is not configured (preview).`). Production redeployed clean; `/` and `/ke/kesh-data` 200. `tsc --noEmit` = 0. **Person step:** re-run the fund flow on a fresh preview (or the production URL) for both a reseller and a reseller customer |
 
 ## Critical path
 
@@ -595,7 +611,7 @@ by the `tenant-distribution` release.
 | 8.k | 2 | 2 | ✅ complete — **8.k.i code done + verified (`8b18d03`): the Korapay/Flutterwave checkout renders in an in-app WebView sheet instead of the OS browser, and 8.k.ii shipped: merged to `main` (`814b0fd`) and the four test-store APKs rebuilt from `main` (`40280088780`/`40280090379`/`40280091941`/`40280093608`, all green, `head_sha` `814b0fd`) and published with the in-app markers present and `openBrowserAsync` absent** (2026-10-26) |
 | 8.l | 2 | 2 | ✅ complete — **the storefront "Customer record not found" is fixed (`9b8a36b`): the three customer actions read the customer row through the service-role client past the owner-only `global_customers` RLS policy, and `useStoreCustomerAuth` now detects the owner by `store_slug`** (2026-10-26) |
 | 8.m | 1 | 1 | ✅ complete — **the storefront mobile drawer now carries a wallet row, so the wallet is reachable on a phone (`9b8a36b`); person-side phone check outstanding** (2026-10-26) |
-| 8.n | 1 | 1 | ✅ complete — **the fund path no longer surfaces Korapay's "authorization token is invalid"; a blank gateway secret now reads "Payment provider is not configured" (`4f792bc`). Production holds the secrets (an empty-key HMAC signature is rejected by both production webhooks); the person's error came from a non-production runtime — preview or dev — where `KORAPAY_SECRET_KEY`/`FLUTTERWAVE_SECRET_KEY` are absent (Vercel `production`-only targets)** (2026-10-26) |
+| 8.n | 2 | 2 | ✅ complete — **`8.n.i`: the fund path no longer surfaces Korapay's "authorization token is invalid"; a blank gateway secret now reads "Payment provider is not configured" (`4f792bc`). `8.n.ii`: root-caused definitively — the keys were set but scoped to the Vercel `production` target only, so every preview deployment had no key; the six payment variables now also target `preview` (values preserved), verified by running code in each environment, and the error now names the environment (`5cd2383`, `1942c2f`)** (2026-10-26) |
 
 **Next atomic step:** none left in the defect batch — `8.g.ii`/`8.e.iii` are
 **CLOSED** (the `403 invalid authorization key` is proven gone on the live
@@ -609,15 +625,15 @@ and diagnosed. The remaining open work is verification, not code:
 0. **Storefront fund on web (person, 8.l/8.m/8.n):** sign in to a store on a
    phone browser, open the drawer, and confirm the wallet row appears and funds
    end-to-end. This is the web storefront, so no APK is needed — the two causes
-   are already fixed and verified in the browser here. **Run it on the
-   production URL** (`edges-landing-page.vercel.app`): `KORAPAY_SECRET_KEY` and
-   `FLUTTERWAVE_SECRET_KEY` are set for the Vercel **`production` target only**,
-   so a preview URL funds with an empty key. Production is populated (both
-   production webhooks reject an empty-key signature), so a production fund
-   attempt reaches the gateway. If the fund step instead reads "Payment provider
-   is not configured", the deployment being tested is missing the secret (add
-   it to that environment) — that is the legible replacement for 8.n's
-   "authorization token is invalid".
+   are already fixed and verified in the browser here. The "Payment provider is
+   not configured" leg is now **resolved**: the secrets were set for the Vercel
+   `production` target **only**, so every preview deployment funded with an
+   empty key; all six payment variables now also target `preview` (values
+   preserved) and a fresh preview sees `KORAPAY_SECRET_KEY` (48 chars) and
+   `FLUTTERWAVE_SECRET_KEY` (56 chars). Re-run on a **fresh** preview deployment
+   (or the production URL) — the fund attempt should now reach the gateway. If
+   the message still appears it now names the environment it came from, e.g.
+   `Payment provider is not configured (preview).`
 
 1. **Post-checkout funding leg (person):** the three fund attempts are still
    `pending` and every wallet is `0.0`, so no checkout was completed. Complete one
