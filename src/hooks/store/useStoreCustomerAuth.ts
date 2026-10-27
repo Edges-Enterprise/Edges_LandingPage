@@ -14,7 +14,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { registerCustomerToGlobalReseller } from "@/actions/reseller/customers/registerCustomerToGlobalReseller";
 import { getGlobalCustomerAuthEmail } from "@/actions/reseller/customers/getGlobalCustomerAuthEmail";
@@ -38,9 +37,7 @@ export function buildStoreAliasEmail(
 export function useStoreCustomerAuth(
   storeSlug: string,
   resellerId: string,
-  countryCode: string,
 ) {
-  const router = useRouter();
   const [loggedIn, setLoggedIn] = useState(false);
   const [isStoreOwner, setIsStoreOwner] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
@@ -149,15 +146,16 @@ export function useStoreCustomerAuth(
       const owner = data.user.user_metadata?.store_slug === storeSlug;
       setIsStoreOwner(owner);
       setLoggedIn(true);
-      // Owner goes to the country-scoped dashboard — the same route the
-      // storefront header links to. The bare /dashboard resolves to the
-      // legacy reseller shell instead.
-      if (owner) router.push(`/${countryCode}/dashboard`);
+      // Sign-in always lands on the storefront, for the owner as much as for
+      // a customer. The owner keeps a Dashboard entry in the storefront
+      // header/drawer to reach the dashboard deliberately; routing there
+      // automatically on sign-in contradicted "they will be on the
+      // storefront too just like a customer would".
       setEmail("");
       setPassword("");
     }
     setLoginLoading(false);
-  }, [authMode, email, password, storeSlug, countryCode, router]);
+  }, [authMode, email, password, storeSlug]);
 
   const handleLogout = useCallback(async () => {
     setLogoutLoading(true);
