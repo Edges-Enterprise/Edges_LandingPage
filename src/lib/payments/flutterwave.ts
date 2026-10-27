@@ -92,7 +92,11 @@ export const flutterwave: PaymentGateway = {
         return {
           success: false,
           reference,
-          error: "Payment provider is not configured. Please contact support.",
+          // See korapay.ts: names the serving environment so a missing
+          // secret on a `preview` deployment is obvious.
+          error: `Payment provider is not configured${
+            process.env.VERCEL_ENV ? ` (${process.env.VERCEL_ENV})` : ""
+          }. Please contact support.`,
         };
       }
 

@@ -102,7 +102,12 @@ export const korapay: PaymentGateway = {
         return {
           success: false,
           reference,
-          error: "Payment provider is not configured. Please contact support.",
+          // Name the environment: this error means the serving deployment
+          // has no KORAPAY_SECRET_KEY, which is the case for every Vercel
+          // `preview` deployment (the secret is scoped to `production`).
+          error: `Payment provider is not configured${
+            process.env.VERCEL_ENV ? ` (${process.env.VERCEL_ENV})` : ""
+          }. Please contact support.`,
         };
       }
 
