@@ -62,3 +62,19 @@ reseller dashboard).
 - The customer fund path reads the customer row through the service-role client
   (`createAdminClient`) because `global_customers` RLS grants SELECT to the store
   owner only.
+
+## Pushing to this repo (credentials)
+
+- The system-injected `GITHUB_TOKEN` is a GitHub **App installation token**
+  (`ghu_…`, identity `Phoenix-Boss`). It authenticates and *reads* this repo —
+  and the API even reports `permissions: {admin: true, push: true}` — but it
+  **cannot write**: `git push` fails with `403 … denied to Phoenix-Boss`, and
+  `POST /repos/…/git/refs` returns `Resource not accessible by integration`.
+  Do not trust the API `permissions` block or the account name here.
+- Use **`P_TOKEN`** (a classic PAT, `repo` scope) to push:
+  `git push "https://${P_TOKEN}@github.com/Edges-Enterprise/Edges_LandingPage.git" main:main`.
+  The `origin` remote is already pointed at this URL, so a bare `git push`
+  works once the URL carries `P_TOKEN`.
+- Standing policy: after pushing `handover/supabase-dump`, merge it into `main`
+  (fast-forward; the two refs are normally identical) and push both, in the same
+  session. Verify with `git rev-parse` on all four refs rather than assuming.
