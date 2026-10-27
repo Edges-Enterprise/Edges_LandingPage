@@ -36,6 +36,7 @@ export default function StoreContent({
   const auth = useStoreCustomerAuth(
     storeData.application.store_slug,
     storeData.application.id,
+    storeData.application.country_code,
   );
   const wallet = useStoreCustomerWallet({
     loggedIn: auth.loggedIn,
@@ -52,6 +53,21 @@ export default function StoreContent({
     const params = new URLSearchParams(window.location.search);
     if (params.get("login") === "true") setLoginOpen(true);
   }, []);
+
+  // A successful sign-in/sign-up closes the modal and reveals the storefront.
+  // The owner is sent on to the dashboard by the auth hook; the effect is a
+  // no-op for them once this component unmounts.
+  useEffect(() => {
+    if (!auth.loggedIn) return;
+    setLoginOpen(false);
+    // Drop the ?login=true marker so the modal does not reappear on refresh
+    // or when the visitor navigates back.
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("login") === "true") {
+      url.searchParams.delete("login");
+      window.history.replaceState(null, "", url.pathname + url.search);
+    }
+  }, [auth.loggedIn]);
 
   const purchase = useStorePurchase({
     loggedIn: auth.loggedIn,
@@ -196,6 +212,7 @@ export default function StoreContent({
           walletLoading={wallet.customerDataLoading}
           onFundClick={openFunding}
           onSupportClick={() => setSupportModalOpen(true)}
+          onLoginClick={() => setLoginOpen(true)}
         />
 
         <StoreStatusBanner

@@ -50,7 +50,9 @@ export default function DashboardSidebar({
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = `/${countryCode}`;
+    // Reseller sign-out lands on the reseller sign-in page, matching the
+    // storefront header's owner sign-out.
+    window.location.href = `/${countryCode}/sign-in`;
   };
 
   return (

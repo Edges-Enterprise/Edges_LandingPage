@@ -35,7 +35,11 @@ export function buildStoreAliasEmail(
   };
 }
 
-export function useStoreCustomerAuth(storeSlug: string, resellerId: string) {
+export function useStoreCustomerAuth(
+  storeSlug: string,
+  resellerId: string,
+  countryCode: string,
+) {
   const router = useRouter();
   const [loggedIn, setLoggedIn] = useState(false);
   const [isStoreOwner, setIsStoreOwner] = useState(false);
@@ -145,12 +149,15 @@ export function useStoreCustomerAuth(storeSlug: string, resellerId: string) {
       const owner = data.user.user_metadata?.store_slug === storeSlug;
       setIsStoreOwner(owner);
       setLoggedIn(true);
-      if (owner) router.push("/dashboard");
+      // Owner goes to the country-scoped dashboard — the same route the
+      // storefront header links to. The bare /dashboard resolves to the
+      // legacy reseller shell instead.
+      if (owner) router.push(`/${countryCode}/dashboard`);
       setEmail("");
       setPassword("");
     }
     setLoginLoading(false);
-  }, [authMode, email, password, storeSlug, router]);
+  }, [authMode, email, password, storeSlug, countryCode, router]);
 
   const handleLogout = useCallback(async () => {
     setLogoutLoading(true);

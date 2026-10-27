@@ -42,6 +42,7 @@ export default function StoreProfileClient({
   const auth = useStoreCustomerAuth(
     storeData.application.store_slug,
     resellerId,
+    storeData.application.country_code,
   );
   const wallet = useStoreCustomerWallet({
     loggedIn: auth.loggedIn,

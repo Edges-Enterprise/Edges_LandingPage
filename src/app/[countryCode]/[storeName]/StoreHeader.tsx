@@ -35,7 +35,28 @@ interface StoreHeaderProps {
   walletLoading?: boolean;
   onFundClick?: () => void;
   onSupportClick?: () => void;
+  // Opens the storefront sign-in modal in place. Without it (the profile
+  // page) Sign In falls back to navigating with ?login=true.
+  onLoginClick?: () => void;
 }
+
+// Shared row styling for every drawer entry.
+const drawerRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.75rem",
+  padding: "0.75rem 0",
+  background: "transparent",
+  border: "none",
+  borderBottom: "1px solid var(--border)",
+  color: "var(--text)",
+  textDecoration: "none",
+  cursor: "pointer",
+  width: "100%",
+  textAlign: "left",
+  fontSize: "0.9rem",
+  fontFamily: "inherit",
+};
 
 export default function StoreHeader({
   storeData,
@@ -46,6 +67,7 @@ export default function StoreHeader({
   walletLoading,
   onFundClick,
   onSupportClick,
+  onLoginClick,
 }: StoreHeaderProps) {
   const t = translations;
   const router = useRouter();
@@ -73,19 +95,15 @@ export default function StoreHeader({
       setLoggedIn(!!session);
 
       if (session?.user) {
-        console.log("User metadata:", session.user.user_metadata);
-        console.log("Store slug:", storeData.application.store_slug);
-
-        // Check if user is store owner by comparing store_name in metadata
-        // The metadata store_name should be set during signup
-        //
-
-        const userStoreName = session.user.user_metadata?.store_name;
-        const currentStoreName = storeData.application.store_name;
-
-        // Compare the display names
-        setIsStoreOwner(userStoreName === currentStoreName);
-        console.log("Is store owner:", userStoreName === currentStoreName);
+        // Owner detection compares store_slug, matching the auth hook and the
+        // profile page. It previously compared store_name, but the reseller
+        // signup writes store_name as the slug too — a display-name mismatch
+        // silently classified the owner as a customer, which swapped the
+        // drawer's Dashboard row for Contact Store.
+        setIsStoreOwner(
+          session.user.user_metadata?.store_slug ===
+            storeData.application.store_slug,
+        );
       } else {
         setIsStoreOwner(false);
       }
@@ -101,12 +119,9 @@ export default function StoreHeader({
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setLoggedIn(!!session);
       if (session?.user) {
-        const userStoreName = session.user.user_metadata?.store_name;
-        const currentStoreName = storeData.application.store_name;
-        setIsStoreOwner(userStoreName === currentStoreName);
-        console.log(
-          "Auth state changed - Is store owner:",
-          userStoreName === currentStoreName,
+        setIsStoreOwner(
+          session.user.user_metadata?.store_slug ===
+            storeData.application.store_slug,
         );
       } else {
         setIsStoreOwner(false);
@@ -114,7 +129,7 @@ export default function StoreHeader({
     });
 
     return () => subscription.unsubscribe();
-  }, [storeData.application.store_name]);
+  }, [storeData.application.store_slug]);
 
   // Get reseller phone for WhatsApp
   useEffect(() => {
@@ -206,12 +221,21 @@ export default function StoreHeader({
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
+    // A store owner is a reseller: sign-out belongs on the reseller sign-in
+    // page. Storefront customers keep the legacy behaviour of returning to
+    // the store they were browsing.
     router.push(
-      `/${storeData.application.country_code}/${storeData.application.store_slug}`,
+      isStoreOwner
+        ? `/${storeData.application.country_code}/sign-in`
+        : `/${storeData.application.country_code}/${storeData.application.store_slug}`,
     );
   };
 
   const handleLogin = () => {
+    if (onLoginClick) {
+      onLoginClick();
+      return;
+    }
     router.push(
       `/${storeData.application.country_code}/${storeData.application.store_slug}?login=true`,
     );
@@ -790,6 +814,7 @@ export default function StoreHeader({
 
       {/* Mobile Drawer */}
       <div
+        className="mobile-drawer"
         style={{
           width: 280,
           background: "var(--bg2)",
@@ -844,6 +869,20 @@ export default function StoreHeader({
           </button>
         </div>
 
+        {/* Drawer order is deliberate: identity first (Profile, Wallet),
+            then the owner-only Dashboard, then Notifications and the theme
+            toggle, and Contact Store last for customers. */}
+        {loggedIn && (
+          <Link
+            href={`/${storeData.application.country_code}/${storeData.application.store_slug}/profile`}
+            onClick={() => setIsMobileMenuOpen(false)}
+            style={drawerRow}
+          >
+            <User size={16} />
+            {t?.profile || "Profile"}
+          </Link>
+        )}
+
         {/* Wallet — the header's wallet pill sits inside `desktop-nav` and is
             hidden below 768px, so the drawer is the only place a phone user
             can reach funding. Owner gets the dashboard wallet link; a
@@ -853,16 +892,7 @@ export default function StoreHeader({
             <Link
               href={`/${storeData.application.country_code}/dashboard/wallet`}
               onClick={() => setIsMobileMenuOpen(false)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                padding: "0.75rem 0",
-                borderBottom: "1px solid var(--border)",
-                color: "var(--text)",
-                textDecoration: "none",
-                fontSize: "0.9rem",
-              }}
+              style={drawerRow}
             >
               <Wallet size={16} />
               Wallet
@@ -874,21 +904,7 @@ export default function StoreHeader({
                   setIsMobileMenuOpen(false);
                   onFundClick?.();
                 }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "0.75rem",
-                  padding: "0.75rem 0",
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: "1px solid var(--border)",
-                  color: "var(--text)",
-                  cursor: "pointer",
-                  width: "100%",
-                  textAlign: "left",
-                  fontSize: "0.9rem",
-                }}
+                style={{ ...drawerRow, justifyContent: "space-between" }}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                   <Wallet size={16} />
@@ -901,6 +917,23 @@ export default function StoreHeader({
             )
           ))}
 
+        {/* Dashboard - Only for Store Owner */}
+        {loggedIn && isStoreOwner && (
+          <Link
+            href={`/${storeData.application.country_code}/dashboard`}
+            onClick={() => setIsMobileMenuOpen(false)}
+            style={drawerRow}
+          >
+            <LayoutDashboard size={16} />
+            Dashboard
+          </Link>
+        )}
+
+        {/* Notifications */}
+        <button style={drawerRow}>
+          <Bell size={16} />
+          Notifications
+        </button>
 
         {/* Theme Toggle */}
         <button
@@ -908,163 +941,50 @@ export default function StoreHeader({
             toggleTheme();
             setIsMobileMenuOpen(false);
           }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            padding: "0.75rem 0",
-            background: "transparent",
-            border: "none",
-            borderBottom: "1px solid var(--border)",
-            color: "var(--text)",
-            cursor: "pointer",
-            width: "100%",
-            textAlign: "left",
-            fontSize: "0.9rem",
-          }}
+          style={drawerRow}
         >
           {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
           {theme === "light" ? "Dark Mode" : "Light Mode"}
         </button>
 
-        {/* Notifications */}
-        <button
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            padding: "0.75rem 0",
-            background: "transparent",
-            border: "none",
-            borderBottom: "1px solid var(--border)",
-            color: "var(--text)",
-            cursor: "pointer",
-            width: "100%",
-            textAlign: "left",
-            fontSize: "0.9rem",
-          }}
-        >
-          <Bell size={16} />
-          Notifications
-        </button>
+        {/* Contact/WhatsApp - Only for Customers, and always last */}
+        {loggedIn && !isStoreOwner && resellerPhone && (
+          <button
+            onClick={() => {
+              handleWhatsApp();
+              setIsMobileMenuOpen(false);
+            }}
+            style={drawerRow}
+          >
+            <MessageCircle size={16} />
+            Contact Store
+          </button>
+        )}
 
-        {/* Auth / Account */}
         {loggedIn ? (
-          <>
-            {/* Profile — the desktop avatar links here; the drawer needs
-                its own row since the header's account cluster is hidden
-                below 768px. */}
-            <Link
-              href={`/${storeData.application.country_code}/${storeData.application.store_slug}/profile`}
-              onClick={() => setIsMobileMenuOpen(false)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                padding: "0.75rem 0",
-                borderBottom: "1px solid var(--border)",
-                color: "var(--text)",
-                textDecoration: "none",
-                fontSize: "0.9rem",
-              }}
-            >
-              <User size={16} />
-              {t?.profile || "Profile"}
-            </Link>
-
-            {/* Dashboard - Only for Store Owner */}
-            {isStoreOwner && (
-              <Link
-                href={`/${storeData.application.country_code}/dashboard`}
-                onClick={() => setIsMobileMenuOpen(false)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  padding: "0.75rem 0",
-                  borderBottom: "1px solid var(--border)",
-                  color: "var(--text)",
-                  textDecoration: "none",
-                  fontSize: "0.9rem",
-                }}
-              >
-                <LayoutDashboard size={16} />
-                Dashboard
-              </Link>
-            )}
-
-            {/* Contact/WhatsApp - Only for Customers */}
-            {!isStoreOwner && resellerPhone && (
-              <button
-                onClick={() => {
-                  handleWhatsApp();
-                  setIsMobileMenuOpen(false);
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  padding: "0.75rem 0",
-                  borderBottom: "1px solid var(--border)",
-                  color: "var(--text)",
-                  cursor: "pointer",
-                  width: "100%",
-                  textAlign: "left",
-                  fontSize: "0.9rem",
-                  background: "transparent",
-                  border: "none",
-                }}
-              >
-                <MessageCircle size={16} />
-                Contact Store
-              </button>
-            )}
-
-            <button
-              onClick={() => {
-                handleLogout();
-                setIsMobileMenuOpen(false);
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                padding: "0.75rem 0",
-                background: "transparent",
-                border: "none",
-                color: "var(--text)",
-                cursor: "pointer",
-                width: "100%",
-                textAlign: "left",
-                fontSize: "0.9rem",
-                marginTop: "auto",
-                borderTop: "1px solid var(--border)",
-                paddingTop: "1rem",
-              }}
-            >
-              <LogOut size={16} />
-              {t?.signOut || "Sign Out"}
-            </button>
-          </>
+          <button
+            onClick={() => {
+              handleLogout();
+              setIsMobileMenuOpen(false);
+            }}
+            style={{
+              ...drawerRow,
+              marginTop: "auto",
+              borderBottom: "none",
+              borderTop: "1px solid var(--border)",
+              paddingTop: "1rem",
+            }}
+          >
+            <LogOut size={16} />
+            {t?.signOut || "Sign Out"}
+          </button>
         ) : (
           <button
             onClick={() => {
               handleLogin();
               setIsMobileMenuOpen(false);
             }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.75rem",
-              padding: "0.75rem 0",
-              background: "transparent",
-              border: "none",
-              color: "var(--text)",
-              cursor: "pointer",
-              width: "100%",
-              textAlign: "left",
-              fontSize: "0.9rem",
-            }}
+            style={drawerRow}
           >
             <LogIn size={16} />
             {t?.signIn || "Sign In"}
