@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthEmail } from "@/lib/auth/email-lookup";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
@@ -10,6 +10,11 @@ import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Read the country from the route param, not window.location: this page is
+  // server-rendered, and touching `window` during render aborts SSR
+  // ("window is not defined") and forces the whole page to client-render.
+  const params = useParams<{ countryCode?: string }>();
+  const countryCode = params?.countryCode || "ng";
   const emailParam = searchParams?.get("email") || "";
 
   const [email, setEmail] = useState(emailParam);
@@ -50,10 +55,6 @@ function SignInContent() {
         setError(signInError.message || "Invalid email or password");
         return;
       }
-
-      // Get the country code from the URL
-      const pathParts = window.location.pathname.split("/");
-      const countryCode = pathParts[1] || "ng";
 
       router.push(`/${countryCode}/dashboard`);
     } catch (err) {
@@ -259,7 +260,7 @@ function SignInContent() {
         >
           Don't have an account?{" "}
           <a
-            href={`/${window.location.pathname.split("/")[1] || "ng"}/apply`}
+            href={`/${countryCode}/apply`}
             style={{ color: "var(--accent)", textDecoration: "none" }}
           >
             Apply now
