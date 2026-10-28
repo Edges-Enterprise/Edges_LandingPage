@@ -36,9 +36,7 @@
   "retry": "إعادة المحاولة",
   "completed": "مكتمل",
   "pending": "قيد الانتظار",
-  "processing": "قيد المعالجة",
   "failed": "فاشل",
-  "refunded": "مسترد",
   "data": "بيانات",
   "airtime": "رصيد",
   "electricity": "كهرباء",
@@ -49,7 +47,6 @@
   "paymentStatus": "حالة الدفع",
   "paid": "مدفوع",
   "unpaid": "غير مدفوع",
-  "refundedStatus": "مسترد",
   "deliveryInfo": "معلومات التسليم",
   "providerReference": "مرجع المزود",
   "requestId": "رقم الطلب",
@@ -57,5 +54,9 @@
   "updating": "جاري التحديث...",
   "created": "تم الإنشاء",
   "updated": "تم التحديث",
-  "orderIdLabel": "رقم الطلب"
+  "orderIdLabel": "رقم الطلب",
+  "cancelled": "ملغاة",
+  "paymentMethod": "طريقة الدفع",
+  "reference": "المرجع",
+  "close": "إغلاق"
 }

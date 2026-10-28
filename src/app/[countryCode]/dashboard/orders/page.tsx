@@ -31,16 +31,16 @@ async function getOrdersData(userId: string) {
 
     if (ordersError) throw ordersError;
 
-    // Calculate stats
+    // Calculate stats. The database only accepts pending/completed/failed/
+    // cancelled (global_orders_status_check), so `cancelled` is the failure
+    // bucket alongside `failed`.
     const completedOrders =
       orders?.filter((o) => o.status === "completed") || [];
-    const pendingOrders =
-      orders?.filter(
-        (o) => o.status === "pending" || o.status === "processing",
-      ) || [];
+    const pendingOrders = orders?.filter((o) => o.status === "pending") || [];
     const failedOrders =
-      orders?.filter((o) => o.status === "failed" || o.status === "refunded") ||
-      [];
+      orders?.filter(
+        (o) => o.status === "failed" || o.status === "cancelled",
+      ) || [];
 
     const totalRevenue = completedOrders.reduce(
       (sum, o) => sum + (o.amount || 0),
@@ -120,9 +120,8 @@ async function getTranslations(language: string) {
         retry: "Retry",
         completed: "Completed",
         pending: "Pending",
-        processing: "Processing",
         failed: "Failed",
-        refunded: "Refunded",
+        cancelled: "Cancelled",
         data: "Data",
         airtime: "Airtime",
         electricity: "Electricity",

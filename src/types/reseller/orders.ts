@@ -4,29 +4,28 @@ export interface Order {
   id: string;
   reseller_id: string;
   customer_id?: string;
-  order_number?: string;
+  customer_name: string;
   plan_id?: string;
-  plan_name?: string;
-  plan_category?: string;
-  network?: string;
+  plan_name: string;
   amount: number;
-  cost: number;
   profit: number;
-  markup_percent: number;
-  customer_name?: string;
-  customer_email?: string;
-  customer_phone?: string;
-  delivery_details?: string;
   status: string;
-  payment_status: string;
-  transaction_id?: string;
-  provider_reference?: string;
-  request_id?: string;
+  payment_method?: string;
+  transaction_reference?: string;
   metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
-  completed_at?: string;
 }
+
+// The order statuses the database accepts (global_orders_status_check).
+export const ORDER_STATUSES = [
+  "pending",
+  "completed",
+  "failed",
+  "cancelled",
+] as const;
+
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export interface OrderStats {
   total_orders: number;

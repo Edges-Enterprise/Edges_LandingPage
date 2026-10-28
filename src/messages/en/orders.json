@@ -36,9 +36,7 @@
   "retry": "Retry",
   "completed": "Completed",
   "pending": "Pending",
-  "processing": "Processing",
   "failed": "Failed",
-  "refunded": "Refunded",
   "data": "Data",
   "airtime": "Airtime",
   "electricity": "Electricity",
@@ -49,7 +47,6 @@
   "paymentStatus": "Payment Status",
   "paid": "Paid",
   "unpaid": "Unpaid",
-  "refundedStatus": "Refunded",
   "deliveryInfo": "Delivery Info",
   "providerReference": "Provider Reference",
   "requestId": "Request ID",
@@ -57,5 +54,9 @@
   "updating": "Updating...",
   "created": "Created",
   "updated": "Updated",
-  "orderIdLabel": "Order ID"
+  "orderIdLabel": "Order ID",
+  "cancelled": "Cancelled",
+  "paymentMethod": "Payment Method",
+  "reference": "Reference",
+  "close": "Close"
 }

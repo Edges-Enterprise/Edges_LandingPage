@@ -36,9 +36,7 @@
   "retry": "Réessayer",
   "completed": "Terminée",
   "pending": "En Attente",
-  "processing": "En Traitement",
   "failed": "Échouée",
-  "refunded": "Remboursée",
   "data": "Données",
   "airtime": "Crédit Téléphonique",
   "electricity": "Électricité",
@@ -49,7 +47,6 @@
   "paymentStatus": "Statut de Paiement",
   "paid": "Payé",
   "unpaid": "Non Payé",
-  "refundedStatus": "Remboursé",
   "deliveryInfo": "Informations de Livraison",
   "providerReference": "Référence Fournisseur",
   "requestId": "ID de Requête",
@@ -57,5 +54,9 @@
   "updating": "Mise à jour...",
   "created": "Créée",
   "updated": "Mise à jour",
-  "orderIdLabel": "ID Commande"
+  "orderIdLabel": "ID Commande",
+  "cancelled": "Annulée",
+  "paymentMethod": "Méthode de Paiement",
+  "reference": "Référence",
+  "close": "Fermer"
 }

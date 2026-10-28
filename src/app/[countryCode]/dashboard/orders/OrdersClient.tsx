@@ -47,9 +47,10 @@ export default function OrdersClient({
 
   const currencySymbol = config.currencySymbol || "₦";
 
-  // Get unique categories from orders
+  // The table has no plan_category column; payment_method is the only
+  // grouping field it stores, so the second filter groups by that.
   const categories = orders
-    ? [...new Set(orders.map((o) => o.plan_category).filter(Boolean))]
+    ? [...new Set(orders.map((o) => o.payment_method).filter(Boolean))]
     : [];
 
   // Filter orders
@@ -60,11 +61,10 @@ export default function OrdersClient({
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (o: Order) =>
-          o.order_number?.toLowerCase().includes(query) ||
+          o.transaction_reference?.toLowerCase().includes(query) ||
           o.customer_name?.toLowerCase().includes(query) ||
-          o.customer_email?.toLowerCase().includes(query) ||
-          o.customer_phone?.toLowerCase().includes(query) ||
-          o.plan_name?.toLowerCase().includes(query),
+          o.plan_name?.toLowerCase().includes(query) ||
+          o.payment_method?.toLowerCase().includes(query),
       );
     }
 
@@ -74,7 +74,7 @@ export default function OrdersClient({
 
     if (categoryFilter !== "all") {
       filtered = filtered.filter(
-        (o: Order) => o.plan_category === categoryFilter,
+        (o: Order) => o.payment_method === categoryFilter,
       );
     }
 
@@ -94,11 +94,9 @@ export default function OrdersClient({
 
         // Update stats
         const completedOrders = data.filter((o) => o.status === "completed");
-        const pendingOrders = data.filter(
-          (o) => o.status === "pending" || o.status === "processing",
-        );
+        const pendingOrders = data.filter((o) => o.status === "pending");
         const failedOrders = data.filter(
-          (o) => o.status === "failed" || o.status === "refunded",
+          (o) => o.status === "failed" || o.status === "cancelled",
         );
         const totalRevenue = completedOrders.reduce(
           (sum, o) => sum + (o.amount || 0),
@@ -139,9 +137,8 @@ export default function OrdersClient({
     const colors: Record<string, string> = {
       completed: "#6EBD8A",
       pending: "#F59E0B",
-      processing: "#3B82F6",
       failed: "#EF4444",
-      refunded: "#8B5CF6",
+      cancelled: "#8B5CF6",
     };
     return colors[status] || "var(--muted)";
   };
@@ -150,15 +147,37 @@ export default function OrdersClient({
     const icons: Record<string, any> = {
       completed: CheckCircle,
       pending: Clock,
-      processing: Clock,
       failed: XCircle,
-      refunded: XCircle,
+      cancelled: XCircle,
     };
     return icons[status] || Package;
   };
 
   return (
     <div>
+      <style>{`
+        .orders-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+        .orders-stat-card {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 1rem;
+          min-width: 0;
+        }
+        .orders-stat-card > p { overflow-wrap: anywhere; }
+        @media (max-width: 1023px) {
+          .orders-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 480px) {
+          .orders-stat-card { padding: 0.85rem; }
+          .orders-stat-card > p { font-size: 1.15rem !important; }
+        }
+      `}</style>
       {/* Page Header */}
       <div
         style={{
@@ -210,22 +229,8 @@ export default function OrdersClient({
       </div>
 
       {/* Stats Cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-          gap: "1rem",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <div
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-            padding: "1rem",
-          }}
-        >
+      <div className="orders-stats-grid">
+        <div className="orders-stat-card">
           <div
             style={{
               display: "flex",
@@ -259,14 +264,7 @@ export default function OrdersClient({
           </p>
         </div>
 
-        <div
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-            padding: "1rem",
-          }}
-        >
+        <div className="orders-stat-card">
           <div
             style={{
               display: "flex",
@@ -300,14 +298,7 @@ export default function OrdersClient({
           </p>
         </div>
 
-        <div
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-            padding: "1rem",
-          }}
-        >
+        <div className="orders-stat-card">
           <div
             style={{
               display: "flex",
@@ -341,14 +332,7 @@ export default function OrdersClient({
           </p>
         </div>
 
-        <div
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-            padding: "1rem",
-          }}
-        >
+        <div className="orders-stat-card">
           <div
             style={{
               display: "flex",
@@ -448,11 +432,10 @@ export default function OrdersClient({
           }}
         >
           <option value="all">{t?.allStatus || "All Status"}</option>
-          <option value="completed">{t?.completed || "Completed"}</option>
           <option value="pending">{t?.pending || "Pending"}</option>
-          <option value="processing">{t?.processing || "Processing"}</option>
+          <option value="completed">{t?.completed || "Completed"}</option>
           <option value="failed">{t?.failed || "Failed"}</option>
-          <option value="refunded">{t?.refunded || "Refunded"}</option>
+          <option value="cancelled">{t?.cancelled || "Cancelled"}</option>
         </select>
 
         {categories.length > 0 && (

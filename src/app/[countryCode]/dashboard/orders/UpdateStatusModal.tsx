@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, CheckCircle, Clock, XCircle, RefreshCw } from "lucide-react";
+import { X, CheckCircle, Clock, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Order } from "@/types/reseller/orders";
 import { CountryConfig } from "@/config/countries";
@@ -42,12 +42,6 @@ export default function UpdateStatusModal({
       color: "#F59E0B",
     },
     {
-      value: "processing",
-      label: t?.processing || "Processing",
-      icon: RefreshCw,
-      color: "#3B82F6",
-    },
-    {
       value: "completed",
       label: t?.completed || "Completed",
       icon: CheckCircle,
@@ -60,8 +54,8 @@ export default function UpdateStatusModal({
       color: "#EF4444",
     },
     {
-      value: "refunded",
-      label: t?.refunded || "Refunded",
+      value: "cancelled",
+      label: t?.cancelled || "Cancelled",
       icon: XCircle,
       color: "#8B5CF6",
     },
@@ -77,18 +71,12 @@ export default function UpdateStatusModal({
     setError(null);
 
     try {
-      const updates: any = {
-        status: selectedStatus,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (selectedStatus === "completed") {
-        updates.completed_at = new Date().toISOString();
-      }
-
       const { error } = await supabase
         .from("global_orders")
-        .update(updates)
+        .update({
+          status: selectedStatus,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", order.id);
 
       if (error) throw error;
@@ -186,7 +174,8 @@ export default function UpdateStatusModal({
           }}
         >
           {t?.orderNumber || "Order #"}
-          {order.order_number || order.id.slice(0, 8)}
+          {order.transaction_reference ||
+            `#${order.id.slice(0, 8).toUpperCase()}`}
         </p>
 
         {/* Current Status */}

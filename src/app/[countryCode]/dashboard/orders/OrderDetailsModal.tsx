@@ -5,15 +5,12 @@ import {
   X,
   User,
   Package,
-  DollarSign,
   Calendar,
-  Phone,
-  Mail,
   Hash,
   Clock,
   CheckCircle,
   XCircle,
-  RefreshCw,
+  CreditCard,
 } from "lucide-react";
 import { Order } from "@/types/reseller/orders";
 import { CountryConfig } from "@/config/countries";
@@ -59,25 +56,71 @@ export default function OrderDetailsModal({
     const colors: Record<string, string> = {
       completed: "#6EBD8A",
       pending: "#F59E0B",
-      processing: "#3B82F6",
       failed: "#EF4444",
-      refunded: "#8B5CF6",
+      cancelled: "#8B5CF6",
     };
     return colors[status] || "var(--muted)";
+  };
+
+  const getStatusLabel = (status: string): string => {
+    const labels: Record<string, string> = {
+      completed: t?.completed || "Completed",
+      pending: t?.pending || "Pending",
+      failed: t?.failed || "Failed",
+      cancelled: t?.cancelled || "Cancelled",
+    };
+    return labels[status] || status;
   };
 
   const getStatusIcon = (status: string) => {
     const icons: Record<string, any> = {
       completed: CheckCircle,
       pending: Clock,
-      processing: Clock,
       failed: XCircle,
-      refunded: XCircle,
+      cancelled: XCircle,
     };
     return icons[status] || Clock;
   };
 
   const StatusIcon = getStatusIcon(order.status);
+  const orderRef =
+    order.transaction_reference || `#${order.id.slice(0, 8).toUpperCase()}`;
+
+  const infoRow = (
+    icon: React.ReactNode,
+    label: string,
+    value: React.ReactNode,
+  ) => (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "0.5rem",
+      }}
+    >
+      <span style={{ color: "var(--dim)", marginTop: 2 }}>{icon}</span>
+      <span
+        style={{
+          color: "var(--muted)",
+          fontSize: "0.85rem",
+          minWidth: 96,
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          color: "var(--text)",
+          fontSize: "0.85rem",
+          flex: 1,
+          textAlign: "end",
+          overflowWrap: "anywhere",
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  );
 
   return (
     <div
@@ -107,9 +150,9 @@ export default function OrderDetailsModal({
           position: "relative",
         }}
       >
-        {/* Close button */}
         <button
           onClick={onClose}
+          aria-label={t?.close || "Close"}
           style={{
             position: "absolute",
             top: "1rem",
@@ -136,10 +179,12 @@ export default function OrderDetailsModal({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            gap: "0.75rem",
             marginBottom: "1rem",
+            paddingRight: "1.5rem",
           }}
         >
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h2
               style={{
                 fontFamily: "'Playfair Display', serif",
@@ -156,10 +201,11 @@ export default function OrderDetailsModal({
                 color: "var(--dim)",
                 fontFamily: "monospace",
                 margin: "0.25rem 0 0 0",
+                overflowWrap: "anywhere",
               }}
             >
               {t?.orderNumber || "Order #"}
-              {order.order_number || order.id.slice(0, 8)}
+              {orderRef}
             </p>
           </div>
           <span
@@ -173,14 +219,15 @@ export default function OrderDetailsModal({
               background: `${getStatusColor(order.status)}15`,
               padding: "4px 12px",
               borderRadius: 100,
+              whiteSpace: "nowrap",
             }}
           >
             <StatusIcon size={14} />
-            {order.status}
+            {getStatusLabel(order.status)}
           </span>
         </div>
 
-        {/* Order Summary */}
+        {/* Summary */}
         <div
           style={{
             display: "grid",
@@ -192,7 +239,7 @@ export default function OrderDetailsModal({
             marginBottom: "1rem",
           }}
         >
-          <div style={{ textAlign: "center" }}>
+          <div style={{ textAlign: "center", minWidth: 0 }}>
             <p
               style={{
                 fontSize: "0.6rem",
@@ -209,12 +256,13 @@ export default function OrderDetailsModal({
                 fontWeight: 700,
                 color: "var(--text)",
                 margin: "0.25rem 0 0 0",
+                overflowWrap: "anywhere",
               }}
             >
               {formatPrice(order.amount)}
             </p>
           </div>
-          <div style={{ textAlign: "center" }}>
+          <div style={{ textAlign: "center", minWidth: 0 }}>
             <p
               style={{
                 fontSize: "0.6rem",
@@ -231,13 +279,14 @@ export default function OrderDetailsModal({
                 fontWeight: 700,
                 color: order.profit > 0 ? "#6EBD8A" : "var(--dim)",
                 margin: "0.25rem 0 0 0",
+                overflowWrap: "anywhere",
               }}
             >
               {order.profit > 0 ? "+" : ""}
               {formatPrice(order.profit)}
             </p>
           </div>
-          <div style={{ textAlign: "center" }}>
+          <div style={{ textAlign: "center", minWidth: 0 }}>
             <p
               style={{
                 fontSize: "0.6rem",
@@ -261,7 +310,7 @@ export default function OrderDetailsModal({
           </div>
         </div>
 
-        {/* Order Info */}
+        {/* Order info */}
         <div style={{ marginBottom: "1rem" }}>
           <h3
             style={{
@@ -278,40 +327,31 @@ export default function OrderDetailsModal({
           <div
             style={{
               display: "grid",
-              gap: "0.5rem",
+              gap: "0.6rem",
               padding: "0.75rem",
               background: "var(--bg2)",
               borderRadius: 8,
             }}
           >
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <Package size={14} style={{ color: "var(--dim)" }} />
-              <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
-                {order.plan_name || "Unknown Plan"}
-                {order.plan_category && (
-                  <span style={{ color: "var(--dim)", marginLeft: "0.5rem" }}>
-                    · {order.plan_category}
-                    {order.network && ` · ${order.network}`}
-                  </span>
-                )}
-              </span>
-            </div>
-            {order.delivery_details && (
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-              >
-                <Hash size={14} style={{ color: "var(--dim)" }} />
-                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
-                  {t?.deliveryDetails || "Delivery"}: {order.delivery_details}
-                </span>
-              </div>
+            {infoRow(
+              <Package size={14} />,
+              t?.plan || "Plan",
+              order.plan_name || "Unknown Plan",
+            )}
+            {infoRow(
+              <CreditCard size={14} />,
+              t?.paymentMethod || "Payment",
+              order.payment_method || "—",
+            )}
+            {infoRow(
+              <Hash size={14} />,
+              t?.reference || "Reference",
+              order.transaction_reference || "—",
             )}
           </div>
         </div>
 
-        {/* Customer Info */}
+        {/* Customer */}
         <div style={{ marginBottom: "1rem" }}>
           <h3
             style={{
@@ -328,120 +368,19 @@ export default function OrderDetailsModal({
           <div
             style={{
               display: "grid",
-              gap: "0.5rem",
+              gap: "0.6rem",
               padding: "0.75rem",
               background: "var(--bg2)",
               borderRadius: 8,
             }}
           >
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <User size={14} style={{ color: "var(--dim)" }} />
-              <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
-                {order.customer_name || "Unknown Customer"}
-              </span>
-            </div>
-            {order.customer_email && (
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-              >
-                <Mail size={14} style={{ color: "var(--dim)" }} />
-                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
-                  {order.customer_email}
-                </span>
-              </div>
-            )}
-            {order.customer_phone && (
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-              >
-                <Phone size={14} style={{ color: "var(--dim)" }} />
-                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
-                  {order.customer_phone}
-                </span>
-              </div>
+            {infoRow(
+              <User size={14} />,
+              t?.customer || "Customer",
+              order.customer_name || "Unknown Customer",
             )}
           </div>
         </div>
-
-        {/* Reference Info */}
-        {(order.provider_reference || order.request_id) && (
-          <div style={{ marginBottom: "1rem" }}>
-            <h3
-              style={{
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                color: "var(--muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                marginBottom: "0.5rem",
-              }}
-            >
-              {t?.paymentInfo || "Payment Information"}
-            </h3>
-            <div
-              style={{
-                display: "grid",
-                gap: "0.5rem",
-                padding: "0.75rem",
-                background: "var(--bg2)",
-                borderRadius: 8,
-              }}
-            >
-              {order.provider_reference && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <Hash size={14} style={{ color: "var(--dim)" }} />
-                  <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
-                    {t?.providerReference || "Provider Ref"}:{" "}
-                    {order.provider_reference}
-                  </span>
-                </div>
-              )}
-              {order.request_id && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <Hash size={14} style={{ color: "var(--dim)" }} />
-                  <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
-                    {t?.requestId || "Request ID"}: {order.request_id}
-                  </span>
-                </div>
-              )}
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-              >
-                <DollarSign size={14} style={{ color: "var(--dim)" }} />
-                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
-                  {t?.paymentStatus || "Payment Status"}:{" "}
-                  <span
-                    style={{
-                      color:
-                        order.payment_status === "paid"
-                          ? "#6EBD8A"
-                          : order.payment_status === "pending"
-                            ? "#F59E0B"
-                            : "#EF4444",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {order.payment_status || "pending"}
-                  </span>
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Timeline */}
         <div>
@@ -459,50 +398,24 @@ export default function OrderDetailsModal({
           </h3>
           <div
             style={{
+              display: "grid",
+              gap: "0.6rem",
               padding: "0.75rem",
               background: "var(--bg2)",
               borderRadius: 8,
             }}
           >
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <Clock size={14} style={{ color: "var(--dim)" }} />
-              <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
-                {t?.created || "Created"}: {formatDate(order.created_at)}
-              </span>
-            </div>
-            {order.completed_at && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  marginTop: "0.25rem",
-                }}
-              >
-                <CheckCircle size={14} style={{ color: "#6EBD8A" }} />
-                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
-                  {t?.completed || "Completed"}:{" "}
-                  {formatDate(order.completed_at)}
-                </span>
-              </div>
+            {infoRow(
+              <Calendar size={14} />,
+              t?.created || "Created",
+              formatDate(order.created_at),
             )}
-            {order.updated_at && order.updated_at !== order.created_at && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  marginTop: "0.25rem",
-                }}
-              >
-                <RefreshCw size={14} style={{ color: "var(--dim)" }} />
-                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>
-                  {t?.updated || "Updated"}: {formatDate(order.updated_at)}
-                </span>
-              </div>
-            )}
+            {order.updated_at && order.updated_at !== order.created_at &&
+              infoRow(
+                <Clock size={14} />,
+                t?.updated || "Updated",
+                formatDate(order.updated_at),
+              )}
           </div>
         </div>
       </div>
