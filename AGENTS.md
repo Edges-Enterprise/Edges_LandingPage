@@ -71,6 +71,22 @@ reseller dashboard).
   (`23502` otherwise).
 - `global_customers_status_check` accepts only `active` and `inactive` — there is
   no `suspended` status (`23514`). Do not offer it in a status control.
+- `global_orders` has exactly 14 columns: `id, reseller_id, customer_id,
+  customer_name, plan_id, plan_name, amount, profit, status, payment_method,
+  transaction_reference, metadata, created_at, updated_at`. There is no
+  `order_number`, `plan_category`, `customer_email`, `completed_at`,
+  `payment_status` or `provider_reference` — writing any of them fails
+  (`42703`), so use `transaction_reference` for a human-readable id and
+  `payment_method` as the only grouping field.
+- `global_orders_status_check` accepts only `pending`, `completed`, `failed`
+  and `cancelled` — not `processing` or `refunded`.
+- `global_orders` had **RLS enabled with no policies** until 2026-10-28, so a
+  reseller's SELECT (and the browser-client UPDATE) was denied and the orders
+  page always read zero rows. Migration
+  `supabase/migrations/20261028_global_orders_rls_policies.sql` adds owner-scoped
+  SELECT + UPDATE policies (mirroring `global_customers`); INSERT/DELETE are
+  intentionally not granted. Check `pg_policies` before assuming a `global_*`
+  table is readable with the user's session.
 
 ## Pushing to this repo (credentials)
 
