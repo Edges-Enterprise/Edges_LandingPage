@@ -27,6 +27,7 @@
   "deposits": "Deposits",
   "withdrawals": "Withdrawals",
   "purchases": "Purchases",
+  "pending": "Pending",
   "accountName": "Account Name",
   "accountNumber": "Account Number",
   "bankName": "Bank Name",

@@ -22,13 +22,6 @@ export default function DashboardHeader({
     return () => clearInterval(timer);
   }, []);
 
-  const getGreeting = () => {
-    const hour = currentTime.getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  };
-
   const firstName =
     user?.user_metadata?.first_name || user?.email?.split("@")[0] || "Reseller";
 
@@ -87,7 +80,7 @@ export default function DashboardHeader({
               textOverflow: "ellipsis",
             }}
           >
-            {getGreeting()}, {firstName} 👋
+            hey {firstName} 👋
           </h2>
           <p
             style={{

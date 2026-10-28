@@ -70,13 +70,6 @@ export default function DashboardClient({
 
   return (
     <div>
-      {/* Stats Cards */}
-      <StatsCards
-        stats={stats}
-        currencySymbol={currencySymbol}
-        translations={t}
-      />
-
       {/* Quick Actions */}
       <QuickActions
         countryCode={countryCode}
@@ -84,15 +77,15 @@ export default function DashboardClient({
         translations={t}
       />
 
+      {/* Stats Cards */}
+      <StatsCards
+        stats={stats}
+        currencySymbol={currencySymbol}
+        translations={t}
+      />
+
       {/* Charts Row */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 1fr",
-          gap: "1.5rem",
-          marginBottom: "1.5rem",
-        }}
-      >
+      <div className="overview-charts-row">
         <RevenueChart
           revenue={data.revenue || []}
           currencySymbol={currencySymbol}
@@ -100,6 +93,20 @@ export default function DashboardClient({
         />
         <ActivityFeed activity={data.activity || []} translations={t} />
       </div>
+      <style>{`
+        .overview-charts-row {
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          gap: 1.5rem;
+          margin-bottom: 1.5rem;
+        }
+        @media (max-width: 767px) {
+          .overview-charts-row {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 1rem;
+          }
+        }
+      `}</style>
 
       {/* Top Products */}
       <div

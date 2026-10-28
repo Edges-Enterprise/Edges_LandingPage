@@ -61,15 +61,36 @@ export default function StatsCards({
   ];
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-        gap: "1rem",
-        marginBottom: "1.5rem",
-      }}
-    >
-      {cards.map((card, index) => (
+    <>
+      <style>{`
+        .overview-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+        @media (max-width: 1023px) {
+          .overview-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+        @media (max-width: 767px) {
+          .overview-stats-grid {
+            gap: 0.5rem;
+          }
+          .overview-stats-grid > div {
+            padding: 0.85rem 0.75rem;
+          }
+          .overview-stats-grid > div > div:first-child > span {
+            font-size: 0.62rem;
+          }
+          .overview-stats-grid > div > div:nth-child(2) {
+            font-size: 1.15rem;
+          }
+        }
+      `}</style>
+      <div className="overview-stats-grid">
+        {cards.map((card, index) => (
         <div
           key={index}
           style={{
@@ -162,7 +183,8 @@ export default function StatsCards({
             <span>{card.changeLabel}</span>
           </div>
         </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }

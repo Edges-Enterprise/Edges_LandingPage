@@ -87,6 +87,9 @@ export default function TransactionHistory({
 
   const filteredTransactions = transactions.filter((tx) => {
     if (filter === "all") return true;
+    // "pending" is a status filter, not a type — it must not be compared
+    // against tx.type or it would always match nothing.
+    if (filter === "pending") return tx.status === "pending";
     return tx.type === filter;
   });
 
@@ -95,6 +98,7 @@ export default function TransactionHistory({
     { value: "deposit", label: t?.deposits || "Deposits" },
     { value: "withdrawal", label: t?.withdrawals || "Withdrawals" },
     { value: "purchase", label: t?.purchases || "Purchases" },
+    { value: "pending", label: t?.pending || "Pending" },
   ];
 
   return (

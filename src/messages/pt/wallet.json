@@ -27,6 +27,7 @@
   "deposits": "Depósitos",
   "withdrawals": "Saques",
   "purchases": "Compras",
+  "pending": "Pendentes",
   "accountName": "Nome da Conta",
   "accountNumber": "Número da Conta",
   "bankName": "Nome do Banco",

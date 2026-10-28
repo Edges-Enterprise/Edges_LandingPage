@@ -62,15 +62,36 @@ export default function WalletSummary({
   ];
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-        gap: "1rem",
-        marginBottom: "1.5rem",
-      }}
-    >
-      {summaryCards.map((card, index) => (
+    <>
+      <style>{`
+        .wallet-summary-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+        @media (max-width: 1023px) {
+          .wallet-summary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+        @media (max-width: 767px) {
+          .wallet-summary-grid {
+            gap: 0.5rem;
+          }
+          .wallet-summary-grid > div {
+            padding: 0.85rem 0.75rem;
+          }
+          .wallet-summary-grid > div > div:first-child > span {
+            font-size: 0.62rem;
+          }
+          .wallet-summary-grid > div > div:nth-child(2) {
+            font-size: 1.1rem;
+          }
+        }
+      `}</style>
+      <div className="wallet-summary-grid">
+        {summaryCards.map((card, index) => (
         <div
           key={index}
           style={{
@@ -162,7 +183,8 @@ export default function WalletSummary({
             </div>
           )}
         </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }

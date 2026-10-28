@@ -67,6 +67,7 @@ export default function QuickActions({
       </h3>
 
       <div
+        className="quick-actions-grid"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
@@ -146,6 +147,20 @@ export default function QuickActions({
           );
         })}
       </div>
+
+      <style>{`
+        @media (max-width: 767px) {
+          .quick-actions-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 0.5rem !important;
+            padding: 0.5rem 0 !important;
+          }
+          .quick-actions-grid > a {
+            padding: 0.6rem 0.65rem !important;
+            font-size: 0.78rem !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
