@@ -74,7 +74,7 @@ export default function PendingPage({ params }: PendingPageProps) {
 
   if (isLoading) {
     // `application` is null until the fetch resolves; the store name is
-    // not known yet, so fall back to the platform label.
+    // not known yet, so fall back to the generic loading label.
     return (
       <StoreLoader
         label={

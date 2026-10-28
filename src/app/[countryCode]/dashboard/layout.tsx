@@ -107,7 +107,7 @@ export default function DashboardLayout({
 
   if (loading) {
     // `storeName` is "Reseller" until the dashboard context resolves, which
-    // is not a store — fall back to the platform label in that window.
+    // is not a store — fall back to the generic loading label in that window.
     const label =
       storeName && storeName !== "Reseller"
         ? storeLabel(storeName)

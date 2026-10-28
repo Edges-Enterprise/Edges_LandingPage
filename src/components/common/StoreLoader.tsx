@@ -1,7 +1,7 @@
 // src/components/common/StoreLoader.tsx
 
-/** Platform name, used where no store is in context (auth, admin, redirects). */
-export const PLATFORM_LABEL = "Edges Network";
+/** Fallback shown where no store is in context (auth, admin, redirects). */
+export const PLATFORM_LABEL = "Loading";
 
 /**
  * Builds the label shown above the loading bar: "<store name> Store".
@@ -9,7 +9,8 @@ export const PLATFORM_LABEL = "Edges Network";
  * Prefers the store's display name and falls back to title-casing the slug
  * (`toms-sub` -> "Toms Sub"), so a route-level loader that only knows the
  * URL still reads as the store. Names that already end in "Store" are left
- * alone rather than doubled.
+ * alone rather than doubled. With neither name nor slug there is no store to
+ * name, so it returns the generic `PLATFORM_LABEL`.
  */
 export function storeLabel(
   name?: string | null,
@@ -31,8 +32,8 @@ export function storeLabel(
 
 interface StoreLoaderProps {
   /**
-   * What to show above the bar. A store name ("Simi Store") or a platform
-   * name ("Edges Network") — see the call sites for which is which.
+   * What to show above the bar: a store name ("Simi Store") or the generic
+   * fallback ("Loading") — see the call sites for which is which.
    */
   label: string;
   /**
