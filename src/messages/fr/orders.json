@@ -58,5 +58,8 @@
   "cancelled": "Annulée",
   "paymentMethod": "Méthode de Paiement",
   "reference": "Référence",
-  "close": "Fermer"
+  "close": "Fermer",
+  "statusHistory": "Historique du statut",
+  "noStatusChanges": "Aucun changement de statut enregistré",
+  "systemActor": "Système"
 }

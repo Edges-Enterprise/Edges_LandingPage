@@ -12,11 +12,13 @@ import {
   XCircle,
   CreditCard,
 } from "lucide-react";
-import { Order } from "@/types/reseller/orders";
+import { Order, OrderStatusHistoryEntry } from "@/types/reseller/orders";
 import { CountryConfig } from "@/config/countries";
+import OrderStatusTimeline from "./OrderStatusTimeline";
 
 interface OrderDetailsModalProps {
   order: Order;
+  statusHistory?: OrderStatusHistoryEntry[];
   onClose: () => void;
   config: CountryConfig;
   translations: any;
@@ -24,6 +26,7 @@ interface OrderDetailsModalProps {
 
 export default function OrderDetailsModal({
   order,
+  statusHistory = [],
   onClose,
   config,
   translations,
@@ -416,6 +419,36 @@ export default function OrderDetailsModal({
                 t?.updated || "Updated",
                 formatDate(order.updated_at),
               )}
+          </div>
+        </div>
+
+        {/* Status audit trail */}
+        <div>
+          <h3
+            style={{
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "var(--muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              marginBottom: "0.5rem",
+            }}
+          >
+            {t?.statusHistory || "Status History"}
+          </h3>
+          <div
+            style={{
+              padding: "0.75rem",
+              background: "var(--bg2)",
+              borderRadius: 8,
+            }}
+          >
+            <OrderStatusTimeline
+              entries={statusHistory}
+              translations={t}
+              getStatusColor={getStatusColor}
+              getStatusLabel={getStatusLabel}
+            />
           </div>
         </div>
       </div>

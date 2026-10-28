@@ -58,5 +58,8 @@
   "cancelled": "Cancelled",
   "paymentMethod": "Payment Method",
   "reference": "Reference",
-  "close": "Close"
+  "close": "Close",
+  "statusHistory": "Status History",
+  "noStatusChanges": "No status changes recorded yet",
+  "systemActor": "System"
 }

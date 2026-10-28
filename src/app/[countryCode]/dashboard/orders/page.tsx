@@ -3,6 +3,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { getCountryConfig } from "@/config/countries";
 import { CountryProvider } from "@/providers/CountryProvider";
 import OrdersClient from "./OrdersClient";
+import { OrderStatusHistoryEntry } from "@/types/reseller/orders";
 import "@/app/reseller.css";
 
 interface OrdersPageProps {
@@ -62,10 +63,35 @@ async function getOrdersData(userId: string) {
         completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0,
     };
 
+    // Status audit trail, grouped by order. The table is small (one row per
+    // status transition) so a single fetch covers the page; RLS scopes it to
+    // this reseller's orders.
+    const orderIds = (orders || []).map((o) => o.id);
+    let statusHistory: Record<string, OrderStatusHistoryEntry[]> = {};
+
+    if (orderIds.length > 0) {
+      const { data: history, error: historyError } = await supabase
+        .from("global_order_status_history")
+        .select("*")
+        .in("order_id", orderIds)
+        .order("created_at", { ascending: false });
+
+      if (historyError) throw historyError;
+
+      statusHistory = (history || []).reduce(
+        (acc: Record<string, OrderStatusHistoryEntry[]>, entry: any) => {
+          (acc[entry.order_id] ||= []).push(entry);
+          return acc;
+        },
+        {},
+      );
+    }
+
     return {
       application,
       orders: orders || [],
       stats,
+      statusHistory,
     };
   } catch (error) {
     console.error("Orders data error:", error);
@@ -136,6 +162,17 @@ async function getTranslations(language: string) {
         deliveryInfo: "Delivery Info",
         providerReference: "Provider Reference",
         requestId: "Request ID",
+        currentStatus: "Current Status",
+        updating: "Updating...",
+        created: "Created",
+        updated: "Updated",
+        orderIdLabel: "Order ID",
+        paymentMethod: "Payment Method",
+        reference: "Reference",
+        close: "Close",
+        statusHistory: "Status History",
+        noStatusChanges: "No status changes recorded yet",
+        systemActor: "System",
       };
     }
   }

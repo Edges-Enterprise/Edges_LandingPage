@@ -16,7 +16,7 @@ import OrdersTable from "./OrdersTable";
 import OrderDetailsModal from "./OrderDetailsModal";
 import UpdateStatusModal from "./UpdateStatusModal";
 import { CountryConfig } from "@/config/countries";
-import { Order, OrdersData, OrderStats } from "@/types/reseller/orders";
+import { Order, OrdersData, OrderStats, OrderStatusHistoryEntry } from "@/types/reseller/orders";
 
 interface OrdersClientProps {
   countryCode: string;
@@ -44,6 +44,9 @@ export default function OrdersClient({
   const [showDetailsModal, setShowDetailsModal] = useState<boolean>(false);
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
   const [stats, setStats] = useState<OrderStats>(ordersData.stats);
+  const [statusHistory, setStatusHistory] = useState<
+    Record<string, OrderStatusHistoryEntry[]>
+  >(ordersData.statusHistory || {});
 
   const currencySymbol = config.currencySymbol || "₦";
 
@@ -119,6 +122,28 @@ export default function OrdersClient({
               ? totalRevenue / completedOrders.length
               : 0,
         });
+
+        // Re-read the audit trail so a fresh status change shows immediately.
+        const { data: history } = await supabase
+          .from("global_order_status_history")
+          .select("*")
+          .in(
+            "order_id",
+            data.map((o) => o.id),
+          )
+          .order("created_at", { ascending: false });
+
+        if (history) {
+          setStatusHistory(
+            history.reduce(
+              (acc: Record<string, OrderStatusHistoryEntry[]>, entry: any) => {
+                (acc[entry.order_id] ||= []).push(entry);
+                return acc;
+              },
+              {},
+            ),
+          );
+        }
       }
     } catch (error) {
       console.error("Refresh error:", error);
@@ -156,26 +181,33 @@ export default function OrdersClient({
   return (
     <div>
       <style>{`
+        /* The dashboard sidebar is a fixed 240px, so the content column is
+           much narrower than the viewport. A viewport media query therefore
+           flipped these to 2x2 on ordinary desktops (a 1024px viewport leaves
+           only ~736px of content). Query the content column instead, so the
+           four cards stay on one row wherever they actually fit. */
+        .orders-stats-wrap { container-type: inline-size; }
         .orders-stats-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
+          gap: 0.75rem;
+          margin-bottom: 1.25rem;
         }
         .orders-stat-card {
           background: var(--card);
           border: 1px solid var(--border);
           border-radius: 10px;
-          padding: 1rem;
+          padding: 0.7rem 0.85rem;
           min-width: 0;
         }
         .orders-stat-card > p { overflow-wrap: anywhere; }
-        @media (max-width: 1023px) {
-          .orders-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-        @media (max-width: 480px) {
-          .orders-stat-card { padding: 0.85rem; }
-          .orders-stat-card > p { font-size: 1.15rem !important; }
+        @container (max-width: 600px) {
+          .orders-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem;
+          }
+          .orders-stat-card { padding: 0.6rem 0.7rem; }
+          .orders-stat-card > p { font-size: 1.1rem !important; }
         }
       `}</style>
       {/* Page Header */}
@@ -229,6 +261,7 @@ export default function OrdersClient({
       </div>
 
       {/* Stats Cards */}
+      <div className="orders-stats-wrap">
       <div className="orders-stats-grid">
         <div className="orders-stat-card">
           <div
@@ -240,21 +273,21 @@ export default function OrdersClient({
           >
             <p
               style={{
-                fontSize: "0.7rem",
+                fontSize: "0.65rem",
                 color: "var(--dim)",
                 textTransform: "uppercase",
-                letterSpacing: "0.05em",
+                letterSpacing: "0.04em",
                 margin: 0,
               }}
             >
               {t?.totalOrders || "Total Orders"}
             </p>
-            <Package size={16} style={{ color: "var(--brand-color)" }} />
+            <Package size={14} style={{ color: "var(--brand-color)" }} />
           </div>
           <p
             style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: "1.5rem",
+              fontSize: "1.25rem",
               fontWeight: 700,
               color: "var(--text)",
               margin: "0.25rem 0 0 0",
@@ -274,21 +307,21 @@ export default function OrdersClient({
           >
             <p
               style={{
-                fontSize: "0.7rem",
+                fontSize: "0.65rem",
                 color: "var(--dim)",
                 textTransform: "uppercase",
-                letterSpacing: "0.05em",
+                letterSpacing: "0.04em",
                 margin: 0,
               }}
             >
               {t?.completedOrders || "Completed"}
             </p>
-            <CheckCircle size={16} style={{ color: "#6EBD8A" }} />
+            <CheckCircle size={14} style={{ color: "#6EBD8A" }} />
           </div>
           <p
             style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: "1.5rem",
+              fontSize: "1.25rem",
               fontWeight: 700,
               color: "#6EBD8A",
               margin: "0.25rem 0 0 0",
@@ -308,21 +341,21 @@ export default function OrdersClient({
           >
             <p
               style={{
-                fontSize: "0.7rem",
+                fontSize: "0.65rem",
                 color: "var(--dim)",
                 textTransform: "uppercase",
-                letterSpacing: "0.05em",
+                letterSpacing: "0.04em",
                 margin: 0,
               }}
             >
               {t?.pendingOrders || "Pending"}
             </p>
-            <Clock size={16} style={{ color: "#F59E0B" }} />
+            <Clock size={14} style={{ color: "#F59E0B" }} />
           </div>
           <p
             style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: "1.5rem",
+              fontSize: "1.25rem",
               fontWeight: 700,
               color: "#F59E0B",
               margin: "0.25rem 0 0 0",
@@ -342,21 +375,21 @@ export default function OrdersClient({
           >
             <p
               style={{
-                fontSize: "0.7rem",
+                fontSize: "0.65rem",
                 color: "var(--dim)",
                 textTransform: "uppercase",
-                letterSpacing: "0.05em",
+                letterSpacing: "0.04em",
                 margin: 0,
               }}
             >
               {t?.totalRevenue || "Revenue"}
             </p>
-            <DollarSign size={16} style={{ color: "#3B82F6" }} />
+            <DollarSign size={14} style={{ color: "#3B82F6" }} />
           </div>
           <p
             style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: "1.5rem",
+              fontSize: "1.25rem",
               fontWeight: 700,
               color: "#3B82F6",
               margin: "0.25rem 0 0 0",
@@ -365,6 +398,7 @@ export default function OrdersClient({
             {formatPrice(stats.total_revenue)}
           </p>
         </div>
+      </div>
       </div>
 
       {/* Search and Filters */}
@@ -474,6 +508,7 @@ export default function OrdersClient({
         orders={filteredOrders}
         config={config}
         translations={t}
+        statusHistory={statusHistory}
         onView={(order: Order) => {
           setSelectedOrder(order);
           setShowDetailsModal(true);
@@ -491,6 +526,9 @@ export default function OrdersClient({
       {showDetailsModal && selectedOrder && (
         <OrderDetailsModal
           order={selectedOrder}
+          statusHistory={
+            selectedOrder ? statusHistory[selectedOrder.id] || [] : []
+          }
           onClose={() => {
             setShowDetailsModal(false);
             setSelectedOrder(null);

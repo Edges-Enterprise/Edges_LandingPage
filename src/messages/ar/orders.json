@@ -58,5 +58,8 @@
   "cancelled": "ملغاة",
   "paymentMethod": "طريقة الدفع",
   "reference": "المرجع",
-  "close": "إغلاق"
+  "close": "إغلاق",
+  "statusHistory": "سجل الحالة",
+  "noStatusChanges": "لم يتم تسجيل أي تغييرات في الحالة بعد",
+  "systemActor": "النظام"
 }

@@ -37,6 +37,17 @@ export interface OrderStats {
   average_order_value: number;
 }
 
+export interface OrderStatusHistoryEntry {
+  id: string;
+  order_id: string;
+  reseller_id: string;
+  from_status: string | null;
+  to_status: string;
+  changed_by: string | null;
+  changed_by_email: string | null;
+  created_at: string;
+}
+
 export interface OrdersData {
   application: {
     id: string;
@@ -47,4 +58,5 @@ export interface OrdersData {
   };
   orders: Order[];
   stats: OrderStats;
+  statusHistory: Record<string, OrderStatusHistoryEntry[]>;
 }

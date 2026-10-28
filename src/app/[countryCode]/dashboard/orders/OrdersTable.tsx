@@ -2,14 +2,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Order } from "@/types/reseller/orders";
+import { Order, OrderStatusHistoryEntry } from "@/types/reseller/orders";
 import { CountryConfig } from "@/config/countries";
 import { Eye, Package, RefreshCw, ChevronDown } from "lucide-react";
+import OrderStatusTimeline from "./OrderStatusTimeline";
 
 interface OrdersTableProps {
   orders: Order[];
   config: CountryConfig;
   translations: any;
+  statusHistory: Record<string, OrderStatusHistoryEntry[]>;
   onView: (order: Order) => void;
   onUpdateStatus: (order: Order) => void;
   onUpdate: () => void;
@@ -21,6 +23,7 @@ export default function OrdersTable({
   orders,
   config,
   translations,
+  statusHistory,
   onView,
   onUpdateStatus,
   onUpdate,
@@ -329,8 +332,10 @@ export default function OrdersTable({
                     >
                       <button
                         onClick={() => onView(order)}
+                        aria-label={t?.view || "View"}
+                        title={t?.view || "View"}
                         style={{
-                          padding: "0.3rem 0.6rem",
+                          padding: "0.3rem 0.45rem",
                           background: "transparent",
                           border: "1px solid var(--border)",
                           borderRadius: 4,
@@ -353,7 +358,6 @@ export default function OrdersTable({
                         }}
                       >
                         <Eye size={14} />
-                        {t?.view || "View"}
                       </button>
                       {canUpdateStatus(order) && (
                         <button
@@ -447,18 +451,6 @@ export default function OrdersTable({
                     >
                       {order.plan_name || "Unknown Plan"}
                     </div>
-                    <div
-                      style={{
-                        fontSize: "0.78rem",
-                        color: "var(--muted)",
-                        overflowWrap: "anywhere",
-                      }}
-                    >
-                      {order.customer_name || "Unknown"} ·{" "}
-                      <span style={{ fontWeight: 600, color: "var(--text)" }}>
-                        {formatPrice(order.amount)}
-                      </span>
-                    </div>
                   </div>
                   <div
                     style={{
@@ -501,6 +493,16 @@ export default function OrdersTable({
                     }}
                   >
                     <div>
+                      <span>{t?.customer || "Customer"}</span>
+                      <span>{order.customer_name || "—"}</span>
+                    </div>
+                    <div>
+                      <span>{t?.amount || "Amount"}</span>
+                      <span style={{ fontWeight: 600, color: "var(--text)" }}>
+                        {formatPrice(order.amount)}
+                      </span>
+                    </div>
+                    <div>
                       <span>{t?.orderId || "Order ID"}</span>
                       <span style={{ fontFamily: "monospace" }}>
                         {getOrderRef(order)}
@@ -527,6 +529,35 @@ export default function OrdersTable({
                         {formatDate(order.created_at)} {formatTime(order.created_at)}
                       </span>
                     </div>
+
+                    {(statusHistory[order.id] || []).length > 0 && (
+                      <div
+                        style={{
+                          display: "block",
+                          paddingTop: "0.5rem",
+                          borderTop: "1px solid var(--border)",
+                          marginTop: "0.25rem",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "0.7rem",
+                            color: "var(--dim)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                            marginBottom: "0.5rem",
+                          }}
+                        >
+                          {t?.statusHistory || "Status History"}
+                        </div>
+                        <OrderStatusTimeline
+                          entries={statusHistory[order.id] || []}
+                          translations={t}
+                          getStatusColor={getStatusColor}
+                          getStatusLabel={getStatusLabel}
+                        />
+                      </div>
+                    )}
 
                     {canUpdateStatus(order) && (
                       <button
