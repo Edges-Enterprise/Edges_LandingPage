@@ -6,6 +6,7 @@ import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getAuthEmail } from "@/lib/auth/email-lookup";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import StoreLoader, { PLATFORM_LABEL } from "@/components/common/StoreLoader";
 
 function SignInContent() {
   const router = useRouter();
@@ -274,9 +275,7 @@ function SignInContent() {
 export default function SignInPage() {
   return (
     <Suspense
-      fallback={
-        <div style={{ padding: "4rem", textAlign: "center" }}>Loading...</div>
-      }
+      fallback={<StoreLoader label={PLATFORM_LABEL} />}
     >
       <SignInContent />
     </Suspense>

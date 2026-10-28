@@ -3,6 +3,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import StoreLoader, { PLATFORM_LABEL } from "@/components/common/StoreLoader";
 import { useRouter } from "next/navigation";
 import { HiEye, HiEyeSlash } from "react-icons/hi2";
 import {
@@ -81,8 +82,8 @@ export default function ChangePinPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+      <div className="min-h-screen bg-black">
+        <StoreLoader label={PLATFORM_LABEL} fullScreen dark />
       </div>
     );
   }

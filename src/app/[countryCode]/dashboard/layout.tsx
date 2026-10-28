@@ -10,6 +10,10 @@ import ThemeToggle from "@/components/reseller/layout/ThemeToggle";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { CountryProvider } from "@/providers/CountryProvider";
 import { getCountryConfig } from "@/config/countries";
+import StoreLoader, {
+  storeLabel,
+  PLATFORM_LABEL,
+} from "@/components/common/StoreLoader";
 import "./dashboard-theme.css";
 
 interface DashboardLayoutProps {
@@ -44,6 +48,21 @@ export default function DashboardLayout({
       }
 
       setUser(user);
+
+      // Name the loading indicator as early as possible. The
+      // dashboard-context RPC below is the slow call, and the session
+      // already carries the store slug, so seed the name from it and let
+      // the RPC replace it with the store's display name.
+      const metaSlug = user.user_metadata?.store_slug;
+      if (metaSlug) {
+        const fromSlug = String(metaSlug)
+          .split("-")
+          .filter(Boolean)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+        setStoreName((prev) => (prev === "Reseller" ? fromSlug : prev));
+      }
+
       const config = getCountryConfig(countryCode);
       setCountryConfig(config);
 
@@ -87,31 +106,16 @@ export default function DashboardLayout({
   }, [loading, storeName]);
 
   if (loading) {
+    // `storeName` is "Reseller" until the dashboard context resolves, which
+    // is not a store — fall back to the platform label in that window.
+    const label =
+      storeName && storeName !== "Reseller"
+        ? storeLabel(storeName)
+        : PLATFORM_LABEL;
+
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          background: "#0D0A08",
-        }}
-      >
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            border: "4px solid rgba(201,138,84,0.2)",
-            borderTop: "4px solid var(--brand-color, #C98A54)",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-          }}
-        />
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
+      <div style={{ minHeight: "100vh", background: "#0D0A08" }}>
+        <StoreLoader label={label} fullScreen dark />
       </div>
     );
   }

@@ -24,3 +24,31 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Shared loading indicator (src/components/common/StoreLoader.tsx):
+   the bar sweeps left-to-right and back, forever. `translateX` on a
+   percentage is relative to the bar's own width, so the keyframes hold
+   at any track width. */
+@keyframes store-loader-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(250%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.store-loader-bar {
+  animation: store-loader-sweep 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-loader-bar {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}

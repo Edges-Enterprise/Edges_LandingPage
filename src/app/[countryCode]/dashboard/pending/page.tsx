@@ -3,8 +3,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, CheckCircle, Mail, Loader2 } from "lucide-react";
+import { Clock, CheckCircle, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import StoreLoader, {
+  storeLabel,
+  PLATFORM_LABEL,
+} from "@/components/common/StoreLoader";
 
 interface PendingPageProps {
   params: {
@@ -69,10 +73,16 @@ export default function PendingPage({ params }: PendingPageProps) {
   }, [countryCode, router]);
 
   if (isLoading) {
+    // `application` is null until the fetch resolves; the store name is
+    // not known yet, so fall back to the platform label.
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <StoreLoader
+        label={
+          application?.store_name
+            ? storeLabel(application.store_name)
+            : PLATFORM_LABEL
+        }
+      />
     );
   }
 

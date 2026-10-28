@@ -6,6 +6,7 @@ import { getCountryConfig } from "@/config/countries";
 import { CountryProvider } from "@/providers/CountryProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { createClient } from "@/lib/supabase/client";
+import StoreLoader, { storeLabel } from "@/components/common/StoreLoader";
 import "./store-theme.css";
 
 interface StoreLayoutClientProps {
@@ -21,6 +22,7 @@ export default function StoreLayoutClient({
 }: StoreLayoutClientProps) {
   const [config, setConfig] = useState<any>(null);
   const [brandColor, setBrandColor] = useState<string>("#C98A54");
+  const [storeDisplayName, setStoreDisplayName] = useState<string>("");
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
@@ -65,8 +67,9 @@ export default function StoreLayoutClient({
           .eq("application_status", "active")
           .single();
 
-        if (!error && data?.brand_color) {
-          setBrandColor(data.brand_color);
+        if (!error && data) {
+          if (data.brand_color) setBrandColor(data.brand_color);
+          if (data.store_name) setStoreDisplayName(data.store_name);
         }
       } catch (error) {
         console.error("Error fetching store data:", error);
@@ -92,30 +95,11 @@ export default function StoreLayoutClient({
 
   if (!config) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          background: "var(--bg)",
-        }}
-      >
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            border: "4px solid var(--border)",
-            borderTop: "4px solid var(--brand-color)",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-          }}
+      <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+        <StoreLoader
+          label={storeLabel(storeDisplayName, storeName)}
+          fullScreen
         />
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     );
   }

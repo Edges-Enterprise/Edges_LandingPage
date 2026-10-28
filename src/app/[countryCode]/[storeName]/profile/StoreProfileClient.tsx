@@ -22,6 +22,7 @@ import { useStoreCustomerWallet } from "@/hooks/store/useStoreCustomerWallet";
 import { getCurrentStoreProfile } from "@/actions/reseller/customers/getCurrentStoreProfile";
 import { updateCurrentStoreProfile } from "@/actions/reseller/customers/updateCurrentStoreProfile";
 import { formatStorePrice } from "@/lib/currency/formatStorePrice";
+import StoreLoader, { storeLabel } from "@/components/common/StoreLoader";
 import { CountryConfig } from "@/config/countries";
 
 interface StoreProfileClientProps {
@@ -254,18 +255,10 @@ export default function StoreProfileClient({
             </button>
           </div>
         ) : loading ? (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              padding: "3rem 0",
-            }}
-          >
-            <Loader2
-              size={28}
-              style={{ color: "var(--brand-color)", animation: "spin 1s linear infinite" }}
-            />
-          </div>
+          <StoreLoader
+            label={storeLabel(storeData.application.store_name)}
+            minHeight="40vh"
+          />
         ) : (
           <>
             {/* Identity card */}

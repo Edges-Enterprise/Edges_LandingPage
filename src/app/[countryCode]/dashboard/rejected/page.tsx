@@ -3,8 +3,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { XCircle, Mail, RefreshCw, Loader2 } from "lucide-react";
+import { XCircle, Mail, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import StoreLoader, {
+  storeLabel,
+  PLATFORM_LABEL,
+} from "@/components/common/StoreLoader";
 
 interface RejectedPageProps {
   params: {
@@ -73,10 +77,16 @@ export default function RejectedPage({ params }: RejectedPageProps) {
   };
 
   if (isLoading) {
+    // `application` is null until the fetch resolves; the store name is
+    // not known yet, so fall back to the platform label.
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <StoreLoader
+        label={
+          application?.store_name
+            ? storeLabel(application.store_name)
+            : PLATFORM_LABEL
+        }
+      />
     );
   }
 

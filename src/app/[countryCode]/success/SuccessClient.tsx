@@ -12,6 +12,10 @@ import {
 } from "lucide-react";
 import { useCountry } from "@/providers/CountryProvider";
 import { createClient } from "@/lib/supabase/client";
+import StoreLoader, {
+  storeLabel,
+  PLATFORM_LABEL,
+} from "@/components/common/StoreLoader";
 
 interface SuccessClientProps {
   countryCode: string;
@@ -116,32 +120,13 @@ export default function SuccessClient({
 
   if (loading) {
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "60vh",
-          gap: "1.5rem",
-        }}
-      >
-        <Loader2
-          size={40}
-          style={{
-            animation: "spin 1s linear infinite",
-            color: "var(--accent)",
-          }}
-        />
-        <p style={{ color: "var(--muted)" }}>
-          {t?.loadingApplication || "Loading your application status..."}
-        </p>
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
+      <StoreLoader
+        label={
+          application?.store_name
+            ? storeLabel(application.store_name)
+            : PLATFORM_LABEL
+        }
+      />
     );
   }
 

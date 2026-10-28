@@ -1,12 +1,13 @@
 import { Suspense } from "react";
 import { ResetPasswordClient } from "@/components/reset-password";
+import StoreLoader, { PLATFORM_LABEL } from "@/components/common/StoreLoader";
 
 const ResetPassword = () => {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-black flex items-center justify-center">
-          <div className="text-white">Loading...</div>
+        <div className="min-h-screen bg-black">
+          <StoreLoader label={PLATFORM_LABEL} fullScreen dark />
         </div>
       }
     >

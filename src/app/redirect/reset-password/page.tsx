@@ -4,6 +4,7 @@
 import { useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import StoreLoader, { PLATFORM_LABEL } from "@/components/common/StoreLoader";
 
 function RedirectResetPasswordContent() {
   // const searchParams = useSearchParams();
@@ -89,7 +90,7 @@ function LoadingFallback() {
           height={150}
           style={styles.logo}
         />
-        <p style={styles.title}>Loading...</p>
+        <StoreLoader label={PLATFORM_LABEL} minHeight="auto" dark />
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImSpinner9 } from "react-icons/im";
 import { NETWORK_IMAGES } from "@/constants/helper";
+import StoreLoader, { PLATFORM_LABEL } from "@/components/common/StoreLoader";
 
 const DEFAULT_PROVIDER_IMAGE = "/edgesnetworkicon.png";
 
@@ -105,12 +106,7 @@ export default function BuyDataProvider() {
 
         {/* Loading State */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <ImSpinner9 className="w-12 h-12 sm:w-16 sm:h-16 text-green-500 animate-spin mb-4" />
-            <p className="text-base sm:text-lg text-gray-300">
-              Loading providers...
-            </p>
-          </div>
+          <StoreLoader label={PLATFORM_LABEL} dark minHeight="40vh" />
         ) : error ? (
           /* Error State */
           <div className="flex flex-col items-center justify-center py-20">
