@@ -144,7 +144,6 @@ export default function CustomerInlineEdit({
       >
         <option value="active">{t?.active || "Active"}</option>
         <option value="inactive">{t?.inactive || "Inactive"}</option>
-        <option value="suspended">{t?.suspended || "Suspended"}</option>
       </select>
 
       <div style={{ display: "flex", gap: "0.6rem" }}>

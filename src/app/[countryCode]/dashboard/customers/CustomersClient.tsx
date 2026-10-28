@@ -113,7 +113,6 @@ export default function CustomersClient({
     const colors: Record<string, string> = {
       active: "#6EBD8A",
       inactive: "#F59E0B",
-      suspended: "#EF4444",
     };
     return colors[status] || "var(--muted)";
   };
@@ -450,7 +449,6 @@ export default function CustomersClient({
           <option value="all">{t?.allStatus || "All Status"}</option>
           <option value="active">{t?.active || "Active"}</option>
           <option value="inactive">{t?.inactive || "Inactive"}</option>
-          <option value="suspended">{t?.suspended || "Suspended"}</option>
         </select>
       </div>
 

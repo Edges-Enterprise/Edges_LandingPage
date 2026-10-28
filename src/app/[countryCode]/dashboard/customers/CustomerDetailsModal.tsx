@@ -94,7 +94,6 @@ export default function CustomerDetailsModal({
     const colors: Record<string, string> = {
       active: "#6EBD8A",
       inactive: "#F59E0B",
-      suspended: "#EF4444",
     };
     return colors[status] || "var(--muted)";
   };
@@ -393,7 +392,6 @@ export default function CustomerDetailsModal({
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
-                <option value="suspended">Suspended</option>
               </select>
             </div>
 

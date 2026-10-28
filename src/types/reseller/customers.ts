@@ -7,10 +7,14 @@ export interface Customer {
   last_name?: string;
   email?: string;
   phone?: string;
-  customer_type: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
   status: string;
   auth_user_id?: string;
-  customer_reference?: string;
+  auth_email?: string;
+  notifications_enabled?: boolean;
   created_at: string;
   updated_at: string;
 }
