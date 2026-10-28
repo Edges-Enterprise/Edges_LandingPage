@@ -1,13 +1,14 @@
 // src/app/[countryCode]/dashboard/wallet/TransactionHistory.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
   ShoppingBag,
   RefreshCw,
   CreditCard,
+  ChevronDown,
 } from "lucide-react";
 
 interface TransactionHistoryProps {
@@ -23,6 +24,18 @@ export default function TransactionHistory({
 }: TransactionHistoryProps) {
   const t = translations;
   const [filter, setFilter] = useState<string>("all");
+  // Only the compact mobile row is collapsible; on >=768px every row is always
+  // expanded and no chevron is shown, so `expandedId` is inert there.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   const getTypeIcon = (type: string) => {
     const icons: Record<string, any> = {
@@ -171,120 +184,224 @@ export default function TransactionHistory({
       </div>
 
       {filteredTransactions.length > 0 ? (
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
-        >
-          {filteredTransactions.map((tx, index) => {
-            const Icon = getTypeIcon(tx.type);
-            const typeColor = getTypeColor(tx.type);
-            const statusColor = getStatusColor(tx.status);
-            const isPositive =
-              tx.type === "deposit" || tx.type === "commission";
-            const amount = isPositive ? tx.amount : -tx.amount;
+        <>
+          <style>{`
+            .tx-details { display: none; }
+            .tx-chevron { display: none; }
+            .tx-details > div {
+              display: flex;
+              justify-content: space-between;
+              gap: 1rem;
+              font-size: 0.72rem;
+              padding: 0.2rem 0;
+            }
+            .tx-details > div > span:first-child { color: var(--dim); }
+            .tx-details > div > span:last-child {
+              color: var(--text);
+              text-align: end;
+              word-break: break-word;
+            }
+            @media (max-width: 767px) {
+              .tx-row { cursor: pointer; }
+              .tx-row-meta { display: none !important; }
+              .tx-chevron {
+                display: inline-flex;
+                align-items: center;
+                color: var(--dim);
+                transition: transform 0.2s;
+              }
+              .tx-row--expanded .tx-chevron { transform: rotate(180deg); }
+              .tx-row--expanded .tx-details {
+                display: block;
+                margin-top: 0.65rem;
+                padding-top: 0.65rem;
+                border-top: 1px solid var(--border);
+              }
+            }
+          `}</style>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem",
+            }}
+          >
+            {filteredTransactions.map((tx, index) => {
+              const Icon = getTypeIcon(tx.type);
+              const typeColor = getTypeColor(tx.type);
+              const statusColor = getStatusColor(tx.status);
+              const isPositive =
+                tx.type === "deposit" || tx.type === "commission";
+              const amount = isPositive ? tx.amount : -tx.amount;
+              const txKey = tx.id || `tx-${index}`;
+              const isExpanded = expandedId === txKey;
+              const toggle = () => {
+                if (!isMobile) return;
+                setExpandedId(isExpanded ? null : txKey);
+              };
 
-            return (
-              <div
-                key={tx.id || index}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "0.75rem 1rem",
-                  background: "var(--bg2)",
-                  borderRadius: 8,
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "var(--bg3)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "var(--bg2)";
-                }}
-              >
+              return (
                 <div
+                  key={txKey}
+                  className={`tx-row${isExpanded ? " tx-row--expanded" : ""}`}
+                  role={isMobile ? "button" : undefined}
+                  tabIndex={isMobile ? 0 : undefined}
+                  aria-expanded={isMobile ? isExpanded : undefined}
+                  onClick={toggle}
+                  onKeyDown={(e) => {
+                    if (!isMobile) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggle();
+                    }
+                  }}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
+                    padding: "0.75rem 1rem",
+                    background: "var(--bg2)",
+                    borderRadius: 8,
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--bg3)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--bg2)";
                   }}
                 >
                   <div
                     style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: "50%",
-                      background: `${typeColor}15`,
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
+                      justifyContent: "space-between",
+                      gap: "0.75rem",
                     }}
                   >
-                    <Icon size={14} style={{ color: typeColor }} />
-                  </div>
-                  <div>
                     <div
                       style={{
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                        color: "var(--text)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        minWidth: 0,
+                        flex: 1,
                       }}
                     >
-                      {tx.description || getTypeLabel(tx.type)}
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: "50%",
+                          background: `${typeColor}15`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Icon size={14} style={{ color: typeColor }} />
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          style={{
+                            fontSize: "0.85rem",
+                            fontWeight: 600,
+                            color: "var(--text)",
+                          }}
+                        >
+                          {tx.description || getTypeLabel(tx.type)}
+                        </div>
+                        <div
+                          className="tx-row-meta"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            fontSize: "0.7rem",
+                            color: "var(--dim)",
+                          }}
+                        >
+                          <span>{formatDate(tx.created_at)}</span>
+                          <span>·</span>
+                          <span>{formatTime(tx.created_at)}</span>
+                          <span>·</span>
+                          <span
+                            style={{
+                              color: statusColor,
+                              fontWeight: 500,
+                            }}
+                          >
+                            {tx.status || "completed"}
+                          </span>
+                          {tx.reference && (
+                            <>
+                              <span>·</span>
+                              <span
+                                style={{
+                                  fontFamily: "monospace",
+                                  fontSize: "0.65rem",
+                                }}
+                              >
+                                #{tx.reference.slice(0, 8)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
+
                     <div
                       style={{
                         display: "flex",
                         alignItems: "center",
                         gap: "0.5rem",
-                        fontSize: "0.7rem",
-                        color: "var(--dim)",
+                        flexShrink: 0,
                       }}
                     >
-                      <span>{formatDate(tx.created_at)}</span>
-                      <span>·</span>
-                      <span>{formatTime(tx.created_at)}</span>
-                      <span>·</span>
-                      <span
+                      <div
                         style={{
-                          color: statusColor,
-                          fontWeight: 500,
+                          fontFamily: "'Playfair Display', serif",
+                          fontSize: "0.95rem",
+                          fontWeight: 700,
+                          color: isPositive ? "#6EBD8A" : "#EF4444",
                         }}
                       >
-                        {tx.status || "completed"}
+                        {isPositive ? "+" : "-"}
+                        {currencySymbol} {Math.abs(amount).toLocaleString()}
+                      </div>
+                      <span className="tx-chevron">
+                        <ChevronDown size={16} />
                       </span>
-                      {tx.reference && (
-                        <>
-                          <span>·</span>
-                          <span
-                            style={{
-                              fontFamily: "monospace",
-                              fontSize: "0.65rem",
-                            }}
-                          >
-                            #{tx.reference.slice(0, 8)}
-                          </span>
-                        </>
-                      )}
                     </div>
                   </div>
-                </div>
 
-                <div
-                  style={{
-                    fontFamily: "'Playfair Display', serif",
-                    fontSize: "0.95rem",
-                    fontWeight: 700,
-                    color: isPositive ? "#6EBD8A" : "#EF4444",
-                  }}
-                >
-                  {isPositive ? "+" : "-"}
-                  {currencySymbol} {Math.abs(amount).toLocaleString()}
+                  <div className="tx-details">
+                    <div>
+                      <span>{t?.status || "Status"}</span>
+                      <span style={{ color: statusColor }}>
+                        {tx.status || "completed"}
+                      </span>
+                    </div>
+                    <div>
+                      <span>{t?.date || "Date"}</span>
+                      <span>{formatDate(tx.created_at)}</span>
+                    </div>
+                    <div>
+                      <span>{t?.time || "Time"}</span>
+                      <span>{formatTime(tx.created_at)}</span>
+                    </div>
+                    {tx.reference && (
+                      <div>
+                        <span>{t?.reference || "Reference"}</span>
+                        <span style={{ fontFamily: "monospace" }}>
+                          #{tx.reference.slice(0, 8)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       ) : (
         <div
           style={{
