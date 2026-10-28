@@ -87,6 +87,18 @@ reseller dashboard).
   SELECT + UPDATE policies (mirroring `global_customers`); INSERT/DELETE are
   intentionally not granted. Check `pg_policies` before assuming a `global_*`
   table is readable with the user's session.
+- `global_order_status_history` (added 2026-10-28) is the order-status audit
+  trail: `id, order_id, reseller_id, from_status, to_status, changed_by,
+  changed_by_email, created_at`, one row per transition. It is written **only**
+  by the `global_orders_status_history_trg` trigger on `global_orders`
+  (`AFTER INSERT OR UPDATE OF status`); `authenticated` has a SELECT policy
+  (owner-scoped) but **no INSERT**, so a client can read the log and cannot
+  forge it. The trigger function is `SECURITY DEFINER` with a pinned
+  `search_path`. Existing orders were deliberately not backfilled.
+- Reseller-side SQL migrations live in `supabase/migrations/` and are applied by
+  hand against the pooler (`aws-0-eu-central-1.pooler.supabase.com:6543`, user
+  `postgres.jjyyfaxcwanrmiipzkoj`, password `$DB_PASSWORD`) — there is no
+  `supabase db push` in this workflow. Keep each migration idempotent.
 
 ## Pushing to this repo (credentials)
 
