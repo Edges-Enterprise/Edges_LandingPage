@@ -62,6 +62,15 @@ reseller dashboard).
 - The customer fund path reads the customer row through the service-role client
   (`createAdminClient`) because `global_customers` RLS grants SELECT to the store
   owner only.
+- `global_customers` has **no** `customer_type` or `customer_reference` column —
+  sending either in an insert makes PostgREST reject the whole row (`PGRST204`).
+  Its real columns are `id, reseller_id, first_name, last_name, email, phone,
+  address, city, state, country, status, created_at, updated_at, auth_user_id,
+  auth_email, transaction_pin, push_token, fcm_token, notifications_enabled`;
+  `last_name` and `email` are `NOT NULL`, so a blank must be `""`, never `null`
+  (`23502` otherwise).
+- `global_customers_status_check` accepts only `active` and `inactive` — there is
+  no `suspended` status (`23514`). Do not offer it in a status control.
 
 ## Pushing to this repo (credentials)
 
