@@ -52,6 +52,8 @@
   "customerUpdated": "Customer updated successfully",
   "errorAdding": "Failed to add customer",
   "firstNameRequired": "First name is required",
+  "lastNameRequired": "Last name is required",
+  "emailRequired": "Email is required",
   "emailInvalid": "Please enter a valid email",
   "phoneInvalid": "Please enter a valid phone number",
   "total": "Total",

@@ -12,8 +12,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import CustomerTable from "./CustomerTable";
-import AddCustomerModal from "./AddCustomerModal";
 import CustomerDetailsModal from "./CustomerDetailsModal";
+import AddCustomerModal from "./AddCustomerModal";
 import { CountryConfig } from "@/config/countries";
 import { Customer, CustomersData } from "@/types/reseller/customers";
 
@@ -40,10 +40,10 @@ export default function CustomersClient({
   );
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null,
   );
-  const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [showDetailsModal, setShowDetailsModal] = useState<boolean>(false);
   const [stats, setStats] = useState(customersData.stats);
 
@@ -147,7 +147,10 @@ export default function CustomersClient({
           </p>
         </div>
         <button
+          className="add-customer-btn"
           onClick={() => setShowAddModal(true)}
+          aria-label={t?.addCustomer || "Add Customer"}
+          title={t?.addCustomer || "Add Customer"}
           style={{
             padding: "0.6rem 1.5rem",
             background: "var(--brand-color)",
@@ -172,12 +175,22 @@ export default function CustomersClient({
           }}
         >
           <UserPlus size={18} />
-          {t?.addCustomer || "Add Customer"}
+          <span className="add-customer-label">
+            {t?.addCustomer || "Add Customer"}
+          </span>
         </button>
       </div>
 
       {/* Stats Cards */}
       <style>{`
+        .add-customer-label { display: inline; }
+        @media (max-width: 767px) {
+          .add-customer-label { display: none; }
+          .add-customer-btn {
+            padding: 0.6rem !important;
+            border-radius: 50% !important;
+          }
+        }
         .customers-stats-grid {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));

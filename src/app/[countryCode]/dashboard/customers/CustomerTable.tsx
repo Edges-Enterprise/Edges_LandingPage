@@ -1,11 +1,20 @@
 // src/app/[countryCode]/dashboard/customers/CustomerTable.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Eye, Edit2, Trash2, Users, MoreVertical, Mail, Phone } from "lucide-react";
+import {
+  Edit2,
+  Trash2,
+  Users,
+  Mail,
+  Phone,
+  Calendar,
+  ChevronDown,
+} from "lucide-react";
 import { Customer } from "@/types/reseller/customers";
 import { CountryConfig } from "@/config/countries";
+import CustomerInlineEdit from "./CustomerInlineEdit";
 
 interface CustomerTableProps {
   customers: Customer[];
@@ -32,6 +41,19 @@ export default function CustomerTable({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(
     null,
   );
+  // Only the mobile list is collapsible; the desktop table renders every
+  // column inline and never uses `expandedId`.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isEditingId, setIsEditingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   const formatDate = (date: string): string => {
     const d = new Date(date);
@@ -120,7 +142,34 @@ export default function CustomerTable({
         overflow: "hidden",
       }}
     >
-      <div style={{ overflowX: "auto" }}>
+      <style>{`
+        .customers-mobile-only { display: none; }
+        .cust-chevron {
+          display: inline-flex;
+          align-items: center;
+          color: var(--dim);
+          transition: transform 0.2s;
+        }
+        .cust-row--expanded .cust-chevron { transform: rotate(180deg); }
+        .cust-details > div {
+          display: flex;
+          justify-content: space-between;
+          gap: 1rem;
+          font-size: 0.8rem;
+          padding: 0.25rem 0;
+        }
+        .cust-details > div > span:first-child { color: var(--dim); }
+        .cust-details > div > span:last-child {
+          color: var(--text);
+          text-align: end;
+          overflow-wrap: anywhere;
+        }
+        @media (max-width: 767px) {
+          .customers-desktop-only { display: none; }
+          .customers-mobile-only { display: block; }
+        }
+      `}</style>
+      <div className="customers-desktop-only" style={{ overflowX: "auto" }}>
         <table
           style={{
             width: "100%",
@@ -308,30 +357,6 @@ export default function CustomerTable({
                         transition: "all 0.2s",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.color = "var(--brand-color)";
-                        e.currentTarget.style.background =
-                          "rgba(var(--brand-color-rgb), 0.08)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = "var(--muted)";
-                        e.currentTarget.style.background = "transparent";
-                      }}
-                      title={t?.view || "View"}
-                    >
-                      <Eye size={16} />
-                    </button>
-                    <button
-                      onClick={() => onView(customer)}
-                      style={{
-                        padding: "0.3rem",
-                        background: "transparent",
-                        border: "none",
-                        color: "var(--muted)",
-                        cursor: "pointer",
-                        borderRadius: 4,
-                        transition: "all 0.2s",
-                      }}
-                      onMouseEnter={(e) => {
                         e.currentTarget.style.color = "#F59E0B";
                         e.currentTarget.style.background =
                           "rgba(245,158,11,0.08)";
@@ -375,6 +400,183 @@ export default function CustomerTable({
           </tbody>
         </table>
       </div>
+      {/* Mobile list: name + status inline, everything else behind a tap */}
+      <div className="customers-mobile-only" style={{ padding: "0.75rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {customers.map((customer) => {
+            const isExpanded = expandedId === customer.id;
+            const isEditing = isEditingId === customer.id;
+            const toggle = () => {
+              if (!isMobile) return;
+              setIsEditingId(null);
+              setExpandedId(isExpanded ? null : customer.id);
+            };
+
+            return (
+              <div
+                key={customer.id}
+                className={`cust-row${isExpanded ? " cust-row--expanded" : ""}`}
+                style={{
+                  background: "var(--bg2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 10,
+                  padding: "0.75rem",
+                }}
+              >
+                <div
+                  role={isMobile ? "button" : undefined}
+                  tabIndex={isMobile ? 0 : undefined}
+                  aria-expanded={isMobile ? isExpanded : undefined}
+                  onClick={toggle}
+                  onKeyDown={(e) => {
+                    if (!isMobile) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggle();
+                    }
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "0.75rem",
+                    cursor: isMobile ? "pointer" : "auto",
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: "0.9rem",
+                        color: "var(--text)",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {getFullName(customer)}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "0.7rem",
+                        fontWeight: 600,
+                        color: getStatusColor(customer.status),
+                        background: `${getStatusColor(customer.status)}15`,
+                        padding: "2px 10px",
+                        borderRadius: 100,
+                        textTransform: "capitalize",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {customer.status || "active"}
+                    </span>
+                    <span className="cust-chevron">
+                      <ChevronDown size={16} />
+                    </span>
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div
+                    className="cust-details"
+                    style={{
+                      marginTop: "0.75rem",
+                      paddingTop: "0.75rem",
+                      borderTop: "1px solid var(--border)",
+                    }}
+                  >
+                    <div>
+                      <span>{t?.email || "Email"}</span>
+                      <span>{customer.email || "—"}</span>
+                    </div>
+                    <div>
+                      <span>{t?.phone || "Phone"}</span>
+                      <span>{customer.phone || "—"}</span>
+                    </div>
+                    <div>
+                      <span>{t?.joined || "Joined"}</span>
+                      <span>{formatDate(customer.created_at)}</span>
+                    </div>
+
+                    {isEditing ? (
+                      <CustomerInlineEdit
+                        customer={customer}
+                        config={config}
+                        translations={t}
+                        onCancel={() => setIsEditingId(null)}
+                        onSaved={() => {
+                          setIsEditingId(null);
+                          setExpandedId(null);
+                          onUpdate();
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "0.6rem",
+                          marginTop: "0.75rem",
+                        }}
+                      >
+                        <button
+                          onClick={() => setIsEditingId(customer.id)}
+                          style={{
+                            flex: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "0.4rem",
+                            padding: "0.55rem",
+                            background: "transparent",
+                            border: "1px solid var(--border)",
+                            borderRadius: 8,
+                            color: "var(--text)",
+                            fontSize: "0.85rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Edit2 size={15} />
+                          {t?.edit || "Edit"}
+                        </button>
+                        <button
+                          onClick={() => setShowDeleteConfirm(customer.id)}
+                          style={{
+                            flex: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "0.4rem",
+                            padding: "0.55rem",
+                            background: "transparent",
+                            border: "1px solid rgba(239,68,68,0.35)",
+                            borderRadius: 8,
+                            color: "#EF4444",
+                            fontSize: "0.85rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Trash2 size={15} />
+                          {t?.delete || "Delete"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (

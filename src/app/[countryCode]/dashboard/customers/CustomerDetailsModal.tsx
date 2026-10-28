@@ -63,8 +63,8 @@ export default function CustomerDetailsModal({
         .update({
           first_name: formData.first_name,
           last_name: formData.last_name,
-          email: formData.email || null,
-          phone: formData.phone || null,
+          email: formData.email || "",
+          phone: formData.phone || "",
           status: formData.status,
           updated_at: new Date().toISOString(),
         })

@@ -29,7 +29,6 @@ export default function AddCustomerModal({
     last_name: "",
     email: "",
     phone: "",
-    customer_type: "individual",
     status: "active",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -57,7 +56,15 @@ export default function AddCustomerModal({
       newErrors.first_name = t?.firstNameRequired || "First name is required";
     }
 
-    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+    // last_name and email are NOT NULL on global_customers; validating here
+    // gives a clear message instead of a raw database rejection.
+    if (!formData.last_name.trim()) {
+      newErrors.last_name = t?.lastNameRequired || "Last name is required";
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = t?.emailRequired || "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = t?.emailInvalid || "Please enter a valid email";
     }
 
@@ -79,10 +86,9 @@ export default function AddCustomerModal({
         .insert({
           reseller_id: applicationId,
           first_name: formData.first_name.trim(),
-          last_name: formData.last_name.trim(),
-          email: formData.email.trim() || null,
-          phone: formData.phone.trim() || null,
-          customer_type: formData.customer_type,
+          last_name: formData.last_name.trim() || "",
+          email: formData.email.trim() || "",
+          phone: formData.phone.trim() || "",
           status: formData.status,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -104,6 +110,7 @@ export default function AddCustomerModal({
 
   return (
     <div
+      className="add-customer-overlay"
       style={{
         position: "fixed",
         inset: 0,
@@ -117,7 +124,24 @@ export default function AddCustomerModal({
       }}
       onClick={handleOverlayClick}
     >
-      <div
+        <style>{`
+          @media (max-width: 767px) {
+            .add-customer-panel {
+              padding: 1rem !important;
+              max-height: 92vh !important;
+            }
+            .add-customer-name-grid {
+              grid-template-columns: 1fr !important;
+            }
+            /* 16px stops iOS from zooming when a field is focused */
+            .add-customer-panel input,
+            .add-customer-panel select {
+              font-size: 16px !important;
+            }
+          }
+        `}</style>
+        <div
+          className="add-customer-panel"
         style={{
           background: "var(--card)",
           border: "1px solid var(--border)",
@@ -191,7 +215,8 @@ export default function AddCustomerModal({
         )}
 
         <div style={{ display: "grid", gap: "1rem" }}>
-          <div
+            <div
+              className="add-customer-name-grid"
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
@@ -264,7 +289,7 @@ export default function AddCustomerModal({
                   marginBottom: "0.35rem",
                 }}
               >
-                {t?.lastName || "Last Name"}
+                {t?.lastName || "Last Name"} *
               </label>
               <input
                 type="text"
@@ -283,6 +308,17 @@ export default function AddCustomerModal({
                   outline: "none",
                 }}
               />
+              {errors.last_name && (
+                <p
+                  style={{
+                    color: "#EF4444",
+                    fontSize: "0.75rem",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  {errors.last_name}
+                </p>
+              )}
             </div>
           </div>
 
@@ -398,43 +434,6 @@ export default function AddCustomerModal({
             )}
           </div>
 
-          <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                color: "var(--muted)",
-                marginBottom: "0.35rem",
-              }}
-            >
-              {t?.customerType || "Customer Type"}
-            </label>
-            <select
-              name="customer_type"
-              value={formData.customer_type}
-              onChange={handleChange}
-              style={{
-                width: "100%",
-                padding: "0.6rem 1rem",
-                background: "var(--bg2)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                outline: "none",
-                cursor: "pointer",
-              }}
-            >
-              <option value="individual">
-                {t?.individual || "Individual"}
-              </option>
-              <option value="business">{t?.business || "Business"}</option>
-              <option value="enterprise">
-                {t?.enterprise || "Enterprise"}
-              </option>
-            </select>
-          </div>
         </div>
 
         <button

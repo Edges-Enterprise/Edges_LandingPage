@@ -52,6 +52,8 @@
   "customerUpdated": "Client mis à jour avec succès",
   "errorAdding": "Échec de l'ajout du client",
   "firstNameRequired": "Le prénom est requis",
+  "lastNameRequired": "Le nom de famille est requis",
+  "emailRequired": "L'e-mail est requis",
   "emailInvalid": "Veuillez saisir un e-mail valide",
   "phoneInvalid": "Veuillez saisir un numéro de téléphone valide",
   "total": "Total",
