@@ -99,6 +99,15 @@ reseller dashboard).
   hand against the pooler (`aws-0-eu-central-1.pooler.supabase.com:6543`, user
   `postgres.jjyyfaxcwanrmiipzkoj`, password `$DB_PASSWORD`) — there is no
   `supabase db push` in this workflow. Keep each migration idempotent.
+- Plan enablement is **opt-in via `global_reseller_plan_configs`**: a plan with
+  no config row for the reseller is disabled everywhere (the storefront catalog
+  is strictly opt-in, and the dashboard toggle reads `config?.enabled === true`).
+  Most catalog plans have no row — e.g. the `rw`/Simi store's MTN network has
+  100 active plans but only 3 config rows. So any UI that flips a plan's
+  `enabled` flag must **materialize the config object** in local state rather
+  than writing `config: null`, or the change appears to need a reload
+  (`togglePlan` inserts the row with the country's `defaultMarkup` and the
+  matching `selling_price`; mirror those values optimistically).
 
 ## Pushing to this repo (credentials)
 
