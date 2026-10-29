@@ -65,7 +65,7 @@ async function getTranslations(language: string) {
         percentage: "Percentage",
         fixed: "Fixed Amount",
         markupValue: "Value",
-        bulkPricing: "Bulk Update Markup",
+        bulkPricing: "Bulk Update",
         cancel: "Cancel",
         loading: "Loading...",
         error: "Unable to load plans",

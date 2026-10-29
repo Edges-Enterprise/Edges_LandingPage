@@ -126,6 +126,17 @@ reseller dashboard).
   network tab must therefore only re-filter — do not call `refreshPlans()` on
   a tab click (that refetches data already in memory and reads as a reload).
   `refreshPlans()` is still correct after a bulk update, which does change rows.
+- The bulk-update card's layout classes (`.bulk-head`, `.bulk-row`,
+  `.bulk-networks`) are declared **outside** the media query so desktop and
+  mobile share one horizontal layout; the `max-width: 767px` block only
+  tightens spacing. Do not reintroduce desktop rules inside the mobile block
+  (8.ad did, and stacked the desktop row into a column).
+- In `PlansClient.tsx` the styled-jsx classes lose to **inline** `style` props,
+  so a width/display that lives in a shared style object (e.g. `inputStyle`'s
+  old `width: 100`) cannot be overridden by a class. Move the property out of
+  the style object instead of adding `!important`. When two class selectors tie
+  on specificity (`.bulk-field` vs `.bulk-field--apply`), source order decides
+  — put the more specific rule last.
 
 ## Pushing to this repo (credentials)
 

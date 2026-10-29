@@ -22,7 +22,7 @@
   "percentage": "Percentage",
   "fixed": "Fixed Amount",
   "markupValue": "Value",
-  "bulkPricing": "Bulk Update Markup",
+  "bulkPricing": "Bulk Update",
   "cancel": "Cancel",
   "loading": "Loading plans...",
   "error": "Unable to load plans",
