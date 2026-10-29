@@ -50,7 +50,10 @@ export default function PlansClient({
   const [bulkType, setBulkType] = useState<"percentage" | "fixed">(
     "percentage",
   );
-  const [bulkValue, setBulkValue] = useState<number | "">("");
+  // The field shows a resting "0" and empties on focus so the user can type
+  // straight away (a controlled number input keeps a leading 0 otherwise).
+  const [bulkValue, setBulkValue] = useState<number | "">(0);
+  const [bulkValueFocused, setBulkValueFocused] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
   // Which network the bulk update applies to: a specific network name, or
   // "all". Replaces the old {network|all} scope + implicit activeNetwork,
@@ -657,10 +660,19 @@ export default function PlansClient({
             <label style={labelStyle}>{t?.markupValue || "Value"}</label>
             <input
               type="number"
-              value={bulkValue}
+              value={bulkValueFocused ? bulkValue : bulkValue === "" ? 0 : bulkValue}
               onChange={(e) =>
                 setBulkValue(e.target.value === "" ? "" : Number(e.target.value))
               }
+              onFocus={() => {
+                // Empty the resting "0" so the first keystroke replaces it.
+                setBulkValueFocused(true);
+                if (bulkValue === 0) setBulkValue("");
+              }}
+              onBlur={() => {
+                setBulkValueFocused(false);
+                if (bulkValue === "") setBulkValue(0);
+              }}
               style={inputStyle}
               min="0"
               step={bulkType === "percentage" ? "1" : "10"}
@@ -1196,6 +1208,17 @@ export default function PlansClient({
         /* The value field is deliberately compact. */
         .bulk-field--value input {
           width: 72px;
+        }
+        /* No spinner arrows: on a narrow field they occupy most of the tap
+           target and increment the resting 0 instead of focusing the text. */
+        .bulk-field--value input::-webkit-outer-spin-button,
+        .bulk-field--value input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        .bulk-field--value input {
+          -moz-appearance: textfield;
+          appearance: textfield;
         }
         /* Network tabs live inside the bulk card on every viewport. */
         .bulk-networks {

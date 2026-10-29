@@ -137,6 +137,13 @@ reseller dashboard).
   the style object instead of adding `!important`. When two class selectors tie
   on specificity (`.bulk-field` vs `.bulk-field--apply`), source order decides
   — put the more specific rule last.
+- The bulk value input shows a resting `0` that clears on focus (person
+  requirement: visible `0` at rest, empty on entry). It is a controlled
+  `type="number"` field, so the pattern is a `bulkValueFocused` flag plus an
+  `onFocus` that drops the resting `0` to `""` and an `onBlur` that restores it.
+  Its native **spinner is hidden** on purpose: on the 56–72px field the arrows
+  cover the middle of the box, so a tap there increments `0`→`1` instead of
+  focusing the text.
 
 ## Pushing to this repo (credentials)
 
