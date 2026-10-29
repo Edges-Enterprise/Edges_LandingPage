@@ -61,5 +61,7 @@
   "selectNetwork": "Select Network",
   "preview": "Preview",
   "noPlansSelected": "No plans selected",
-  "applyTo": "Apply To"
+  "applyTo": "Apply To",
+  "onlyNetwork": "Somente {network}",
+  "apply": "Aplicar"
 }

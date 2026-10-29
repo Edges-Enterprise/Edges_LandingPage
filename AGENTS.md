@@ -119,6 +119,13 @@ reseller dashboard).
   than writing `config: null`, or the change appears to need a reload
   (`togglePlan` inserts the row with the country's `defaultMarkup` and the
   matching `selling_price`; mirror those values optimistically).
+- The plans dashboard loads **every** network's plans up front:
+  `src/app/[countryCode]/dashboard/plans/page.tsx` calls `getPlans()` with no
+  network filter, so `PlansClient`'s `plansData` already holds all of them and
+  the visible list is a `useMemo` filter on `activeNetwork`. Switching the
+  network tab must therefore only re-filter — do not call `refreshPlans()` on
+  a tab click (that refetches data already in memory and reads as a reload).
+  `refreshPlans()` is still correct after a bulk update, which does change rows.
 
 ## Pushing to this repo (credentials)
 

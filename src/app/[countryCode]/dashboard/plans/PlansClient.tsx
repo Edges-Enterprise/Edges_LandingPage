@@ -7,7 +7,6 @@ import {
   X,
   Loader2,
   Pencil,
-  RotateCcw,
   AlertTriangle,
   ChevronDown,
 } from "lucide-react";
@@ -53,7 +52,12 @@ export default function PlansClient({
   );
   const [bulkValue, setBulkValue] = useState(0);
   const [bulkSaving, setBulkSaving] = useState(false);
-  const [bulkScope, setBulkScope] = useState<"network" | "all">("network");
+  // Which network the bulk update applies to: a specific network name, or
+  // "all". Replaces the old {network|all} scope + implicit activeNetwork,
+  // so the Apply To select can list every network the store offers.
+  const [bulkNetwork, setBulkNetwork] = useState<string>(
+    initialData.networks.length > 0 ? initialData.networks[0] : "all",
+  );
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -246,7 +250,7 @@ export default function PlansClient({
     setMessage(null);
 
     const result = await bulkUpdatePlans({
-      network: bulkScope === "network" ? activeNetwork : undefined,
+      network: bulkNetwork === "all" ? undefined : bulkNetwork,
       markupType: bulkType,
       markupValue: bulkValue,
     });
@@ -583,6 +587,7 @@ export default function PlansClient({
 
       {/* Bulk Update */}
       <div
+        className="bulk-card"
         style={{
           background: "var(--card)",
           border: "1px solid var(--border)",
@@ -590,42 +595,55 @@ export default function PlansClient({
           padding: "1.25rem",
         }}
       >
-        <h3
-          style={{
-            fontWeight: 600,
-            color: "var(--text)",
-            marginBottom: "1rem",
-            fontSize: "0.95rem",
-          }}
-        >
-          {t?.bulkPricing || "Bulk Update Markup"}
-        </h3>
-        <div
-          style={{
-            display: "flex",
-            gap: "0.75rem",
-            alignItems: "flex-end",
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <label style={labelStyle}>{t?.applyTo || "Apply To"}</label>
+        <div className="bulk-head">
+          <h3
+            style={{
+              fontWeight: 600,
+              color: "var(--text)",
+              fontSize: "0.95rem",
+            }}
+          >
+            {t?.bulkPricing || "Bulk Update Markup"}
+          </h3>
+          {/* Markup type sits to the right of the title on mobile, with no
+              label; on desktop it keeps its own labelled column below. */}
+          <div className="bulk-type-inline">
             <select
-              value={bulkScope}
+              value={bulkType}
               onChange={(e) =>
-                setBulkScope(e.target.value as "network" | "all")
+                setBulkType(e.target.value as "percentage" | "fixed")
               }
               style={selectStyle}
+              aria-label={t?.markupType || "Markup Type"}
             >
-              <option value="network">
-                {t?.onlyNetwork
-                  ? t.onlyNetwork.replace("{network}", activeNetwork)
-                  : `Only ${activeNetwork}`}
+              <option value="percentage">
+                {t?.percentage || "Percentage (%)"}
               </option>
+              <option value="fixed">
+                {t?.fixed || `Fixed Amount (${currencySymbol})`}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div className="bulk-row">
+          <div className="bulk-field bulk-field--apply">
+            <label style={labelStyle}>{t?.applyTo || "Apply To"}</label>
+            <select
+              value={bulkNetwork}
+              onChange={(e) => setBulkNetwork(e.target.value)}
+              style={selectStyle}
+            >
+              {networks.map((net) => (
+                <option key={net} value={net}>
+                  {t?.onlyNetwork
+                    ? t.onlyNetwork.replace("{network}", net)
+                    : `Only ${net}`}
+                </option>
+              ))}
               <option value="all">{t?.allNetworks || "All Networks"}</option>
             </select>
           </div>
-          <div>
+          <div className="bulk-type-col">
             <label style={labelStyle}>{t?.markupType || "Markup Type"}</label>
             <select
               value={bulkType}
@@ -642,7 +660,7 @@ export default function PlansClient({
               </option>
             </select>
           </div>
-          <div>
+          <div className="bulk-field">
             <label style={labelStyle}>{t?.markupValue || "Value"}</label>
             <input
               type="number"
@@ -657,6 +675,9 @@ export default function PlansClient({
             onClick={handleBulkUpdate}
             disabled={bulkSaving}
             style={btnPrimaryStyle}
+            className="bulk-apply"
+            aria-label={t?.apply || "Apply"}
+            title={t?.apply || "Apply"}
           >
             {bulkSaving ? (
               <Loader2
@@ -664,23 +685,68 @@ export default function PlansClient({
                 style={{ animation: "spin 1s linear infinite" }}
               />
             ) : (
-              <RotateCcw size={16} />
+              <Check size={16} />
             )}
-            {t?.apply || "Apply"}
+            <span className="bulk-apply-label">{t?.apply || "Apply"}</span>
           </button>
+        </div>
+
+        {/* Network tabs live inside the bulk card on mobile (below the
+            apply row); on desktop they keep their original place below. */}
+        <div className="bulk-networks-mobile">
+          {networks.length > 0 ? (
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              {networks.map((net) => (
+                <button
+                  key={net}
+                  onClick={() => {
+                    // Plans for every network are already in `plansData`
+                    // (the page loads them unfiltered), so switching the
+                    // active tab only re-filters — no refetch, no reload.
+                    setActiveNetwork(net);
+                    setEditingPlan(null);
+                  }}
+                  style={{
+                    ...tabStyle,
+                    background:
+                      activeNetwork === net ? "var(--brand-color)" : "var(--bg2)",
+                    color: activeNetwork === net ? "#FDF8F3" : "var(--muted)",
+                    border:
+                      activeNetwork === net ? "none" : "1px solid var(--border)",
+                  }}
+                >
+                  {net}
+                  <span
+                    style={{
+                      fontSize: "0.7rem",
+                      opacity: 0.7,
+                      marginLeft: 4,
+                    }}
+                  >
+                    ({getNetworkCount(net)})
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
-      {/* Network Tabs */}
+      {/* Network Tabs (desktop — hidden on mobile, where they render inside
+          the bulk card above) */}
       {networks.length > 0 ? (
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+        <div
+          className="network-tabs-desktop"
+          style={{ gap: "0.5rem", flexWrap: "wrap" }}
+        >
           {networks.map((net) => (
             <button
               key={net}
               onClick={() => {
+                // Plans for every network are already in `plansData`, so
+                // switching tabs only re-filters — no refetch, no reload.
                 setActiveNetwork(net);
                 setEditingPlan(null);
-                refreshPlans();
               }}
               style={{
                 ...tabStyle,
@@ -879,7 +945,7 @@ export default function PlansClient({
                       )}
                       {/* Toggle */}
                       <button
-                        className="plan-toggle"
+                        className={`plan-toggle ${isEnabled ? "is-on" : "is-off"}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           // Toggling a plan opens its details panel on mobile.
@@ -897,7 +963,6 @@ export default function PlansClient({
                           height: 22,
                           borderRadius: 11,
                           border: "none",
-                          background: isEnabled ? "#6EBD8A" : "var(--dim)",
                           position: "relative",
                           cursor: "pointer",
                           flexShrink: 0,
@@ -936,31 +1001,28 @@ export default function PlansClient({
                         <ChevronDown size={16} />
                       </span>
                     </div>
-                    <p className="plan-wholesale" style={{ fontSize: "0.78rem", color: "var(--dim)" }}>
-                      {t?.wholesalePrice || "Wholesale"}:{" "}
-                      <strong style={{ color: "var(--text)" }}>
-                        {costPrice.formatted}
-                      </strong>
-                      {/* {plan.provider && ` • ${plan.provider}`} */}
-                      {/* {plan.provider === "zendit" &&
-                        plan.display_send_currency &&
-                        plan.display_send_amount && (
-                          <span
-                            style={{
-                              marginLeft: "0.5rem",
-                              color: "var(--muted)",
-                            }}
-                          >
-                            • {t?.customerReceives || "Customer Receives"}:{" "}
-                            <strong style={{ color: "var(--text)" }}>
-                              {formatPrice(
-                                plan.display_send_amount,
-                                plan.display_send_currency,
-                              )}
-                            </strong>
-                          </span>
-                        )} */}
-                    </p>
+                    <div className="plan-cost-line">
+                      <p className="plan-wholesale" style={{ fontSize: "0.78rem", color: "var(--dim)" }}>
+                        {t?.wholesalePrice || "Wholesale"}:{" "}
+                        <strong style={{ color: "var(--text)" }}>
+                          {costPrice.formatted}
+                        </strong>
+                      </p>
+                      {/* Mobile: the edit icon sits to the right of the cost
+                          price inside the opened panel. Desktop keeps its own
+                          copy in the details row (hidden here). */}
+                      {isEnabled && !isEditing && (
+                        <button
+                          className="plan-edit-inline"
+                          onClick={() => startEdit(plan)}
+                          style={btnIconStyle}
+                          title={t?.edit || "Edit markup"}
+                          aria-label={t?.edit || "Edit markup"}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Editing or Display */}
@@ -1107,6 +1169,7 @@ export default function PlansClient({
                       </div>
                       {isEnabled && (
                         <button
+                          className="plan-edit-desktop"
                           onClick={() => startEdit(plan)}
                           style={btnIconStyle}
                           title={t?.edit || "Edit markup"}
@@ -1142,6 +1205,37 @@ export default function PlansClient({
         .plan-chevron {
           display: none;
         }
+        /* Toggle: desktop keeps the original green / dim appearance. */
+        .plan-toggle.is-on {
+          background: #6EBD8A;
+        }
+        .plan-toggle.is-off {
+          background: var(--dim);
+        }
+        /* The inline edit icon (right of cost price) and the mobile-only
+           bulk-card pieces exist only below 768px. */
+        .plan-edit-inline,
+        .bulk-type-inline,
+        .bulk-networks-mobile {
+          display: none;
+        }
+        .plan-edit-desktop {
+          display: inline-flex;
+        }
+        .network-tabs-desktop {
+          display: flex;
+        }
+        .plan-cost-line {
+          display: block;
+        }
+        /* Bulk card header: the title carries the spacing on desktop, so the
+           header wrapper is a plain block. */
+        .bulk-head {
+          display: block;
+        }
+        .bulk-head h3 {
+          margin-bottom: 1rem;
+        }
         /* Mobile: the row is plan name + toggle; everything else lives in a
            panel that opens on tap and also opens when the toggle is used. */
         @media (max-width: 767px) {
@@ -1156,6 +1250,28 @@ export default function PlansClient({
             margin-top: 0.75rem;
             padding-top: 0.75rem;
             border-top: 1px solid var(--border);
+          }
+          /* Cost price + the edit icon share one line. */
+          .plan-cost-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+          }
+          .plan-cost-line .plan-wholesale {
+            margin: 0;
+            border-top: none;
+            padding-top: 0;
+          }
+          .plan-edit-inline {
+            display: inline-flex;
+          }
+          .plan-edit-desktop {
+            display: none;
+          }
+          /* Mobile: inactive is red, active is green. */
+          .plan-toggle.is-off {
+            background: #EF4444;
           }
           .plan-card--expanded .plan-details {
             display: block;
@@ -1180,6 +1296,60 @@ export default function PlansClient({
           .plan-details > div {
             flex-wrap: wrap;
             row-gap: 0.6rem;
+          }
+          /* Bulk card: title + markup type share the header line; the
+             markup-type column below is replaced by that inline copy. */
+          .bulk-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+          }
+          .bulk-head h3 {
+            margin: 0;
+          }
+          .bulk-type-inline {
+            display: block;
+          }
+          .bulk-type-col {
+            display: none;
+          }
+          /* Apply To + Value + apply icon on one line. */
+          .bulk-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 0.5rem;
+            flex-wrap: nowrap;
+          }
+          .bulk-field--apply {
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          .bulk-field--apply select {
+            width: 100%;
+          }
+          .bulk-field {
+            flex: 0 0 auto;
+          }
+          .bulk-field input {
+            width: 74px;
+          }
+          /* Icon-only apply button; the label is desktop-only. */
+          .bulk-apply {
+            padding: 0.55rem 0.7rem;
+            gap: 0;
+          }
+          .bulk-apply-label {
+            display: none;
+          }
+          /* Network tabs move inside the bulk card. */
+          .bulk-networks-mobile {
+            display: block;
+            margin-top: 1rem;
+          }
+          .network-tabs-desktop {
+            display: none;
           }
         }
       `}</style>
@@ -1286,7 +1456,6 @@ const btnCancelStyle: React.CSSProperties = {
 };
 
 const btnIconStyle: React.CSSProperties = {
-  display: "inline-flex",
   alignItems: "center",
   padding: "0.4rem",
   background: "transparent",
