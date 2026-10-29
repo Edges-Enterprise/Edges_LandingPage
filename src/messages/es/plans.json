@@ -9,6 +9,8 @@
   "markup": "Margen",
   "active": "Activo",
   "inactive": "Inactivo",
+  "enablePlan": "Activar plan",
+  "disablePlan": "Desactivar plan",
   "edit": "Editar",
   "save": "Guardar",
   "saveSuccess": "Plan actualizado exitosamente",

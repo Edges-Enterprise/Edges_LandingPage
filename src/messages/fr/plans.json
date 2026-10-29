@@ -9,6 +9,8 @@
   "markup": "Marge",
   "active": "Actif",
   "inactive": "Inactif",
+  "enablePlan": "Activer le forfait",
+  "disablePlan": "Désactiver le forfait",
   "edit": "Modifier",
   "save": "Enregistrer",
   "saveSuccess": "Plan mis à jour avec succès",

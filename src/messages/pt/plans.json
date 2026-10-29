@@ -22,6 +22,8 @@
   "status": "Status",
   "active": "Active",
   "inactive": "Inactive",
+  "enablePlan": "Ativar plano",
+  "disablePlan": "Desativar plano",
   "edit": "Edit",
   "enable": "Enable",
   "disable": "Disable",

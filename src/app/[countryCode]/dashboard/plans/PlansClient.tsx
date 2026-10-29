@@ -9,6 +9,7 @@ import {
   Pencil,
   RotateCcw,
   AlertTriangle,
+  ChevronDown,
 } from "lucide-react";
 import { getPlans } from "@/actions/reseller/plans/getPlans";
 import { togglePlan } from "@/actions/reseller/plans/togglePlan";
@@ -58,6 +59,18 @@ export default function PlansClient({
     text: string;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Only the mobile layout collapses a plan to name + toggle; the desktop
+  // card always shows every detail inline.
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   const localCurrency = config.currency;
   const currencySymbol = config.currencySymbol || "₦";
@@ -90,37 +103,54 @@ export default function PlansClient({
   };
 
   const handleToggle = async (planId: string, enabled: boolean) => {
+    // A plan with no config row is treated as disabled everywhere (the
+    // storefront catalog is strictly opt-in), so the toggle reads
+    // `config?.enabled === true` and writes `config: null` for such a plan
+    // — which is why flipping one appeared to do nothing until a reload.
+    // Build the row `togglePlan` is about to create (same default markup
+    // and selling price) so the optimistic state has a real `config`.
+    const seedConfig = (plan: PlanWithConfig) => {
+      const markup = plan.config?.markup_value ?? config.defaultMarkup ?? 0;
+      const sellingPrice =
+        plan.config?.selling_price ??
+        (markup > 0
+          ? Math.round(plan.base_price * (1 + markup / 100))
+          : plan.base_price);
+      return {
+        id: plan.config?.id ?? `pending-${plan.id}`,
+        reseller_id: plan.config?.reseller_id ?? "",
+        plan_id: plan.id,
+        enabled,
+        markup_type: plan.config?.markup_type ?? ("percentage" as const),
+        markup_value: markup,
+        selling_price: sellingPrice,
+        created_at: plan.config?.created_at ?? new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    };
+
+    const previousConfig = plansData.find((p) => p.id === planId)?.config ?? null;
+
     setPlansData((prev) =>
-      prev.map((p) =>
-        p.id === planId
-          ? { ...p, config: p.config ? { ...p.config, enabled } : null }
-          : p,
-      ),
+      prev.map((p) => (p.id === planId ? { ...p, config: seedConfig(p) } : p)),
     );
 
     const result = await togglePlan(planId, enabled);
     if (result.success) {
       // Adopt the authoritative state the server persisted.
-      if (result.data) {
-        const persisted = result.data.enabled;
-        setPlansData((prev) =>
-          prev.map((p) =>
-            p.id === planId
-              ? { ...p, config: p.config ? { ...p.config, enabled: persisted } : null }
-              : p,
-          ),
-        );
-      }
-    } else {
+      const persisted = result.data?.enabled ?? enabled;
       setPlansData((prev) =>
         prev.map((p) =>
           p.id === planId
-            ? {
-                ...p,
-                config: p.config ? { ...p.config, enabled: !enabled } : null,
-              }
+            ? { ...p, config: p.config ? { ...p.config, enabled: persisted } : null }
             : p,
         ),
+      );
+    } else {
+      // Roll back to exactly what was there before, so a failed first
+      // toggle does not leave a phantom config behind.
+      setPlansData((prev) =>
+        prev.map((p) => (p.id === planId ? { ...p, config: previousConfig } : p)),
       );
       setMessage({
         type: "error",
@@ -723,6 +753,7 @@ export default function PlansClient({
           plans.map((plan) => {
             const isEditing = editingPlan === plan.id;
             const isEnabled = plan.config?.enabled === true;
+            const isExpanded = expandedPlanId === plan.id;
 
             // Get display values using type-safe helpers
             const costPrice = getCostPriceSafe(plan);
@@ -765,6 +796,7 @@ export default function PlansClient({
             return (
               <div
                 key={plan.id}
+                className={`plan-card${isExpanded ? " plan-card--expanded" : ""}`}
                 style={{
                   background: "var(--card)",
                   border: "1px solid var(--border)",
@@ -775,6 +807,7 @@ export default function PlansClient({
                 }}
               >
                 <div
+                  className="plan-row"
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -784,8 +817,23 @@ export default function PlansClient({
                   }}
                 >
                   {/* Plan Info */}
-                  <div style={{ flex: 1, minWidth: 180 }}>
+                  <div className="plan-info" style={{ flex: 1, minWidth: 180 }}>
                     <div
+                      className="plan-title"
+                      role={isMobile ? "button" : undefined}
+                      tabIndex={isMobile ? 0 : undefined}
+                      aria-expanded={isMobile ? isExpanded : undefined}
+                      onClick={() => {
+                        if (!isMobile) return;
+                        setExpandedPlanId(isExpanded ? null : plan.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (!isMobile) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setExpandedPlanId(isExpanded ? null : plan.id);
+                        }
+                      }}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -817,6 +865,7 @@ export default function PlansClient({
                       )} */}
                       {plan.validity && (
                         <span
+                          className="plan-validity"
                           style={{
                             fontSize: "0.7rem",
                             color: "var(--dim)",
@@ -830,7 +879,19 @@ export default function PlansClient({
                       )}
                       {/* Toggle */}
                       <button
-                        onClick={() => handleToggle(plan.id, !isEnabled)}
+                        className="plan-toggle"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Toggling a plan opens its details panel on mobile.
+                          if (isMobile) setExpandedPlanId(plan.id);
+                          handleToggle(plan.id, !isEnabled);
+                        }}
+                        aria-label={
+                          isEnabled
+                            ? t?.disablePlan || "Disable plan"
+                            : t?.enablePlan || "Enable plan"
+                        }
+                        aria-pressed={isEnabled}
                         style={{
                           width: 40,
                           height: 22,
@@ -859,6 +920,7 @@ export default function PlansClient({
                       </button>
                       {!isEnabled && (
                         <span
+                          className="plan-hidden-badge"
                           style={{
                             fontSize: "0.65rem",
                             color: "#F87171",
@@ -870,8 +932,11 @@ export default function PlansClient({
                           {t?.inactive || "Hidden"}
                         </span>
                       )}
+                      <span className="plan-chevron" aria-hidden="true">
+                        <ChevronDown size={16} />
+                      </span>
                     </div>
-                    <p style={{ fontSize: "0.78rem", color: "var(--dim)" }}>
+                    <p className="plan-wholesale" style={{ fontSize: "0.78rem", color: "var(--dim)" }}>
                       {t?.wholesalePrice || "Wholesale"}:{" "}
                       <strong style={{ color: "var(--text)" }}>
                         {costPrice.formatted}
@@ -899,6 +964,7 @@ export default function PlansClient({
                   </div>
 
                   {/* Editing or Display */}
+                  <div className="plan-details">
                   {isEditing ? (
                     <div
                       style={{
@@ -1050,6 +1116,7 @@ export default function PlansClient({
                       )}
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
             );
@@ -1064,6 +1131,55 @@ export default function PlansClient({
           }
           to {
             transform: rotate(360deg);
+          }
+        }
+        /* Desktop: the details wrapper is transparent, so the card keeps its
+           original single-row layout (wholesale + markup/price/profit inline)
+           and no chevron is shown. */
+        .plan-details {
+          display: contents;
+        }
+        .plan-chevron {
+          display: none;
+        }
+        /* Mobile: the row is plan name + toggle; everything else lives in a
+           panel that opens on tap and also opens when the toggle is used. */
+        @media (max-width: 767px) {
+          .plan-wholesale {
+            display: none;
+          }
+          .plan-details {
+            display: none;
+          }
+          .plan-card--expanded .plan-wholesale {
+            display: block;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+          }
+          .plan-card--expanded .plan-details {
+            display: block;
+            flex-basis: 100%;
+          }
+          .plan-title {
+            flex-wrap: nowrap;
+          }
+          .plan-title h3 {
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          .plan-chevron {
+            display: inline-flex;
+            align-items: center;
+            color: var(--dim);
+            transition: transform 0.2s;
+          }
+          .plan-card--expanded .plan-chevron {
+            transform: rotate(180deg);
+          }
+          .plan-details > div {
+            flex-wrap: wrap;
+            row-gap: 0.6rem;
           }
         }
       `}</style>

@@ -9,6 +9,8 @@
   "markup": "الهامش",
   "active": "نشط",
   "inactive": "غير نشط",
+  "enablePlan": "تفعيل الباقة",
+  "disablePlan": "تعطيل الباقة",
   "edit": "تعديل",
   "save": "حفظ",
   "saveSuccess": "تم تحديث الخطة بنجاح",

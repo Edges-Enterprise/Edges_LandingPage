@@ -9,6 +9,8 @@
   "markup": "Markup",
   "active": "Active",
   "inactive": "Inactive",
+  "enablePlan": "Enable plan",
+  "disablePlan": "Disable plan",
   "edit": "Edit",
   "save": "Save",
   "saveSuccess": "Plan updated successfully",
