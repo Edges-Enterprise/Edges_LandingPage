@@ -62,6 +62,17 @@ reseller dashboard).
 - The customer fund path reads the customer row through the service-role client
   (`createAdminClient`) because `global_customers` RLS grants SELECT to the store
   owner only.
+- **Both surfaces can fund a customer wallet; the web needs no REST route.** The
+  storefront is a client component (`[storeName]/StoreContent.tsx`) whose
+  `handleFundMobileMoney` branches on `auth.isStoreOwner` and calls the
+  `fundGlobalCustomerWallet` **server action** directly for a customer. A Next
+  `"use server"` action is client-reachable without its own route, so the absence
+  of a file under `src/app/api/` is NOT evidence that a path is missing — do not
+  re-derive the (wrong) "web has no customer fund path" conclusion from that.
+  The one REST route, `POST /api/reseller/[countryCode]/wallet/fund`, is
+  deliberately the **owner's** (resolves the caller via
+  `global_reseller_applications.auth_user_id`). The storefront modal's
+  mobile-money form is gated on the **gateway** (`isXixapay`), not the role.
 - `global_customers` has **no** `customer_type` or `customer_reference` column —
   sending either in an insert makes PostgREST reject the whole row (`PGRST204`).
   Its real columns are `id, reseller_id, first_name, last_name, email, phone,
