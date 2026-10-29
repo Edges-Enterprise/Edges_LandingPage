@@ -144,6 +144,12 @@ reseller dashboard).
   Its native **spinner is hidden** on purpose: on the 56–72px field the arrows
   cover the middle of the box, so a tap there increments `0`→`1` instead of
   focusing the text.
+- The per-plan editor field (`editValue`) uses the same empty-on-focus pattern
+  but must **not** restore to `0` on blur: its resting value is the plan's
+  current markup, so an abandoned edit would silently wipe a real markup. It
+  stashes the pre-focus value in `editValueBeforeFocus` and restores that on
+  blur when the user typed nothing. Route every numeric use through
+  `editValueNumber` so `""` becomes `0`, never `NaN`.
 
 ## Pushing to this repo (credentials)
 

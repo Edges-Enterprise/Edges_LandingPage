@@ -1,7 +1,7 @@
 // src/app/[countryCode]/dashboard/plans/PlansClient.tsx
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Check,
   X,
@@ -45,7 +45,12 @@ export default function PlansClient({
   const [editType, setEditType] = useState<"percentage" | "fixed">(
     "percentage",
   );
-  const [editValue, setEditValue] = useState(0);
+  // Same resting-0/empty-on-focus behaviour as the bulk value field, but the
+  // resting value is the plan's current markup, so the field is cleared on
+  // focus and restored from the ref on blur when the user types nothing.
+  const [editValue, setEditValue] = useState<number | "">(0);
+  const [editValueFocused, setEditValueFocused] = useState(false);
+  const editValueBeforeFocus = useRef<number | "">(0);
   const [saving, setSaving] = useState(false);
   const [bulkType, setBulkType] = useState<"percentage" | "fixed">(
     "percentage",
@@ -171,18 +176,23 @@ export default function PlansClient({
     setEditingPlan(plan.id);
     setEditType(plan.config?.markup_type || "percentage");
     setEditValue(plan.config?.markup_value || 0);
+    setEditValueFocused(false);
   };
 
   const cancelEdit = () => {
     setEditingPlan(null);
+    setEditValueFocused(false);
   };
+
+  // An untouched (empty) field means a zero markup, same as the bulk field.
+  const editValueNumber = editValue === "" ? 0 : editValue;
 
   const saveEdit = async (planId: string) => {
     setSaving(true);
     const result = await updatePlanConfig({
       planId,
       markupType: editType,
-      markupValue: editValue,
+      markupValue: editValueNumber,
     });
 
     if (result.success) {
@@ -202,8 +212,8 @@ export default function PlansClient({
 
             const sellingPrice =
               editType === "percentage"
-                ? Math.round(costBasis * (1 + editValue / 100))
-                : Math.round(costBasis + editValue);
+                ? Math.round(costBasis * (1 + editValueNumber / 100))
+                : Math.round(costBasis + editValueNumber);
             const profit = sellingPrice - costBasis;
             const profitPercent =
               costBasis > 0 ? (profit / costBasis) * 100 : 0;
@@ -214,7 +224,7 @@ export default function PlansClient({
                 ? {
                     ...p.config,
                     markup_type: editType,
-                    markup_value: editValue,
+                    markup_value: editValueNumber,
                     selling_price: sellingPrice,
                   }
                 : null,
@@ -811,8 +821,8 @@ export default function PlansClient({
 
             const editSellingPriceLocal = isEditing
               ? editType === "percentage"
-                ? Math.round(editCostBasis * (1 + editValue / 100))
-                : Math.round(editCostBasis + editValue)
+                ? Math.round(editCostBasis * (1 + editValueNumber / 100))
+                : Math.round(editCostBasis + editValueNumber)
               : yourPrice.amount;
 
             const editProfitLocal = isEditing
@@ -1006,9 +1016,33 @@ export default function PlansClient({
                         <option value="fixed">{currencySymbol}</option>
                       </select>
                       <input
+                        className="plan-edit-value"
                         type="number"
-                        value={editValue}
-                        onChange={(e) => setEditValue(Number(e.target.value))}
+                        value={
+                          editValueFocused
+                            ? editValue
+                            : editValue === ""
+                              ? 0
+                              : editValue
+                        }
+                        onChange={(e) =>
+                          setEditValue(
+                            e.target.value === "" ? "" : Number(e.target.value),
+                          )
+                        }
+                        onFocus={() => {
+                          // Empty the field so the first keystroke replaces the
+                          // existing markup; remember it to restore on blur.
+                          editValueBeforeFocus.current = editValue;
+                          setEditValueFocused(true);
+                          setEditValue("");
+                        }}
+                        onBlur={() => {
+                          setEditValueFocused(false);
+                          if (editValue === "") {
+                            setEditValue(editValueBeforeFocus.current);
+                          }
+                        }}
                         style={{ ...smallInputStyle, width: 70 }}
                         min="0"
                         step={editType === "percentage" ? "1" : "10"}
@@ -1178,6 +1212,17 @@ export default function PlansClient({
         }
         .plan-cost-line {
           display: block;
+        }
+        /* The per-plan markup input empties on focus too; its spinner would
+           otherwise eat taps on the 70px field. */
+        .plan-edit-value::-webkit-outer-spin-button,
+        .plan-edit-value::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        .plan-edit-value {
+          -moz-appearance: textfield;
+          appearance: textfield;
         }
         /* Bulk card: title on the left, markup type on the right. */
         .bulk-head {
