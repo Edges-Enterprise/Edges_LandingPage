@@ -159,7 +159,7 @@ export default function BuildStatus({
               <CheckCircle
                 className="build-status-check"
                 size={14}
-                style={{ display: "none", verticalAlign: "-2px" }}
+                style={{ display: "none", verticalAlign: "-2px", paddingRight:"10px"}}
               />
               {getStatusLabel(build.build_status)}
             </span>
@@ -181,7 +181,7 @@ export default function BuildStatus({
                     fontSize: "0.85rem",
                     display: "flex",
                     alignItems: "center",
-                    gap: "0.5rem",
+                    gap: "1.5rem",
                     transition: "all 0.2s",
                   }}
                   onMouseEnter={(e) => {
