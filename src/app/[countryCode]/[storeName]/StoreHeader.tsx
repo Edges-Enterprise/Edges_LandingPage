@@ -362,6 +362,11 @@ export default function StoreHeader({
               60% { transform: translateY(4px); opacity: 1; }
               100% { transform: translateY(0); opacity: 1; }
             }
+            @media (max-width: 767px) {
+              /* Phones show the compact banner: just the title and button. */
+              .banner-description { display: none !important; }
+              .banner-title { white-space: nowrap; }
+            }
             @media (max-width: 480px) {
               .banner-content { flex-wrap: wrap !important; gap: 0.5rem !important; }
               .banner-title { font-size: 0.85rem !important; }

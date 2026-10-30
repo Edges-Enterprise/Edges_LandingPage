@@ -159,7 +159,7 @@ export default function BuildStatus({
               <CheckCircle
                 className="build-status-check"
                 size={14}
-                style={{ display: "none", verticalAlign: "-2px", paddingRight:"10px"}}
+                style={{ display: "none", verticalAlign: "-2px" }}
               />
               {getStatusLabel(build.build_status)}
             </span>
@@ -323,9 +323,18 @@ export default function BuildStatus({
         }
         @media (max-width: 767px) {
           .build-status-main {
-            flex-wrap: nowrap !important;
+            flex: 1 1 auto !important;
+            /* The badge keeps the check and its label on one line; a long
+               label (fr/ar) that cannot fit beside the button wraps the whole
+               button to the next line instead of overflowing the card. */
+            flex-wrap: wrap !important;
             align-items: flex-start !important;
-            gap: 0.5rem !important;
+            gap: 0.75rem !important;
+          }
+          /* Auto margin keeps the button hard against the right edge on the
+             shared line, and still right-aligned if it wraps below. */
+          .build-status-main > div:last-child {
+            margin-left: auto;
           }
           .build-status-info {
             flex-direction: column !important;
@@ -339,9 +348,13 @@ export default function BuildStatus({
           }
           .build-status-label {
             margin-top: 0 !important;
+            white-space: nowrap;
           }
           .build-status-check {
             display: inline-block !important;
+            /* margin, not padding: padding on a 14px border-box SVG squishes
+               the glyph itself instead of opening a gap. */
+            margin-right: 0.5rem;
           }
           .build-download-label-desktop {
             display: none;

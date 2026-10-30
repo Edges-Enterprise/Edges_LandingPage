@@ -185,6 +185,32 @@ reseller dashboard).
 - GoTrue has no "password last changed" field; it is stamped on
   `global_reseller_applications.password_changed_at` by `changePassword`.
 
+## Responsive conventions (mobile ≤767px)
+
+- The web app's mobile boundary is **767px** (`max-width: 767px`), matching the
+  dashboard blocks; the storefront's own blocks use 480px and 768px. Prefer 767
+  for new "phone" rules so they line up with the rest of the dashboard.
+- A flex row that should reach both edges needs `flex: 1 1 auto` **and** a
+  right-edge anchor (e.g. `margin-left: auto` on the trailing item). A
+  `justify-content: space-between` row with no `flex-grow` shrinks to its
+  content width and leaves the trailing control short of the card edge — this
+  is what left the publishing Download button ~39px inside the card.
+- When hiding a badge's text on mobile but keeping its icon, give the icon a
+  `margin-right` so the glyph is not flush against the label. If the label is a
+  translated string, pair it with `white-space: nowrap` on the badge **and**
+  `flex-wrap: wrap` on the row: a long fr/ar phrase then moves the whole
+  sibling (e.g. a button) to the next line instead of breaking mid-phrase or
+  overflowing the card. `nowrap` on the row itself will overflow — do not use it.
+- **Use `margin`, not `padding`, to space a lucide `<CheckCircle size={14}>`**
+  (or any inline SVG sized by width/height attributes). `lucide-react` renders
+  `width/height` attributes with no `box-sizing` override, so the SVG is
+  `border-box`; a `padding-right` has to come out of the 14px box and squashes
+  the glyph (measured: the path's rendered width dropped 11.7px → 3.3px) instead
+  of opening a gap. This is a silent visual defect, not a compile error.
+- The storefront install banner renders only for an **Android + mobile/tablet**
+  user agent (`showInstallBanner`); to see it in headless Chromium, set an
+  Android UA and `isMobile: true`/`hasTouch: true`, and wait ~3s for its timer.
+
 ## Pushing to this repo (credentials)
 
 - The system-injected `GITHUB_TOKEN` is a GitHub **App installation token**
