@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { Store, Palette, Eye, Save } from "lucide-react";
+import { Store, Palette, Eye, Save, Store as StoreIcon } from "lucide-react";
 import StoreSettings from "./StoreSettings";
 import BrandingSettings from "./BrandingSettings";
 import ThemeSettings from "./ThemeSettings";
@@ -94,7 +94,8 @@ export default function StoreClient({
     }
   };
 
-  const storeUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://telcos.opik.net"}/${countryCode}/${data.application.store_slug}`;
+  // The storefront path, matching the URL the preview card's button used.
+  const storeUrl = `/${countryCode}/${data.application.store_slug}`;
 
   return (
     <div>
@@ -126,9 +127,12 @@ export default function StoreClient({
         </div>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
           <a
+            className="store-view-link"
             href={storeUrl}
             target="_blank"
             rel="noopener noreferrer"
+            title={t?.viewStore || "View Store"}
+            aria-label={t?.viewStore || "View Store"}
             style={{
               padding: "0.6rem 1.2rem",
               background: "transparent",
@@ -151,7 +155,11 @@ export default function StoreClient({
               e.currentTarget.style.background = "transparent";
             }}
           >
-            {t?.viewStore || "View Store"} →
+            {/* Mobile: an icon stands in for the label. */}
+            <StoreIcon className="store-view-icon" size={18} />
+            <span className="store-view-label">
+              {t?.viewStore || "View Store"} →
+            </span>
           </a>
         </div>
       </div>
@@ -181,6 +189,21 @@ export default function StoreClient({
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-10px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        /* Mobile: the header's View Store control becomes a store icon. */
+        .store-view-icon {
+          display: none;
+        }
+        @media (max-width: 767px) {
+          .store-view-label {
+            display: none;
+          }
+          .store-view-icon {
+            display: block;
+          }
+          .store-view-link {
+            padding: 0.6rem 0.7rem !important;
+          }
         }
       `}</style>
 

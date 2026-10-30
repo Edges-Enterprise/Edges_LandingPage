@@ -408,6 +408,37 @@ export async function processPurchase(
     },
   });
 
+  // Notify the buyer's own inbox. global_notifications is the owner's inbox,
+  // global_customer_notifications a customer's - same split the mobile
+  // global-store-notifications function uses. Best-effort: the order is
+  // already placed, so a failed insert must not fail the purchase.
+  const purchaseMessage = `${basePlan.name} (${basePlan.network || basePlan.provider}) purchased for ${phoneNumber}.`;
+  const purchaseMetadata = {
+    order_id: orderId,
+    plan_name: basePlan.name,
+    network: basePlan.network,
+    phone_number: phoneNumber,
+    amount: userType === "reseller" ? costPrice : finalPrice,
+    request_id: requestId,
+  };
+
+  if (userType === "customer" && customerId) {
+    await supabaseAdmin.from("global_customer_notifications").insert({
+      reseller_id: resellerId,
+      customer_id: customerId,
+      notification_type: "purchase",
+      message: purchaseMessage,
+      metadata: purchaseMetadata,
+    });
+  } else {
+    await supabaseAdmin.from("global_notifications").insert({
+      reseller_id: resellerId,
+      notification_type: "purchase",
+      message: purchaseMessage,
+      metadata: purchaseMetadata,
+    });
+  }
+
   return {
     success: true,
     message: providerResult.message || `${basePlan.name} purchased successfully!`,

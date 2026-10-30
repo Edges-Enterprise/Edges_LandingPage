@@ -68,7 +68,7 @@
   "plan": "Plan",
   "price": "Precio",
   "confirmPublish": "Confirmar Publicación",
-  "confirmPublishDesc": "Estás a punto de publicar tu aplicación. Esta acción no se puede deshacer.",
+  "confirmPublishDesc": "El importe indicado a continuación se deducirá de tu cartera.",
   "payNow": "Pagar Ahora",
   "processing": "Procesando...",
   "invalidFileType": "Por favor, sube un archivo de imagen",
@@ -79,5 +79,12 @@
   "showLess": "Mostrar Menos",
   "showAll": "Mostrar Todo",
   "builds": "builds",
-  "build": "Build"
+  "build": "Build",
+  "fromWallet": "de tu cartera",
+  "deductedFromWallet": "Deducido de la cartera",
+  "refresh": "Actualizar",
+  "androidDisabled": "La aplicación Android no está habilitada. Actívala en la configuración de tu tienda para publicar.",
+  "walletBalance": "Saldo de la cartera",
+  "insufficientFunds": "Saldo de cartera insuficiente",
+  "paymentFailed": "El pago falló. Inténtalo de nuevo."
 }

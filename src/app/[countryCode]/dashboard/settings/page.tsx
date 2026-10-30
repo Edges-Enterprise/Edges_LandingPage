@@ -1,8 +1,10 @@
 // src/app/[countryCode]/dashboard/settings/page.tsx
 import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
 import { CountryProvider } from "@/providers/CountryProvider";
 import SettingsClient from "./SettingsClient";
+import { DEFAULT_NOTIFICATION_SETTINGS } from "@/lib/settings/notificationDefaults";
 import "@/app/reseller.css";
 
 interface SettingsPageProps {
@@ -24,37 +26,20 @@ async function getSettingsData(userId: string) {
 
     if (appError) throw appError;
 
-    // Get notification settings from global_reseller_settings if exists
-    const { data: settings, error: settingsError } = await supabase
+    // Notification preferences live in global_reseller_settings, keyed by
+    // auth_user_id (the table has no `reseller_id` column). Reading with the
+    // wrong key failed, so the tab always rendered the defaults.
+    //
+    // global_reseller_settings is RLS-locked with no policies (service role
+    // only), so the session client reads no row and the saved preferences
+    // would never come back. Read through the admin client, filtered on the
+    // authenticated user's own id.
+    const admin = createAdminClient();
+    const { data: settings } = await admin
       .from("global_reseller_settings")
-      .select("*")
-      .eq("reseller_id", application.id)
-      .single();
-
-    // Default notification settings
-    const defaultNotifications = {
-      email_notifications: {
-        sales: true,
-        orders: true,
-        customers: true,
-        marketing: false,
-        system: true,
-      },
-      push_notifications: {
-        sales: true,
-        orders: true,
-        customers: true,
-        marketing: false,
-        system: true,
-      },
-      sms_notifications: {
-        sales: false,
-        orders: false,
-        customers: false,
-        marketing: false,
-        system: true,
-      },
-    };
+      .select("notification_settings")
+      .eq("auth_user_id", userId)
+      .maybeSingle();
 
     // Get sessions (mock for now - would come from auth system)
     const sessions = [
@@ -91,7 +76,10 @@ async function getSettingsData(userId: string) {
         last_password_change: new Date().toISOString(),
         sessions,
       },
-      notifications: settings?.notifications || defaultNotifications,
+      notifications:
+        (settings?.notification_settings as
+          | typeof DEFAULT_NOTIFICATION_SETTINGS
+          | null) || DEFAULT_NOTIFICATION_SETTINGS,
     };
   } catch (error) {
     console.error("Settings data error:", error);

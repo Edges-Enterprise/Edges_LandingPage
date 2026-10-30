@@ -68,7 +68,7 @@
   "plan": "Plan",
   "price": "Price",
   "confirmPublish": "Confirm Publishing",
-  "confirmPublishDesc": "You are about to publish your app. This action cannot be undone.",
+  "confirmPublishDesc": "The amount below will be deducted from your wallet.",
   "payNow": "Pay Now",
   "processing": "Processing...",
   "invalidFileType": "Please upload an image file",
@@ -79,5 +79,12 @@
   "showLess": "Show Less",
   "showAll": "Show All",
   "builds": "builds",
-  "build": "Build"
+  "build": "Build",
+  "fromWallet": "from your wallet",
+  "deductedFromWallet": "Deducted from wallet",
+  "refresh": "Refresh",
+  "androidDisabled": "Android App is not enabled. Enable it in your store settings to publish.",
+  "walletBalance": "Wallet Balance",
+  "insufficientFunds": "Insufficient wallet balance",
+  "paymentFailed": "Payment failed. Please try again."
 }

@@ -2,18 +2,16 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import {
   Globe,
   MapPin,
   Earth,
   Check,
-  X,
   CreditCard,
-  Package,
   Wallet,
 } from "lucide-react";
 import { CountryConfig } from "@/config/countries";
+import { purchasePublishingPlan } from "@/actions/reseller/publishing/purchasePublishingPlan";
 
 interface PublishingPlansProps {
   application: {
@@ -22,20 +20,19 @@ interface PublishingPlansProps {
     android_app: boolean;
   };
   currentPlan: string | null;
-  // TODO(wallet): wire this up to wherever wallet balance actually lives
-  // (a column, a separate table, an RPC — whatever you land on). Pass the
-  // real number in from the parent/page once it's built. Defaults to 0
-  // so nothing here breaks before that exists.
   walletBalance?: number;
+  walletCurrency?: string;
+  /** USD -> local currency rate, so a card can show the local amount too. */
+  usdToLocalRate?: number | null;
   config: CountryConfig;
   translations: any;
   onSuccess: () => void;
 }
 
 interface Plan {
-  id: "free" | "local" | "regional" | "worldwide";
+  id: "local" | "regional" | "worldwide";
   name: string;
-  price: number | null;
+  price: number;
   description: string;
   features: string[];
   icon: any;
@@ -46,32 +43,21 @@ export default function PublishingPlans({
   application,
   currentPlan,
   walletBalance = 0,
+  walletCurrency = "USD",
+  usdToLocalRate = null,
   config,
   translations,
   onSuccess,
 }: PublishingPlansProps) {
   const t = translations;
-  const supabase = createClient();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  // The free tier is deliberately not a card: it is the plan a store starts
+  // on, not something to buy. Paid plans only.
   const plans: Plan[] = [
-    {
-      id: "free",
-      name: t?.freeAPK || "Free APK",
-      price: null,
-      description: t?.freeDesc || "Get your branded APK for free",
-      features: [
-        t?.freeFeatures || "Branded APK",
-        "WhatsApp sharing",
-        "QR code generation",
-        "Direct download link",
-      ],
-      icon: Package,
-      color: "#6EBD8A",
-    },
     {
       id: "local",
       name: t?.local || "Local",
@@ -116,23 +102,31 @@ export default function PublishingPlans({
     },
   ];
 
+  const currencySymbol = config.currencySymbol || "$";
+  const currencyCode = config.currency || walletCurrency;
+
+  // The wallet is denominated in USD, so the balance and the price are
+  // compared in USD; the local figure is what the reseller recognises.
+  const formatLocal = (usdPrice: number) => {
+    if (!usdToLocalRate) return null;
+    const local = Math.round(usdPrice * usdToLocalRate);
+    return `${currencySymbol} ${local.toLocaleString()} ${currencyCode}`.trim();
+  };
+
   const selectedPlanDetails = plans.find((p) => p.id === selectedPlan);
   const activePlanDetails = plans.find((p) => p.id === currentPlan);
 
   const insufficientFunds =
-    !!selectedPlanDetails &&
-    selectedPlanDetails.price !== null &&
-    walletBalance < selectedPlanDetails.price;
+    !!selectedPlanDetails && walletBalance < selectedPlanDetails.price;
 
   const canPublish =
     !!selectedPlan &&
-    selectedPlan !== "free" &&
     selectedPlan !== currentPlan &&
-    !insufficientFunds;
+    !insufficientFunds &&
+    !isLoading;
 
   // Card click just selects/deselects a plan — it no longer triggers payment.
   const handleCardClick = (planId: string) => {
-    if (planId === "free") return; // free tier isn't something to "select"
     if (planId === currentPlan) return; // already active, nothing to do
 
     setSelectedPlan((prev) => (prev === planId ? null : planId));
@@ -147,46 +141,30 @@ export default function PublishingPlans({
   };
 
   const handlePayment = async () => {
-    if (!selectedPlan || selectedPlan === "free") return;
-
-    const plan = plans.find((p) => p.id === selectedPlan);
-    if (!plan || plan.price === null) return;
+    if (!selectedPlan) return;
 
     setIsLoading(true);
     setPaymentError(null);
 
-    try {
-      // TODO(wallet): replace this with the real wallet deduction —
-      // e.g. a supabase.rpc('deduct_wallet_balance', { reseller_id, amount })
-      // call that atomically checks + debits the balance server-side, so we
-      // aren't trusting the client-side `walletBalance` prop for the actual
-      // charge. This should throw/return an error on insufficient funds so
-      // the catch block below can surface it instead of silently updating
-      // the plan.
-      //
-      // const { error: walletError } = await supabase.rpc(
-      //   "deduct_wallet_balance",
-      //   { reseller_id: application.id, amount: plan.price },
-      // );
-      // if (walletError) throw walletError;
+    // The server action re-reads the price from its own list, re-checks the
+    // balance and debits the wallet; the figures on this screen are display
+    // only and are never trusted for the charge.
+    const result = await purchasePublishingPlan(application.id, selectedPlan);
 
-      const { error } = await supabase.from("global_reseller_settings").upsert({
-        reseller_id: application.id,
-        publishing_plan: selectedPlan,
-        updated_at: new Date().toISOString(),
-      });
-
-      if (error) throw error;
-
-      onSuccess();
-      setShowPayment(false);
-      setSelectedPlan(null);
-    } catch (error) {
-      console.error("Payment error:", error);
-      setPaymentError(t?.paymentFailed || "Payment failed. Please try again.");
-    } finally {
+    if (!result.success) {
+      setPaymentError(
+        result.insufficientFunds
+          ? t?.insufficientFunds || "Insufficient wallet balance"
+          : t?.paymentFailed || "Payment failed. Please try again.",
+      );
       setIsLoading(false);
+      return;
     }
+
+    onSuccess();
+    setShowPayment(false);
+    setSelectedPlan(null);
+    setIsLoading(false);
   };
 
   // If Android App is not enabled, show a message
@@ -274,7 +252,7 @@ export default function PublishingPlans({
           </p>
         </div>
 
-        {/* <div
+        <div
           style={{
             display: "flex",
             alignItems: "center",
@@ -293,10 +271,10 @@ export default function PublishingPlans({
           <strong style={{ color: "var(--text)" }}>
             ${walletBalance.toFixed(2)}
           </strong>
-        </div> */}
+        </div>
       </div>
 
-      {activePlanDetails && activePlanDetails.id !== "free" && (
+      {activePlanDetails && (
         <div
           style={{
             padding: "0.75rem 1rem",
@@ -355,9 +333,9 @@ export default function PublishingPlans({
         {plans.map((plan) => {
           const Icon = plan.icon;
           const isActive = currentPlan === plan.id;
-          const isFree = plan.id === "free";
           const isSelected = selectedPlan === plan.id;
-          const isClickable = !isActive && !isFree;
+          const isClickable = !isActive;
+          const localAmount = formatLocal(plan.price);
 
           return (
             <div
@@ -454,28 +432,27 @@ export default function PublishingPlans({
                 {plan.name}
               </h4>
 
-              {plan.price !== null ? (
+              <p
+                style={{
+                  fontFamily: "'Playfair Display', serif",
+                  fontSize: "1.2rem",
+                  fontWeight: 700,
+                  color: "var(--brand-color)",
+                  margin: "0.25rem 0 0.1rem 0",
+                }}
+              >
+                ${plan.price}
+              </p>
+
+              {localAmount && (
                 <p
                   style={{
-                    fontFamily: "'Playfair Display', serif",
-                    fontSize: "1.2rem",
-                    fontWeight: 700,
-                    color: "var(--brand-color)",
-                    margin: "0.25rem 0 0.5rem 0",
+                    fontSize: "0.75rem",
+                    color: "var(--muted)",
+                    margin: "0 0 0.5rem 0",
                   }}
                 >
-                  ${plan.price}
-                </p>
-              ) : (
-                <p
-                  style={{
-                    fontSize: "0.8rem",
-                    fontWeight: 600,
-                    color: "#6EBD8A",
-                    margin: "0.25rem 0 0.5rem 0",
-                  }}
-                >
-                  {t?.free || "Free"}
+                  ≈ {localAmount} {t?.fromWallet || "from your wallet"}
                 </p>
               )}
 
@@ -514,7 +491,7 @@ export default function PublishingPlans({
                 ))}
               </ul>
 
-              {isActive && !isFree && (
+              {isActive && (
                 <div
                   style={{
                     width: "100%",
@@ -566,6 +543,12 @@ export default function PublishingPlans({
               <strong style={{ color: "var(--brand-color)" }}>
                 ${selectedPlanDetails.price}
               </strong>
+              {formatLocal(selectedPlanDetails.price) && (
+                <span style={{ marginLeft: "0.4rem" }}>
+                  (≈ {formatLocal(selectedPlanDetails.price)}{" "}
+                  {t?.fromWallet || "from your wallet"})
+                </span>
+              )}
               {insufficientFunds && (
                 <span style={{ color: "#EF4444", marginLeft: "0.75rem" }}>
                   {t?.insufficientFunds || "Insufficient wallet balance"}
@@ -651,7 +634,7 @@ export default function PublishingPlans({
               }}
             >
               {t?.confirmPublishDesc ||
-                "You are about to publish your app. This action cannot be undone."}
+                "The amount below will be deducted from your wallet."}
             </p>
 
             {(() => {
@@ -696,6 +679,23 @@ export default function PublishingPlans({
                       ${plan?.price}
                     </span>
                   </div>
+                  {formatLocal(plan?.price ?? 0) && (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        padding: "0.25rem 0",
+                        borderTop: "1px solid var(--border)",
+                      }}
+                    >
+                      <span style={{ color: "var(--muted)" }}>
+                        {t?.deductedFromWallet || "Deducted from wallet"}
+                      </span>
+                      <span style={{ fontWeight: 600, color: "var(--text)" }}>
+                        ≈ {formatLocal(plan?.price ?? 0)}
+                      </span>
+                    </div>
+                  )}
                   <div
                     style={{
                       display: "flex",
@@ -834,6 +834,8 @@ export default function PublishingPlans({
 //   const [isLoading, setIsLoading] = useState(false);
 //   const [showPayment, setShowPayment] = useState(false);
 
+//   // The free tier is deliberately not a card: it is the plan a store starts
+  // on, not something to buy. Paid plans only.
 //   const plans: Plan[] = [
 //     {
 //       id: "free",

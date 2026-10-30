@@ -25,17 +25,20 @@ export default function StoreLayoutClient({
   const [storeDisplayName, setStoreDisplayName] = useState<string>("");
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
+  // One-time mount setup. This effect used to depend on [countryCode,
+  // brandColor, theme, storeName] and call setBrandColor/setTheme itself, so
+  // every run changed its own dependencies and React re-ran it forever
+  // ("Maximum update depth exceeded") - the storefront never left its loading
+  // state. The async store fetch below owns brandColor, and the DOM sync
+  // effect owns theme, so this can run once.
   useEffect(() => {
-    const config = getCountryConfig(countryCode);
-    setConfig(config);
+    setConfig(getCountryConfig(countryCode));
 
-    // Load brand color from localStorage
     const savedBrandColor = localStorage.getItem("brandColor");
     if (savedBrandColor) {
       setBrandColor(savedBrandColor);
     }
 
-    // Load theme preference
     const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
     const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
       .matches
@@ -43,20 +46,8 @@ export default function StoreLayoutClient({
       : "light";
     setTheme(savedTheme || systemTheme);
 
-    // Apply storefront theme class to body
     document.body.classList.add("storefront-theme");
-    document.body.setAttribute("data-theme", theme);
 
-    // Set brand color on root
-    document.documentElement.style.setProperty("--brand-color", brandColor);
-    document.documentElement.style.setProperty(
-      "--brand-color-rgb",
-      hexToRgb(brandColor),
-    );
-
-    // Fetch store data for brand color (favicon/title are now handled
-    // server-side by generateMetadata in layout.tsx — no client fetch
-    // or DOM mutation needed for those anymore).
     const fetchStoreData = async () => {
       try {
         const supabase = createClient();
@@ -82,7 +73,18 @@ export default function StoreLayoutClient({
       document.body.classList.remove("storefront-theme");
       document.body.removeAttribute("data-theme");
     };
-  }, [countryCode, brandColor, theme, storeName]);
+  }, [countryCode, storeName]);
+
+  // DOM sync, separate from the fetch above so neither can retrigger the
+  // other through its own state writes.
+  useEffect(() => {
+    document.body.setAttribute("data-theme", theme);
+    document.documentElement.style.setProperty("--brand-color", brandColor);
+    document.documentElement.style.setProperty(
+      "--brand-color-rgb",
+      hexToRgb(brandColor),
+    );
+  }, [theme, brandColor]);
 
   const hexToRgb = (hex: string) => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);

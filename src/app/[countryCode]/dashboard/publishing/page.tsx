@@ -1,6 +1,7 @@
 // src/app/[countryCode]/dashboard/publishing/page.tsx
 import { createServerClient } from "@/lib/supabase/server";
 import { getCountryConfig } from "@/config/countries";
+import { getUsdToLocalRate } from "@/lib/currency/exchangeRate";
 import { CountryProvider } from "@/providers/CountryProvider";
 import PublishingClient from "./PublishingClient";
 import "@/app/reseller.css";
@@ -9,7 +10,7 @@ interface PublishingPageProps {
   params: Promise<{ countryCode: string }>;
 }
 
-async function getPublishingData(userId: string) {
+async function getPublishingData(userId: string, localCurrency: string) {
   const supabase = await createServerClient();
 
   try {
@@ -45,19 +46,34 @@ async function getPublishingData(userId: string) {
     // Get current build (most recent)
     const currentBuild = builds && builds.length > 0 ? builds[0] : null;
 
-    // Check if user has a publishing plan (from settings or metadata)
-    const { data: settings } = await supabase
-      .from("global_reseller_settings")
+    // Publishing plan and the wallet balance the purchase debits. This used
+    // to read global_reseller_settings with a `reseller_id` column that does
+    // not exist, so the plan was always null and the wallet never shown.
+    const { data: publishingRow } = await supabase
+      .from("global_reseller_publishing")
       .select("publishing_plan")
+      .eq("application_id", application.id)
+      .maybeSingle();
+
+    const { data: wallet } = await supabase
+      .from("global_wallets")
+      .select("balance, currency")
       .eq("reseller_id", application.id)
-      .single();
+      .maybeSingle();
+
+    // The wallet is USD; the publishing cards show the local amount beside
+    // the USD price so the reseller sees what will leave the wallet.
+    const usdToLocalRate = await getUsdToLocalRate(localCurrency);
 
     return {
       application,
       builds: builds || [],
       appConfig: appConfig || null,
       currentBuild: currentBuild || null,
-      publishingPlan: settings?.publishing_plan || null,
+      publishingPlan: publishingRow?.publishing_plan || null,
+      walletBalance: Number(wallet?.balance || 0),
+      walletCurrency: wallet?.currency || "USD",
+      usdToLocalRate,
     };
   } catch (error) {
     console.error("Publishing data error:", error);
@@ -155,7 +171,10 @@ export default async function PublishingPage({ params }: PublishingPageProps) {
   const config = getCountryConfig(countryCode);
   const language = config.language.code || "en";
   const translations = await getTranslations(language);
-  const publishingData = await getPublishingData(user.id);
+  const publishingData = await getPublishingData(
+    user.id,
+    config.currency,
+  );
 
   if (!publishingData) {
     return (

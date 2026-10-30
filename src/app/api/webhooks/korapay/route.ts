@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { korapay } from "@/lib/payments/korapay";
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createStoreNotification } from "@/actions/reseller/notifications/storeNotifications";
 import { getFeeBreakdown } from "@/lib/payments/fees";
 import { handleSuccessfulCustomerDeposit } from "@/actions/reseller/customers/handleSuccessfulCustomerDeposit";
 
@@ -205,6 +206,22 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+
+    // Best-effort: the wallet is already credited, so a failed notification
+    // must not fail the webhook and provoke a retry of the whole deposit.
+    await createStoreNotification({
+      audience: "reseller",
+      resellerId: transaction.reseller_id,
+      notificationType: "deposit",
+      message: `${grossAmount.toLocaleString()} has been added to your wallet (${finalNetAmount.toLocaleString()} after fees).`,
+      metadata: {
+        transaction_id: transaction.id,
+        reference: webhookData.reference,
+        amount: finalNetAmount,
+        gross_amount: grossAmount,
+        provider: "korapay",
+      },
+    });
 
     console.log("✅ Deposit processed successfully:", {
       reference: webhookData.reference,

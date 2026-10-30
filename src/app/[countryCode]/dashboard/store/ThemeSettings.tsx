@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Moon, Sun, Check } from "lucide-react";
 import { CountryConfig } from "@/config/countries";
 import { StoreSettings } from "@/types/reseller/store";
@@ -28,13 +27,10 @@ export default function ThemeSettings({
   onUpdate,
 }: ThemeSettingsProps) {
   const t = translations;
-  const supabase = createClient();
-  const { setTheme } = useTheme();
-  const [isLoading, setIsLoading] = useState(false);
+  const { theme: activeTheme, setTheme } = useTheme();
   const [selectedTheme, setSelectedTheme] = useState<"light" | "dark">(
-    settings.theme || "light"
+    activeTheme || settings.theme || "light"
   );
-  const [error, setError] = useState<string | null>(null);
 
   const themes = [
     {
@@ -65,45 +61,13 @@ export default function ThemeSettings({
     },
   ];
 
-  const handleThemeChange = async (theme: "light" | "dark") => {
+  // The theme picker behaves exactly like the header's sun/moon toggle: it
+  // switches the dashboard appearance locally through ThemeProvider (which owns
+  // the <body data-theme> attribute and the localStorage write). It is not a
+  // store setting, so nothing is persisted to the database.
+  const handleThemeChange = (theme: "light" | "dark") => {
     setSelectedTheme(theme);
-    setError(null);
-    setIsLoading(true);
-
-    // Apply the dashboard theme immediately. The previous code set
-    // data-theme on <html>, but dashboard-theme.css matches
-    // `body.dashboard-theme[data-theme="light"]`, so it never took effect;
-    // ThemeProvider owns the attribute (on <body>) and the localStorage
-    // write, keeping this in step with the header toggle.
     setTheme(theme);
-
-    try {
-      const { error } = await supabase
-        .from("global_reseller_settings")
-        .upsert({
-          reseller_id: application.id,
-          store_settings: {
-            ...settings,
-            theme,
-          },
-          updated_at: new Date().toISOString(),
-        });
-
-      if (error) throw error;
-
-      // Update local state
-      onUpdate({
-        ...settings,
-        theme,
-      });
-
-      onSave();
-    } catch (error) {
-      setError(t?.themeError || "Failed to update theme");
-      console.error("Theme update error:", error);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   return (
@@ -121,22 +85,6 @@ export default function ThemeSettings({
       <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginBottom: "1.5rem" }}>
         {t?.themeDescription || "Choose the look and feel of your store"}
       </p>
-
-      {error && (
-        <div
-          style={{
-            padding: "0.75rem 1rem",
-            background: "rgba(239,68,68,0.1)",
-            border: "1px solid rgba(239,68,68,0.2)",
-            borderRadius: 8,
-            color: "#EF4444",
-            fontSize: "0.85rem",
-            marginBottom: "1rem",
-          }}
-        >
-          {error}
-        </div>
-      )}
 
       <div
         style={{
@@ -161,7 +109,7 @@ export default function ThemeSettings({
                 overflow: "hidden",
                 cursor: "pointer",
                 transition: "all 0.3s",
-                opacity: isLoading && selectedTheme !== theme.id ? 0.5 : 1,
+                opacity: 1,
               }}
               onClick={() => handleThemeChange(theme.id)}
               onMouseEnter={(e) => {
@@ -343,12 +291,6 @@ export default function ThemeSettings({
           );
         })}
       </div>
-
-      {isLoading && (
-        <p style={{ textAlign: "center", color: "var(--muted)", marginTop: "1rem" }}>
-          {t?.updating || "Updating theme..."}
-        </p>
-      )}
     </div>
   );
 }

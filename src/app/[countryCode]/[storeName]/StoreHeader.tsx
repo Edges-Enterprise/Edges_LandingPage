@@ -22,6 +22,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { useTheme } from "@/providers/ThemeProvider";
+import NotificationBell from "@/components/notifications/NotificationBell";
+import NotificationPanel from "@/components/notifications/NotificationPanel";
 import { createClient } from "@/lib/supabase/client";
 import { toWhatsAppLink } from "@/lib/phone/toWhatsAppLink";
 import { formatStorePrice } from "@/lib/currency/formatStorePrice";
@@ -81,6 +83,7 @@ export default function StoreHeader({
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const brandColor = storeData.application.brand_color || "#C98A54";
 
@@ -610,19 +613,33 @@ export default function StoreHeader({
               {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
             </button>
 
-            {/* Notifications (placeholder) */}
-            <button
-              aria-label="Notifications"
-              style={navBtnStyle}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.25)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.12)";
-              }}
-            >
-              <Bell size={16} />
-            </button>
+            {/* Notifications: the customer's own inbox once signed in;
+                otherwise a prompt to sign in, since there is no inbox to
+                open for an anonymous visitor. */}
+            {loggedIn ? (
+              <NotificationBell
+                resellerId={storeData.application.id}
+                variant="light"
+                iconSize={16}
+              />
+            ) : (
+              <button
+                aria-label={t?.notifications || "Notifications"}
+                onClick={() => {
+                  if (onLoginClick) onLoginClick();
+                  else router.push(`?login=true`);
+                }}
+                style={navBtnStyle}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.25)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+                }}
+              >
+                <Bell size={16} />
+              </button>
+            )}
 
             {/* Account / Auth */}
             {loggedIn ? (
@@ -930,9 +947,17 @@ export default function StoreHeader({
         )}
 
         {/* Notifications */}
-        <button style={drawerRow}>
+        <button
+          onClick={() => {
+            setIsMobileMenuOpen(false);
+            if (loggedIn) setNotificationsOpen(true);
+            else if (onLoginClick) onLoginClick();
+            else router.push(`?login=true`);
+          }}
+          style={drawerRow}
+        >
           <Bell size={16} />
-          Notifications
+          {t?.notifications || "Notifications"}
         </button>
 
         {/* Theme Toggle */}
@@ -1008,6 +1033,17 @@ export default function StoreHeader({
           }
         }
       `}</style>
+
+      {/* Mobile drawer's Notifications entry opens the inbox as a modal;
+          the drawer itself is already closed by the time this renders. */}
+      {notificationsOpen && loggedIn && (
+        <NotificationPanel
+          resellerId={storeData.application.id}
+          presentation="modal"
+          translations={t}
+          onClose={() => setNotificationsOpen(false)}
+        />
+      )}
     </>
   );
 }

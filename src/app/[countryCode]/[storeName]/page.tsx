@@ -64,6 +64,14 @@ async function getStoreData(storeSlug: string) {
       application.phone,
     );
 
+    // The welcome message and store status the owner set in the dashboard's
+    // Store settings tab. Previously hardcoded, so edits never showed here.
+    const { data: storeSettings } = await supabase
+      .from("global_reseller_store_settings")
+      .select("welcome_message, store_status")
+      .eq("application_id", application.id)
+      .maybeSingle();
+
     return {
       application,
       products,
@@ -72,10 +80,12 @@ async function getStoreData(storeSlug: string) {
       apkUrl,
       storeStatus,
       settings: {
-        welcome_message: `Welcome to ${application.store_name || "our store"}!`,
+        welcome_message:
+          storeSettings?.welcome_message ||
+          `Welcome to ${application.store_name || "our store"}!`,
         contact_email: application.email,
         contact_phone: application.phone,
-        store_status: "active",
+        store_status: storeSettings?.store_status || "active",
         theme: "light",
       },
     };

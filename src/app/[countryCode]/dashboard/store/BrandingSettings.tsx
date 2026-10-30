@@ -2,9 +2,14 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { Image, Upload, X, Check } from "lucide-react";
+import { Image, Upload, Lock, Info } from "lucide-react";
 import { CountryConfig } from "@/config/countries";
+import { applyBrandingChange } from "@/actions/reseller/store/applyBrandingChange";
+import {
+  computeBrandingLock,
+  BRANDING_COOLDOWN_DAYS,
+  type BrandingField,
+} from "@/lib/store/brandingCooldown";
 
 interface BrandingSettingsProps {
   application: {
@@ -12,6 +17,7 @@ interface BrandingSettingsProps {
     brand_color: string;
     logo_url?: string;
     notification_icon_url?: string;
+    branding_updated_at?: string | null;
   };
   config: CountryConfig;
   translations: any;
@@ -27,7 +33,6 @@ export default function BrandingSettings({
   onUpdate,
 }: BrandingSettingsProps) {
   const t = translations;
-  const supabase = createClient();
   const [isLoading, setIsLoading] = useState(false);
   const [brandColor, setBrandColor] = useState(application.brand_color || "#C98A54");
   const [logoPreview, setLogoPreview] = useState<string | null>(application.logo_url || null);
@@ -35,16 +40,71 @@ export default function BrandingSettings({
     application.notification_icon_url || null
   );
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [lockedUntil, setLockedUntil] = useState<string | null>(
+    application.branding_updated_at
+      ? computeBrandingLock(application.branding_updated_at).lockedUntil
+      : null
+  );
+
+  const lock = computeBrandingLock(lockedUntil ?? application.branding_updated_at);
+  const isLocked = lock.locked;
 
   const colorSwatches = [
-    "#C98A54", "#DC2626", "#16A34A", "#3B82F6", 
+    "#C98A54", "#DC2626", "#16A34A", "#3B82F6",
     "#8B5CF6", "#F59E0B", "#DB2777", "#0EA5E9",
     "#10B981", "#6366F1", "#EC4899", "#14B8A6",
   ];
 
+  // Brand colour, logo and notification icon are compiled into the customer
+  // APK, so a change has to rebuild the app. Rebuilds are limited to once per
+  // 90 days; applyBrandingChange enforces that server side and queues the
+  // build for us.
+  const applyChange = async (field: BrandingField, value: string | null) => {
+    setIsLoading(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const result = await applyBrandingChange({
+        applicationId: application.id,
+        field,
+        value,
+      });
+
+      if (!result.success) {
+        if (result.locked && result.lockedUntil) {
+          setLockedUntil(result.lockedUntil);
+        }
+        throw new Error(result.error);
+      }
+
+      if (result.lockedUntil) setLockedUntil(result.lockedUntil);
+      if (result.message) setNotice(result.message);
+
+      if (field === "brand_color" && value) {
+        setBrandColor(value);
+        localStorage.setItem("brandColor", value);
+      } else if (field === "logo_url") {
+        setLogoPreview(value);
+      } else if (field === "notification_icon_url") {
+        setNotificationIconPreview(value);
+      }
+
+      onUpdate({ ...application, [field]: value });
+      onSave();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t?.colorError || "Failed to save");
+      console.error("Branding change error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleFileUpload = async (file: File, type: "logo" | "notification") => {
     setIsLoading(true);
     setError(null);
+    setNotice(null);
 
     try {
       const formData = new FormData();
@@ -57,33 +117,18 @@ export default function BrandingSettings({
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
+      if (!response.ok) throw new Error("Upload failed");
 
       const data = await response.json();
-
-      // Update application with new asset URL
-      const updateField = type === "logo" ? "logo_url" : "notification_icon_url";
-      const { error } = await supabase
-        .from("global_reseller_applications")
-        .update({ [updateField]: data.url, updated_at: new Date().toISOString() })
-        .eq("id", application.id);
-
-      if (error) throw error;
-
-      if (type === "logo") {
-        setLogoPreview(data.url);
-      } else {
-        setNotificationIconPreview(data.url);
-      }
-
-      onUpdate({ ...application, [updateField]: data.url });
-      onSave();
-    } catch (error) {
+      // The upload only stores the asset; applyChange writes the URL and
+      // triggers the rebuild under the 90-day lock.
+      await applyChange(
+        type === "logo" ? "logo_url" : "notification_icon_url",
+        data.url,
+      );
+    } catch (err) {
       setError(t?.uploadError || "Failed to upload file");
-      console.error("Upload error:", error);
-    } finally {
+      console.error("Upload error:", err);
       setIsLoading(false);
     }
   };
@@ -92,13 +137,10 @@ export default function BrandingSettings({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       setError(t?.invalidFileType || "Please upload an image file");
       return;
     }
-
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError(t?.fileTooLarge || "File size must be less than 5MB");
       return;
@@ -108,57 +150,21 @@ export default function BrandingSettings({
     e.target.value = "";
   };
 
-  const handleRemoveAsset = async (type: "logo" | "notification") => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const updateField = type === "logo" ? "logo_url" : "notification_icon_url";
-      const { error } = await supabase
-        .from("global_reseller_applications")
-        .update({ [updateField]: null, updated_at: new Date().toISOString() })
-        .eq("id", application.id);
-
-      if (error) throw error;
-
-      if (type === "logo") {
-        setLogoPreview(null);
-      } else {
-        setNotificationIconPreview(null);
-      }
-
-      onUpdate({ ...application, [updateField]: null });
-      onSave();
-    } catch (error) {
-      setError(t?.removeError || "Failed to remove asset");
-      console.error("Remove error:", error);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleColorChange = (color: string) => {
+    if (isLocked) return;
+    applyChange("brand_color", color);
   };
 
-  const handleColorChange = async (color: string) => {
-    setBrandColor(color);
-    setError(null);
-
-    try {
-      const { error } = await supabase
-        .from("global_reseller_applications")
-        .update({ brand_color: color, updated_at: new Date().toISOString() })
-        .eq("id", application.id);
-
-      if (error) throw error;
-
-      // Update localStorage for dashboard theme
-      localStorage.setItem("brandColor", color);
-
-      onUpdate({ ...application, brand_color: color });
-      onSave();
-    } catch (error) {
-      setError(t?.colorError || "Failed to update brand color");
-      console.error("Color update error:", error);
-    }
+  const handleRemoveAsset = (type: "logo" | "notification") => {
+    if (isLocked) return;
+    applyChange(type === "logo" ? "logo_url" : "notification_icon_url", null);
   };
+
+  const lockMessage = isLocked
+    ? `Branding was changed recently. The next change unlocks in ${lock.daysRemaining} day${
+        lock.daysRemaining === 1 ? "" : "s"
+      }${lock.lockedUntil ? ` (on ${new Date(lock.lockedUntil).toLocaleDateString()})` : ""}.`
+    : null;
 
   return (
     <div>
@@ -192,6 +198,48 @@ export default function BrandingSettings({
         </div>
       )}
 
+      {notice && (
+        <div
+          style={{
+            padding: "0.75rem 1rem",
+            background: "rgba(110,189,138,0.12)",
+            border: "1px solid rgba(110,189,138,0.3)",
+            borderRadius: 8,
+            color: "#6EBD8A",
+            fontSize: "0.85rem",
+            marginBottom: "1rem",
+          }}
+        >
+          {notice}
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "0.5rem",
+          padding: "0.75rem 1rem",
+          background: isLocked ? "rgba(245,158,11,0.10)" : "var(--bg2)",
+          border: `1px solid ${isLocked ? "rgba(245,158,11,0.35)" : "var(--border)"}`,
+          borderRadius: 8,
+          fontSize: "0.8rem",
+          color: isLocked ? "#F59E0B" : "var(--muted)",
+          marginBottom: "1.25rem",
+          maxWidth: 500,
+        }}
+      >
+        {isLocked ? (
+          <Lock size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        ) : (
+          <Info size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+        )}
+        <span>
+          {lockMessage ||
+            `Your brand colour, logo and notification icon appear in the customer app. Changing any of them rebuilds the app (about 5–10 minutes), so they can only change once every ${BRANDING_COOLDOWN_DAYS} days.`}
+        </span>
+      </div>
+
       <div style={{ display: "grid", gap: "1.5rem", maxWidth: 500 }}>
         {/* Brand Color */}
         <div>
@@ -211,6 +259,8 @@ export default function BrandingSettings({
               <button
                 key={color}
                 onClick={() => handleColorChange(color)}
+                disabled={isLocked || isLoading}
+                title={lockMessage || color}
                 style={{
                   width: 32,
                   height: 32,
@@ -220,24 +270,27 @@ export default function BrandingSettings({
                     ? "2.5px solid #FFFFFF"
                     : "2px solid transparent",
                   outline: brandColor === color ? `2px solid ${color}` : "none",
-                  cursor: "pointer",
+                  cursor: isLocked ? "not-allowed" : "pointer",
                   transition: "all 0.15s",
                   transform: brandColor === color ? "scale(1.15)" : "scale(1)",
+                  opacity: isLocked ? 0.45 : 1,
                 }}
               />
             ))}
             <input
               type="color"
               value={brandColor}
+              disabled={isLocked || isLoading}
               onChange={(e) => handleColorChange(e.target.value)}
               style={{
                 width: 32,
                 height: 32,
                 borderRadius: 8,
                 border: "2px solid var(--border)",
-                cursor: "pointer",
+                cursor: isLocked ? "not-allowed" : "pointer",
                 padding: 0,
                 background: "transparent",
+                opacity: isLocked ? 0.45 : 1,
               }}
             />
           </div>
@@ -331,11 +384,13 @@ export default function BrandingSettings({
                       <input
                         type="file"
                         accept="image/*"
+                        disabled={isLocked || isLoading}
                         onChange={(e) => handleFileSelect(e, "logo")}
                         style={{ display: "none" }}
                       />
                     </label>
                     <button
+                      disabled={isLocked || isLoading}
                       onClick={() => handleRemoveAsset("logo")}
                       style={{
                         fontSize: "0.75rem",
@@ -379,6 +434,7 @@ export default function BrandingSettings({
                     <input
                       type="file"
                       accept="image/*"
+                      disabled={isLocked || isLoading}
                       onChange={(e) => handleFileSelect(e, "logo")}
                       style={{ display: "none" }}
                     />
@@ -451,11 +507,13 @@ export default function BrandingSettings({
                       <input
                         type="file"
                         accept="image/*"
+                        disabled={isLocked || isLoading}
                         onChange={(e) => handleFileSelect(e, "notification")}
                         style={{ display: "none" }}
                       />
                     </label>
                     <button
+                      disabled={isLocked || isLoading}
                       onClick={() => handleRemoveAsset("notification")}
                       style={{
                         fontSize: "0.75rem",
@@ -499,6 +557,7 @@ export default function BrandingSettings({
                     <input
                       type="file"
                       accept="image/*"
+                      disabled={isLocked || isLoading}
                       onChange={(e) => handleFileSelect(e, "notification")}
                       style={{ display: "none" }}
                     />

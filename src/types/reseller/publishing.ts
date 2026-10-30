@@ -78,4 +78,8 @@ export interface PublishingData {
   appConfig?: AppConfig;
   currentBuild?: Build | null; // Allow null
   publishingPlan?: string | null; // Allow null
+  walletBalance?: number;
+  walletCurrency?: string;
+  /** USD -> local rate, so the plan cards can also show the local amount. */
+  usdToLocalRate?: number | null;
 }

@@ -2,11 +2,10 @@
 "use client";
 
 import { useState } from "react";
-import { User, Shield, Bell, Building2, Save, Check } from "lucide-react";
+import { User, Shield, Bell, Check } from "lucide-react";
 import ProfileSettings from "./ProfileSettings";
 import SecuritySettings from "./SecuritySettings";
 import NotificationSettings from "./NotificationSettings";
-import BusinessSettings from "./BusinessSettings";
 import { CountryConfig } from "@/config/countries";
 import { SettingsData } from "@/types/reseller/settings";
 
@@ -17,7 +16,7 @@ interface SettingsClientProps {
   settingsData: SettingsData;
 }
 
-type TabType = "profile" | "security" | "notifications" | "business";
+type TabType = "profile" | "security" | "notifications";
 
 export default function SettingsClient({
   countryCode,
@@ -40,11 +39,6 @@ export default function SettingsClient({
       id: "notifications" as TabType,
       label: t?.notifications || "Notifications",
       icon: Bell,
-    },
-    {
-      id: "business" as TabType,
-      label: t?.business || "Business",
-      icon: Building2,
     },
   ];
 
@@ -77,15 +71,6 @@ export default function SettingsClient({
         return (
           <NotificationSettings
             notifications={settingsData.notifications}
-            config={config}
-            translations={t}
-            onSave={handleSaveSuccess}
-          />
-        );
-      case "business":
-        return (
-          <BusinessSettings
-            application={settingsData.application}
             config={config}
             translations={t}
             onSave={handleSaveSuccess}

@@ -68,7 +68,7 @@
   "plan": "الخطة",
   "price": "السعر",
   "confirmPublish": "تأكيد النشر",
-  "confirmPublishDesc": "أنت على وشك نشر تطبيقك. هذا الإجراء لا يمكن التراجع عنه.",
+  "confirmPublishDesc": "سيتم خصم المبلغ أدناه من محفظتك.",
   "payNow": "ادفع الآن",
   "processing": "جاري المعالجة...",
   "invalidFileType": "يرجى تحميل ملف صورة",
@@ -79,5 +79,12 @@
   "showLess": "عرض أقل",
   "showAll": "عرض الكل",
   "builds": "بناء",
-  "build": "بناء"
+  "build": "بناء",
+  "fromWallet": "من محفظتك",
+  "deductedFromWallet": "مخصوم من المحفظة",
+  "refresh": "تحديث",
+  "androidDisabled": "تطبيق أندرويد غير مفعّل. فعّله في إعدادات متجرك للنشر.",
+  "walletBalance": "رصيد المحفظة",
+  "insufficientFunds": "رصيد المحفظة غير كافٍ",
+  "paymentFailed": "فشل الدفع. يرجى المحاولة مرة أخرى."
 }

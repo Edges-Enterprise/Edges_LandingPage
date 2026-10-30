@@ -2,15 +2,11 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabase/server";
-
-interface NotificationSettings {
-  email_notifications: boolean;
-  push_notifications: boolean;
-  sms_notifications: boolean;
-  order_updates: boolean;
-  build_updates: boolean;
-  marketing_emails: boolean;
-}
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  type NotificationSettings,
+} from "@/lib/settings/notificationDefaults";
 
 export async function updateNotificationSettings(
   settings: Partial<NotificationSettings>,
@@ -31,36 +27,48 @@ export async function updateNotificationSettings(
       return { success: false, error: "Unauthorized" };
     }
 
-    // Get existing settings
-    const { data: existing, error: getError } = await supabase
+    // global_reseller_settings has RLS on with no policies (service role
+    // only), so the session client reads and writes nothing - the insert
+    // failed with 42501. Read and write through the admin client after the
+    // session check above; every statement filters on the caller's own id.
+    //
+    // The table is keyed by auth_user_id; it has no `reseller_id` column.
+    const admin = createAdminClient();
+
+    const { data: existing, error: getError } = await admin
       .from("global_reseller_settings")
       .select("notification_settings")
       .eq("auth_user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (getError && getError.code !== "PGRST116") {
-      console.error("Get settings error:", getError);
+    if (getError) {
+      console.error("Get notification settings error:", getError);
       return { success: false, error: getError.message };
     }
 
-    const currentSettings = existing?.notification_settings || {
-      email_notifications: true,
-      push_notifications: true,
-      sms_notifications: false,
-      order_updates: true,
-      build_updates: true,
-      marketing_emails: false,
+    const currentSettings: NotificationSettings = {
+      ...DEFAULT_NOTIFICATION_SETTINGS,
+      ...((existing?.notification_settings as NotificationSettings) || {}),
     };
 
-    // Merge with new settings
-    const updatedSettings = {
-      ...currentSettings,
-      ...settings,
+    // Merge per channel so a partial payload cannot drop a whole column.
+    const updatedSettings: NotificationSettings = {
+      email_notifications: {
+        ...currentSettings.email_notifications,
+        ...settings.email_notifications,
+      },
+      push_notifications: {
+        ...currentSettings.push_notifications,
+        ...settings.push_notifications,
+      },
+      sms_notifications: {
+        ...currentSettings.sms_notifications,
+        ...settings.sms_notifications,
+      },
     };
 
-    // Update or insert settings
     if (existing) {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await admin
         .from("global_reseller_settings")
         .update({
           notification_settings: updatedSettings,
@@ -69,11 +77,11 @@ export async function updateNotificationSettings(
         .eq("auth_user_id", user.id);
 
       if (updateError) {
-        console.error("Update settings error:", updateError);
+        console.error("Update notification settings error:", updateError);
         return { success: false, error: updateError.message };
       }
     } else {
-      const { error: insertError } = await supabase
+      const { error: insertError } = await admin
         .from("global_reseller_settings")
         .insert({
           auth_user_id: user.id,
@@ -81,15 +89,12 @@ export async function updateNotificationSettings(
         });
 
       if (insertError) {
-        console.error("Insert settings error:", insertError);
+        console.error("Insert notification settings error:", insertError);
         return { success: false, error: insertError.message };
       }
     }
 
-    return {
-      success: true,
-      data: updatedSettings,
-    };
+    return { success: true, data: updatedSettings };
   } catch (error) {
     console.error("UpdateNotificationSettings Error:", error);
     return {

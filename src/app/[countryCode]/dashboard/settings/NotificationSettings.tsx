@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import {
   Bell,
   Mail,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { CountryConfig } from "@/config/countries";
 import { NotificationSettings as NotificationSettingsType } from "@/types/reseller/settings";
+import { updateNotificationSettings } from "@/actions/reseller/settings/updateNotificationSettings";
 
 interface NotificationSettingsProps {
   notifications: NotificationSettingsType;
@@ -29,7 +29,6 @@ export default function NotificationSettings({
   onSave,
 }: NotificationSettingsProps) {
   const t = translations;
-  const supabase = createClient();
   const [isLoading, setIsLoading] = useState(false);
   const [settings, setSettings] = useState(notifications);
   const [error, setError] = useState<string | null>(null);
@@ -48,30 +47,24 @@ export default function NotificationSettings({
     setIsLoading(true);
     setError(null);
 
-    try {
-      // Get application ID
-      const { data: appData } = await supabase
-        .from("global_reseller_applications")
-        .select("id")
-        .single();
+    // The tab used to upsert `reseller_id` + `notifications`, neither of which
+    // exists on global_reseller_settings, so every save failed. The server
+    // action writes the real `notification_settings` column, keyed by the
+    // signed-in user.
+    const result = await updateNotificationSettings({
+      email_notifications: settings.email_notifications,
+      push_notifications: settings.push_notifications,
+      sms_notifications: settings.sms_notifications,
+    });
 
-      if (!appData) throw new Error("Reseller not found");
-
-      const { error } = await supabase.from("global_reseller_settings").upsert({
-        reseller_id: appData.id,
-        notifications: settings,
-        updated_at: new Date().toISOString(),
-      });
-
-      if (error) throw error;
-
-      onSave();
-    } catch (err) {
-      setError(t?.error || "Failed to save notification settings");
-      console.error("Notification settings error:", err);
-    } finally {
+    if (!result.success) {
+      setError(result.error || t?.error || "Failed to save notification settings");
       setIsLoading(false);
+      return;
     }
+
+    onSave();
+    setIsLoading(false);
   };
 
   const notificationTypes = [

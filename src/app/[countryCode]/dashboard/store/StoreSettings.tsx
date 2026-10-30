@@ -2,8 +2,8 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { Store, Mail, Phone, MapPin, Clock, Globe } from "lucide-react";
+import { Store, Mail, Phone, Lock } from "lucide-react";
+import { saveStoreProfile } from "@/actions/reseller/store/saveStoreProfile";
 import { CountryConfig } from "@/config/countries";
 import { StoreSettings as StoreSettingsType } from "@/types/reseller/store";
 
@@ -30,19 +30,23 @@ export default function StoreSettings({
   onUpdate,
 }: StoreSettingsProps) {
   const t = translations;
-  const supabase = createClient();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    store_name: settings.store_name || application.store_name || "",
-    store_slug: settings.store_slug || application.store_slug || "",
     store_status: settings.store_status || "active",
     welcome_message: settings.welcome_message || "",
-    contact_email: settings.contact_email || "",
     contact_phone: settings.contact_phone || "",
   });
   const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  // Store name and contact email identify the reseller account, so they are
+  // shown read-only. The store URL is derived from the store name and is no
+  // longer surfaced here.
+  const readOnlyName = settings.store_name || application.store_name || "";
+  const readOnlyEmail = settings.contact_email || "";
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
   };
@@ -52,42 +56,22 @@ export default function StoreSettings({
     setError(null);
 
     try {
-      // Update application
-      const { error: appError } = await supabase
-        .from("global_reseller_applications")
-        .update({
-          store_name: formData.store_name,
-          store_slug: formData.store_slug,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", application.id);
+      const result = await saveStoreProfile({
+        applicationId: application.id,
+        welcomeMessage: formData.welcome_message,
+        storeStatus: formData.store_status as
+          | "active"
+          | "inactive"
+          | "maintenance",
+        contactPhone: formData.contact_phone,
+      });
 
-      if (appError) throw appError;
+      if (!result.success) throw new Error(result.error);
 
-      // Update settings
-      const { error: settingsError } = await supabase
-        .from("global_reseller_settings")
-        .upsert({
-          reseller_id: application.id,
-          store_settings: {
-            store_status: formData.store_status,
-            welcome_message: formData.welcome_message,
-            contact_email: formData.contact_email,
-            contact_phone: formData.contact_phone,
-          },
-          updated_at: new Date().toISOString(),
-        });
-
-      if (settingsError) throw settingsError;
-
-      // Update local state
       onUpdate({
         ...settings,
-        store_name: formData.store_name,
-        store_slug: formData.store_slug,
         store_status: formData.store_status,
         welcome_message: formData.welcome_message,
-        contact_email: formData.contact_email,
         contact_phone: formData.contact_phone,
       });
 
@@ -98,6 +82,17 @@ export default function StoreSettings({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const readOnlyFieldStyle: React.CSSProperties = {
+    flex: 1,
+    padding: "0.6rem 0.75rem",
+    background: "transparent",
+    border: "none",
+    color: "var(--muted)",
+    fontSize: "0.9rem",
+    outline: "none",
+    cursor: "not-allowed",
   };
 
   const statusOptions = [
@@ -165,63 +160,14 @@ export default function StoreSettings({
             <input
               type="text"
               name="store_name"
-              value={formData.store_name}
-              onChange={handleChange}
-              style={{
-                flex: 1,
-                padding: "0.6rem 0.75rem",
-                background: "transparent",
-                border: "none",
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                outline: "none",
-              }}
+              value={readOnlyName}
+              readOnly
+              disabled
+              aria-readonly="true"
+              style={readOnlyFieldStyle}
             />
+            <Lock size={13} style={{ color: "var(--dim)", marginRight: "0.75rem" }} />
           </div>
-        </div>
-
-        <div>
-          <label
-            style={{
-              display: "block",
-              fontSize: "0.8rem",
-              fontWeight: 600,
-              color: "var(--muted)",
-              marginBottom: "0.35rem",
-            }}
-          >
-            {t?.storeSlug || "Store URL"}
-          </label>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              background: "var(--bg2)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              overflow: "hidden",
-            }}
-          >
-            <Globe size={16} style={{ color: "var(--dim)", marginLeft: "0.75rem" }} />
-            <input
-              type="text"
-              name="store_slug"
-              value={formData.store_slug}
-              onChange={handleChange}
-              style={{
-                flex: 1,
-                padding: "0.6rem 0.75rem",
-                background: "transparent",
-                border: "none",
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                outline: "none",
-              }}
-            />
-          </div>
-          <p style={{ fontSize: "0.7rem", color: "var(--dim)", marginTop: "0.25rem" }}>
-            {t?.storeUrl || "Store URL"}: {process.env.NEXT_PUBLIC_APP_URL}/{application.country_code}/{formData.store_slug}
-          </p>
         </div>
 
         <div>
@@ -319,19 +265,14 @@ export default function StoreSettings({
             <input
               type="email"
               name="contact_email"
-              value={formData.contact_email}
-              onChange={handleChange}
+              value={readOnlyEmail}
+              readOnly
+              disabled
+              aria-readonly="true"
               placeholder="contact@store.com"
-              style={{
-                flex: 1,
-                padding: "0.6rem 0.75rem",
-                background: "transparent",
-                border: "none",
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                outline: "none",
-              }}
+              style={readOnlyFieldStyle}
             />
+            <Lock size={13} style={{ color: "var(--dim)", marginRight: "0.75rem" }} />
           </div>
         </div>
 

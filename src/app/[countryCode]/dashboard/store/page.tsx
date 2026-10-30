@@ -1,5 +1,6 @@
 // src/app/[countryCode]/dashboard/store/page.tsx
 import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
 import { CountryProvider } from "@/providers/CountryProvider";
 import StoreClient from "./StoreClient";
@@ -17,21 +18,28 @@ async function getStoreData(userId: string) {
     const { data: application, error: appError } = await supabase
       .from("global_reseller_applications")
       .select(
-        "id, brand_color, store_name, store_slug, country_code, logo_url, notification_icon_url, email, phone, created_at, updated_at",
+        "id, brand_color, store_name, store_slug, country_code, logo_url, notification_icon_url, email, phone, branding_updated_at, created_at, updated_at",
       )
       .eq("auth_user_id", userId)
       .single();
 
     if (appError) throw appError;
 
-    // Get store settings from global_reseller_settings
-    const { data: settings, error: settingsError } = await supabase
-      .from("global_reseller_settings")
-      .select("*")
-      .eq("reseller_id", application.id)
-      .single();
+    // Store-level settings live in global_reseller_store_settings (one row per
+    // application). This used to read global_reseller_settings with a
+    // `reseller_id` column that does not exist, so it always fell back to the
+    // defaults below.
+    //
+    // global_reseller_store_settings is RLS-locked with no policies (service
+    // role only), so the session client reads no row and saved settings never
+    // came back. Read through the admin client, filtered on this application.
+    const admin = createAdminClient();
+    const { data: storeSettingsRow } = await admin
+      .from("global_reseller_store_settings")
+      .select("welcome_message, store_status, contact_phone")
+      .eq("application_id", application.id)
+      .maybeSingle();
 
-    // Default settings - fix the typo: store_status instead of store_ status
     const defaultSettings = {
       store_name: application.store_name || "",
       store_slug: application.store_slug || "",
@@ -51,7 +59,16 @@ async function getStoreData(userId: string) {
 
     const mergedSettings = {
       ...defaultSettings,
-      ...(settings?.store_settings || {}),
+      ...(storeSettingsRow
+        ? {
+            welcome_message:
+              storeSettingsRow.welcome_message ?? defaultSettings.welcome_message,
+            store_status:
+              storeSettingsRow.store_status ?? defaultSettings.store_status,
+            contact_phone:
+              storeSettingsRow.contact_phone ?? defaultSettings.contact_phone,
+          }
+        : {}),
     };
 
     return {
@@ -63,6 +80,7 @@ async function getStoreData(userId: string) {
         country_code: application.country_code,
         logo_url: application.logo_url,
         notification_icon_url: application.notification_icon_url,
+        branding_updated_at: application.branding_updated_at,
         email: application.email || "",
         phone: application.phone || "",
         created_at: application.created_at,

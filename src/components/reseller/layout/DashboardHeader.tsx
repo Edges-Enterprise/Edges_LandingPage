@@ -2,7 +2,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, User, ChevronDown, Menu } from "lucide-react";
+import { User, ChevronDown, Menu } from "lucide-react";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
 interface DashboardHeaderProps {
   user: any;
@@ -110,38 +111,7 @@ export default function DashboardHeader({
           flexShrink: 0,
         }}
       >
-        <button
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "var(--accent)",
-            cursor: "pointer",
-            padding: "0.5rem",
-            borderRadius: "50%",
-            position: "relative",
-            transition: "background 0.2s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "var(--bg2)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-          }}
-        >
-          <Bell size={20} />
-          <span
-            style={{
-              position: "absolute",
-              top: 4,
-              right: 4,
-              width: 8,
-              height: 8,
-              background: "#EF4444",
-              borderRadius: "50%",
-              border: "2px solid var(--bg)",
-            }}
-          />
-        </button>
+        <NotificationBell variant="dark" />
 
         <div
           className="desktop-only"

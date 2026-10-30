@@ -148,8 +148,7 @@ export default function BuildStatus({
           </div>
         </div>
 
-        {build.build_status === "completed" &&
-          (build.apk_url || build.aab_url) && (
+        {build.build_status === "completed" && build.apk_url && (
             <div style={{ display: "flex", gap: "0.75rem" }}>
               {build.apk_url && (
                 <a
@@ -176,34 +175,6 @@ export default function BuildStatus({
                 >
                   <Download size={16} />
                   {t?.downloadAPK || "Download APK"}
-                </a>
-              )}
-              {build.aab_url && (
-                <a
-                  href={build.aab_url}
-                  download
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: "transparent",
-                    color: "var(--text)",
-                    border: "1px solid var(--border2)",
-                    textDecoration: "none",
-                    borderRadius: 8,
-                    fontSize: "0.85rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "var(--brand-color)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "var(--border2)";
-                  }}
-                >
-                  <Download size={16} />
-                  {t?.downloadAAB || "Download AAB"}
                 </a>
               )}
             </div>

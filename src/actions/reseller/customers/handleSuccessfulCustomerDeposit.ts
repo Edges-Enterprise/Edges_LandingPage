@@ -21,6 +21,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createStoreNotification } from "@/actions/reseller/notifications/storeNotifications";
 
 interface HandleSuccessfulCustomerDepositParams {
   transactionId: string;
@@ -129,6 +130,22 @@ export async function handleSuccessfulCustomerDeposit({
       console.error("Customer transaction update error:", txUpdateError);
       return { success: false, error: "Failed to update transaction" };
     }
+
+    // Best-effort: the wallet is already credited, so a failed notification
+    // must not fail the webhook and provoke a retry of the whole deposit.
+    await createStoreNotification({
+      audience: "customer",
+      resellerId,
+      customerId,
+      notificationType: "deposit",
+      message: `${grossAmount.toLocaleString()} has been added to your wallet (${netAmount.toLocaleString()} after fees).`,
+      metadata: {
+        transaction_id: transactionId,
+        amount: netAmount,
+        gross_amount: grossAmount,
+        provider,
+      },
+    });
 
     return { success: true };
   } catch (error) {

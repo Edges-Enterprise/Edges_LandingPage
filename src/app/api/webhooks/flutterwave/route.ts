@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { flutterwave } from "@/lib/payments/flutterwave";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createStoreNotification } from "@/actions/reseller/notifications/storeNotifications";
 import { handleSuccessfulCustomerDeposit } from "@/actions/reseller/customers/handleSuccessfulCustomerDeposit";
 
 export async function POST(request: NextRequest) {
@@ -202,6 +203,22 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+
+    // Best-effort: the wallet is already credited, so a failed notification
+    // must not fail the webhook and provoke a retry of the whole deposit.
+    await createStoreNotification({
+      audience: "reseller",
+      resellerId: transaction.reseller_id,
+      notificationType: "deposit",
+      message: `${grossAmount.toLocaleString()} has been added to your wallet (${netAmount.toLocaleString()} after fees).`,
+      metadata: {
+        transaction_id: transaction.id,
+        reference: webhookData.reference,
+        amount: netAmount,
+        gross_amount: grossAmount,
+        provider: "flutterwave",
+      },
+    });
 
     console.log("✅ Deposit processed successfully:", {
       reference: webhookData.reference,

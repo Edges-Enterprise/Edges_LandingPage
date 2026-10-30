@@ -157,6 +157,7 @@ export default function StorePreview({
         {/* Products Grid */}
         <div style={{ padding: "1rem" }}>
           <div
+            className="store-preview-products"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
@@ -277,37 +278,15 @@ export default function StorePreview({
         </div>
       </div>
 
-      {/* View Store Button */}
-      <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
-        <a
-          href={`/${application.country_code}/${application.store_slug}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.6rem 1.5rem",
-            background: "var(--brand-color)",
-            color: "#FDF8F3",
-            borderRadius: 8,
-            textDecoration: "none",
-            fontWeight: 600,
-            fontSize: "0.9rem",
-            transition: "all 0.2s",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.opacity = "0.85";
-            e.currentTarget.style.transform = "translateY(-2px)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = "1";
-            e.currentTarget.style.transform = "translateY(0)";
-          }}
-        >
-          {t?.viewStore || "View Live Store"} →
-        </a>
-      </div>
+      <style>{`
+        /* Mobile: the four preview items sit in a 2x2 grid. The auto-fill
+           grid collapses to a single column at this width. */
+        @media (max-width: 767px) {
+          .store-preview-products {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -42,6 +42,8 @@ export interface StoreData {
       phone:string;
     logo_url?: string;
     notification_icon_url?: string;
+    /** Last accepted branding change; drives the 90-day rebuild cooldown. */
+    branding_updated_at?: string | null;
   };
   settings: StoreSettings;
 }

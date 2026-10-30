@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { User, Mail, Phone, Store, Edit2 } from "lucide-react";
+import { User, Mail, Phone } from "lucide-react";
 import { CountryConfig } from "@/config/countries";
 import { Profile } from "@/types/reseller/settings";
 
@@ -27,7 +27,6 @@ export default function ProfileSettings({
     first_name: profile.first_name || "",
     last_name: profile.last_name || "",
     phone: profile.phone || "",
-    brand_color: profile.brand_color || "#C98A54",
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -47,15 +46,11 @@ export default function ProfileSettings({
           first_name: formData.first_name,
           last_name: formData.last_name,
           phone: formData.phone,
-          brand_color: formData.brand_color,
           updated_at: new Date().toISOString(),
         })
         .eq("id", profile.id);
 
       if (error) throw error;
-
-      // Update brand color in localStorage
-      localStorage.setItem("brandColor", formData.brand_color);
 
       onSave();
     } catch (err) {
@@ -65,17 +60,6 @@ export default function ProfileSettings({
       setIsLoading(false);
     }
   };
-
-  const colorSwatches = [
-    "#C98A54",
-    "#DC2626",
-    "#16A34A",
-    "#3B82F6",
-    "#8B5CF6",
-    "#F59E0B",
-    "#DB2777",
-    "#0EA5E9",
-  ];
 
   return (
     <div>
@@ -115,14 +99,21 @@ export default function ProfileSettings({
         </div>
       )}
 
-      <div style={{ display: "grid", gap: "1rem", maxWidth: 500 }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "1rem",
-          }}
-        >
+      <style>{`
+        .profile-form { display: grid; gap: 1rem; max-width: 500px; }
+        .profile-name-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+        @media (max-width: 560px) {
+          .profile-form { max-width: 100%; }
+          .profile-name-row { grid-template-columns: 1fr; }
+        }
+      `}</style>
+
+      <div className="profile-form">
+        <div className="profile-name-row">
           <div>
             <label
               style={{
@@ -292,62 +283,6 @@ export default function ProfileSettings({
                 color: "var(--text)",
                 fontSize: "0.9rem",
                 outline: "none",
-              }}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label
-            style={{
-              display: "block",
-              fontSize: "0.8rem",
-              fontWeight: 600,
-              color: "var(--muted)",
-              marginBottom: "0.35rem",
-            }}
-          >
-            {t?.brandColor || "Brand Color"}
-          </label>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            {colorSwatches.map((color) => (
-              <button
-                key={color}
-                onClick={() => setFormData({ ...formData, brand_color: color })}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  background: color,
-                  border:
-                    formData.brand_color === color
-                      ? "2.5px solid #FFFFFF"
-                      : "2px solid transparent",
-                  outline:
-                    formData.brand_color === color
-                      ? `2px solid ${color}`
-                      : "none",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  transform:
-                    formData.brand_color === color ? "scale(1.15)" : "scale(1)",
-                }}
-              />
-            ))}
-            <input
-              type="color"
-              value={formData.brand_color}
-              onChange={(e) =>
-                setFormData({ ...formData, brand_color: e.target.value })
-              }
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
-                border: "2px solid var(--border)",
-                cursor: "pointer",
-                padding: 0,
-                background: "transparent",
               }}
             />
           </div>

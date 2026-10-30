@@ -259,36 +259,6 @@ export default function AppAssets({
                   <Download size={12} />
                   {t?.download || "Download"}
                 </a>
-                <label
-                  style={{
-                    padding: "0.25rem 0.75rem",
-                    background: "rgba(245,158,11,0.08)",
-                    border: "1px solid rgba(245,158,11,0.2)",
-                    borderRadius: 4,
-                    color: "#F59E0B",
-                    fontSize: "0.75rem",
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.25rem",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "rgba(245,158,11,0.15)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "rgba(245,158,11,0.08)";
-                  }}
-                >
-                  <Upload size={12} />
-                  {t?.change || "Change"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileSelect(e, asset.type)}
-                    style={{ display: "none" }}
-                  />
-                </label>
               </div>
             ) : (
               <label
