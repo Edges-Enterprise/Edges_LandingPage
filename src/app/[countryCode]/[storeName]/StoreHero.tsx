@@ -38,7 +38,9 @@ export default function StoreHero({
             `Welcome to ${storeData.application.store_name}`}
         </h1>
         <p style={{ fontSize: "0.85rem", opacity: 0.9, margin: 0 }}>
-          {t?.subtitle || "Get the best deals on data, airtime, and more."}
+          {storeData.settings.store_subtext ||
+            t?.subtitle ||
+            "Get the best deals on data, airtime, and more."}
         </p>
       </div>
     </section>

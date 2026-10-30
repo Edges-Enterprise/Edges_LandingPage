@@ -42,8 +42,10 @@ export default function StoreClient({
     setTimeout(() => setShowSaved(false), 3000);
   };
 
-  const handleDataUpdate = (updatedData: any) => {
-    setData(updatedData);
+  // Tabs report their own slice, so a partial merge keeps the rest of the
+  // payload (notably `application`) intact.
+  const handleDataUpdate = (updated: Partial<StoreData>) => {
+    setData((current) => ({ ...current, ...updated }));
   };
 
   const renderTabContent = () => {
@@ -122,7 +124,12 @@ export default function StoreClient({
             {t?.title || "Store"}
           </h1>
           <p style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
-            {t?.subtitle || "Configure your store settings and branding"}
+            <span className="store-subtitle-desktop">
+              {t?.subtitle || "Configure your store settings and branding"}
+            </span>
+            <span className="store-subtitle-mobile">
+              {t?.subtitleMobile || "Configure your store branding"}
+            </span>
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
@@ -194,7 +201,16 @@ export default function StoreClient({
         .store-view-icon {
           display: none;
         }
+        .store-subtitle-mobile {
+          display: none;
+        }
         @media (max-width: 767px) {
+          .store-subtitle-desktop {
+            display: none;
+          }
+          .store-subtitle-mobile {
+            display: inline;
+          }
           .store-view-label {
             display: none;
           }

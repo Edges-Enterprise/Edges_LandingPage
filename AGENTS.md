@@ -151,6 +151,40 @@ reseller dashboard).
   blur when the user typed nothing. Route every numeric use through
   `editValueNumber` so `""` becomes `0`, never `NaN`.
 
+## Store page (dashboard) data flow
+
+- `dashboard/store/page.tsx` reads the reseller application through the session
+  client but the settings row through the **admin** client: `global_reseller_store_settings`
+  is RLS-locked with no policies (service role only), so a session-client read
+  returns no row and saved settings never come back. Filter on `application_id`.
+- `StoreClient` owns one `StoreData` (`{ application, settings }`). Each tab
+  (`StoreSettings` / `BrandingSettings` / `ThemeSettings`) reports its own slice
+  through `onUpdate` and **must** send it keyed (`{ settings: {...} }` /
+  `{ application: {...} }`); `handleDataUpdate` merges into the previous object.
+  The tabs' `onUpdate` props are typed `Partial<StoreData>`. Passing a bare
+  slice (the old `setData(updatedData)` shape) wipes `data.application` and the
+  header's `storeUrl` deref throws `Cannot read properties of undefined (reading
+  'store_slug')` — this was a live crash on every Store save.
+- The storefront hero reads `global_reseller_store_settings.store_subtext` for
+  its second line, falling back to `welcome_message`'s hardcoded translation
+  only when the reseller has never set one.
+
+## Security tab (dashboard settings)
+
+- `auth.mfa_factors` is **not** exposed through PostgREST — reading it as
+  `supabase.from("auth.mfa_factors")` errors `relation "public.mfa_factors"
+  does not exist`. Read factors with the GoTrue admin API instead:
+  `createAdminClient().auth.admin.mfa.listFactors({ userId })` → `{ factors }`.
+- Turning 2FA **off** requires aal2: challenge + verify the code first, then
+  `supabase.auth.mfa.unenroll({ factorId })`. Never gate this on `window.prompt`
+  — it is auto-dismissed in automation and reads as a dead button.
+- `auth.sessions` is likewise not exposed; the session list and revocation go
+  through the `SECURITY DEFINER` functions `get_my_active_sessions()` /
+  `revoke_my_session(uuid)` (`20261102_security_sessions.sql`), each pinned to
+  `auth.uid()`.
+- GoTrue has no "password last changed" field; it is stamped on
+  `global_reseller_applications.password_changed_at` by `changePassword`.
+
 ## Pushing to this repo (credentials)
 
 - The system-injected `GITHUB_TOKEN` is a GitHub **App installation token**

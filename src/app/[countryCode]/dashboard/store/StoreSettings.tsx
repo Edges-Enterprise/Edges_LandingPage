@@ -5,7 +5,10 @@ import { useState } from "react";
 import { Store, Mail, Phone, Lock } from "lucide-react";
 import { saveStoreProfile } from "@/actions/reseller/store/saveStoreProfile";
 import { CountryConfig } from "@/config/countries";
-import { StoreSettings as StoreSettingsType } from "@/types/reseller/store";
+import {
+  StoreSettings as StoreSettingsType,
+  StoreData,
+} from "@/types/reseller/store";
 
 interface StoreSettingsProps {
   application: {
@@ -18,7 +21,7 @@ interface StoreSettingsProps {
   config: CountryConfig;
   translations: any;
   onSave: () => void;
-  onUpdate: (data: any) => void;
+  onUpdate: (data: Partial<StoreData>) => void;
 }
 
 export default function StoreSettings({
@@ -34,6 +37,7 @@ export default function StoreSettings({
   const [formData, setFormData] = useState({
     store_status: settings.store_status || "active",
     welcome_message: settings.welcome_message || "",
+    store_subtext: settings.store_subtext || "",
     contact_phone: settings.contact_phone || "",
   });
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +63,7 @@ export default function StoreSettings({
       const result = await saveStoreProfile({
         applicationId: application.id,
         welcomeMessage: formData.welcome_message,
+        storeSubtext: formData.store_subtext,
         storeStatus: formData.store_status as
           | "active"
           | "inactive"
@@ -69,10 +74,13 @@ export default function StoreSettings({
       if (!result.success) throw new Error(result.error);
 
       onUpdate({
-        ...settings,
-        store_status: formData.store_status,
-        welcome_message: formData.welcome_message,
-        contact_phone: formData.contact_phone,
+        settings: {
+          ...settings,
+          store_status: formData.store_status,
+          welcome_message: formData.welcome_message,
+          store_subtext: formData.store_subtext,
+          contact_phone: formData.contact_phone,
+        },
       });
 
       onSave();
@@ -234,6 +242,41 @@ export default function StoreSettings({
               fontSize: "0.9rem",
               outline: "none",
               resize: "vertical",
+              fontFamily: "inherit",
+            }}
+          />
+        </div>
+
+        <div>
+          <label
+            style={{
+              display: "block",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              color: "var(--muted)",
+              marginBottom: "0.35rem",
+            }}
+          >
+            {t?.storeSubtext || "Subtext"}
+          </label>
+          <input
+            type="text"
+            name="store_subtext"
+            value={formData.store_subtext}
+            onChange={handleChange}
+            placeholder={
+              t?.storeSubtextPlaceholder ||
+              "Get the best deals on data, airtime, and more."
+            }
+            style={{
+              width: "100%",
+              padding: "0.6rem 0.75rem",
+              background: "var(--bg2)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              color: "var(--text)",
+              fontSize: "0.9rem",
+              outline: "none",
               fontFamily: "inherit",
             }}
           />

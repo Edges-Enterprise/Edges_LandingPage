@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { Moon, Sun, Check } from "lucide-react";
 import { CountryConfig } from "@/config/countries";
-import { StoreSettings } from "@/types/reseller/store";
+import { StoreSettings, StoreData } from "@/types/reseller/store";
 import { useTheme } from "@/providers/ThemeProvider";
 
 interface ThemeSettingsProps {
@@ -15,7 +15,7 @@ interface ThemeSettingsProps {
   config: CountryConfig;
   translations: any;
   onSave: () => void;
-  onUpdate: (data: any) => void;
+  onUpdate: (data: Partial<StoreData>) => void;
 }
 
 export default function ThemeSettings({

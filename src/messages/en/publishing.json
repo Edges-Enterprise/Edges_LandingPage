@@ -86,5 +86,6 @@
   "androidDisabled": "Android App is not enabled. Enable it in your store settings to publish.",
   "walletBalance": "Wallet Balance",
   "insufficientFunds": "Insufficient wallet balance",
-  "paymentFailed": "Payment failed. Please try again."
+  "paymentFailed": "Payment failed. Please try again.",
+  "subtitleMobile": "Manage your Play Store presence"
 }

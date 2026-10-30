@@ -86,5 +86,6 @@
   "androidDisabled": "L'application Android n'est pas activée. Activez-la dans les paramètres de votre boutique pour publier.",
   "walletBalance": "Solde du portefeuille",
   "insufficientFunds": "Solde du portefeuille insuffisant",
-  "paymentFailed": "Le paiement a échoué. Veuillez réessayer."
+  "paymentFailed": "Le paiement a échoué. Veuillez réessayer.",
+  "subtitleMobile": "Manage your Play Store presence"
 }

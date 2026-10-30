@@ -77,5 +77,8 @@
   "lightThemeDesc": "Clean and bright interface",
   "darkThemeDesc": "Dark and modern interface",
   "socialLinksDesc": "Add your social media links",
-  "businessHoursDesc": "Set your store's operating hours"
+  "businessHoursDesc": "Set your store's operating hours",
+  "subtitleMobile": "Configure your store branding",
+  "storeSubtext": "Subtext",
+  "storeSubtextPlaceholder": "Get the best deals on data, airtime, and more."
 }

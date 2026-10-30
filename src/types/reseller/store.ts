@@ -9,6 +9,7 @@ export interface StoreSettings {
   theme: "light" | "dark";
   store_status: "active" | "inactive" | "maintenance";
   welcome_message?: string;
+  store_subtext?: string;
   contact_email?: string;
   contact_phone?: string;
   social_links?: {

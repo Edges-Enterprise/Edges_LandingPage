@@ -86,5 +86,6 @@
   "androidDisabled": "تطبيق أندرويد غير مفعّل. فعّله في إعدادات متجرك للنشر.",
   "walletBalance": "رصيد المحفظة",
   "insufficientFunds": "رصيد المحفظة غير كافٍ",
-  "paymentFailed": "فشل الدفع. يرجى المحاولة مرة أخرى."
+  "paymentFailed": "فشل الدفع. يرجى المحاولة مرة أخرى.",
+  "subtitleMobile": "Manage your Play Store presence"
 }

@@ -36,7 +36,7 @@ async function getStoreData(userId: string) {
     const admin = createAdminClient();
     const { data: storeSettingsRow } = await admin
       .from("global_reseller_store_settings")
-      .select("welcome_message, store_status, contact_phone")
+      .select("welcome_message, store_subtext, store_status, contact_phone")
       .eq("application_id", application.id)
       .maybeSingle();
 
@@ -49,6 +49,7 @@ async function getStoreData(userId: string) {
       theme: "light" as const,
       store_status: "active" as const,
       welcome_message: `Welcome to ${application.store_name || "our store"}!`,
+      store_subtext: "",
       contact_email: application.email || "",
       contact_phone: application.phone || "",
       social_links: {},
@@ -63,6 +64,8 @@ async function getStoreData(userId: string) {
         ? {
             welcome_message:
               storeSettingsRow.welcome_message ?? defaultSettings.welcome_message,
+            store_subtext:
+              storeSettingsRow.store_subtext ?? defaultSettings.store_subtext,
             store_status:
               storeSettingsRow.store_status ?? defaultSettings.store_status,
             contact_phone:

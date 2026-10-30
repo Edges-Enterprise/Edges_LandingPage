@@ -19,7 +19,7 @@ async function getSettingsData(userId: string) {
     const { data: application, error: appError } = await supabase
       .from("global_reseller_applications")
       .select(
-        "id, brand_color, store_name, store_slug, country_code, first_name, last_name, email, phone, logo_url, notification_icon_url, created_at, updated_at",
+        "id, brand_color, store_name, store_slug, country_code, first_name, last_name, email, phone, logo_url, notification_icon_url, created_at, updated_at, password_changed_at",
       )
       .eq("auth_user_id", userId)
       .single();
@@ -41,19 +41,6 @@ async function getSettingsData(userId: string) {
       .eq("auth_user_id", userId)
       .maybeSingle();
 
-    // Get sessions (mock for now - would come from auth system)
-    const sessions = [
-      {
-        id: "1",
-        device_name: "Chrome on Windows",
-        device_type: "desktop",
-        ip_address: "192.168.1.1",
-        location: "Lagos, Nigeria",
-        last_active: new Date().toISOString(),
-        is_current: true,
-      },
-    ];
-
     return {
       application,
       profile: {
@@ -71,10 +58,15 @@ async function getSettingsData(userId: string) {
         created_at: application.created_at,
         updated_at: application.updated_at,
       },
+      // The live values are fetched client-side by the Security tab, which has
+      // the caller's session: session rows come from a SECURITY DEFINER
+      // function and the 2FA state from auth.mfa_factors. What is passed here
+      // is only what the server render already knows, so the tab never paints
+      // a placeholder session or a fabricated "last changed" date.
       security: {
         two_factor_enabled: false,
-        last_password_change: new Date().toISOString(),
-        sessions,
+        last_password_change: application.password_changed_at || undefined,
+        sessions: [],
       },
       notifications:
         (settings?.notification_settings as

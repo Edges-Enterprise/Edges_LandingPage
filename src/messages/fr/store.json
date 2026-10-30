@@ -77,5 +77,8 @@
   "lightThemeDesc": "Interface propre et lumineuse",
   "darkThemeDesc": "Interface sombre et moderne",
   "socialLinksDesc": "Ajoutez vos liens vers les réseaux sociaux",
-  "businessHoursDesc": "Définissez les heures d'ouverture de votre boutique"
+  "businessHoursDesc": "Définissez les heures d'ouverture de votre boutique",
+  "subtitleMobile": "Configurez l'image de marque de votre boutique",
+  "storeSubtext": "Sous-texte",
+  "storeSubtextPlaceholder": "Obtenez les meilleures offres sur les forfaits data, le crédit et plus encore."
 }

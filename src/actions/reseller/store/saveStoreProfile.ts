@@ -15,6 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 interface SaveStoreProfileParams {
   applicationId: string;
   welcomeMessage?: string;
+  storeSubtext?: string;
   storeStatus?: "active" | "inactive" | "maintenance";
   contactPhone?: string;
 }
@@ -56,6 +57,8 @@ export async function saveStoreProfile(params: SaveStoreProfileParams) {
     };
     if (params.welcomeMessage !== undefined)
       row.welcome_message = params.welcomeMessage;
+    if (params.storeSubtext !== undefined)
+      row.store_subtext = params.storeSubtext;
     if (params.storeStatus !== undefined) row.store_status = params.storeStatus;
     if (params.contactPhone !== undefined)
       row.contact_phone = params.contactPhone;

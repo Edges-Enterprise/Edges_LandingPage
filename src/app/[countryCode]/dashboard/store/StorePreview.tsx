@@ -115,6 +115,11 @@ export default function StorePreview({
               <p style={{ fontSize: "0.75rem", color: "var(--muted)", margin: 0 }}>
                 {settings.welcome_message || "Welcome to our store!"}
               </p>
+              {settings.store_subtext && (
+                <p style={{ fontSize: "0.7rem", color: "var(--dim)", margin: 0 }}>
+                  {settings.store_subtext}
+                </p>
+              )}
             </div>
           </div>
 
@@ -255,6 +260,20 @@ export default function StorePreview({
           </div>
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <span
+              className="store-status-dot"
+              aria-hidden="true"
+              style={{
+                display: "none",
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background:
+                  settings.store_status === "active" ? "#6EBD8A" : "#F59E0B",
+                alignSelf: "center",
+              }}
+            />
+            <span
+              className="store-status-badge"
               style={{
                 fontSize: "0.6rem",
                 fontWeight: 600,
@@ -284,6 +303,13 @@ export default function StorePreview({
         @media (max-width: 767px) {
           .store-preview-products {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+          /* Mobile: the status badge collapses to a colour dot. */
+          .store-status-badge {
+            display: none;
+          }
+          .store-status-dot {
+            display: block !important;
           }
         }
       `}</style>

@@ -1,7 +1,7 @@
 // src/app/[countryCode]/dashboard/publishing/BuildStatus.tsx
 "use client";
 
-import { Download, ExternalLink, Package } from "lucide-react";
+import { Download, ExternalLink, Package, CheckCircle } from "lucide-react";
 import { Build } from "@/types/reseller/publishing";
 import { CountryConfig } from "@/config/countries";
 
@@ -100,6 +100,17 @@ export default function BuildStatus({
         }}
       >
         <div
+          className="build-status-main"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "1rem",
+          }}
+        >
+        <div
+          className="build-status-info"
           style={{
             display: "flex",
             alignItems: "center",
@@ -108,6 +119,7 @@ export default function BuildStatus({
           }}
         >
           <div
+            className="build-status-icon"
             style={{
               width: 48,
               height: 48,
@@ -132,6 +144,7 @@ export default function BuildStatus({
               {t?.buildStatus || "Build Status"}
             </h3>
             <span
+              className="build-status-label"
               style={{
                 fontSize: "0.8rem",
                 fontWeight: 600,
@@ -143,6 +156,11 @@ export default function BuildStatus({
                 marginTop: "0.25rem",
               }}
             >
+              <CheckCircle
+                className="build-status-check"
+                size={14}
+                style={{ display: "none", verticalAlign: "-2px" }}
+              />
               {getStatusLabel(build.build_status)}
             </span>
           </div>
@@ -174,11 +192,17 @@ export default function BuildStatus({
                   }}
                 >
                   <Download size={16} />
-                  {t?.downloadAPK || "Download APK"}
+                  <span className="build-download-label-desktop">
+                    {t?.downloadAPK || "Download APK"}
+                  </span>
+                  <span className="build-download-label-mobile">
+                    {t?.download || "Download"}
+                  </span>
                 </a>
               )}
             </div>
           )}
+        </div>
       </div>
 
       {/* Build details */}
@@ -289,6 +313,44 @@ export default function BuildStatus({
           </div>
         )}
       </div>
+
+      <style>{`
+        /* Mobile: Build Status stacks on the left (heading, then the green
+           check with its label) while the icon and Download button sit on the
+           right, on the same line. */
+        .build-download-label-mobile {
+          display: none;
+        }
+        @media (max-width: 767px) {
+          .build-status-main {
+            flex-wrap: nowrap !important;
+            align-items: flex-start !important;
+            gap: 0.5rem !important;
+          }
+          .build-status-info {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 0.25rem !important;
+            padding: 0 !important;
+            min-width: 0;
+          }
+          .build-status-icon {
+            display: none !important;
+          }
+          .build-status-label {
+            margin-top: 0 !important;
+          }
+          .build-status-check {
+            display: inline-block !important;
+          }
+          .build-download-label-desktop {
+            display: none;
+          }
+          .build-download-label-mobile {
+            display: inline;
+          }
+        }
+      `}</style>
     </div>
   );
 }

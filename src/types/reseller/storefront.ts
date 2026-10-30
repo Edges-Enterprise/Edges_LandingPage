@@ -38,6 +38,7 @@ export interface StoreData {
   networks: string[];
   settings: {
     welcome_message?: string;
+    store_subtext?: string;
     contact_email?: string;
     contact_phone?: string;
     store_status: "active" | "inactive" | "maintenance";

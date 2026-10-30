@@ -68,7 +68,7 @@ async function getStoreData(storeSlug: string) {
     // Store settings tab. Previously hardcoded, so edits never showed here.
     const { data: storeSettings } = await supabase
       .from("global_reseller_store_settings")
-      .select("welcome_message, store_status")
+      .select("welcome_message, store_subtext, store_status")
       .eq("application_id", application.id)
       .maybeSingle();
 
@@ -83,6 +83,7 @@ async function getStoreData(storeSlug: string) {
         welcome_message:
           storeSettings?.welcome_message ||
           `Welcome to ${application.store_name || "our store"}!`,
+        store_subtext: storeSettings?.store_subtext || "",
         contact_email: application.email,
         contact_phone: application.phone,
         store_status: storeSettings?.store_status || "active",

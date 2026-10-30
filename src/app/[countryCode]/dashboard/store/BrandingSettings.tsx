@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Image, Upload, Lock, Info } from "lucide-react";
 import { CountryConfig } from "@/config/countries";
 import { applyBrandingChange } from "@/actions/reseller/store/applyBrandingChange";
+import { StoreData } from "@/types/reseller/store";
 import {
   computeBrandingLock,
   BRANDING_COOLDOWN_DAYS,
@@ -12,17 +13,11 @@ import {
 } from "@/lib/store/brandingCooldown";
 
 interface BrandingSettingsProps {
-  application: {
-    id: string;
-    brand_color: string;
-    logo_url?: string;
-    notification_icon_url?: string;
-    branding_updated_at?: string | null;
-  };
+  application: StoreData["application"];
   config: CountryConfig;
   translations: any;
   onSave: () => void;
-  onUpdate: (data: any) => void;
+  onUpdate: (data: Partial<StoreData>) => void;
 }
 
 export default function BrandingSettings({
@@ -91,7 +86,7 @@ export default function BrandingSettings({
         setNotificationIconPreview(value);
       }
 
-      onUpdate({ ...application, [field]: value });
+      onUpdate({ application: { ...application, [field]: value } });
       onSave();
     } catch (err) {
       setError(err instanceof Error ? err.message : t?.colorError || "Failed to save");

@@ -77,5 +77,8 @@
   "lightThemeDesc": "واجهة نظيفة ومشرقة",
   "darkThemeDesc": "واجهة داكنة وعصرية",
   "socialLinksDesc": "أضف روابط وسائل التواصل الاجتماعي الخاصة بك",
-  "businessHoursDesc": "حدد ساعات عمل متجرك"
+  "businessHoursDesc": "حدد ساعات عمل متجرك",
+  "subtitleMobile": "قم بتكوين هوية متجرك",
+  "storeSubtext": "النص الفرعي",
+  "storeSubtextPlaceholder": "احصل على أفضل العروض على البيانات والرصيد والمزيد."
 }
