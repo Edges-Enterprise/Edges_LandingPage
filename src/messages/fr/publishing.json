@@ -87,5 +87,6 @@
   "walletBalance": "Solde du portefeuille",
   "insufficientFunds": "Solde du portefeuille insuffisant",
   "paymentFailed": "Le paiement a échoué. Veuillez réessayer.",
-  "subtitleMobile": "Manage your Play Store presence"
+  "subtitleMobile": "Manage your Play Store presence",
+  "buildDetails": "Détails de la compilation"
 }

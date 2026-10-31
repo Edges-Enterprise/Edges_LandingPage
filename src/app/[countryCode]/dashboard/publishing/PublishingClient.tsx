@@ -25,8 +25,6 @@ interface PublishingClientProps {
   config: CountryConfig;
   translations: any;
   publishingData: PublishingData;
-  /** Build id from the URL (?build=…), highlighted from Recent Activity. */
-  initialBuildId?: string;
 }
 
 export default function PublishingClient({
@@ -34,7 +32,6 @@ export default function PublishingClient({
   config,
   translations,
   publishingData,
-  initialBuildId,
 }: PublishingClientProps) {
   const t = translations;
   const supabase = createClient();
@@ -192,7 +189,6 @@ export default function PublishingClient({
         translations={t}
         getStatusColor={getStatusColor}
         getStatusLabel={getStatusLabel}
-        highlightBuildId={initialBuildId}
       />
       <style>{`
         /* Mobile: the subtitle shortens and the header's refresh control is

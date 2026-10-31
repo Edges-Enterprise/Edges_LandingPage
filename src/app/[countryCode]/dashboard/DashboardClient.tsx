@@ -5,6 +5,7 @@ import { useState } from "react";
 import StatsCards from "./StatsCards";
 import RevenueChart from "./RevenueChart";
 import ActivityFeed from "./ActivityFeed";
+import ActivityDetailsModal, { ActivityItem } from "./ActivityDetailsModal";
 import QuickActions from "./QuickActions";
 import { CountryConfig } from "@/config/countries";
 
@@ -13,6 +14,12 @@ interface DashboardClientProps {
   config: CountryConfig;
   translations: any;
   dashboardData: any;
+  /** The list pages' translations, so the reused detail modals read their keys. */
+  detailTranslations: {
+    orders: any;
+    customers: any;
+    publishing: any;
+  };
 }
 
 export default function DashboardClient({
@@ -20,8 +27,12 @@ export default function DashboardClient({
   config,
   translations,
   dashboardData,
+  detailTranslations,
 }: DashboardClientProps) {
   const [data] = useState(dashboardData);
+  const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(
+    null,
+  );
   const t = translations;
 
   if (!data || data.error) {
@@ -94,8 +105,8 @@ export default function DashboardClient({
         <ActivityFeed
           activity={data.activity || []}
           translations={t}
-          countryCode={countryCode}
           currencySymbol={currencySymbol}
+          onSelect={setSelectedActivity}
         />
       </div>
       <style>{`
@@ -200,6 +211,18 @@ export default function DashboardClient({
           </p>
         )}
       </div>
+
+      {selectedActivity && (
+        <ActivityDetailsModal
+          item={selectedActivity}
+          config={config}
+          translations={t}
+          ordersTranslations={detailTranslations.orders}
+          customersTranslations={detailTranslations.customers}
+          publishingTranslations={detailTranslations.publishing}
+          onClose={() => setSelectedActivity(null)}
+        />
+      )}
     </div>
   );
 }

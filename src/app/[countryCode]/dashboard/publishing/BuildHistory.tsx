@@ -1,7 +1,7 @@
 // src/app/[countryCode]/dashboard/publishing/BuildHistory.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   Clock,
   CheckCircle,
@@ -19,8 +19,6 @@ interface BuildHistoryProps {
   translations: any;
   getStatusColor: (status: string) => string;
   getStatusLabel: (status: string) => string;
-  /** Build id from ?build=…; scrolled to and ringed on arrival. */
-  highlightBuildId?: string;
 }
 
 export default function BuildHistory({
@@ -29,27 +27,9 @@ export default function BuildHistory({
   translations,
   getStatusColor,
   getStatusLabel,
-  highlightBuildId,
 }: BuildHistoryProps) {
   const t = translations;
-  // A deep-linked build must be visible, so start expanded when it is not in
-  // the first five that render by default.
-  const [isExpanded, setIsExpanded] = useState(
-    Boolean(
-      highlightBuildId &&
-        builds.findIndex((b) => b.id === highlightBuildId) >= 5,
-    ),
-  );
-  const highlightedRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (highlightBuildId && highlightedRef.current) {
-      highlightedRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }
-  }, [highlightBuildId, isExpanded]);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const formatDate = (date: string) => {
     const d = new Date(date);
@@ -115,12 +95,10 @@ export default function BuildHistory({
         {displayedBuilds.map((build) => {
           const StatusIcon = getStatusIcon(build.build_status);
           const statusColor = getStatusColor(build.build_status);
-          const isHighlighted = build.id === highlightBuildId;
 
           return (
             <div
               key={build.id}
-              ref={isHighlighted ? highlightedRef : undefined}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -129,9 +107,6 @@ export default function BuildHistory({
                 background: "var(--bg2)",
                 borderRadius: 8,
                 transition: "all 0.2s",
-                boxShadow: isHighlighted
-                  ? "0 0 0 2px var(--brand-color)"
-                  : undefined,
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = "var(--bg3)";

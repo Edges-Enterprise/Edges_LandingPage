@@ -1,15 +1,16 @@
 // src/app/[countryCode]/dashboard/ActivityFeed.tsx
 "use client";
 
-import Link from "next/link";
 import { ShoppingBag, Users, Wallet, Smartphone, Clock } from "lucide-react";
+import type { ActivityItem } from "./ActivityDetailsModal";
 
 interface ActivityFeedProps {
-  activity: any[];
+  activity: ActivityItem[];
   translations: any;
-  countryCode: string;
   /** Store currency symbol, so an amount is shown in the store's money. */
   currencySymbol?: string;
+  /** Open one row's details in place, on this page. */
+  onSelect: (item: ActivityItem) => void;
 }
 
 const activityIcons: Record<string, any> = {
@@ -29,27 +30,10 @@ const activityColors: Record<string, string> = {
 export default function ActivityFeed({
   activity,
   translations,
-  countryCode,
   currencySymbol = "",
+  onSelect,
 }: ActivityFeedProps) {
   const t = translations;
-
-  // Each row opens the list page that owns the item, with the item's id in the
-  // query string so that page can open its own detail view on arrival.
-  const getDetailHref = (item: any): string => {
-    const id = item?.entity_id;
-    const base = `/${countryCode}/dashboard`;
-    switch (item?.type) {
-      case "order":
-        return `${base}/orders?order=${id}`;
-      case "customer":
-        return `${base}/customers?customer=${id}`;
-      case "build":
-        return `${base}/publishing?build=${id}`;
-      default:
-        return `${base}/orders`;
-    }
-  };
 
   const getTypeLabel = (type: string) => {
     const map: Record<string, string> = {
@@ -111,9 +95,10 @@ export default function ActivityFeed({
             const color = activityColors[item.type] || "var(--muted)";
 
             return (
-              <Link
+              <button
                 key={index}
-                href={getDetailHref(item)}
+                type="button"
+                onClick={() => onSelect(item)}
                 title={t?.viewDetails || "View details"}
                 style={{
                   display: "flex",
@@ -122,8 +107,11 @@ export default function ActivityFeed({
                   padding: "0.5rem 0.75rem",
                   background: "var(--bg2)",
                   borderRadius: 8,
+                  border: "none",
+                  width: "100%",
+                  textAlign: "left",
+                  font: "inherit",
                   color: "inherit",
-                  textDecoration: "none",
                   cursor: "pointer",
                   transition: "background 0.15s ease",
                 }}
@@ -170,10 +158,10 @@ export default function ActivityFeed({
                     }}
                   >
                     {currencySymbol}
-                    {Number(item.data.amount ?? item.data.total).toLocaleString()}
+                    {Number(item.data?.amount ?? item.data?.total).toLocaleString()}
                   </span>
                 )}
-              </Link>
+              </button>
             );
           })}
         </div>

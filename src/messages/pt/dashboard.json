@@ -35,5 +35,7 @@
   "plans": "Planos",
   "publishing": "Publicação",
   "logout": "Sair",
-  "overview": "Visão Geral"
+  "overview": "Visão Geral",
+  "loadingDetails": "A carregar detalhes…",
+  "noDetails": "Os detalhes não estão disponíveis para este item."
 }

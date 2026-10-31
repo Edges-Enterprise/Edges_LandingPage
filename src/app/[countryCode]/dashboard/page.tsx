@@ -99,6 +99,49 @@ async function getTranslations(language: string) {
   }
 }
 
+/**
+ * The Recent Activity detail view reuses the orders/customers/publishing
+ * modals, so the overview loads those pages' translation files too. Only
+ * en/fr/ar ship all three, so each loader falls back to English.
+ */
+async function getDetailTranslations(language: string) {
+  const [orders, customers, publishing] = await Promise.all([
+    loadDetailFile("orders", language),
+    loadDetailFile("customers", language),
+    loadDetailFile("publishing", language),
+  ]);
+  return { orders, customers, publishing };
+}
+
+async function loadDetailFile(
+  name: "orders" | "customers" | "publishing",
+  language: string,
+) {
+  try {
+    if (language === "fr") {
+      if (name === "orders")
+        return (await import("@/messages/fr/orders.json")).default;
+      if (name === "customers")
+        return (await import("@/messages/fr/customers.json")).default;
+      return (await import("@/messages/fr/publishing.json")).default;
+    }
+    if (language === "ar") {
+      if (name === "orders")
+        return (await import("@/messages/ar/orders.json")).default;
+      if (name === "customers")
+        return (await import("@/messages/ar/customers.json")).default;
+      return (await import("@/messages/ar/publishing.json")).default;
+    }
+  } catch {
+    // Fall through to English below.
+  }
+  if (name === "orders")
+    return (await import("@/messages/en/orders.json")).default;
+  if (name === "customers")
+    return (await import("@/messages/en/customers.json")).default;
+  return (await import("@/messages/en/publishing.json")).default;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const user = await getAuthedUser();
   if (!user) {
@@ -141,6 +184,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const config = getCountryConfig(countryCode);
   const language = config.language.code || "en";
   const translations = await getTranslations(language);
+  const detailTranslations = await getDetailTranslations(language);
   const dashboardData = await getDashboardData(user.id);
 
   return (
@@ -150,6 +194,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         config={config}
         translations={translations}
         dashboardData={dashboardData}
+        detailTranslations={detailTranslations}
       />
     </CountryProvider>
   );

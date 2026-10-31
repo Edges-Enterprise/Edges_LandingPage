@@ -35,5 +35,7 @@
   "plans": "Planes",
   "publishing": "Publicación",
   "logout": "Cerrar Sesión",
-  "overview": "Resumen"
+  "overview": "Resumen",
+  "loadingDetails": "Cargando detalles…",
+  "noDetails": "Los detalles no están disponibles para este artículo."
 }

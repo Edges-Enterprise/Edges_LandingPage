@@ -87,5 +87,6 @@
   "walletBalance": "رصيد المحفظة",
   "insufficientFunds": "رصيد المحفظة غير كافٍ",
   "paymentFailed": "فشل الدفع. يرجى المحاولة مرة أخرى.",
-  "subtitleMobile": "Manage your Play Store presence"
+  "subtitleMobile": "Manage your Play Store presence",
+  "buildDetails": "تفاصيل البناء"
 }

@@ -35,5 +35,7 @@
   "plans": "Plans",
   "publishing": "Publishing",
   "logout": "Logout",
-  "overview": "Overview"
+  "overview": "Overview",
+  "loadingDetails": "Loading details…",
+  "noDetails": "Details are not available for this item."
 }

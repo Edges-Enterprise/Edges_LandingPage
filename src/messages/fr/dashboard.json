@@ -35,5 +35,7 @@
   "plans": "Forfaits",
   "publishing": "Publication",
   "logout": "Déconnexion",
-  "overview": "Aperçu"
+  "overview": "Aperçu",
+  "loadingDetails": "Chargement des détails…",
+  "noDetails": "Les détails ne sont pas disponibles pour cet élément."
 }
