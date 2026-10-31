@@ -1,7 +1,7 @@
 // src/app/[countryCode]/dashboard/customers/CustomersClient.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Search,
@@ -22,6 +22,8 @@ interface CustomersClientProps {
   config: CountryConfig;
   translations: any;
   customersData: CustomersData;
+  /** Customer id from the URL (?customer=…), opened from Recent Activity. */
+  initialCustomerId?: string;
 }
 
 export default function CustomersClient({
@@ -29,6 +31,7 @@ export default function CustomersClient({
   config,
   translations,
   customersData,
+  initialCustomerId,
 }: CustomersClientProps) {
   const t = translations;
   const supabase = createClient();
@@ -46,6 +49,24 @@ export default function CustomersClient({
   );
   const [showDetailsModal, setShowDetailsModal] = useState<boolean>(false);
   const [stats, setStats] = useState(customersData.stats);
+
+  // Opened with ?customer=<id> from Recent Activity: select that customer and
+  // show the detail modal. Guarded so it runs once per id.
+  const openedInitialCustomer = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      !initialCustomerId ||
+      openedInitialCustomer.current === initialCustomerId
+    ) {
+      return;
+    }
+    const match = customers.find((c: Customer) => c.id === initialCustomerId);
+    if (match) {
+      openedInitialCustomer.current = initialCustomerId;
+      setSelectedCustomer(match);
+      setShowDetailsModal(true);
+    }
+  }, [initialCustomerId, customers]);
 
   // Filter customers
   useEffect(() => {

@@ -9,7 +9,7 @@ export const COUNTRY_GQ: CountryConfig = {
   flag: flags.EquatorialGuinea,
   flagEmoji: "🇬🇶",
   currency: "XAF",
-  currencySymbol: "FCFA",
+  currencySymbol: "₣",
   phoneCode: "+240",
   phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_GQ: CountryConfig = {
     activeResellers: 60,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "FCFA 40,000 – FCFA 60,000",
+    monthlyProfit: "₣40,000 – ₣60,000",
   },
    telecoms: [
     { id: "mtn", name: "MTN", code: "MTN" },

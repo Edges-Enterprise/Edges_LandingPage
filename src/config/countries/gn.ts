@@ -9,7 +9,7 @@ export const COUNTRY_GN: CountryConfig = {
   flag: flags.Guinea,
   flagEmoji: "🇬🇳",
   currency: "XOF",
-  currencySymbol: "CFA",
+  currencySymbol: "₣",
   phoneCode: "+224",
   phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_GN: CountryConfig = {
     activeResellers: 120,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "CFA 50,000 – CFA 70,000",
+    monthlyProfit: "₣50,000 – ₣70,000",
   },
   telecoms: [
     { id: "cellcom", name: "Cellcom", code: "CELLCOM" },

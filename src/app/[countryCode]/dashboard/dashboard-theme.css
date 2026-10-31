@@ -109,6 +109,49 @@ body.dashboard-theme [style*="background: var(--card2)"] {
 }
 
 /* ============================================
+   DASHBOARD FORM CONTROLS (SELECT / OPTION)
+   ============================================ */
+
+/* Native selects render with the OS "system" chrome, which ignores the store
+   theme. Force the themed surface, text and border, and draw our own chevron
+   (appearance:none removes the OS one) so the control matches the dashboard in
+   both themes. */
+body.dashboard-theme select {
+  background-color: var(--bg2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A0958A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.6rem center !important;
+  background-size: 12px 12px !important;
+  padding-right: 2rem !important;
+}
+
+body.dashboard-theme[data-theme="light"] select {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B5F55' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+}
+
+body.dashboard-theme select:hover {
+  border-color: var(--border2) !important;
+}
+
+body.dashboard-theme select:focus,
+body.dashboard-theme select:focus-visible {
+  border-color: var(--brand-color) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(var(--brand-color-rgb), 0.25) !important;
+}
+
+/* The popup list is painted by the OS, but Chromium honours option colours. */
+body.dashboard-theme select option {
+  background-color: var(--card) !important;
+  color: var(--text) !important;
+}
+
+/* ============================================
    DASHBOARD SCROLLBAR
    ============================================ */
 

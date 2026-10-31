@@ -8,6 +8,7 @@ import "@/app/reseller.css";
 
 interface PublishingPageProps {
   params: Promise<{ countryCode: string }>;
+  searchParams: Promise<{ build?: string }>;
 }
 
 async function getPublishingData(userId: string, localCurrency: string) {
@@ -156,8 +157,12 @@ async function getTranslations(language: string) {
   }
 }
 
-export default async function PublishingPage({ params }: PublishingPageProps) {
+export default async function PublishingPage({
+  params,
+  searchParams,
+}: PublishingPageProps) {
   const { countryCode } = await params;
+  const { build: initialBuildId } = await searchParams;
 
   const supabase = await createServerClient();
   const {
@@ -201,6 +206,7 @@ export default async function PublishingPage({ params }: PublishingPageProps) {
         config={config}
         translations={translations}
         publishingData={publishingData}
+        initialBuildId={initialBuildId}
       />
     </CountryProvider>
   );

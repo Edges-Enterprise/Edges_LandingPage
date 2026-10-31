@@ -9,7 +9,7 @@ export const COUNTRY_RW: CountryConfig = {
   flag: flags.Rwanda,
   flagEmoji: "🇷🇼",
   currency: "RWF",
-  currencySymbol: "FRw",
+  currencySymbol: "₣",
   phoneCode: "+250",
   phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_RW: CountryConfig = {
     activeResellers: 200,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "FRw 10,000 – FRw 20,000",
+    monthlyProfit: "₣10,000 – ₣20,000",
   },telecoms: [
   { id: "airtel", name: "Airtel", code: "AIRTEL" },
   { id: "mtn", name: "MTN", code: "MTN" },

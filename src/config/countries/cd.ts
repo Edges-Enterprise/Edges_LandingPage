@@ -9,7 +9,7 @@ export const COUNTRY_CD: CountryConfig = {
   flag: flags.DRC, // ✅ SVG flag
   flagEmoji: "🇨🇩",
   currency: "CDF",
-  currencySymbol: "FC",
+  currencySymbol: "₣",
   phoneCode: "+243",
   phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_CD: CountryConfig = {
     activeResellers: 500,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "FC 100,000 – FC 150,000",
+    monthlyProfit: "₣100,000 – ₣150,000",
   },
   telecoms: [
     { id: "africell", name: "Africell", code: "AFRICELL" },

@@ -9,7 +9,7 @@ export const COUNTRY_CF: CountryConfig = {
   flag: flags.CAR,
   flagEmoji: "🇨🇫",
   currency: "XAF",
-  currencySymbol: "FCFA",
+  currencySymbol: "₣",
   phoneCode: "+236",
   phoneNumber: { minDigits: 8, maxDigits: 8 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_CF: CountryConfig = {
     activeResellers: 100,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "FCFA 50,000 – FCFA 80,000",
+    monthlyProfit: "₣50,000 – ₣80,000",
   },
   telecoms: [{ id: "telecel", name: "Telecel", code: "TELECEL" }],
 };

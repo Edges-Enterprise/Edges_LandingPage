@@ -91,7 +91,12 @@ export default function DashboardClient({
           currencySymbol={currencySymbol}
           translations={t}
         />
-        <ActivityFeed activity={data.activity || []} translations={t} />
+        <ActivityFeed
+          activity={data.activity || []}
+          translations={t}
+          countryCode={countryCode}
+          currencySymbol={currencySymbol}
+        />
       </div>
       <style>{`
         .overview-charts-row {

@@ -1,11 +1,15 @@
 // src/app/[countryCode]/dashboard/ActivityFeed.tsx
 "use client";
 
+import Link from "next/link";
 import { ShoppingBag, Users, Wallet, Smartphone, Clock } from "lucide-react";
 
 interface ActivityFeedProps {
   activity: any[];
   translations: any;
+  countryCode: string;
+  /** Store currency symbol, so an amount is shown in the store's money. */
+  currencySymbol?: string;
 }
 
 const activityIcons: Record<string, any> = {
@@ -25,8 +29,27 @@ const activityColors: Record<string, string> = {
 export default function ActivityFeed({
   activity,
   translations,
+  countryCode,
+  currencySymbol = "",
 }: ActivityFeedProps) {
   const t = translations;
+
+  // Each row opens the list page that owns the item, with the item's id in the
+  // query string so that page can open its own detail view on arrival.
+  const getDetailHref = (item: any): string => {
+    const id = item?.entity_id;
+    const base = `/${countryCode}/dashboard`;
+    switch (item?.type) {
+      case "order":
+        return `${base}/orders?order=${id}`;
+      case "customer":
+        return `${base}/customers?customer=${id}`;
+      case "build":
+        return `${base}/publishing?build=${id}`;
+      default:
+        return `${base}/orders`;
+    }
+  };
 
   const getTypeLabel = (type: string) => {
     const map: Record<string, string> = {
@@ -88,8 +111,10 @@ export default function ActivityFeed({
             const color = activityColors[item.type] || "var(--muted)";
 
             return (
-              <div
+              <Link
                 key={index}
+                href={getDetailHref(item)}
+                title={t?.viewDetails || "View details"}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -97,7 +122,17 @@ export default function ActivityFeed({
                   padding: "0.5rem 0.75rem",
                   background: "var(--bg2)",
                   borderRadius: 8,
+                  color: "inherit",
+                  textDecoration: "none",
+                  cursor: "pointer",
+                  transition: "background 0.15s ease",
                 }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "var(--bg3, var(--bg2))")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "var(--bg2)")
+                }
               >
                 <div
                   style={{
@@ -126,7 +161,7 @@ export default function ActivityFeed({
                   </div>
                 </div>
 
-                {item.data?.total && (
+                {(item.data?.amount ?? item.data?.total) != null && (
                   <span
                     style={{
                       fontSize: "0.85rem",
@@ -134,10 +169,11 @@ export default function ActivityFeed({
                       color: "var(--accent)",
                     }}
                   >
-                    ₦{item.data.total}
+                    {currencySymbol}
+                    {Number(item.data.amount ?? item.data.total).toLocaleString()}
                   </span>
                 )}
-              </div>
+              </Link>
             );
           })}
         </div>

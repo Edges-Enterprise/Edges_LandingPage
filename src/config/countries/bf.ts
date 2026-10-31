@@ -9,7 +9,7 @@ export const COUNTRY_BF: CountryConfig = {
   flag: flags.BurkinaFaso,
   flagEmoji: "🇧🇫",
   currency: "XOF",
-  currencySymbol: "CFA",
+  currencySymbol: "₣",
   phoneCode: "+226",
   phoneNumber: { minDigits: 8, maxDigits: 8 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_BF: CountryConfig = {
     activeResellers: 150,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "CFA 50,000 – CFA 80,000",
+    monthlyProfit: "₣50,000 – ₣80,000",
   },
   telecoms: [
     { id: "onatel", name: "Onatel", code: "ONATEL" },

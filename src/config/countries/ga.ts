@@ -9,7 +9,7 @@ export const COUNTRY_GA: CountryConfig = {
   flag: flags.Gabon,
   flagEmoji: "🇬🇦",
   currency: "XAF",
-  currencySymbol: "FCFA",
+  currencySymbol: "₣",
   phoneCode: "+241",
   phoneNumber: { minDigits: 8, maxDigits: 8 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_GA: CountryConfig = {
     activeResellers: 120,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "FCFA 50,000 – FCFA 80,000",
+    monthlyProfit: "₣50,000 – ₣80,000",
   },
   telecoms: [{ id: "moov", name: "Moov", code: "MOOV" }],
 };

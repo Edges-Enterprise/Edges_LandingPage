@@ -9,7 +9,7 @@ export const COUNTRY_CM: CountryConfig = {
   flag: flags.Cameroon,
   flagEmoji: "🇨🇲",
   currency: "XAF",
-  currencySymbol: "FCFA",
+  currencySymbol: "₣",
   phoneCode: "+237",
   phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_CM: CountryConfig = {
     activeResellers: 700,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "FCFA 70,000 – FCFA 100,000",
+    monthlyProfit: "₣70,000 – ₣100,000",
   },
   telecoms: [
     { id: "camtel", name: "Camtel", code: "CAMTEL" },

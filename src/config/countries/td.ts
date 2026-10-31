@@ -9,7 +9,7 @@ export const COUNTRY_TD: CountryConfig = {
   flag: flags.Chad,
   flagEmoji: "🇹🇩",
   currency: "XAF",
-  currencySymbol: "FCFA",
+  currencySymbol: "₣",
   phoneCode: "+235",
   phoneNumber: { minDigits: 8, maxDigits: 8 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_TD: CountryConfig = {
     activeResellers: 80,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "FCFA 40,000 – FCFA 60,000",
+    monthlyProfit: "₣40,000 – ₣60,000",
   },
     telecoms: [
     { id: "mtn", name: "MTN", code: "MTN" },

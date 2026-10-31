@@ -11,6 +11,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { CountryConfig } from "@/config/countries";
+import { formatStorePrice } from "@/lib/currency/formatStorePrice";
 import { purchasePublishingPlan } from "@/actions/reseller/publishing/purchasePublishingPlan";
 
 interface PublishingPlansProps {
@@ -21,7 +22,6 @@ interface PublishingPlansProps {
   };
   currentPlan: string | null;
   walletBalance?: number;
-  walletCurrency?: string;
   /** USD -> local currency rate, so a card can show the local amount too. */
   usdToLocalRate?: number | null;
   config: CountryConfig;
@@ -43,7 +43,6 @@ export default function PublishingPlans({
   application,
   currentPlan,
   walletBalance = 0,
-  walletCurrency = "USD",
   usdToLocalRate = null,
   config,
   translations,
@@ -103,14 +102,14 @@ export default function PublishingPlans({
   ];
 
   const currencySymbol = config.currencySymbol || "$";
-  const currencyCode = config.currency || walletCurrency;
 
   // The wallet is denominated in USD, so the balance and the price are
   // compared in USD; the local figure is what the reseller recognises.
+  // formatStorePrice renders the store's symbol + locale with no letter code.
   const formatLocal = (usdPrice: number) => {
     if (!usdToLocalRate) return null;
     const local = Math.round(usdPrice * usdToLocalRate);
-    return `${currencySymbol} ${local.toLocaleString()} ${currencyCode}`.trim();
+    return formatStorePrice(local, config);
   };
 
   const selectedPlanDetails = plans.find((p) => p.id === selectedPlan);
@@ -269,7 +268,8 @@ export default function PublishingPlans({
           <Wallet size={14} style={{ color: "var(--brand-color)" }} />
           {t?.walletBalance || "Wallet"}:
           <strong style={{ color: "var(--text)" }}>
-            ${walletBalance.toFixed(2)}
+            {currencySymbol}
+            {walletBalance.toFixed(2)}
           </strong>
         </div>
       </div>
@@ -708,7 +708,8 @@ export default function PublishingPlans({
                       {t?.walletBalance || "Wallet Balance"}
                     </span>
                     <span style={{ fontWeight: 600, color: "var(--text)" }}>
-                      ${walletBalance.toFixed(2)}
+                      {currencySymbol}
+                      {walletBalance.toFixed(2)}
                     </span>
                   </div>
                 </div>

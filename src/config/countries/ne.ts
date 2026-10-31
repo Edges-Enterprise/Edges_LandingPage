@@ -9,7 +9,7 @@ export const COUNTRY_NE: CountryConfig = {
   flag: flags.Niger,
   flagEmoji: "🇳🇪",
   currency: "XOF",
-  currencySymbol: "CFA",
+  currencySymbol: "₣",
   phoneCode: "+227",
   phoneNumber: { minDigits: 8, maxDigits: 8 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_NE: CountryConfig = {
     activeResellers: 80,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "CFA 40,000 – CFA 60,000",
+    monthlyProfit: "₣40,000 – ₣60,000",
   },
   telecoms: [
     { id: "airtel", name: "Airtel", code: "AIRTEL" },

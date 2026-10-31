@@ -9,7 +9,7 @@ export const COUNTRY_SN: CountryConfig = {
   flag: flags.Senegal,
   flagEmoji: "🇸🇳",
   currency: "XOF",
-  currencySymbol: "CFA",
+  currencySymbol: "₣",
   phoneCode: "+221",
   phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_SN: CountryConfig = {
     activeResellers: 300,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "CFA 70,000 – CFA 100,000",
+    monthlyProfit: "₣70,000 – ₣100,000",
   },telecoms: [
   { id: "expresso", name: "Expresso", code: "EXPRESSO" },
   { id: "orange", name: "Orange", code: "ORANGE" },

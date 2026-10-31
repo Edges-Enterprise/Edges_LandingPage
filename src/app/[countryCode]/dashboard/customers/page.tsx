@@ -7,6 +7,7 @@ import "@/app/reseller.css";
 
 interface CustomersPageProps {
   params: Promise<{ countryCode: string }>;
+  searchParams: Promise<{ customer?: string }>;
 }
 
 async function getCustomersData(userId: string) {
@@ -120,8 +121,12 @@ async function getTranslations(language: string) {
   }
 }
 
-export default async function CustomersPage({ params }: CustomersPageProps) {
+export default async function CustomersPage({
+  params,
+  searchParams,
+}: CustomersPageProps) {
   const { countryCode } = await params;
+  const { customer: initialCustomerId } = await searchParams;
 
   const supabase = await createServerClient();
   const {
@@ -161,6 +166,7 @@ export default async function CustomersPage({ params }: CustomersPageProps) {
         config={config}
         translations={translations}
         customersData={customersData}
+        initialCustomerId={initialCustomerId}
       />
     </CountryProvider>
   );

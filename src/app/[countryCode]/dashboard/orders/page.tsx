@@ -8,6 +8,7 @@ import "@/app/reseller.css";
 
 interface OrdersPageProps {
   params: Promise<{ countryCode: string }>;
+  searchParams: Promise<{ order?: string }>;
 }
 
 async function getOrdersData(userId: string) {
@@ -178,8 +179,9 @@ async function getTranslations(language: string) {
   }
 }
 
-export default async function OrdersPage({ params }: OrdersPageProps) {
+export default async function OrdersPage({ params, searchParams }: OrdersPageProps) {
   const { countryCode } = await params;
+  const { order: initialOrderId } = await searchParams;
 
   const supabase = await createServerClient();
   const {
@@ -219,6 +221,7 @@ export default async function OrdersPage({ params }: OrdersPageProps) {
         config={config}
         translations={translations}
         ordersData={ordersData}
+        initialOrderId={initialOrderId}
       />
     </CountryProvider>
   );

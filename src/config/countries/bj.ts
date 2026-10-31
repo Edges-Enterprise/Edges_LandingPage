@@ -9,7 +9,7 @@ export const COUNTRY_BJ: CountryConfig = {
   flag: flags.Benin,
   flagEmoji: "🇧🇯",
   currency: "XOF",
-  currencySymbol: "CFA",
+  currencySymbol: "₣",
   phoneCode: "+229",
   phoneNumber: { minDigits: 10, maxDigits: 10 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_BJ: CountryConfig = {
     activeResellers: 120,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "CFA 50,000 – CFA 70,000",
+    monthlyProfit: "₣50,000 – ₣70,000",
   },
   telecoms: [
     { id: "moov", name: "Moov", code: "MOOV" },

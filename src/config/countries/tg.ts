@@ -9,7 +9,7 @@ export const COUNTRY_TG: CountryConfig = {
   flag: flags.Togo,
   flagEmoji: "🇹🇬",
   currency: "XOF",
-  currencySymbol: "CFA",
+  currencySymbol: "₣",
   phoneCode: "+228",
   phoneNumber: { minDigits: 8, maxDigits: 8 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_TG: CountryConfig = {
     activeResellers: 400,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "CFA 50,000 – CFA 80,000",
+    monthlyProfit: "₣50,000 – ₣80,000",
   }, 
   telecoms: [
   { id: "moov", name: "Moov", code: "MOOV" },

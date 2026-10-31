@@ -1,7 +1,7 @@
 // src/app/[countryCode]/dashboard/orders/OrdersClient.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Search,
@@ -23,6 +23,8 @@ interface OrdersClientProps {
   config: CountryConfig;
   translations: any;
   ordersData: OrdersData;
+  /** Order id from the URL (?order=…), opened on arrival from Recent Activity. */
+  initialOrderId?: string;
 }
 
 export default function OrdersClient({
@@ -30,6 +32,7 @@ export default function OrdersClient({
   config,
   translations,
   ordersData,
+  initialOrderId,
 }: OrdersClientProps) {
   const t = translations;
   const supabase = createClient();
@@ -55,6 +58,21 @@ export default function OrdersClient({
   const categories = orders
     ? [...new Set(orders.map((o) => o.payment_method).filter(Boolean))]
     : [];
+
+  // Opened with ?order=<id> from Recent Activity: select that order and show
+  // its detail modal. Guarded so it runs once per id, not on every re-render.
+  const openedInitialOrder = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialOrderId || openedInitialOrder.current === initialOrderId) {
+      return;
+    }
+    const match = orders.find((o: Order) => o.id === initialOrderId);
+    if (match) {
+      openedInitialOrder.current = initialOrderId;
+      setSelectedOrder(match);
+      setShowDetailsModal(true);
+    }
+  }, [initialOrderId, orders]);
 
   // Filter orders
   useEffect(() => {

@@ -9,7 +9,7 @@ export const COUNTRY_CG: CountryConfig = {
   flag: flags.Congo,
   flagEmoji: "🇨🇬",
   currency: "XAF",
-  currencySymbol: "FCFA",
+  currencySymbol: "₣",
   phoneCode: "+242",
   phoneNumber: { minDigits: 9, maxDigits: 9 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_CG: CountryConfig = {
     activeResellers: 150,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "FCFA 50,000 – FCFA 70,000",
+    monthlyProfit: "₣50,000 – ₣70,000",
   },
   telecoms: [{ id: "mtn", name: "MTN", code: "MTN" }],
 };

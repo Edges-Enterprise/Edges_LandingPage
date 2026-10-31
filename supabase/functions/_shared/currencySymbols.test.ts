@@ -61,7 +61,17 @@ Deno.test("every country's currency has a symbol, and it matches the config", ()
 Deno.test("the two reported currencies are right", () => {
   const symbols = parseSymbolMap();
   // DR Congo: the missing entry that rendered the bare code.
-  assert.equal(symbols.get("CDF"), "FC");
+  assert.equal(symbols.get("CDF"), "₣");
   // Morocco: the Arabic symbol replaced by the Latin "DH" the configs use.
   assert.equal(symbols.get("MAD"), "DH");
+});
+
+Deno.test("franc currencies use the franc sign, not the letter code", () => {
+  const symbols = parseSymbolMap();
+  // The person: "all the currency should be proper currency symbols … not
+  // something like FRw, the actual symbol". CDF/XAF/XOF/RWF are all francs,
+  // so they share the franc sign instead of FC/FCFA/CFA/FRw.
+  for (const code of ["CDF", "XAF", "XOF", "RWF"]) {
+    assert.equal(symbols.get(code), "₣", `${code} should be the franc sign`);
+  }
 });

@@ -9,7 +9,7 @@ export const COUNTRY_CI: CountryConfig = {
   flag: flags.IvoryCoast,
   flagEmoji: "🇨🇮",
   currency: "XOF",
-  currencySymbol: "CFA",
+  currencySymbol: "₣",
   phoneCode: "+225",
   phoneNumber: { minDigits: 10, maxDigits: 10 },
   language: {
@@ -48,7 +48,7 @@ export const COUNTRY_CI: CountryConfig = {
     activeResellers: 400,
     apkDeliveryDays: "3–5",
     storeGoesLive: "Instant",
-    monthlyProfit: "CFA 80,000 – CFA 120,000",
+    monthlyProfit: "₣80,000 – ₣120,000",
   },
   telecoms: [
     { id: "moov", name: "Moov", code: "MOOV" },
