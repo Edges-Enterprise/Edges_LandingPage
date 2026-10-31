@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Customer } from "@/types/reseller/customers";
 import { CountryConfig } from "@/config/countries";
+import ThemeSelect from "../ThemeSelect";
 
 interface CustomerDetailsModalProps {
   customer: Customer;
@@ -375,24 +376,16 @@ export default function CustomerDetailsModal({
                   outline: "none",
                 }}
               />
-              <select
-                name="status"
+              <ThemeSelect
                 value={formData.status}
-                onChange={handleChange}
-                style={{
-                  padding: "0.6rem 0.75rem",
-                  background: "var(--bg2)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  color: "var(--text)",
-                  fontSize: "0.9rem",
-                  outline: "none",
-                  cursor: "pointer",
-                }}
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+                onChange={(v) => setFormData({ ...formData, status: v })}
+                ariaLabel={t?.status || "Status"}
+                style={{ padding: "0.6rem 0.75rem", borderRadius: 8 }}
+                options={[
+                  { value: "active", label: t?.active || "Active" },
+                  { value: "inactive", label: t?.inactive || "Inactive" },
+                ]}
+              />
             </div>
 
             <div style={{ display: "flex", gap: "0.75rem" }}>

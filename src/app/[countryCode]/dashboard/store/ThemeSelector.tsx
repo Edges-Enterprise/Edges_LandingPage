@@ -7,6 +7,7 @@ import { updateStoreTheme } from "@/actions/reseller/store/updateStoreTheme";
 // import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils/helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import ThemeSelect from "../ThemeSelect";
 // import { createServerClient } from "@/lib/supabase/server";
 
 interface ThemeSelectorProps {
@@ -234,17 +235,18 @@ export function ThemeSelector({ countryCode }: ThemeSelectorProps) {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Font Family
           </label>
-          <select
+          <ThemeSelect
             value={theme.font_family}
-            onChange={(e) => handleSelectChange("font_family", e.target.value)}
-            className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-          >
-            {FONT_FAMILIES.map((font) => (
-              <option key={font} value={font} style={{ fontFamily: font }}>
-                {font}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => handleSelectChange("font_family", v)}
+            ariaLabel="Font Family"
+            style={{ width: "100%", padding: "0.6rem 1rem", borderRadius: 8 }}
+            options={FONT_FAMILIES.map((font) => ({
+              value: font,
+              label: font,
+              text: font,
+              style: { fontFamily: font },
+            }))}
+          />
         </div>
 
         {/* Button Style */}

@@ -14,6 +14,7 @@ import {
 import CustomerTable from "./CustomerTable";
 import CustomerDetailsModal from "./CustomerDetailsModal";
 import AddCustomerModal from "./AddCustomerModal";
+import ThemeSelect from "../ThemeSelect";
 import { CountryConfig } from "@/config/countries";
 import { Customer, CustomersData } from "@/types/reseller/customers";
 
@@ -426,30 +427,21 @@ export default function CustomersClient({
           />
         </div>
 
-        <select
+        <ThemeSelect
           value={statusFilter}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-            setStatusFilter(e.target.value)
-          }
+          onChange={setStatusFilter}
+          ariaLabel={t?.allStatus || "All Status"}
           style={{
-            padding: "0.6rem 2rem 0.6rem 1rem",
-            background: "var(--bg2)",
-            border: "1px solid var(--border)",
+            padding: "0.6rem 0.9rem",
             borderRadius: 10,
-            color: "var(--text)",
-            fontSize: "0.9rem",
-            outline: "none",
-            appearance: "none",
-            cursor: "pointer",
-            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B5F55' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "right 0.75rem center",
+            minWidth: 140,
           }}
-        >
-          <option value="all">{t?.allStatus || "All Status"}</option>
-          <option value="active">{t?.active || "Active"}</option>
-          <option value="inactive">{t?.inactive || "Inactive"}</option>
-        </select>
+          options={[
+            { value: "all", label: t?.allStatus || "All Status" },
+            { value: "active", label: t?.active || "Active" },
+            { value: "inactive", label: t?.inactive || "Inactive" },
+          ]}
+        />
       </div>
 
       {/* Customer Table */}

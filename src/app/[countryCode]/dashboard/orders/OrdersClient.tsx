@@ -15,6 +15,7 @@ import {
 import OrdersTable from "./OrdersTable";
 import OrderDetailsModal from "./OrderDetailsModal";
 import UpdateStatusModal from "./UpdateStatusModal";
+import ThemeSelect from "../ThemeSelect";
 import { CountryConfig } from "@/config/countries";
 import { Order, OrdersData, OrderStats, OrderStatusHistoryEntry } from "@/types/reseller/orders";
 
@@ -445,61 +446,42 @@ export default function OrdersClient({
           />
         </div>
 
-        <select
+        <ThemeSelect
           value={statusFilter}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-            setStatusFilter(e.target.value)
-          }
+          onChange={setStatusFilter}
+          ariaLabel={t?.allStatus || "All Status"}
           style={{
-            padding: "0.6rem 2rem 0.6rem 1rem",
-            background: "var(--bg2)",
-            border: "1px solid var(--border)",
+            padding: "0.6rem 0.9rem",
             borderRadius: 10,
-            color: "var(--text)",
-            fontSize: "0.9rem",
-            outline: "none",
-            appearance: "none",
-            cursor: "pointer",
-            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B5F55' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "right 0.75rem center",
+            minWidth: 140,
           }}
-        >
-          <option value="all">{t?.allStatus || "All Status"}</option>
-          <option value="pending">{t?.pending || "Pending"}</option>
-          <option value="completed">{t?.completed || "Completed"}</option>
-          <option value="failed">{t?.failed || "Failed"}</option>
-          <option value="cancelled">{t?.cancelled || "Cancelled"}</option>
-        </select>
+          options={[
+            { value: "all", label: t?.allStatus || "All Status" },
+            { value: "pending", label: t?.pending || "Pending" },
+            { value: "completed", label: t?.completed || "Completed" },
+            { value: "failed", label: t?.failed || "Failed" },
+            { value: "cancelled", label: t?.cancelled || "Cancelled" },
+          ]}
+        />
 
         {categories.length > 0 && (
-          <select
+          <ThemeSelect
             value={categoryFilter}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-              setCategoryFilter(e.target.value)
-            }
+            onChange={setCategoryFilter}
+            ariaLabel={t?.allCategories || "All Categories"}
             style={{
-              padding: "0.6rem 2rem 0.6rem 1rem",
-              background: "var(--bg2)",
-              border: "1px solid var(--border)",
+              padding: "0.6rem 0.9rem",
               borderRadius: 10,
-              color: "var(--text)",
-              fontSize: "0.9rem",
-              outline: "none",
-              appearance: "none",
-              cursor: "pointer",
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B5F55' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-              backgroundRepeat: "no-repeat",
-              backgroundPosition: "right 0.75rem center",
+              minWidth: 160,
             }}
-          >
-            <option value="all">{t?.allCategories || "All Categories"}</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {t?.[cat as keyof typeof t] || cat}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "all", label: t?.allCategories || "All Categories" },
+              ...categories.map((cat) => ({
+                value: cat as string,
+                label: t?.[cat as keyof typeof t] || cat,
+              })),
+            ]}
+          />
         )}
       </div>
 

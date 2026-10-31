@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Store, Mail, Phone, Lock } from "lucide-react";
 import { saveStoreProfile } from "@/actions/reseller/store/saveStoreProfile";
 import { CountryConfig } from "@/config/countries";
+import ThemeSelect from "../ThemeSelect";
 import {
   StoreSettings as StoreSettingsType,
   StoreData,
@@ -190,28 +191,21 @@ export default function StoreSettings({
           >
             {t?.storeStatus || "Store Status"}
           </label>
-          <select
-            name="store_status"
+          <ThemeSelect
             value={formData.store_status}
-            onChange={handleChange}
-            style={{
-              width: "100%",
-              padding: "0.6rem 1rem",
-              background: "var(--bg2)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              color: "var(--text)",
-              fontSize: "0.9rem",
-              outline: "none",
-              cursor: "pointer",
-            }}
-          >
-            {statusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            onChange={(v) =>
+              setFormData({
+                ...formData,
+                store_status: v as "active" | "inactive" | "maintenance",
+              })
+            }
+            ariaLabel={t?.storeStatus || "Store Status"}
+            style={{ width: "100%", padding: "0.6rem 1rem", borderRadius: 8 }}
+            options={statusOptions.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+          />
         </div>
 
         <div>

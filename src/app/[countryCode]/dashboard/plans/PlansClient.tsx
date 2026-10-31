@@ -17,6 +17,7 @@ import { bulkUpdatePlans } from "@/actions/reseller/plans/bulkUpdatePlans";
 import { CountryConfig } from "@/config/countries";
 import { PlanWithConfig } from "@/types/reseller/plans";
 import { formatPrice } from "@/lib/currency/currency";
+import ThemeSelect from "../ThemeSelect";
 
 interface PlansClientProps {
   countryCode: string;
@@ -631,40 +632,40 @@ export default function PlansClient({
                 {t?.markup || "Markup"}
               </span>
             </label>
-            <select
+            <ThemeSelect
               value={bulkType}
-              onChange={(e) =>
-                setBulkType(e.target.value as "percentage" | "fixed")
-              }
+              onChange={(v) => setBulkType(v as "percentage" | "fixed")}
               style={selectStyle}
-              aria-label={t?.markupType || "Markup Type"}
-            >
-              <option value="percentage">
-                {t?.percentage || "Percentage (%)"}
-              </option>
-              <option value="fixed">
-                {t?.fixed || `Fixed Amount (${currencySymbol})`}
-              </option>
-            </select>
+              ariaLabel={t?.markupType || "Markup Type"}
+              menuMinWidth={140}
+              options={[
+                { value: "percentage", label: t?.percentage || "Percentage (%)" },
+                {
+                  value: "fixed",
+                  label: t?.fixed || `Fixed Amount (${currencySymbol})`,
+                },
+              ]}
+            />
           </div>
         </div>
         <div className="bulk-row">
           <div className="bulk-field bulk-field--apply">
             <label style={labelStyle}>{t?.applyTo || "Apply To"}</label>
-            <select
+            <ThemeSelect
               value={bulkNetwork}
-              onChange={(e) => setBulkNetwork(e.target.value)}
+              onChange={setBulkNetwork}
               style={selectStyle}
-            >
-              {networks.map((net) => (
-                <option key={net} value={net}>
-                  {t?.onlyNetwork
+              ariaLabel={t?.applyTo || "Apply To"}
+              options={[
+                ...networks.map((net) => ({
+                  value: net,
+                  label: t?.onlyNetwork
                     ? t.onlyNetwork.replace("{network}", net)
-                    : `Only ${net}`}
-                </option>
-              ))}
-              <option value="all">{t?.allNetworks || "All Networks"}</option>
-            </select>
+                    : `Only ${net}`,
+                })),
+                { value: "all", label: t?.allNetworks || "All Networks" },
+              ]}
+            />
           </div>
           <div className="bulk-field bulk-field--value">
             <label style={labelStyle}>{t?.markupValue || "Value"}</label>
@@ -1005,16 +1006,17 @@ export default function PlansClient({
                         borderRadius: 8,
                       }}
                     >
-                      <select
+                      <ThemeSelect
                         value={editType}
-                        onChange={(e) =>
-                          setEditType(e.target.value as "percentage" | "fixed")
-                        }
-                        style={smallSelectStyle}
-                      >
-                        <option value="percentage">%</option>
-                        <option value="fixed">{currencySymbol}</option>
-                      </select>
+                        onChange={(v) => setEditType(v as "percentage" | "fixed")}
+                        style={{ ...smallSelectStyle, width: 72 }}
+                        ariaLabel={t?.markupType || "Markup Type"}
+                        menuMinWidth={90}
+                        options={[
+                          { value: "percentage", label: "%" },
+                          { value: "fixed", label: currencySymbol },
+                        ]}
+                      />
                       <input
                         className="plan-edit-value"
                         type="number"

@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { X, Percent, DollarSign } from "lucide-react";
 import { bulkUpdatePlans } from "@/actions/reseller/plans/bulkUpdatePlans";
+import ThemeSelect from "../ThemeSelect";
 
 interface BulkPricingModalProps {
   plans: any[];
@@ -242,53 +243,33 @@ export default function BulkPricingModal({
         {/* Category/Network Selection */}
         {applyTo === "category" && (
           <div style={{ marginBottom: "1rem" }}>
-            <select
+            <ThemeSelect
               value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "0.6rem 1rem",
-                background: "var(--bg2)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                outline: "none",
-              }}
-            >
-              <option value="">{t?.selectCategory || "Select Category"}</option>
-              {getCategories().map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedCategory}
+              placeholder={t?.selectCategory || "Select Category"}
+              ariaLabel={t?.selectCategory || "Select Category"}
+              style={{ width: "100%", padding: "0.6rem 1rem", borderRadius: 8 }}
+              options={getCategories().map((cat) => ({
+                value: cat,
+                label: cat,
+              }))}
+            />
           </div>
         )}
 
         {applyTo === "network" && (
           <div style={{ marginBottom: "1rem" }}>
-            <select
+            <ThemeSelect
               value={selectedNetwork}
-              onChange={(e) => setSelectedNetwork(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "0.6rem 1rem",
-                background: "var(--bg2)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                outline: "none",
-              }}
-            >
-              <option value="">{t?.selectNetwork || "Select Network"}</option>
-              {getNetworks().map((net) => (
-                <option key={net} value={net}>
-                  {net}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedNetwork}
+              placeholder={t?.selectNetwork || "Select Network"}
+              ariaLabel={t?.selectNetwork || "Select Network"}
+              style={{ width: "100%", padding: "0.6rem 1rem", borderRadius: 8 }}
+              options={getNetworks().map((net) => ({
+                value: net,
+                label: net,
+              }))}
+            />
           </div>
         )}
 

@@ -13,6 +13,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils/helpers";
+import ThemeSelect from "../ThemeSelect";
 
 interface PreferencesSettingsProps {
   countryCode: string;
@@ -70,17 +71,19 @@ export function PreferencesSettings({ countryCode }: PreferencesSettingsProps) {
               Language
             </div>
           </label>
-          <select
+          <ThemeSelect
             value={preferences.language}
-            onChange={(e) => handleChange("language", e.target.value)}
-            className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-          >
-            <option value="en">English</option>
-            <option value="fr">Français</option>
-            <option value="es">Español</option>
-            <option value="pt">Português</option>
-            <option value="ar">العربية</option>
-          </select>
+            onChange={(v) => handleChange("language", v)}
+            ariaLabel="Language"
+            style={{ width: "100%", padding: "0.65rem 1rem", borderRadius: 8 }}
+            options={[
+              { value: "en", label: "English" },
+              { value: "fr", label: "Français" },
+              { value: "es", label: "Español" },
+              { value: "pt", label: "Português" },
+              { value: "ar", label: "العربية" },
+            ]}
+          />
         </div>
 
         {/* Theme */}
@@ -129,24 +132,26 @@ export function PreferencesSettings({ countryCode }: PreferencesSettingsProps) {
               Timezone
             </div>
           </label>
-          <select
+          <ThemeSelect
             value={preferences.timezone}
-            onChange={(e) => handleChange("timezone", e.target.value)}
-            className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-          >
-            <option value="UTC">UTC (Coordinated Universal Time)</option>
-            <option value="America/New_York">Eastern Time (ET)</option>
-            <option value="America/Chicago">Central Time (CT)</option>
-            <option value="America/Denver">Mountain Time (MT)</option>
-            <option value="America/Los_Angeles">Pacific Time (PT)</option>
-            <option value="Europe/London">London (GMT)</option>
-            <option value="Europe/Paris">Paris (CET)</option>
-            <option value="Africa/Lagos">Lagos (WAT)</option>
-            <option value="Africa/Nairobi">Nairobi (EAT)</option>
-            <option value="Asia/Dubai">Dubai (GST)</option>
-            <option value="Asia/Singapore">Singapore (SGT)</option>
-            <option value="Australia/Sydney">Sydney (AEDT)</option>
-          </select>
+            onChange={(v) => handleChange("timezone", v)}
+            ariaLabel="Timezone"
+            style={{ width: "100%", padding: "0.65rem 1rem", borderRadius: 8 }}
+            options={[
+              { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+              { value: "America/New_York", label: "Eastern Time (ET)" },
+              { value: "America/Chicago", label: "Central Time (CT)" },
+              { value: "America/Denver", label: "Mountain Time (MT)" },
+              { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+              { value: "Europe/London", label: "London (GMT)" },
+              { value: "Europe/Paris", label: "Paris (CET)" },
+              { value: "Africa/Lagos", label: "Lagos (WAT)" },
+              { value: "Africa/Nairobi", label: "Nairobi (EAT)" },
+              { value: "Asia/Dubai", label: "Dubai (GST)" },
+              { value: "Asia/Singapore", label: "Singapore (SGT)" },
+              { value: "Australia/Sydney", label: "Sydney (AEDT)" },
+            ]}
+          />
         </div>
 
         {/* Currency */}
@@ -157,21 +162,23 @@ export function PreferencesSettings({ countryCode }: PreferencesSettingsProps) {
               Currency
             </div>
           </label>
-          <select
+          <ThemeSelect
             value={preferences.currency}
-            onChange={(e) => handleChange("currency", e.target.value)}
-            className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
-          >
-            <option value="USD">USD ($)</option>
-            <option value="NGN">NGN (₦)</option>
-            <option value="EUR">EUR (€)</option>
-            <option value="GBP">GBP (£)</option>
-            <option value="KES">KES (KSh)</option>
-            <option value="ZAR">ZAR (R)</option>
-            <option value="GHS">GHS (GH₵)</option>
-            <option value="EGP">EGP (E£)</option>
-            <option value="MAD">MAD (DH)</option>
-          </select>
+            onChange={(v) => handleChange("currency", v)}
+            ariaLabel="Currency"
+            style={{ width: "100%", padding: "0.65rem 1rem", borderRadius: 8 }}
+            options={[
+              { value: "USD", label: "USD ($)" },
+              { value: "NGN", label: "NGN (₦)" },
+              { value: "EUR", label: "EUR (€)" },
+              { value: "GBP", label: "GBP (£)" },
+              { value: "KES", label: "KES (KSh)" },
+              { value: "ZAR", label: "ZAR (R)" },
+              { value: "GHS", label: "GHS (GH₵)" },
+              { value: "EGP", label: "EGP (E£)" },
+              { value: "MAD", label: "MAD (DH)" },
+            ]}
+          />
         </div>
 
         {error && (

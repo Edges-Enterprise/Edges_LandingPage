@@ -5,6 +5,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Customer } from "@/types/reseller/customers";
 import { CountryConfig } from "@/config/countries";
+import ThemeSelect from "../ThemeSelect";
 
 interface CustomerInlineEditProps {
   customer: Customer;
@@ -136,15 +137,16 @@ export default function CustomerInlineEdit({
         style={fieldStyle}
       />
 
-      <select
-        name="status"
+      <ThemeSelect
         value={formData.status}
-        onChange={handleChange}
-        style={{ ...fieldStyle, cursor: "pointer" }}
-      >
-        <option value="active">{t?.active || "Active"}</option>
-        <option value="inactive">{t?.inactive || "Inactive"}</option>
-      </select>
+        onChange={(v) => setFormData((prev) => ({ ...prev, status: v }))}
+        ariaLabel={t?.status || "Status"}
+        style={fieldStyle}
+        options={[
+          { value: "active", label: t?.active || "Active" },
+          { value: "inactive", label: t?.inactive || "Inactive" },
+        ]}
+      />
 
       <div style={{ display: "flex", gap: "0.6rem" }}>
         <button
