@@ -4754,6 +4754,347 @@ pointer, blocked on Zendit's docs.
 
 ---
 
+---
+
+## Phase 2 — Multi-country catalog, FX, and pricing (design agreed; NOT started)
+
+**`let's begin phase 2`** — saying exactly that sentence is what starts this
+phase. Until it is said, this section is a design record only: do **not** start
+any of it, do not create the sync job, do not touch the schema for it. Task 8 and
+the deferred items above remain the current work. When the sentence is given,
+begin at **Build order step 1** below.
+
+### Why this exists
+
+Three constraints in the current design have to go, and they go together:
+
+1. **Countries are hardcoded** (24, via per-country configs + generated prefix
+   tables) while Zendit actually covers **190+ countries / 100+ currencies**.
+   The catalog must stop being a hand-maintained list.
+2. **The catalog was loaded by hand** — a one-off snapshot into
+   `global_base_plans`, with no sync job of any kind (no cron, no scheduled
+   function, no GitHub Action, no script). New Zendit countries and plan changes
+   therefore require manual pasting, which is the specific pain this phase
+   removes.
+3. **`base_price` is not consistently USD** despite every row carrying
+   `currency = 'USD'`. Measured against live FX via `send_value`/`send_currency`,
+   the real composition is mixed: KE is local-currency, BF/BJ/CD/CF/CG/CI/CM/GA
+   are USD-major, AO/GH/GM/NE/RW/SL/TZ are cents, NG is mixed. Nothing can be
+   priced correctly until cost is normalised at ingest.
+
+Phase 2 replaces all three: **crawl the catalog, discover countries from the
+data, normalise cost once, and price from a rule rather than a stored number.**
+
+### Key provider findings this design rests on (verified against vendor docs)
+
+- **`GET /tools/phonenumberlookup/{msisdn}`** → `{ brand, country,
+  mobileCountryCode, mobileNetworkCode, msisdn }`. This is the unlock that
+  retires the prefix-table class of problems: authoritative (same source that
+  fulfils the order), `brand` matches the offer's `brand` field directly (no
+  alias mapping), and it works for every Zendit country rather than the 24.
+- **Zendit publishes FX in the catalog.** Their docs: *"FX rates are subject to
+  change in the catalog for values sent in local currency… Rates that adjust
+  daily are refreshed and available at **08:30:00 UTC** daily."* The `fx` field
+  exists on `dto.Zend`, `dto.Cost` and `dto.Price`.
+- **`fx` is RANGE-only.** Schema verbatim: `"fx": "FX rate for a range offer"`.
+  FIXED offers carry no rate — and do not need one, because the rate is already
+  embedded in the `cost` / `send` pair. This corrects "Zendit has FX for
+  everything": for FIXED offers you render `send.fixed ÷ currencyDivisor` with
+  `send.currency` and there is no conversion to perform.
+- **Korapay has a real FX conversion API**:
+  `POST /merchant/api/v1/conversions/rates` (quote, returns
+  `expiry_in_seconds` ≈ 25) and `POST /merchant/api/v1/conversions/` (execute).
+  RWF/XOF/XAF appear across their platform.
+- **Flutterwave's FX trade is narrow**: pairs are only NGN↔USD and GHS→USD,
+  **weekdays only**, **minimum $1,000 USD**. Separately, their *transfer rates*
+  endpoint carries a documented warning: *"Do not use the rates returned by this
+  endpoint for FX trading, use the FX service APIs instead."*
+- **Wise is out of scope.** It cannot collect in any currency here
+  (RWF/XOF/XAF/MWK/SLE/ZMW/CDF/AOA are absent from Wise entirely;
+  NGN/GHS/KES/TZS/UGX/ZAR are send-to-only). Its rate feed covered 129/130
+  currencies tested, so it remains a *possible* rate oracle, but it is not needed
+  once Zendit and the collection providers are the rate sources.
+
+### The invariant everything hangs on
+
+> **A store has exactly one currency. It is the store's local currency if a
+> funding rail exists for it, otherwise USD. The wallet, the markup, the
+> displayed price and the charge are all in that one currency. The destination
+> country of the purchase has no effect on currency whatsoever.**
+
+The destination determines **which plans are shown**; the store determines
+**what they cost and in what currency**. A Rwandan store sells a Ugandan bundle
+priced in RWF, funded from an RWF wallet.
+
+Deposits are a **separate axis**: the customer pays in *their* currency (their
+local, or USD) and that converts into the store currency. One conversion path
+covers both the same-currency and cross-currency case; when they are equal it is
+a 1:1 pass-through.
+
+### FX is two legs, with two different authoritative sources
+
+This is the substantive change from the first draft of this design, which
+assumed one rate from one feed.
+
+| Leg | Question | Governs | Source |
+|---|---|---|---|
+| **Pricing leg** | What do I charge in the store currency? | Zendit USD cost → local | **The rate you will actually convert at** — the collection provider (Korapay/Flutterwave) |
+| **Delivery leg** | What local value does Zendit send? | Customer-chosen amount → local value | **Zendit's `fx`** (RANGE offers only) |
+
+Why the pricing leg is anchored to the provider and not to Zendit: the platform
+is charged in USD, collects in local currency, and settles Zendit in USD. The
+binding question is *"does the local amount I collected convert back to at least
+my USD cost?"* — and that depends on the **conversion** rate, which is the
+provider's. Pricing at Zendit's rate while converting at the provider's would
+make the difference an unpriced exposure. Anchoring to the provider closes it by
+construction.
+
+Zendit's `fx` is still useful as (a) the authority for RANGE, (b) a cross-check
+that alerts when the provider's rate diverges beyond a threshold, and (c) a
+fallback.
+
+**Deriving a USD↔X rate from Zendit** (possible, with a caveat): read `fx` from
+any RANGE offer in that currency, or derive it from any FIXED offer as
+`send.fixed ÷ cost.fixed` after divisor normalisation. But note this is a
+**retail** rate — Zendit's margin and rounding are baked in. Measured against
+live market rates it diverges materially (AOA ≈ −12%, UGX ≈ −20%, XAF ≈ −9%,
+XOF ≈ −11%). Good for display and cross-checking; **not** valid for measuring
+the platform's own exposure. Measure exposure from the provider rate.
+
+**The free external rate API is dropped.** The `exchangerate-api` feed has real
+correctness problems in exactly the currencies that removing the country
+constraint newly exposes — most starkly ZWL, where it returns the ZWG
+(redenominated) rate under the old code, and IRR, where it returns the parallel
+market rate ~40× off. Do not price from it.
+
+**Timing constraints that shape the flow:**
+
+| Source | Validity | Consequence |
+|---|---|---|
+| Korapay conversion rate | `expiry_in_seconds` ≈ 25s | Cannot hold a rate until a deposit lands — quote, deposit, then convert at the then-current rate |
+| Flutterwave FX trade | Weekdays only; min $1,000 | Weekend deposits cannot convert until Monday; small deposits must batch |
+| Zendit `fx` | Daily, 08:30 UTC | Up to 24h stale — fine for RANGE and cross-check |
+| Flutterwave transfer rates | 3–4×/day | Do **not** use for FX trading (vendor's own instruction) |
+
+The ~25s expiry is the important one: a customer cannot deposit inside 25
+seconds, so the **buffer must absorb the gap between quote and arrival**. That
+is what the buffer is for.
+
+### Money representation
+
+Integer minor units plus an explicit currency code. Never floats — percentage
+markups applied to floats across a USD→RWF conversion drift, and a prepaid
+ledger cannot absorb that.
+
+```
+currency_registry
+  code              'RWF'
+  decimals          0            -- RWF/UGX/XAF/XOF/TZS = 0; KES/GHS/NGN/MWK/ZMW/ZAR = 2
+  symbol            '₣'
+  fx_buffer_pct     3.0          -- per-currency; higher for volatile
+  funding_rail      'korapay' | 'flutterwave' | null
+```
+
+Zendit's `currencyDivisor` is authoritative and must be **stored, not assumed**:
+XOF divisor 1, USD 100, JOD 1000. Round exactly once, at the end, to the
+currency's `decimals`.
+
+### The markup chain
+
+Two markups, each expressed in the currency of whoever owns it:
+
+| Rung | Owner | Expressed in | Why |
+|---|---|---|---|
+| `cost_usd` | Zendit | USD | canonical wholesale |
+| `platform_price_usd` | **Platform** | **USD** | platform thinks and settles in USD; carries the FX risk |
+| `platform_price_local` | — | store currency | converted cost the reseller sees |
+| `selling_price_local` | **Reseller** | **store currency** | reseller thinks in RWF, sets margin in RWF |
+
+**The platform's margin lives in the USD world; the reseller's lives in the
+local world.** The reseller never sees a dollar sign, and their margin is
+denominated in the money they actually spend.
+
+Pipeline:
+
+```
+1. INGEST            cost_usd_minor       = cost.fixed / cost.currencyDivisor
+2. PLATFORM MARKUP   platform_usd_minor   = cost_usd_minor × (1 + platform_pct/100)
+                                           + platform_fixed_usd_minor
+3. CONVERT           rate                 = rate_service(USD→store_ccy, 'pricing')
+                     platform_local_minor = round(platform_usd_minor × rate)
+4. RESELLER MARKUP   selling_local_minor  = platform_local_minor × (1 + reseller_pct/100)
+                                           + reseller_fixed_local_minor
+                     selling_local_minor  = ceil(selling_local_minor)   -- always up
+5. SNAPSHOT          persist rate, source, expires_at, and every rung on the order
+```
+
+**Store the rule, compute the price.** Do not freeze `selling_price` as a
+number. Store the markup rule (`type`, `value`, `currency`) and compute on read.
+If a local price is frozen and the rate moves, either the platform's USD margin
+or the reseller's fixed local margin silently shrinks — neither visible until it
+surfaces as a mismatch. Compute-on-read preserves both invariants at once: the
+reseller's local margin is exactly what they set, and the platform's USD margin
+is exactly what it set. FX movement lands in the one place chosen — the platform
+— and is absorbed by the buffer.
+
+Then, because the customer must pay the price they saw:
+
+- Catalog returns `{ price_local, rate, rate_expires_at }`, TTL 60–120s.
+- At purchase, re-resolve the rate. Within TTL and tolerance → honour the quote.
+  Outside it → re-quote and ask the customer to confirm.
+- Snapshot every rung on the order so a settlement dispute is answerable from
+  the row alone.
+
+**The buffer is not optional.** `rate_sell = rate_market × (1 + fx_buffer_pct)`,
+stored per currency, sized to cover the provider's spread, the quote-to-deposit
+gap, and rate movement to settlement. 2–3% for stable currencies, higher for
+volatile ones. Track it against actual settlements so it is sized from data
+rather than assumed.
+
+Worked example — RW store, UG destination:
+
+```
+Zendit cost (UG bundle)                      $1.00
+Platform markup +12%                      →  $1.12
+Provider conversion USD→RWF                  1,450
++ 3% buffer                               →  1,493.5
+platform_price_local = 1.12 × 1,493.5     →  1,673 RWF   (reseller's cost)
+Reseller markup +18%                      →  1,974 RWF
+ceil                                      →  1,975 RWF   (customer pays)
+
+customer wallet   −1,975 RWF
+reseller margin   +  302 RWF
+platform receives    1,673 RWF → converts at 1,450 → $1.153
+                                     pays Zendit     $1.000
+                                     keeps           $0.153   (12% markup + buffer)
+```
+
+Every number the reseller and customer see is RWF. The only USD figure is the
+platform's, and it never leaves the server.
+
+### What the reseller sets and sees
+
+| Column | Example |
+|---|---|
+| Plan / destination | MTN UG 5GB · Uganda |
+| Your cost | ₣1,673 |
+| **Your markup** | `+18%` or `+₣300` |
+| Customer pays | ₣1,975 |
+| Your profit | ₣302 |
+
+- **Margin-on-cost**, matching `cost × (1 + pct/100)`; state it in the UI so
+  nobody wonders whether 18% means 18% of the sale.
+- **Floor assertion at write time**: `selling_local ≥ platform_local`. A fixed
+  local markup on a cheap plan plus rounding can produce a below-cost price —
+  refuse it rather than finding it in the ledger.
+- **Per-plan, per-network and bulk-apply.** With all Zendit countries the plan
+  count runs to thousands; per-plan-only editing is unusable.
+
+### Platform markup config
+
+Its own rung, mirroring the reseller's, with hierarchy:
+`platform defaults → per country → per plan`. It must be able to **disable**
+plans — with everything Zendit offers, curation is what keeps the catalog sane.
+Thin-margin airtime and fat-margin bundles should not share one rate, and some
+destinations may not be sold at all.
+
+### Catalog sync (replaces the manual snapshot)
+
+```
+sync-zendit-catalog (scheduled)
+  for each product type sold:  GET /topups/offers
+    paginate _limit/_offset until offset >= total
+    collect the set of countries seen → that IS the country list
+    normalize each offer → upsert on (provider, offer_id)
+    anything not seen this run → is_active = false
+```
+
+Discovery from data means a new Zendit country appears automatically on the next
+sync, with no code change and no manual paste. Three things the sync must do that
+a paste cannot:
+
+- **Capture `cost` and `price` blocks, not just `send`.** The snapshot dropped
+  `cost` and `price` entirely, so today nothing above is computable. Also capture
+  `priceType`, `fx`, `increment`, and `currencyDivisor` on both sides.
+- **Normalise cost to one canonical unit at ingest and reject rows that do not
+  reconcile** against `send`. This is the gate that stops the mixed-unit mess
+  from re-entering.
+- **Soft-deactivate, never delete.** Offers get withdrawn; deleting breaks
+  historical orders and cascades into reseller plan configs.
+
+Also add the unique key the current table lacks: `(provider, offer_id)`. There
+is no unique constraint today, which is why duplicate `(provider, plan_id,
+category)` keys exist (e.g. `AIRTEL_KE_001/002/003`) and why a `.single()`
+lookup at purchase can break.
+
+### RANGE offers are a different flow
+
+`priceType` is `FIXED` or `RANGE`. A RANGE offer carries `min` / `max` /
+`increment`, is fulfilled by sending `value: { type, value }` on the purchase,
+and **its conversion is governed by Zendit's `fx`** — the one place Zendit's rate
+is authoritative. Validate the entered amount against the **current** bounds at
+purchase, not cached ones. Model it as an amount-entry screen; it does not fit
+the "pick a tile" model, and it is a meaningful share of airtime.
+
+### Detection: use the lookup, not prefix tables
+
+Call `GET /tools/phonenumberlookup/{msisdn}` debounced as the customer types,
+and **again at purchase as the authority**. Cache by MSISDN prefix with a short
+TTL. Keep the local prefix map only as a best-effort offline fallback — never as
+a gate. This also resolves cross-border naturally: a Rwandan customer types a
+Ugandan number, Zendit returns `country: UG`, and Ugandan offers are queried. No
+inference.
+
+### Build order
+
+1. **`sync-zendit-catalog`** — crawl all offers, discover countries from data,
+   capture `cost`/`price`/`fx`/`priceType`, normalise to canonical USD, upsert on
+   `(provider, offer_id)`, soft-deactivate, report changes. Scheduled.
+2. **Currency registry + integer minor units** — decimals, symbols, buffers,
+   funding rails.
+3. **Rate service** — the two-leg model above, returning
+   `{ rate, source, expires_at }` with fallback and cross-check. One function.
+4. **Pricing service** — one place implementing the five-step pipeline. Catalog,
+   dashboard and purchase all call it; nothing computes a price independently.
+5. **Platform markup config** — defaults → country → plan, with enable/disable.
+6. **Reseller markup in local currency** — per-plan plus bulk-apply, with the
+   floor assertion.
+7. **Zendit phone-number lookup** for detection, replacing prefix tables.
+8. **RANGE offer flow.**
+
+Ordering matters: 1–4 are the foundation, and 4 is what prevents the pricing
+divergence that would otherwise appear between the catalog, the dashboard and
+the purchase path. Do 5–6 only after the pricing service exists, so both markups
+run through one pipeline rather than each growing its own arithmetic.
+
+### Structural notes
+
+- **The catalog becomes per-store and rate-dependent.** Price = f(rate, platform
+  markup, reseller markup), so two stores see different prices for the same
+  Ugandan bundle. Cache per store with a TTL keyed to the rate's expiry; do not
+  cache a single global price.
+- **Deposits carry their own rate**, separately from the pricing rate. Store
+  `pay_currency`, `store_currency`, the quoted rate, its expiry, and the
+  converted credit on every deposit. Refunds reverse in the original payment
+  currency, not by debiting the converted balance at today's rate.
+
+### Open items to verify before/while building
+
+1. **`cost.currency`** — always USD, or per-offer? This decides whether the
+   pricing leg needs one conversion or two, and it is the anchor the whole
+   derivation hangs off.
+2. **Korapay conversion pairs** — specifically whether `RWF→USD`, `XOF→USD` and
+   `XAF→USD` are supported directly, or need a hop.
+3. **Provider conversion spread** — measure the gap between the provider's rate
+   and Zendit's implied rate per currency, so the buffer is sized from data.
+4. **Store `wallet_currency` explicitly** — today it is inferred downstream
+   (which is why NG stores end up on USD because NG is not in Zendit's 24-country
+   set, probably not the intent). It should be a decision made at store approval,
+   derived from *funding-rail availability*, not from Zendit coverage.
+5. **Populate the customer country** — `global_customers.country` exists and is
+   empty, so the deposit payment-currency cannot be defaulted today.
+
+
 ## Log
 
 | Date | Session | Notes |
