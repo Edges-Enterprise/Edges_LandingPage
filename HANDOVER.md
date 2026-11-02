@@ -5078,6 +5078,52 @@ run through one pipeline rather than each growing its own arithmetic.
   converted credit on every deposit. Refunds reverse in the original payment
   currency, not by debiting the converted balance at today's rate.
 
+### Scope decisions and boundaries (decided 2026-11-01)
+
+These close out the "what is not covered" review of this design. They are
+decisions, not open questions — treat them as settled when Phase 2 begins.
+
+**Treasury is outside this codebase.** Funding the Zendit balance and moving
+money to Zendit are handled on the **Zendit dashboard**, not here. Working
+balances per currency already exist at the payment providers
+(Korapay/Flutterwave), so no float or liquidity infrastructure is built in this
+codebase. The job here is catalog + pricing + issuing the conversion calls; this
+is not a treasury system. Two things inside this area are still undecided — see
+Open items 6 and 7.
+
+**Existing data is rewritten, not migrated.** The current catalog rows, wallets,
+markup configs and orders are all replaced to fit the new structure. There is no
+dual-run, no back-compat and no data-migration path — this is a rebuild. Note the
+consequence for cutover: because nothing is carried over, the switch from old to
+new has to be complete rather than incremental, and it is the one step in this
+phase that touches live balances.
+
+**Compliance is already handled** and is not in scope for this design.
+
+**eSIMs, Digital Gift Cards and Prepaid Utilities are out of scope.** This design
+covers Mobile Top Up (airtime, data and bundles) only. The phone-number lookup
+applies to those product types; it does not apply to eSIM or gift-card products,
+which is moot while they are out of scope.
+
+**The mobile app will be adjusted to the new structure** — dynamic countries
+rather than a country baked in at build time.
+
+**Order lifecycle, operations and failure handling are implementation concerns.**
+State machine, idempotency, reconciliation, alerting, rate history and the
+degraded-mode behaviours are designed and built in code, not specified here.
+
+**Vendors stay as they are:** Zendit, Lizzysub and AccraGH.
+
+**One currency per store, permanently.** A store cannot switch currency after
+launch. The RW store displays every plan — Rwandan and Ugandan alike — in RWF.
+There is no multi-currency store support.
+
+**A reseller cannot mark up a plan the platform disabled** — a disabled plan is
+not shown to the reseller at all.
+
+**Promotions are out of scope** (Zendit's carrier-promotions API is not
+integrated).
+
 ### Open items to verify before/while building
 
 1. **`cost.currency`** — always USD, or per-offer? This decides whether the
@@ -5087,12 +5133,18 @@ run through one pipeline rather than each growing its own arithmetic.
    `XAF→USD` are supported directly, or need a hop.
 3. **Provider conversion spread** — measure the gap between the provider's rate
    and Zendit's implied rate per currency, so the buffer is sized from data.
-4. **Store `wallet_currency` explicitly** — today it is inferred downstream
-   (which is why NG stores end up on USD because NG is not in Zendit's 24-country
-   set, probably not the intent). It should be a decision made at store approval,
-   derived from *funding-rail availability*, not from Zendit coverage.
-5. **Populate the customer country** — `global_customers.country` exists and is
-   empty, so the deposit payment-currency cannot be defaulted today.
+4. **Store `wallet_currency`** — a decision made at store approval, derived from
+   *funding-rail availability*, not from Zendit coverage. (Settled as a rule by
+   the scope decisions above; the only thing left is to derive it explicitly at
+   approval rather than inferring it downstream.)
+5. **Customer payment currency** — the deposit side needs a default per customer,
+   overridable at deposit time.
+6. **Conversion trigger** — when the local→USD conversion actually executes:
+   on receipt, batched, or on settlement. The buffer's size depends on this
+   choice, so it has to be made before the buffer is tuned.
+7. **Net USD position visibility** — what the platform is net-exposed to at any
+   moment. This is the instrument the protective feature exists to give; the
+   design assumes the risk is carried but does not yet measure it.
 
 
 ## Log
