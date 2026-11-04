@@ -205,7 +205,11 @@ export default function StorePurchaseModal({
                 color: "var(--brand-color)",
               }}
             >
-              {isRange && <span style={{ fontSize: "0.7rem", marginRight: 3 }}>from </span>}
+              {/* "from" only while showing the catalog's minimum; once the
+                  customer's amount is priced this is the exact charge. */}
+              {isRange && quotedPrice == null && (
+                <span style={{ fontSize: "0.7rem", marginRight: 3 }}>from </span>
+              )}
               {formatStorePrice(displayPrice, config)}
             </span>
           </div>

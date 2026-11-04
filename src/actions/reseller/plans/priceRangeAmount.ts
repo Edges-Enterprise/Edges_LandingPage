@@ -19,7 +19,12 @@ import {
 
 interface PriceRangeAmountParams {
   resellerId: string;
-  planId: string;
+  /**
+   * `global_base_plans.provider_plan_id` — the provider-facing id the catalog
+   * shows and the purchase edge function expects. NOT the table's `id` (a
+   * uuid the storefront never sees).
+   */
+  providerPlanId: string;
   /** The recipient amount the customer entered, in the send currency. */
   sendAmount: number;
 }
@@ -58,12 +63,15 @@ export async function priceRangeAmount(params: PriceRangeAmountParams): Promise<
       return { success: false, error: "Store not found" };
     }
 
+    // The catalog hands the client the provider-facing id, which is what the
+    // purchase edge function also resolves by (see purchaseOrchestrator.ts).
+    // The table's own `id` is a uuid the storefront never sees.
     const { data: plan, error: planError } = await adminClient
       .from("global_base_plans")
       .select(
         "id, provider_plan_id, country_code, network, name, category, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx",
       )
-      .eq("id", params.planId)
+      .eq("provider_plan_id", params.providerPlanId)
       .eq("is_active", true)
       .single();
 
@@ -74,7 +82,7 @@ export async function priceRangeAmount(params: PriceRangeAmountParams): Promise<
     const { data: config } = await adminClient
       .from("global_reseller_plan_configs")
       .select("plan_id, enabled, markup_type, markup_value, selling_price")
-      .eq("plan_id", params.planId)
+      .eq("plan_id", plan.id)
       .eq("reseller_id", application.id)
       .single();
 

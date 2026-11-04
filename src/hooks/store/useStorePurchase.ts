@@ -146,7 +146,7 @@ export function useStorePurchase({
     quoteTimer.current = setTimeout(async () => {
       const result = await priceRangeAmount({
         resellerId,
-        planId: selectedPlan.plan_id ?? selectedPlan.id,
+        providerPlanId: selectedPlan.plan_id ?? selectedPlan.id,
         sendAmount: amount,
       });
       if (result.success && result.data) {
