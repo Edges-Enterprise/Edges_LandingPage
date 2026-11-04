@@ -1432,7 +1432,7 @@ CREATE FUNCTION public.notify_apk_ready() RETURNS trigger
       net.http_post(
         url := 'https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/send-apk-email',
         headers := jsonb_build_object(
-          'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeXlmYXhjd2Fucm1paXB6a29qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTE1MDk4MCwiZXhwIjoyMDYwNzI2OTgwfQ.PoNIFcd-6gXD8u4bAdK2I4k_-jhldg1Thnti1uZcLq8',
+          'Authorization', 'Bearer <REDACTED-SERVICE-ROLE-KEY>',
           'Content-Type', 'application/json'
         ),
         body := jsonb_build_object(
@@ -1601,7 +1601,7 @@ BEGIN
     body := json_build_object('record', row_to_json(NEW))::jsonb,
     headers := json_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeXlmYXhjd2Fucm1paXB6a29qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUxNTA5ODAsImV4cCI6MjA2MDcyNjk4MH0.QtQzG8cw_J5PLuszAWtJRINkWQUkAnS9t7aGhO-E6JA'
+      'Authorization', 'Bearer <REDACTED-ANON-KEY>'
     )::jsonb
   );
   
@@ -2551,7 +2551,7 @@ CREATE FUNCTION public.trigger_customer_push() RETURNS trigger
     url := 'https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/reseller-send-push-notification',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeXlmYXhjd2Fucm1paXB6a29qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTE1MDk4MCwiZXhwIjoyMDYwNzI2OTgwfQ.PoNIFcd-6gXD8u4bAdK2I4k_-jhldg1Thnti1uZcLq8'
+      'Authorization', 'Bearer <REDACTED-SERVICE-ROLE-KEY>'
     ),
     body := jsonb_build_object(
       'table', 'reseller_customer_notifications',
@@ -2612,7 +2612,7 @@ CREATE FUNCTION public.trigger_reseller_push() RETURNS trigger
     url := 'https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/reseller-send-push-notification',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeXlmYXhjd2Fucm1paXB6a29qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTE1MDk4MCwiZXhwIjoyMDYwNzI2OTgwfQ.PoNIFcd-6gXD8u4bAdK2I4k_-jhldg1Thnti1uZcLq8'
+      'Authorization', 'Bearer <REDACTED-SERVICE-ROLE-KEY>'
     ),
     body := jsonb_build_object(
       'table', 'reseller_notifications',
@@ -9981,7 +9981,7 @@ CREATE TRIGGER reseller_push_trigger AFTER INSERT ON public.reseller_notificatio
 -- Name: notifications send-push-on-notification-insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER "send-push-on-notification-insert" AFTER INSERT ON public.notifications FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request('https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/send-push-notification', 'POST', '{"Content-type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeXlmYXhjd2Fucm1paXB6a29qIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTE1MDk4MCwiZXhwIjoyMDYwNzI2OTgwfQ.PoNIFcd-6gXD8u4bAdK2I4k_-jhldg1Thnti1uZcLq8"}', '{}', '5000');
+CREATE TRIGGER "send-push-on-notification-insert" AFTER INSERT ON public.notifications FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request('https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/send-push-notification', 'POST', '{"Content-type":"application/json","Authorization":"Bearer <REDACTED-SERVICE-ROLE-KEY>"}', '{}', '5000');
 
 
 --

@@ -68,8 +68,28 @@ pg_dumpall -h "$SUPABASE_DB_HOST" -p "$SUPABASE_DB_PORT" -U "$SUPABASE_DB_USER" 
   --roles-only \
   -f "$OUT_DIR/roles.sql" || echo "    (skipped: insufficient privilege, common on hosted Supabase)"
 
+echo "==> Redacting embedded JWTs from schema.sql ..."
+# A schema-only dump still carries function bodies and trigger definitions, and
+# several of those pass a live JWT to net.http_post / http_request (the
+# send-apk-email, send-push-notification and notification triggers do). That
+# put the live service_role and anon keys into a committed file once already.
+# A JWT is <base64url>.<base64url>.<base64url> and only ever appears here as a
+# bearer credential, so replace any such token with a placeholder. Verify no
+# `eyJ` literal survives before the file is considered committable.
+python3 - "$OUT_DIR/schema.sql" <<'PY'
+import re, sys
+p = sys.argv[1]
+txt = open(p, encoding="utf-8").read()
+txt, n = re.subn(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}",
+                 "<REDACTED-JWT>", txt)
+open(p, "w", encoding="utf-8").write(txt)
+print(f"    redacted {n} JWT(s)")
+if "eyJ" in txt:
+    sys.exit("    ERROR: an 'eyJ' literal survived redaction — do not commit this file")
+PY
+
 echo "==> Done. Output in: $OUT_DIR"
-echo "    schema.sql  - DDL only, safe to diff/review, safe to commit"
+echo "    schema.sql  - DDL only, safe to diff/review, safe to commit (JWTs redacted)"
 echo "    data.sql    - row data, DO NOT COMMIT (contains real user/business data)"
 echo "    full.dump   - pg_restore-ready binary, DO NOT COMMIT"
 echo "    roles.sql   - role defs if permitted, DO NOT COMMIT if it contains hashes"
