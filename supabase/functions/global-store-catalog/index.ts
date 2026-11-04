@@ -32,11 +32,12 @@
 // Strict opt-in: a base plan with no enabled config row is NOT returned.
 // An empty result means the store has no active plans.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { uniqueSorted } from "../_shared/storeCatalog.ts";
 import {
-  computeStorePrice,
-  scopeToCountry,
-  uniqueSorted,
-} from "../_shared/storeCatalog.ts";
+  loadStoreContext,
+  pricePlan,
+  PriceUnavailableError,
+} from "../_shared/currency/storePrice.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -57,8 +58,20 @@ interface CatalogPlan {
   category: string;
   network?: string;
   price: number;
+  /** The store's currency. Every price in a store is in this currency. */
+  currency: string;
   validity?: string;
   data_amount?: string;
+  /** Phase 2: the country the topup is delivered to. */
+  country_code?: string;
+  /** Phase 2: FIXED (a set plan) or RANGE (the buyer chooses the amount). */
+  price_type: "FIXED" | "RANGE";
+  /** For RANGE offers, the allowed amounts in the send currency. */
+  range_min?: number;
+  range_max?: number;
+  /** What the recipient receives, for FIXED offers. */
+  send_value?: number;
+  send_currency?: string;
 }
 
 const EMPTY = { plans: [], networks: [], categories: [], store: null };
@@ -116,17 +129,18 @@ Deno.serve(async (req) => {
       return json(EMPTY);
     }
 
-    // 3. Base plans for those ids. country_code is filtered in JS
-    //    (case-insensitively) rather than in SQL because the two tables'
-    //    values are written by different paths and their casing is not
-    //    guaranteed to match.
+    // 3. Base plans for those ids. Phase 2: NOT scoped to the store's own
+    //    country. A reseller sells any country Zendit covers, so the catalog
+    //    is every enabled plan; the country filter is the customer's to make.
+    //    (Was scopeToCountry(...) — that was the 24-country restriction.)
     let query = admin
       .from("global_base_plans")
       .select(
-        "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, is_active",
+        "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, is_active, price_type, range_min, range_max, send_value, send_currency",
       )
       .in("id", configs.map((c) => c.plan_id))
       .eq("is_active", true)
+      .order("country_code", { ascending: true })
       .order("category", { ascending: true })
       .order("name", { ascending: true });
 
@@ -140,16 +154,32 @@ Deno.serve(async (req) => {
     }
 
     const country = (reseller.country_code || "").toLowerCase();
-    const scoped = scopeToCountry(basePlans || [], country);
+    const available = basePlans || [];
 
-    if (scoped.length === 0) {
+    if (available.length === 0) {
       return json(EMPTY);
+    }
+
+    // 4. Load the store's currency and rate once, then price every plan
+    //    through the one pipeline the purchase flow also uses.
+    let storeContext, platformMarkups;
+    try {
+      const loaded = await loadStoreContext(admin, { countryCode: country });
+      storeContext = loaded.context;
+      platformMarkups = loaded.platformMarkups;
+    } catch (error) {
+      if (error instanceof PriceUnavailableError) {
+        console.error("global-store-catalog pricing unavailable:", error.message);
+        return json({ error: "Store pricing unavailable" }, 503);
+      }
+      throw error;
     }
 
     const configById = new Map(configs.map((c) => [c.plan_id, c]));
 
-    const plans: CatalogPlan[] = scoped.map((p) => {
+    const plans: CatalogPlan[] = available.map((p) => {
       const cfg = configById.get(p.id);
+      const priced = pricePlan(p as never, cfg as never, storeContext, platformMarkups);
 
       return {
         id: p.id,
@@ -158,9 +188,16 @@ Deno.serve(async (req) => {
         description: p.description ?? undefined,
         category: p.category,
         network: (p.network && p.network.trim()) || p.provider || undefined,
-        price: computeStorePrice(Number(p.base_price), cfg),
+        price: priced.customerPriceDecimal,
+        currency: priced.storeCurrency,
         validity: p.validity ?? undefined,
         data_amount: p.data_amount ?? undefined,
+        country_code: p.country_code ?? undefined,
+        price_type: priced.priceType,
+        range_min: priced.rangeMin ?? undefined,
+        range_max: priced.rangeMax ?? undefined,
+        send_value: priced.sendValue ?? undefined,
+        send_currency: priced.sendCurrency ?? undefined,
       };
     });
 
@@ -168,6 +205,9 @@ Deno.serve(async (req) => {
       plans,
       networks: uniqueSorted(plans.map((p) => p.network)),
       categories: uniqueSorted(plans.map((p) => p.category)),
+      // Phase 2: the destinations present in this catalog, so the storefront
+      // can offer a country filter without hardcoding a list.
+      countries: uniqueSorted(plans.map((p) => p.country_code)),
       // Public store identity for presentation (storefront header, legal
       // copy). No customer data, so it is safe on this anonymous endpoint.
       store: {
@@ -175,6 +215,8 @@ Deno.serve(async (req) => {
         name: reseller.store_name,
         email: reseller.email ?? null,
         country_code: reseller.country_code,
+        // The store's currency, so the storefront formats every price in it.
+        currency: storeContext.currency,
       },
     });
   } catch (error) {

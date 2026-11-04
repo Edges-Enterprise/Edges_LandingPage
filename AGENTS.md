@@ -226,3 +226,50 @@ reseller dashboard).
 - Standing policy: after pushing `handover/supabase-dump`, merge it into `main`
   (fast-forward; the two refs are normally identical) and push both, in the same
   session. Verify with `git rev-parse` on all four refs rather than assuming.
+
+
+## Phase 2 pricing invariants (multi-country catalog / FX / pricing)
+
+These are the rules the Phase 2 pricing layer is built on. Break one and the
+storefront, the dashboard and the purchase flow can disagree on price — which
+is the specific bug the layer exists to prevent.
+
+- **One currency per store, from the store's country.** The mapping is
+  `global_country_currencies` (pricing) mirrored by
+  `_shared/countryCurrency.ts` (wallets). A country not in either list is
+  **USD**, never NGN and never an error — that is what lets a reseller
+  outside the 24 mapped countries sell every Zendit plan. `phase2.integration.test.ts`
+  fails if the two lists drift.
+- **`base_price` is a USD wholesale cost.** It is normalised at catalog sync.
+  Nothing may compare a `base_price` to a store-currency price without
+  converting first.
+- **One pricing function.** `_shared/currency/pricing.ts` `computePrice`,
+  reached through `storePrice.ts` `pricePlan`/`loadStoreContext`. The
+  storefront, the orchestrator and the dashboard all call it. Do not add a
+  second arithmetic path (the old `computeStorePrice` was removed for this
+  reason).
+- **`cost_price` passed to the purchase RPC is the CONVERTED cost**
+  (`costLocalDecimal`), not the USD `base_price`. The RPC credits the reseller
+  `selling_price - cost_price`; passing USD would hand them the whole sale.
+- **The FX buffer stays with the platform.** The cost floor uses the buffered
+  rate (`usdToStoreRate * (1 + bufferFraction)`). Measuring it at the raw rate
+  pays the buffer out as reseller margin.
+- **A stale or missing rate is a hard failure**, not a guess — except USD,
+  whose rate is 1 and needs no row.
+
+### Running the Phase 2 tests
+
+Unit (no database):
+
+```
+deno test --no-check --allow-env --allow-read supabase/functions/
+```
+
+Integration (real PostgreSQL, real migration). Skipped when `PHASE2_DB_URL`
+is unset:
+
+```
+PHASE2_DB_URL=postgres://postgres@localhost:5432/phase2 \
+  deno test --no-check --allow-env --allow-read --allow-net \
+  supabase/functions/_shared/currency/phase2.integration.test.ts
+```

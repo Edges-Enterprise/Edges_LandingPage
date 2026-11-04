@@ -12,6 +12,11 @@
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { purchaseFromProvider, PurchaseCategory } from "./providers.ts";
 import { getCountryDialCode } from "./countryDialCodes.ts";
+import {
+  loadStoreContext,
+  pricePlan,
+  PriceUnavailableError,
+} from "./currency/storePrice.ts";
 
 export interface PurchaseRequest {
   resellerId: string; // global_reseller_applications.id for the store being bought from
@@ -19,6 +24,9 @@ export interface PurchaseRequest {
   phoneNumber: string;
   transactionPin: string;
   userId: string; // auth.users.id of the caller (reseller or customer)
+  // Phase 2: the customer's chosen amount for a Zendit RANGE offer (airtime
+  // top-up). Absent for FIXED offers.
+  value?: { type: "PRICE" | "ZEND"; value: number };
 }
 
 export interface PurchaseResult {
@@ -104,14 +112,57 @@ export async function processPurchase(
     return { success: false, error: "Plan not available", message: "Plan not available" };
   }
 
-  // 4. Calculate final price.
-  const costPrice = basePlan.base_price;
-  const finalPrice =
-    planConfig.selling_price ??
-    (planConfig.markup_type === "percentage"
-      ? Math.round(costPrice * (1 + (planConfig.markup_value || 0) / 100))
-      : Math.round(costPrice + (planConfig.markup_value || 0)));
-  const profit = finalPrice - costPrice;
+  // 3b. The store's country. Phase 2 prices a plan into the store's own
+  //     currency, and the currency comes from the store's country, never
+  //     from the caller or from the plan.
+  const { data: storeRow } = await supabaseAdmin
+    .from("global_reseller_applications")
+    .select("country_code")
+    .eq("id", resellerId)
+    .maybeSingle();
+  const storeCountry = (storeRow?.country_code || "").toLowerCase();
+
+  // 4. Calculate the final price through the one pricing pipeline.
+  //
+  //    base_price is a USD wholesale cost (normalised at catalog sync), so
+  //    the customer price and the reseller's cost are both in the store
+  //    currency. cost_price must be the CONVERTED cost, not the USD number:
+  //    process_global_purchase_deductions credits the reseller
+  //    (selling_price - cost_price), so a USD cost deducted from a
+  //    store-currency price would hand the reseller the whole sale.
+  //
+  //    This replaces the old local arithmetic (selling_price, else markup on
+  //    base_price) with the same function the storefront and dashboard use,
+  //    so the three can no longer disagree.
+  let costPrice: number;
+  let finalPrice: number;
+  let profit: number;
+  let priceDetail;
+  try {
+    const { context, platformMarkups } = await loadStoreContext(
+      supabaseAdmin,
+      { countryCode: storeCountry, planId: basePlan.id },
+    );
+    priceDetail = pricePlan(
+      basePlan as never,
+      planConfig as never,
+      context,
+      platformMarkups,
+    );
+    finalPrice = priceDetail.customerPriceDecimal;
+    costPrice = priceDetail.costLocalDecimal;
+    profit = finalPrice - costPrice;
+  } catch (error) {
+    if (error instanceof PriceUnavailableError) {
+      console.error("purchase pricing unavailable:", error.message);
+      return {
+        success: false,
+        error: "Store pricing unavailable",
+        message: "Store pricing unavailable",
+      };
+    }
+    throw error;
+  }
 
   // 5. Reseller must be able to cover the wholesale cost, regardless of
   // who is buying - same as the proven pattern.
@@ -209,6 +260,10 @@ export async function processPurchase(
       countryDialCode: dialCode,
       amount: costPrice,
       requestId,
+      // Phase 2: a RANGE offer needs the chosen amount carried through to
+      // the provider call. A FIXED offer must not send one.
+      priceType: priceDetail.priceType,
+      value: priceDetail.priceType === "RANGE" ? req.value : undefined,
     },
     basePlan.network || "",
   );

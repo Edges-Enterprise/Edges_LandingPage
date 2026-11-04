@@ -37,13 +37,18 @@ Deno.test("an unknown country falls back to korapay, not xixapay", () => {
   assert.equal(getPaymentProvider(""), "korapay");
 });
 
-Deno.test("currency is the country's own, with NGN as the fallback", () => {
+Deno.test("currency is the country's own, with USD as the fallback", () => {
+  // Phase 2: an unmapped country is a USD wallet funded by Korapay/
+  // Flutterwave, not NGN. Pricing (global_country_currencies) and the
+  // gateway provider map use the same fallback.
   assert.equal(getCountryCurrency("gh"), "GHS");
   assert.equal(getCountryCurrency("ke"), "KES");
   assert.equal(getCountryCurrency("rw"), "RWF");
   assert.equal(getCountryCurrency("zm"), "ZMW");
   assert.equal(getCountryCurrency("ng"), "NGN");
-  assert.equal(getCountryCurrency("xx"), "NGN");
+  assert.equal(getCountryCurrency("us"), "USD");
+  assert.equal(getCountryCurrency("xx"), "USD");
+  assert.equal(getCountryCurrency(""), "USD");
 });
 
 Deno.test("a rejected character in the payer name is replaced, not passed through", () => {

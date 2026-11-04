@@ -55,6 +55,16 @@ const COUNTRY_PROVIDER: Record<string, PaymentProvider> = {
   gn: "korapay",
 };
 
+/**
+ * The gateway that funds a store's wallet.
+ *
+ * Phase 2: a country outside this map is not rejected. It funds by
+ * Korapay/Flutterwave in USD, matching `getCountryCurrency`'s USD fallback —
+ * the two must stay in step or a wallet would be funded in one currency and
+ * denominated in another. Whether Korapay/Flutterwave will actually settle a
+ * USD charge for a given country is a live-credential question, not
+ * something this map can answer; see HANDOVER.md Phase 2 open items.
+ */
 export function getPaymentProvider(countryCode: string): PaymentProvider {
   return COUNTRY_PROVIDER[(countryCode || "").toLowerCase()] || "korapay";
 }

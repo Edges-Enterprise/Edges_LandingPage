@@ -41,6 +41,10 @@ export interface ProviderPurchaseParams {
   countryDialCode: string; // e.g. "234", "233" - from getCountryConfig, no leading '+'
   amount: number; // the base (wholesale) plan amount - only used for lizzysub airtime
   requestId: string; // our own idempotency key, reused as each provider's own key field
+  // Phase 2: Zendit RANGE offers need a chosen amount. Absent for FIXED
+  // offers and for the other providers.
+  priceType?: "FIXED" | "RANGE";
+  value?: { type: "PRICE" | "ZEND"; value: number };
 }
 
 export interface ProviderPurchaseResult {
@@ -226,17 +230,25 @@ async function purchaseZendit(
   const localDigits = params.phoneNumber.replace(/^0+/, "");
   const recipientE164 = `+${params.countryDialCode}${localDigits}`;
 
+  // A RANGE offer REQUIRES `value`; a FIXED offer must NOT carry it. Getting
+  // this wrong is a hard rejection, so it is included only when the caller
+  // says the offer is RANGE and supplied a value.
+  const body: Record<string, unknown> = {
+    offerId: params.providerPlanId,
+    recipientPhoneNumber: recipientE164,
+    transactionId: params.requestId,
+  };
+  if (params.priceType === "RANGE" && params.value) {
+    body.value = params.value;
+  }
+
   const response = await fetch("https://api.zendit.io/v1/topups/purchases", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      offerId: params.providerPlanId,
-      recipientPhoneNumber: recipientE164,
-      transactionId: params.requestId,
-    }),
+    body: JSON.stringify(body),
   });
 
   const data = await response.json();
