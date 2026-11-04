@@ -56,6 +56,22 @@ ALTER TABLE public.global_base_plans
 -- The sync upserts on (provider, provider_plan_id). Without this the
 -- "upsert on offer id" step would need a manual lookup and could duplicate
 -- rows under concurrent syncs.
+--
+-- Existing data already violates this: a past catalog load inserted corrected
+-- rows instead of updating, so 15 (provider, provider_plan_id) pairs have two
+-- rows each — an older one carrying the minor-unit bug (e.g. 108 for what is
+-- 1.08 USD) and a newer corrected one. Collapse each pair first, keeping the
+-- most recent row (tie broken by id), or the index creation fails and the
+-- whole migration rolls back. Nothing references the discarded rows: checked
+-- against live data, `global_reseller_plan_configs` has zero rows pointing at
+-- a duplicate, and the next `global-catalog-sync` re-upserts every offer
+-- anyway, so the retained row is corrected again on the first sync.
+DELETE FROM public.global_base_plans a
+  USING public.global_base_plans b
+  WHERE a.provider = b.provider
+    AND a.provider_plan_id = b.provider_plan_id
+    AND (a.created_at, a.id) < (b.created_at, b.id);
+
 CREATE UNIQUE INDEX IF NOT EXISTS global_base_plans_provider_plan_uidx
   ON public.global_base_plans (provider, provider_plan_id);
 
