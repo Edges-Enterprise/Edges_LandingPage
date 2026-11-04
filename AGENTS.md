@@ -49,6 +49,19 @@ reseller dashboard).
 
 - Project ref `jjyyfaxcwanrmiipzkoj` (web app uses the same project).
 - Edge functions in `supabase/functions/` (e.g. `global-store-fund-wallet`).
+- **`supabase/schema.sql` must never contain a JWT.** This repo is public, and
+  a schema-only dump still embeds function bodies and trigger definitions that
+  carry bearer tokens. Five live JWTs (four `service_role`, one `anon`) sat in
+  it until they were redacted in `3840935`. `scripts/supabase_dump.sh` now
+  redacts every JWT before writing the file and fails if one survives — keep
+  that step. The exposed `service_role` key still needs rotating; see the
+  SECURITY section in `HANDOVER.md`.
+- The Management API `/secrets` endpoint returns **sha256 digests, not values**
+  (every secret comes back as 64 hex chars, including ones like `SUPABASE_URL`
+  whose real value is not hex). To check whether a secret exists, compare
+  names; to check whether a sandbox secret *matches* the live one, compare
+  `sha256(sandbox_value)` against the digest — never treat the digest as the
+  value.
 
 ## Payments
 
