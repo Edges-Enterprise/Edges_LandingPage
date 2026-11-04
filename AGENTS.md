@@ -55,7 +55,7 @@ reseller dashboard).
   it until they were redacted in `3840935`. `scripts/supabase_dump.sh` now
   redacts every JWT before writing the file and fails if one survives — keep
   that step. The exposed `service_role` key still needs rotating; see the
-  SECURITY section in `HANDOVER.md`.
+  SECURITY section and the END-OF-PROJECT REMINDER in `HANDOVER.md`.
 - The Management API `/secrets` endpoint returns **sha256 digests, not values**
   (every secret comes back as 64 hex chars, including ones like `SUPABASE_URL`
   whose real value is not hex). To check whether a secret exists, compare
