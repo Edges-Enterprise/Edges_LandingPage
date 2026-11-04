@@ -23,15 +23,6 @@ import { BASE_CURRENCY } from "./registry.ts";
 
 export type RateSource = "collection_provider" | "zendit" | "manual";
 
-export interface Rate {
-  base: string;
-  quote: string;
-  rate: number;
-  source: RateSource;
-  fetchedAt: string;
-  expiresAt: string;
-}
-
 export interface RateLookupResult {
   rate: number;
   source: RateSource;
@@ -43,34 +34,37 @@ export interface RateLookupResult {
 /** A rate older than this is not used for pricing. */
 export const RATE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
+/** A rate row exactly as PostgREST returns it (snake_case columns). */
+interface RateRow {
+  base_currency: string;
+  quote_currency: string;
+  rate: number;
+  source: RateSource;
+  fetched_at: string;
+  expires_at: string;
+}
+
 /** Minimal shape of the Supabase client this module needs. */
 export interface RateStore {
   from(table: string): {
-    select(columns: string): {
-      eq(
-        column: string,
-        value: unknown,
-      ): {
-        eq(
-          column: string,
-          value: unknown,
-        ): {
-          order(
-            column: string,
-            opts: { ascending: boolean },
-          ): {
-            limit(n: number): {
-              maybeSingle(): Promise<
-                { data: Rate | null; error: { message: string } | null }
-              >;
-            };
-          };
-        };
-      };
-    };
+    select(columns: string): RateQuery;
     insert(row: Record<string, unknown>): Promise<{
       error: { message: string } | null;
     }>;
+  };
+}
+
+interface RateQuery {
+  eq(column: string, value: unknown): RateQuery;
+  order(
+    column: string,
+    opts: { ascending: boolean },
+  ): {
+    limit(n: number): {
+      maybeSingle(): Promise<
+        { data: RateRow | null; error: { message: string } | null }
+      >;
+    };
   };
 }
 
@@ -97,19 +91,24 @@ export async function findFreshRate(
   for (const source of sources) {
     const { data, error } = await store
       .from("global_fx_rates")
-      .select("base, quote, rate, source, fetched_at, expires_at")
+      .select(
+        "base_currency, quote_currency, rate, source, fetched_at, expires_at",
+      )
       .eq("base_currency", BASE_CURRENCY)
       .eq("quote_currency", quote)
+      .eq("source", source)
       .order("fetched_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (error || !data) continue;
-    if (new Date(data.expiresAt).getTime() <= Date.now()) continue;
+    // PostgREST returns snake_case columns; reading `data.expiresAt` made
+    // this guard compare against undefined and never fire.
+    if (new Date(data.expires_at).getTime() <= Date.now()) continue;
     return {
       rate: data.rate,
       source: data.source,
-      expiresAt: data.expiresAt,
+      expiresAt: data.expires_at,
       fallback: source !== sources[0],
     };
   }

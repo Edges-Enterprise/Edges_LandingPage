@@ -38,6 +38,7 @@ import {
   pricePlan,
   priceRangePlan,
   PriceUnavailableError,
+  type ResolvedStorePrice,
 } from "../_shared/currency/storePrice.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -139,7 +140,7 @@ Deno.serve(async (req) => {
     let query = admin
       .from("global_base_plans")
       .select(
-        "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, is_active, price_type, range_min, range_max, range_increment, send_value, send_currency",
+        "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, is_active, price_type, range_min, range_max, range_increment, send_value, send_currency, zendit_fx",
       )
       .in("id", configs.map((c) => c.plan_id))
       .eq("is_active", true)
@@ -180,18 +181,30 @@ Deno.serve(async (req) => {
 
     const configById = new Map(configs.map((c) => [c.plan_id, c]));
 
-    const plans: CatalogPlan[] = available.map((p) => {
+    const plans: CatalogPlan[] = [];
+    for (const p of available) {
       const cfg = configById.get(p.id);
       // A RANGE offer has no single price — the customer chooses the amount.
       // The tile shows the price of the MINIMUM amount ("from X"), priced
       // through the same pipeline as the purchase, so the number shown and
       // the number charged cannot disagree.
       const isRange = (p.price_type ?? "FIXED").toUpperCase() === "RANGE";
-      const priced = isRange && p.range_min != null
-        ? priceRangePlan(p as never, cfg as never, storeContext, platformMarkups, Number(p.range_min))
-        : pricePlan(p as never, cfg as never, storeContext, platformMarkups);
+      let priced: ResolvedStorePrice & { sendAmount?: number };
+      try {
+        priced = isRange && p.range_min != null
+          ? priceRangePlan(p as never, cfg as never, storeContext, platformMarkups, Number(p.range_min))
+          : pricePlan(p as never, cfg as never, storeContext, platformMarkups);
+      } catch (error) {
+        // One unpriced plan (bad bounds, missing rate) must not blank the
+        // whole store. Skip it and keep the rest; the log names it.
+        console.error(
+          `global-store-catalog: skipping plan ${p.provider_plan_id}:`,
+          error instanceof Error ? error.message : error,
+        );
+        continue;
+      }
 
-      return {
+      plans.push({
         id: p.id,
         plan_id: p.provider_plan_id,
         name: p.name,
@@ -209,8 +222,8 @@ Deno.serve(async (req) => {
         range_increment: priced.rangeIncrement ?? undefined,
         send_value: priced.sendValue ?? undefined,
         send_currency: priced.sendCurrency ?? undefined,
-      };
-    });
+      });
+    }
 
     return json({
       plans,

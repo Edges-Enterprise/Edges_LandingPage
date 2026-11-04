@@ -78,6 +78,35 @@ Deno.serve(async (req) => {
   try {
     const allOffers: ZenditOffer[] = [];
 
+    // Captured before the crawl so the deactivation pass below can tell rows
+    // this run touched from rows it did not. A row upserted during the run
+    // has last_seen_at >= runStart; only older rows are candidates.
+    const runStart = new Date().toISOString();
+
+    // Upsert in batches, not one round-trip per offer. The catalog is a few
+    // thousand offers, and a single-row PostgREST call each is slow enough
+    // that the whole crawl exceeded the 150s worker limit and was killed
+    // mid-run (WORKER_RESOURCE_LIMIT), leaving the sync record stuck on
+    // "running" and the fallback rates unwritten.
+    const CHUNK_SIZE = 500;
+    let buffer: Record<string, unknown>[] = [];
+
+    const flush = async () => {
+      if (buffer.length === 0) return;
+      const rows = buffer;
+      buffer = [];
+      const { error } = await supabase
+        .from("global_base_plans")
+        .upsert(rows, { onConflict: "provider,provider_plan_id" });
+      if (error) {
+        summary.errors.push(
+          `batch upsert failed (${rows.length} rows): ${error.message}`,
+        );
+      } else {
+        summary.plansUpserted += rows.length;
+      }
+    };
+
     for await (const page of iterateOffers({})) {
       for (const raw of page) {
         const offer = raw as ZenditOffer;
@@ -94,34 +123,27 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const plan = result.plan;
-        const { error } = await supabase
-          .from("global_base_plans")
-          .upsert(
-            {
-              ...plan,
-              is_active: true,
-              last_seen_at: new Date().toISOString(),
-              synced_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "provider,provider_plan_id" },
-          );
+        const now = new Date().toISOString();
+        buffer.push({
+          ...result.plan,
+          is_active: true,
+          last_seen_at: now,
+          synced_at: now,
+          updated_at: now,
+        });
 
-        if (error) {
-          summary.errors.push(`${plan.provider_plan_id}: ${error.message}`);
-          continue;
-        }
-        summary.plansUpserted++;
+        if (buffer.length >= CHUNK_SIZE) await flush();
       }
     }
+    await flush();
 
     summary.countriesFound = countriesIn(allOffers);
 
     // Deactivate anything Zendit no longer reports. Scoped to this provider
     // and to rows whose last_seen_at predates this run, so an offer that was
-    // just upserted is never deactivated.
-    const runStart = new Date().toISOString();
+    // just upserted is never deactivated. `runStart` must be captured BEFORE
+    // the crawl: taken after it, every row upserted during the run also
+    // predates it and the whole catalog gets deactivated.
     const { data: deactivated } = await supabase
       .from("global_base_plans")
       .update({ is_active: false, updated_at: runStart })

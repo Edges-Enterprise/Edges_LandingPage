@@ -20,6 +20,7 @@ import { computePrice } from "./pricing.ts";
 import {
   loadStoreContext,
   pricePlan,
+  PriceUnavailableError,
   type StoreContext,
 } from "./storePrice.ts";
 import { getCountryCurrency, countryCurrencyMap } from "../countryCurrency.ts";
@@ -300,8 +301,8 @@ Deno.test("storePrice: a mapped country resolves to its own currency", async () 
     countryCurrency: { currency_code: "RWF" },
     currencyRow: { buffer_fraction: 0.03 },
     rate: {
-      base: "USD",
-      quote: "RWF",
+      base_currency: "USD",
+      quote_currency: "RWF",
       rate: 1442,
       source: "collection_provider",
       fetched_at: new Date().toISOString(),
@@ -316,4 +317,26 @@ Deno.test("storePrice: a mapped country resolves to its own currency", async () 
   assert.equal(context.currencyIsFallback, false);
   assert.equal(context.usdToStoreRate, 1442);
   assert.equal(context.bufferFraction, 0.03);
+});
+
+Deno.test("storePrice: an expired rate is not used", async () => {
+  // A stale rate silently mis-prices, so it must be treated as no rate. The
+  // row is snake_case exactly as PostgREST returns it — a camelCase fixture
+  // hid a bug where the expiry field was read as `expiresAt`.
+  const client = stubClient({
+    countryCurrency: { currency_code: "RWF" },
+    currencyRow: { buffer_fraction: 0 },
+    rate: {
+      base_currency: "USD",
+      quote_currency: "RWF",
+      rate: 1442,
+      source: "collection_provider",
+      fetched_at: new Date(Date.now() - 7200_000).toISOString(),
+      expires_at: new Date(Date.now() - 3600_000).toISOString(),
+    },
+  });
+  await assert.rejects(
+    () => loadStoreContext(client, { countryCode: "rw", planId: null }),
+    PriceUnavailableError,
+  );
 });

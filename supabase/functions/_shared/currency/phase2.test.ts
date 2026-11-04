@@ -109,19 +109,28 @@ Deno.test("catalog: FIXED offer normalises with divisor handling", () => {
 });
 
 Deno.test("catalog: RANGE offer has bounds and no single send value", () => {
+  // Shape taken from a real Zendit RANGE offer (AFGHAN_AF_OPEN): the cost
+  // carries min/max (no `fixed`) and the rate is on `cost.fx`; `send.fx` is 1.
   const offer: ZenditOffer = {
     offerId: "off_range",
     brand: "Airtel",
     country: "UG",
     priceType: "RANGE",
     subTypes: ["Mobile Top Up"],
-    cost: { currency: "USD", currencyDivisor: 100, fixed: 100 },
+    cost: {
+      currency: "USD",
+      currencyDivisor: 100,
+      min: 156,
+      max: 7800,
+      fx: 3800,
+    },
     send: {
       currency: "UGX",
-      currencyDivisor: 1,
-      fx: 3800,
-      min: 500,
-      max: 50000,
+      currencyDivisor: 100,
+      fx: 1,
+      min: 10092,
+      max: 504878,
+      increment: 100,
     },
   };
   const result = normalizeZenditOffer(offer);
@@ -130,9 +139,11 @@ Deno.test("catalog: RANGE offer has bounds and no single send value", () => {
   const p = result.plan;
   assert.equal(p.price_type, "RANGE");
   assert.equal(p.send_value, null, "RANGE has no single send value");
-  assert.equal(p.range_min, 500);
-  assert.equal(p.range_max, 50000);
-  assert.equal(p.zendit_fx, 3800);
+  assert.equal(p.range_min, 100.92);
+  assert.equal(p.range_max, 5048.78);
+  assert.equal(p.range_increment, 1);
+  assert.equal(p.zendit_fx, 3800, "rate comes from cost.fx, not send.fx");
+  assert.equal(p.base_price, 1.56, "RANGE cost is cost.min in USD");
   assert.equal(p.category, "airtime");
 });
 
@@ -173,14 +184,24 @@ Deno.test("catalog: USD rate derived from an offer", () => {
   assert.equal(Math.round(fixed!.rate), 1400);
   assert.equal(fixed!.basis, "send.fixed/cost.fixed");
 
-  // RANGE: send.fx is used directly.
+  // The rate is on cost.fx. send.fx is always 1 and must be ignored — using
+  // it recorded a 1:1 rate for every currency.
   const range = deriveUsdRateFromOffer({
-    cost: { currency: "USD", currencyDivisor: 100, fixed: 100 },
-    send: { currency: "UGX", currencyDivisor: 1, fx: 3800 },
+    cost: { currency: "USD", currencyDivisor: 100, min: 156, fx: 3800 },
+    send: { currency: "UGX", currencyDivisor: 100, fx: 1, min: 10092 },
   });
   assert.ok(range);
   assert.equal(range!.rate, 3800);
-  assert.equal(range!.basis, "send.fx");
+  assert.equal(range!.basis, "cost.fx");
+
+  // A FIXED offer that also carries cost.fx uses cost.fx (it is the same
+  // value as the ratio, but it is the authoritative field).
+  const fixedWithFx = deriveUsdRateFromOffer({
+    cost: { currency: "USD", currencyDivisor: 100, fixed: 120, fx: 1400 },
+    send: { currency: "RWF", currencyDivisor: 1, fixed: 1680 },
+  });
+  assert.equal(fixedWithFx!.rate, 1400);
+  assert.equal(fixedWithFx!.basis, "cost.fx");
 });
 
 Deno.test("pricing: platform markup in USD, then convert, then reseller", () => {

@@ -186,28 +186,50 @@ export function normalizeZenditOffer(
     return { rejected: { offerId, reason: "missing cost" } };
   }
 
+  const priceType = (offer.priceType || "FIXED").toUpperCase() === "RANGE"
+    ? "RANGE"
+    : "FIXED";
+
   const costCurrency = (cost.currency || BASE_CURRENCY).toUpperCase();
   const costDivisor = resolveDivisor(cost.currencyDivisor, costCurrency);
-  const costMinor = cost.fixed;
+
+  // A FIXED offer carries the total wholesale cost in `cost.fixed`. A RANGE
+  // offer carries NO `cost.fixed` at all — it carries `cost.min`/`cost.max`,
+  // the wholesale cost of the smallest and largest recipient amount. Treating
+  // a RANGE offer as FIXED rejected every one of them ("missing cost.fixed"),
+  // so the whole RANGE flow (build-order step 8) was dead.
+  const costMinor = priceType === "RANGE" ? cost.min : cost.fixed;
   if (typeof costMinor !== "number" || !Number.isFinite(costMinor)) {
-    return { rejected: { offerId, reason: "missing cost.fixed" } };
+    return {
+      rejected: {
+        offerId,
+        reason: priceType === "RANGE" ? "missing cost.min" : "missing cost.fixed",
+      },
+    };
   }
 
   // Cost is stated in `costCurrency`. Zendit bills in USD, so this is
   // normally a no-op; it is applied anyway so the column means one thing.
   const costDecimal = toDecimal(costMinor, costDivisor);
   const usdRate = opts.usdRate ?? 1;
+
+  // For a FIXED offer this is the true shelf cost. For a RANGE offer it is
+  // the cost of the minimum recipient amount — a "from" price. The real cost
+  // is derived per chosen amount at purchase (rangeCostUsd), so this value is
+  // never used to price a RANGE sale directly.
   const basePrice = costCurrency === BASE_CURRENCY
     ? costDecimal
     : costDecimal * usdRate;
 
+  // Zendit publishes the USD->send-currency rate on `cost.fx`. `send.fx` is
+  // NOT that rate — it is always 1, because the send amount is already stated
+  // in the send currency. Reading `send.fx` recorded a 1:1 rate for every
+  // currency, which would price every store at ~1/1600th of cost.
+  const zenditFx = typeof cost.fx === "number" && cost.fx > 0 ? cost.fx : null;
+
   const send = offer.send;
   const sendCurrency = (send?.currency || costCurrency).toUpperCase();
   const sendDivisor = resolveDivisor(send?.currencyDivisor, sendCurrency);
-
-  const priceType = (offer.priceType || "FIXED").toUpperCase() === "RANGE"
-    ? "RANGE"
-    : "FIXED";
 
   const category = categoryFor(offer);
   if (!category) {
@@ -260,7 +282,7 @@ export function normalizeZenditOffer(
       range_min: rangeMin,
       range_max: rangeMax,
       range_increment: rangeIncrement,
-      zendit_fx: typeof send?.fx === "number" ? send.fx : null,
+      zendit_fx: zenditFx,
       metadata: {
         brand: offer.brand ?? null,
         brandName: offer.brandName ?? null,
@@ -278,7 +300,7 @@ export function normalizeZenditOffer(
         // Zendit's retail price, when their pricing module is on. Stored for
         // reference only — we do not price from it.
         zenditPrice: typeof offer.price === "number" ? offer.price : null,
-        zenditFx: typeof send?.fx === "number" ? send.fx : null,
+        zenditFx: zenditFx,
         createdAt: offer.createdAt ?? null,
         updatedAt: offer.updatedAt ?? null,
       },
@@ -303,15 +325,21 @@ export function countriesIn(offers: ZenditOffer[]): string[] {
 /**
  * Derive a USD -> local rate from a Zendit offer, for pricing.
  *
- * For a FIXED offer, `send.fixed / cost.fixed` gives local-per-USD directly
- * (after divisor normalisation). For a RANGE offer, `send.fx` is the rate
- * Zendit publishes. Both are RETAIL rates — Zendit's margin and rounding are
- * baked in — so this is a fallback and a cross-check, never the primary
- * pricing source. See HANDOVER.md Phase 2, "FX is two legs".
+ * Zendit publishes the rate on `cost.fx` (USD -> the currency the offer is
+ * priced in). For a FIXED offer, `send.fixed / cost.fixed` is the same rate
+ * after divisor normalisation and is used only when `cost.fx` is absent.
+ *
+ * `send.fx` is deliberately NOT consulted: it is always 1, because the send
+ * amount is already denominated in the send currency. Using it recorded a
+ * 1:1 rate for every currency.
+ *
+ * The result is a RETAIL rate — Zendit's margin and rounding are baked in —
+ * so it is a fallback and a cross-check, never the primary pricing source.
+ * See HANDOVER.md Phase 2, "FX is two legs".
  */
 export function deriveUsdRateFromOffer(
   offer: ZenditOffer,
-): { rate: number; basis: "send.fixed/cost.fixed" | "send.fx" } | null {
+): { rate: number; basis: "cost.fx" | "send.fixed/cost.fixed" } | null {
   const send = offer.send;
   const cost = offer.cost;
   if (!send || !cost) return null;
@@ -321,8 +349,8 @@ export function deriveUsdRateFromOffer(
   const sendCurrency = (send.currency || costCurrency).toUpperCase();
   const sendDivisor = resolveDivisor(send.currencyDivisor, sendCurrency);
 
-  if (typeof send.fx === "number" && send.fx > 0) {
-    return { rate: send.fx, basis: "send.fx" };
+  if (typeof cost.fx === "number" && cost.fx > 0) {
+    return { rate: cost.fx, basis: "cost.fx" };
   }
   if (
     typeof send.fixed === "number" && send.fixed > 0 &&
