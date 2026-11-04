@@ -183,6 +183,7 @@ export default function StoreProducts({
                     // Store theme colour, not the per-category palette:
                     // the Popular card must match the store's brand.
                     brandColor="var(--brand-color)"
+                    fromLabel={t?.from || "from"}
                   />
                 ))}
               </div>
@@ -255,6 +256,7 @@ export default function StoreProducts({
               config={config}
               onBuyClick={onAddToCart}
               canSell={canSell}
+              fromLabel={t?.from || "from"}
             />
           )}
         </>
@@ -272,6 +274,7 @@ function FeaturedCard({
   onBuyClick,
   canSell,
   brandColor,
+  fromLabel,
 }: {
   product: StoreProduct;
   config: StorePriceConfig;
@@ -279,6 +282,7 @@ function FeaturedCard({
   onBuyClick: (product: StoreProduct) => void;
   canSell: boolean;
   brandColor: string;
+  fromLabel: string;
 }) {
   return (
     <div
@@ -341,6 +345,18 @@ function FeaturedCard({
           lineHeight: 1,
         }}
       >
+        {product.price_type === "RANGE" && (
+          <span
+            style={{
+              fontSize: "0.72rem",
+              fontWeight: 600,
+              marginRight: 4,
+              opacity: 0.85,
+            }}
+          >
+            {fromLabel}
+          </span>
+        )}
         {formatStorePrice(product.price, config)}
       </p>
       <button
@@ -378,11 +394,13 @@ function ProductGrid({
   config,
   onBuyClick,
   canSell,
+  fromLabel,
 }: {
   products: StoreProduct[];
   config: StorePriceConfig;
   onBuyClick: (product: StoreProduct) => void;
   canSell: boolean;
+  fromLabel: string;
 }) {
   const [page, setPage] = useState(0);
   const [showControls, setShowControls] = useState(false);
@@ -449,6 +467,7 @@ function ProductGrid({
             config={config}
             onBuyClick={onBuyClick}
             canSell={canSell}
+            fromLabel={fromLabel}
           />
         ))}
       </div>
@@ -642,10 +661,12 @@ function ProductCard({
   config,
   onBuyClick,
   canSell,
+  fromLabel,
 }: {
   product: StoreProduct;
   config: StorePriceConfig;
   onBuyClick: (product: StoreProduct) => void;
+  fromLabel: string;
   canSell: boolean;
 }) {
   return (
@@ -711,6 +732,18 @@ function ProductCard({
           marginBottom: 10,
         }}
       >
+        {product.price_type === "RANGE" && (
+          <span
+            style={{
+              fontSize: "0.62rem",
+              fontWeight: 600,
+              marginRight: 3,
+              opacity: 0.8,
+            }}
+          >
+            {fromLabel}
+          </span>
+        )}
         {formatStorePrice(product.price, config)}
       </p>
       <button

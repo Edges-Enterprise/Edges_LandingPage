@@ -4,12 +4,21 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
+import {
+  loadStoreContextRows,
+  pricePlan,
+  priceRangePlan,
+} from "../../../../supabase/functions/_shared/currency/storePrice.ts";
+import { platformMarkupChain } from "../../../../supabase/functions/_shared/currency/markup.ts";
 
 interface BulkUpdatePlansParams {
   network?: string;
   markupType: "percentage" | "fixed";
   markupValue: number;
 }
+
+const PLAN_PRICING_COLUMNS =
+  "id, provider_plan_id, country_code, network, name, category, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx";
 
 export async function bulkUpdatePlans(params: BulkUpdatePlansParams): Promise<{
   success: boolean;
@@ -50,12 +59,7 @@ export async function bulkUpdatePlans(params: BulkUpdatePlansParams): Promise<{
     // Get all plans for this reseller's country, optionally filtered by network
     let query = adminClient
       .from("global_base_plans")
-      .select(
-        `
-        id,
-        base_price
-      `,
-      )
+      .select(PLAN_PRICING_COLUMNS)
       .eq("country_code", countryCodeUpper)
       .eq("is_active", true)
       .eq("provider", serviceProvider); // 🔥 FILTER BY SERVICE PROVIDER
@@ -70,15 +74,45 @@ export async function bulkUpdatePlans(params: BulkUpdatePlansParams): Promise<{
       return { success: false, error: plansError.message };
     }
 
+    // The store's currency, fresh rate and platform markups, loaded once.
+    let storeContext, markupRows;
+    try {
+      const loaded = await loadStoreContextRows(adminClient, {
+        countryCode: countryCodeLower,
+      });
+      storeContext = loaded.context;
+      markupRows = loaded.markupRows;
+    } catch (error) {
+      console.error("BulkUpdatePlans pricing unavailable:", error);
+      return { success: false, error: "Store pricing unavailable" };
+    }
+
     let count = 0;
 
-    // For each plan, update existing config or create new one
+    // For each plan, update existing config or create new one. The stored
+    // selling price is the pipeline's customer price, not `base_price +
+    // markup` (Phase 2, step 6).
     for (const plan of plans || []) {
-      const sellingPrice = calculateSellingPrice(
-        plan.base_price,
-        params.markupType,
-        params.markupValue,
-      );
+      const platformMarkups = platformMarkupChain(markupRows, {
+        countryCode: countryCodeLower,
+        planId: plan.id,
+      });
+      const isRange = (plan.price_type ?? "FIXED").toUpperCase() === "RANGE";
+      const priced = isRange && plan.range_min != null
+        ? priceRangePlan(
+          plan,
+          { markup_type: params.markupType, markup_value: params.markupValue, selling_price: null },
+          storeContext,
+          platformMarkups,
+          Number(plan.range_min),
+        )
+        : pricePlan(
+          plan,
+          { markup_type: params.markupType, markup_value: params.markupValue, selling_price: null },
+          storeContext,
+          platformMarkups,
+        );
+      const sellingPrice = Math.round(priced.customerPriceDecimal);
 
       // Check if config exists
       const { data: existingConfig } = await adminClient
@@ -130,17 +164,6 @@ export async function bulkUpdatePlans(params: BulkUpdatePlansParams): Promise<{
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
-}
-
-function calculateSellingPrice(
-  basePrice: number,
-  markupType: "percentage" | "fixed",
-  markupValue: number,
-): number {
-  if (markupType === "percentage") {
-    return Math.round(basePrice * (1 + markupValue / 100));
-  }
-  return Math.round(basePrice + markupValue);
 }
 
 // // src/actions/reseller/plans/bulkUpdatePlans.ts

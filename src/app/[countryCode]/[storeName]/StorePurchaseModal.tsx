@@ -19,10 +19,12 @@ import {
   AlertCircle,
   CheckCircle,
   Info,
+  Signal,
 } from "lucide-react";
 import { formatStorePrice } from "@/lib/currency/formatStorePrice";
 import type { CountryConfig } from "@/config/countries";
 import type { StoreProduct } from "@/types/reseller/storefront";
+import type { NetworkDetection } from "@/lib/storefront/networkLookup";
 
 interface StorePurchaseModalProps {
   open: boolean;
@@ -38,6 +40,15 @@ interface StorePurchaseModalProps {
   error: string;
   success: string;
   onSubmit: () => void;
+  /** RANGE offers only: the amount the customer enters (send currency). */
+  purchaseAmount?: string;
+  setPurchaseAmount?: (value: string) => void;
+  /** The pipeline-priced total for the entered amount. */
+  quotedPrice?: number | null;
+  amountError?: string;
+  quoting?: boolean;
+  /** Carrier/country resolved from the phone number as the customer types. */
+  detection?: NetworkDetection | null;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -66,11 +77,23 @@ export default function StorePurchaseModal({
   error,
   success,
   onSubmit,
+  purchaseAmount = "",
+  setPurchaseAmount,
+  quotedPrice = null,
+  amountError = "",
+  quoting = false,
+  detection = null,
 }: StorePurchaseModalProps) {
   const [showPin, setShowPin] = useState(false);
   const [showPinInfo, setShowPinInfo] = useState(false);
 
   if (!open || !plan) return null;
+
+  const isRange = plan.price_type === "RANGE";
+  const sendCurrency = plan.send_currency || plan.currency || config.currency;
+  const displayPrice = isRange && quotedPrice != null
+    ? quotedPrice
+    : plan.price;
 
   const digitsOnly = (value: string, max: number) =>
     value.replace(/[^0-9]/g, "").slice(0, max);
@@ -182,7 +205,8 @@ export default function StorePurchaseModal({
                 color: "var(--brand-color)",
               }}
             >
-              {formatStorePrice(plan.price, config)}
+              {isRange && <span style={{ fontSize: "0.7rem", marginRight: 3 }}>from </span>}
+              {formatStorePrice(displayPrice, config)}
             </span>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -213,6 +237,51 @@ export default function StorePurchaseModal({
           </div>
         </div>
 
+        {isRange && (
+          <div style={{ marginBottom: "1rem" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 6,
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                color: "var(--text)",
+                marginBottom: "0.4rem",
+              }}
+            >
+              <span>Amount ({sendCurrency})</span>
+              {plan.range_min != null && plan.range_max != null && (
+                <span style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 500 }}>
+                  {plan.range_min} – {plan.range_max}
+                </span>
+              )}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={purchaseAmount}
+              onChange={(e) => setPurchaseAmount?.(digitsOnly(e.target.value, 10))}
+              placeholder={plan.range_min != null ? String(plan.range_min) : "Enter amount"}
+              style={inputStyle}
+            />
+            {amountError ? (
+              <p style={{ fontSize: "0.72rem", color: "#EF4444", marginTop: 4 }}>
+                {amountError}
+              </p>
+            ) : quoting ? (
+              <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 4 }}>
+                Pricing…
+              </p>
+            ) : quotedPrice != null ? (
+              <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: 4 }}>
+                You pay {formatStorePrice(quotedPrice, config)}
+              </p>
+            ) : null}
+          </div>
+        )}
+
         <div style={{ marginBottom: "1rem" }}>
           <label
             style={{
@@ -238,6 +307,22 @@ export default function StorePurchaseModal({
             placeholder="Phone number"
             style={inputStyle}
           />
+          {detection && detection.brand && (
+            <p
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                fontSize: "0.72rem",
+                color: "var(--muted)",
+                marginTop: 4,
+              }}
+            >
+              <Signal size={12} style={{ color: "var(--brand-color)" }} />
+              {detection.brand}
+              {detection.country ? ` · ${detection.country.toUpperCase()}` : ""}
+            </p>
+          )}
         </div>
 
         <div style={{ marginBottom: "1rem" }}>

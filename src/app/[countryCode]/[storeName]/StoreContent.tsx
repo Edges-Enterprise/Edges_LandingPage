@@ -269,6 +269,12 @@ export default function StoreContent({
           error={purchase.purchaseError}
           success={purchase.purchaseSuccess}
           onSubmit={purchase.handlePurchase}
+          purchaseAmount={purchase.purchaseAmount}
+          setPurchaseAmount={purchase.setPurchaseAmount}
+          quotedPrice={purchase.quotedPrice}
+          amountError={purchase.amountError}
+          quoting={purchase.quoting}
+          detection={purchase.detection}
         />
 
         <StoreFundWalletModal

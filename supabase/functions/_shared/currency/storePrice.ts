@@ -12,7 +12,6 @@
 // per store, permanently (scope decision, 2026-11-01): an RW store shows
 // every plan — Rwandan and Ugandan alike — in RWF.
 
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import {
   computePrice,
   type MarkupRule,
@@ -20,6 +19,44 @@ import {
 } from "./pricing.ts";
 import { findFreshRate, type RateStore } from "./rates.ts";
 import { platformMarkupChain, type PlatformMarkupRow } from "./markup.ts";
+import { priceRangeOffer } from "./range.ts";
+
+/**
+ * The read surface this module needs from a Supabase client.
+ *
+ * Structural rather than `import type { SupabaseClient } from
+ * "npm:@supabase/supabase-js@2"` on purpose: the web app shares this module
+ * (so the dashboard and storefront price through the same pipeline as the
+ * edge functions), and the `npm:` specifier is Deno-only.
+ *
+ * The query builder is `unknown`-returning rather than precisely typed: the
+ * real builder (`PostgrestFilterBuilder`) is heavily generic and its `then`
+ * signature does not unify across the Deno and web clients, so a precise
+ * structural shape rejects one of them. The queries here are simple and
+ * their results are narrowed at each call site.
+ */
+export interface PriceDbClient {
+  // The query builder is intentionally `any`: its generic signature differs
+  // between the Deno and web Supabase clients, and a precise shared shape
+  // either rejects one of them or triggers "excessively deep" instantiation.
+  // Every result is narrowed by rowOf/rowsOf below.
+  // deno-lint-ignore no-explicit-any
+  from(table: string): any;
+}
+
+/** Narrow a `maybeSingle()` result to a row object (or null). */
+function rowOf(result: unknown): Record<string, unknown> | null {
+  const data = (result as { data?: unknown })?.data;
+  return data && typeof data === "object"
+    ? data as Record<string, unknown>
+    : null;
+}
+
+/** Narrow a multi-row result to an array. */
+function rowsOf(result: unknown): Record<string, unknown>[] {
+  const data = (result as { data?: unknown })?.data;
+  return Array.isArray(data) ? data as Record<string, unknown>[] : [];
+}
 
 export class PriceUnavailableError extends Error {
   constructor(message: string) {
@@ -39,13 +76,17 @@ export interface StorePlanRow {
   price_type?: string | null;
   range_min?: number | null;
   range_max?: number | null;
+  range_increment?: number | null;
   send_value?: number | null;
   send_currency?: string | null;
+  zendit_fx?: number | null;
 }
 
 export interface PlanConfigRow {
-  plan_id: string;
-  enabled: boolean;
+  // Pricing reads only the markup and any pinned shelf price; enablement is
+  // the caller's decision, so these are optional here.
+  plan_id?: string;
+  enabled?: boolean;
   markup_type: string | null;
   markup_value: number | null;
   selling_price: number | null;
@@ -61,6 +102,10 @@ export interface ResolvedStorePrice extends PricingResult {
   /** Present for RANGE offers: the allowed customer-chosen amounts. */
   rangeMin: number | null;
   rangeMax: number | null;
+  /** The step a RANGE amount must land on, in the send currency. */
+  rangeIncrement: number | null;
+  /** Zendit's own fx for the offer, used to price a RANGE choice. */
+  zenditFx: number | null;
 }
 
 /** The store's currency and the rate used to price it. */
@@ -89,9 +134,29 @@ export interface StoreContext {
  * price, and guessing is how a plan gets sold below cost.
  */
 export async function loadStoreContext(
-  client: SupabaseClient,
+  client: PriceDbClient,
   opts: { countryCode: string; planId?: string | null },
 ): Promise<{ context: StoreContext; platformMarkups: MarkupRule[] }> {
+  const { context, markupRows } = await loadStoreContextRows(client, opts);
+  return {
+    context,
+    platformMarkups: platformMarkupChain(markupRows, {
+      countryCode: (opts.countryCode || "").toLowerCase(),
+      planId: opts.planId ?? null,
+    }),
+  };
+}
+
+/**
+ * As `loadStoreContext`, but returns the raw platform-markup rows instead of
+ * resolving them for one plan. A catalog prices many plans at once and each
+ * resolves its own chain (a plan-level rule overrides the country's), so
+ * loading the rows once and resolving per plan avoids an N+1 read.
+ */
+export async function loadStoreContextRows(
+  client: PriceDbClient,
+  opts: { countryCode: string },
+): Promise<{ context: StoreContext; markupRows: PlatformMarkupRow[] }> {
   const country = (opts.countryCode || "").toLowerCase();
 
   // The store's currency, via its country. A store is priced in its own
@@ -101,21 +166,25 @@ export async function loadStoreContext(
   // in USD, the same default the wallet side uses. That is what lets a store
   // outside the mapped set sell every Zendit plan. USD needs no rate (its
   // own rate is 1), so such a store is priceable with no FX row at all.
-  const { data: mapping } = await client
-    .from("global_country_currencies")
-    .select("currency_code")
-    .eq("country_code", country)
-    .maybeSingle();
+  const mapping = rowOf(
+    await client
+      .from("global_country_currencies")
+      .select("currency_code")
+      .eq("country_code", country)
+      .maybeSingle(),
+  );
 
   const currencyCode =
     ((mapping?.currency_code as string | undefined) ?? "USD").toUpperCase();
   const currencyIsFallback = !mapping?.currency_code;
 
-  const { data: currencyRow } = await client
-    .from("global_currencies")
-    .select("buffer_fraction")
-    .eq("code", currencyCode)
-    .maybeSingle();
+  const currencyRow = rowOf(
+    await client
+      .from("global_currencies")
+      .select("buffer_fraction")
+      .eq("code", currencyCode)
+      .maybeSingle(),
+  );
   const bufferFraction = Number(currencyRow?.buffer_fraction ?? 0);
   const currency = currencyCode;
 
@@ -126,15 +195,12 @@ export async function loadStoreContext(
     );
   }
 
-  const { data: markupRows } = await client
-    .from("global_platform_markups")
-    .select("scope, scope_key, markup_type, markup_value, enabled")
-    .eq("enabled", true);
-
-  const platformMarkups = platformMarkupChain(
-    (markupRows ?? []) as PlatformMarkupRow[],
-    { countryCode: country, planId: opts.planId ?? null },
-  );
+  const markupRows = rowsOf(
+    await client
+      .from("global_platform_markups")
+      .select("scope, scope_key, markup_type, markup_value, enabled")
+      .eq("enabled", true),
+  ) as unknown as PlatformMarkupRow[];
 
   return {
     context: {
@@ -147,7 +213,7 @@ export async function loadStoreContext(
       bufferFraction,
       currencyIsFallback,
     },
-    platformMarkups,
+    markupRows,
   };
 }
 
@@ -194,5 +260,65 @@ export function pricePlan(
     priceType,
     rangeMin: plan.range_min ?? null,
     rangeMax: plan.range_max ?? null,
+    rangeIncrement: plan.range_increment ?? null,
+    zenditFx: plan.zendit_fx ?? null,
+  };
+}
+
+/**
+ * Price a RANGE offer for a chosen recipient amount.
+ *
+ * A RANGE plan's shelf price depends on what the customer enters, so unlike
+ * `pricePlan` this takes the amount. The amount is validated against the
+ * plan's CURRENT bounds (loaded fresh by the caller, never cached), and the
+ * USD cost is derived from Zendit's own fx — the one place Zendit's rate is
+ * authoritative, because it governs what the recipient receives.
+ *
+ * The result carries the same shape as a FIXED price, so the caller's
+ * display code does not branch.
+ */
+export function priceRangePlan(
+  plan: StorePlanRow,
+  config: PlanConfigRow | null,
+  ctx: StoreContext,
+  platformMarkups: MarkupRule[],
+  sendAmount: number,
+): ResolvedStorePrice & { sendAmount: number } {
+  const resellerMarkup: MarkupRule | null = config
+    ? {
+      markup_type: config.markup_type === "fixed" ? "fixed" : "percentage",
+      markup_value: Number(config.markup_value ?? 0),
+      source: "reseller",
+    }
+    : null;
+
+  const result = priceRangeOffer({
+    sendAmount,
+    fx: plan.zendit_fx ?? null,
+    storeCurrency: ctx.currency,
+    usdToStoreRate: ctx.usdToStoreRate,
+    platformMarkups,
+    resellerMarkup,
+    resellerSellingPrice: config?.selling_price ?? null,
+    bufferFraction: ctx.bufferFraction,
+    bounds: {
+      min: Number(plan.range_min ?? 0),
+      max: Number(plan.range_max ?? 0),
+      increment: plan.range_increment ?? null,
+      currency: plan.send_currency ?? null,
+    },
+  });
+
+  return {
+    ...result,
+    planId: plan.id,
+    providerPlanId: plan.provider_plan_id,
+    sendValue: result.sendAmount,
+    sendCurrency: plan.send_currency ?? null,
+    priceType: "RANGE",
+    rangeMin: plan.range_min ?? null,
+    rangeMax: plan.range_max ?? null,
+    rangeIncrement: plan.range_increment ?? null,
+    zenditFx: plan.zendit_fx ?? null,
   };
 }

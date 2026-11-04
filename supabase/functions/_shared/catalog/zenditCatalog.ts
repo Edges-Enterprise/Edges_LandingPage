@@ -39,6 +39,8 @@ export interface ZenditCost {
   fx?: number;
   max?: number;
   min?: number;
+  /** The step a RANGE amount must land on. */
+  increment?: number;
 }
 
 export interface ZenditOffer {
@@ -91,6 +93,8 @@ export interface NormalizedPlan {
   /** RANGE bounds in the SEND currency, decimal. Null for FIXED. */
   range_min: number | null;
   range_max: number | null;
+  /** The step a RANGE amount must land on, in the SEND currency. */
+  range_increment: number | null;
   /** Zendit's own fx for the offer (RANGE), when supplied. */
   zendit_fx: number | null;
   metadata: Record<string, unknown>;
@@ -228,6 +232,11 @@ export function normalizeZenditOffer(
   const rangeMax = priceType === "RANGE" && typeof send?.max === "number"
     ? toDecimal(send.max, sendDivisor)
     : null;
+  const rangeIncrement =
+    priceType === "RANGE" && typeof send?.increment === "number" &&
+      send.increment > 0
+      ? toDecimal(send.increment, sendDivisor)
+      : null;
 
   return {
     plan: {
@@ -250,6 +259,7 @@ export function normalizeZenditOffer(
       price_type: priceType,
       range_min: rangeMin,
       range_max: rangeMax,
+      range_increment: rangeIncrement,
       zendit_fx: typeof send?.fx === "number" ? send.fx : null,
       metadata: {
         brand: offer.brand ?? null,

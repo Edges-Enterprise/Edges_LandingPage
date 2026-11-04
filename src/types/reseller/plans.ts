@@ -48,6 +48,12 @@ export interface PlanWithConfig extends BasePlan {
   markup_local?: number;
   profit_local?: number;
   exchange_rate?: number;
+  // Phase 2: RANGE offers carry a price type and bounds; `selling_price_local`
+  // for a RANGE plan is the price at its minimum ("from X").
+  price_type?: "FIXED" | "RANGE";
+  range_min?: number;
+  range_max?: number;
+  range_increment?: number;
 }
 
 // // src/types/reseller/plans.ts

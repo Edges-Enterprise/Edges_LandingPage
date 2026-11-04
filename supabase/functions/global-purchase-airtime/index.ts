@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { resellerId, planId, phoneNumber, transactionPin, userId } =
+    const { resellerId, planId, phoneNumber, transactionPin, userId, value } =
       await req.json();
 
     if (!resellerId || !planId || !phoneNumber || !transactionPin || !userId) {
@@ -59,6 +59,8 @@ Deno.serve(async (req) => {
       phoneNumber,
       transactionPin,
       userId,
+      // Phase 2: the chosen amount for a RANGE offer. Absent for FIXED.
+      value,
     });
 
     return new Response(JSON.stringify(result), {

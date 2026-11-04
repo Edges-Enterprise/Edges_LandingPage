@@ -22,11 +22,17 @@
 
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isValidPhoneNumber } from "@/lib/phone/validatePhoneNumber";
 import type { CountryConfig } from "@/config/countries";
 import type { StoreProduct } from "@/types/reseller/storefront";
+import { priceRangeAmount } from "@/actions/reseller/plans/priceRangeAmount";
+import {
+  lookupNetwork,
+  type NetworkDetection,
+} from "@/lib/storefront/networkLookup";
+import { currencyDivisor } from "../../../supabase/functions/_shared/currency/registry.ts";
 
 interface UseStorePurchaseArgs {
   loggedIn: boolean;
@@ -61,6 +67,17 @@ export function useStorePurchase({
   const [showCreatePin, setShowCreatePin] = useState(false);
   const [showPinInfo, setShowPinInfo] = useState(false);
 
+  // Phase 2, step 8: a RANGE offer takes the amount the customer enters.
+  const [purchaseAmount, setPurchaseAmount] = useState("");
+  // The pipeline-priced total for the entered amount, plus any validation
+  // message (out of bounds / off step) the server returned.
+  const [quotedPrice, setQuotedPrice] = useState<number | null>(null);
+  const [amountError, setAmountError] = useState("");
+  const [quoting, setQuoting] = useState(false);
+
+  // Phase 2, step 7: carrier/country detection for the entered number.
+  const [detection, setDetection] = useState<NetworkDetection | null>(null);
+
   const startPurchase = useCallback(
     (product: StoreProduct) => {
       if (!loggedIn) {
@@ -75,6 +92,15 @@ export function useStorePurchase({
       setPurchaseSuccess("");
       setShowPin(false);
       setShowCreatePin(false);
+      // Seed a RANGE plan at its minimum, which is always a valid amount.
+      setPurchaseAmount(
+        product.price_type === "RANGE" && product.range_min != null
+          ? String(product.range_min)
+          : "",
+      );
+      setQuotedPrice(product.price_type === "RANGE" ? product.price : null);
+      setAmountError("");
+      setDetection(null);
       setPurchaseModalOpen(true);
     },
     [loggedIn, hasTransactionPin, onRequireLogin],
@@ -85,12 +111,71 @@ export function useStorePurchase({
     setPurchaseModalOpen(false);
   }, [purchaseLoading]);
 
+  // Detection: debounce the phone input and resolve the carrier/country.
+  const detectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!purchaseModalOpen) return;
+    const digits = purchasePhone.replace(/\D/g, "");
+    if (digits.length < 6) {
+      setDetection(null);
+      return;
+    }
+    if (detectTimer.current) clearTimeout(detectTimer.current);
+    detectTimer.current = setTimeout(async () => {
+      const found = await lookupNetwork(purchasePhone);
+      setDetection(found);
+    }, 500);
+    return () => {
+      if (detectTimer.current) clearTimeout(detectTimer.current);
+    };
+  }, [purchasePhone, purchaseModalOpen]);
+
+  // RANGE: price the entered amount through the same pipeline the purchase
+  // uses, so the confirm screen shows what the customer is actually charged.
+  const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!purchaseModalOpen || selectedPlan?.price_type !== "RANGE") return;
+    const amount = Number(purchaseAmount);
+    if (!purchaseAmount || !Number.isFinite(amount) || amount <= 0) {
+      setQuotedPrice(null);
+      setAmountError("");
+      return;
+    }
+    if (quoteTimer.current) clearTimeout(quoteTimer.current);
+    setQuoting(true);
+    quoteTimer.current = setTimeout(async () => {
+      const result = await priceRangeAmount({
+        resellerId,
+        planId: selectedPlan.plan_id ?? selectedPlan.id,
+        sendAmount: amount,
+      });
+      if (result.success && result.data) {
+        setQuotedPrice(result.data.customerPrice);
+        setAmountError("");
+      } else {
+        setQuotedPrice(null);
+        setAmountError(result.error || "Enter a valid amount");
+      }
+      setQuoting(false);
+    }, 350);
+    return () => {
+      if (quoteTimer.current) clearTimeout(quoteTimer.current);
+    };
+  }, [purchaseAmount, purchaseModalOpen, selectedPlan, resellerId]);
+
   const handlePurchase = useCallback(async () => {
     if (!selectedPlan) return;
 
     if (!isValidPhoneNumber(purchasePhone, config.phoneNumber)) {
       setPurchaseError("Please enter a valid phone number");
       return;
+    }
+    // A RANGE plan needs a valid, priced amount before it can be bought.
+    if (selectedPlan.price_type === "RANGE") {
+      if (amountError || quotedPrice === null) {
+        setPurchaseError(amountError || "Choose an amount first");
+        return;
+      }
     }
     if (purchasePin.length !== 4) {
       setPurchaseError(
@@ -163,6 +248,22 @@ export function useStorePurchase({
             phoneNumber: purchasePhone,
             transactionPin: purchasePin,
             userId: user.id,
+            // Phase 2: a RANGE offer carries the recipient amount the
+            // customer chose, in minor units of the send currency. Zendit's
+            // `ZEND` type is the amount the recipient receives.
+            value: selectedPlan.price_type === "RANGE"
+              ? {
+                type: "ZEND",
+                value: Math.round(
+                  Number(purchaseAmount) *
+                    currencyDivisor(
+                      selectedPlan.send_currency ??
+                        selectedPlan.currency ??
+                        "USD",
+                    ),
+                ),
+              }
+              : undefined,
           }),
         },
       );
@@ -193,6 +294,9 @@ export function useStorePurchase({
     selectedPlan,
     purchasePhone,
     purchasePin,
+    purchaseAmount,
+    amountError,
+    quotedPrice,
     isCreatingPin,
     isStoreOwner,
     resellerId,
@@ -218,6 +322,13 @@ export function useStorePurchase({
     setShowCreatePin,
     showPinInfo,
     setShowPinInfo,
+    // Phase 2: RANGE amount entry + quoted price, and network detection.
+    purchaseAmount,
+    setPurchaseAmount,
+    quotedPrice,
+    amountError,
+    quoting,
+    detection,
     startPurchase,
     closePurchase,
     handlePurchase,

@@ -36,6 +36,7 @@ import { uniqueSorted } from "../_shared/storeCatalog.ts";
 import {
   loadStoreContext,
   pricePlan,
+  priceRangePlan,
   PriceUnavailableError,
 } from "../_shared/currency/storePrice.ts";
 
@@ -69,6 +70,8 @@ interface CatalogPlan {
   /** For RANGE offers, the allowed amounts in the send currency. */
   range_min?: number;
   range_max?: number;
+  /** The step a RANGE amount must land on, so the client's stepper matches. */
+  range_increment?: number;
   /** What the recipient receives, for FIXED offers. */
   send_value?: number;
   send_currency?: string;
@@ -136,7 +139,7 @@ Deno.serve(async (req) => {
     let query = admin
       .from("global_base_plans")
       .select(
-        "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, is_active, price_type, range_min, range_max, send_value, send_currency",
+        "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, is_active, price_type, range_min, range_max, range_increment, send_value, send_currency",
       )
       .in("id", configs.map((c) => c.plan_id))
       .eq("is_active", true)
@@ -179,7 +182,14 @@ Deno.serve(async (req) => {
 
     const plans: CatalogPlan[] = available.map((p) => {
       const cfg = configById.get(p.id);
-      const priced = pricePlan(p as never, cfg as never, storeContext, platformMarkups);
+      // A RANGE offer has no single price — the customer chooses the amount.
+      // The tile shows the price of the MINIMUM amount ("from X"), priced
+      // through the same pipeline as the purchase, so the number shown and
+      // the number charged cannot disagree.
+      const isRange = (p.price_type ?? "FIXED").toUpperCase() === "RANGE";
+      const priced = isRange && p.range_min != null
+        ? priceRangePlan(p as never, cfg as never, storeContext, platformMarkups, Number(p.range_min))
+        : pricePlan(p as never, cfg as never, storeContext, platformMarkups);
 
       return {
         id: p.id,
@@ -196,6 +206,7 @@ Deno.serve(async (req) => {
         price_type: priced.priceType,
         range_min: priced.rangeMin ?? undefined,
         range_max: priced.rangeMax ?? undefined,
+        range_increment: priced.rangeIncrement ?? undefined,
         send_value: priced.sendValue ?? undefined,
         send_currency: priced.sendCurrency ?? undefined,
       };

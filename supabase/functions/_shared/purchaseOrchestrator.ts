@@ -15,8 +15,11 @@ import { getCountryDialCode } from "./countryDialCodes.ts";
 import {
   loadStoreContext,
   pricePlan,
+  priceRangePlan,
   PriceUnavailableError,
 } from "./currency/storePrice.ts";
+import { currencyDivisor } from "./currency/registry.ts";
+import { RangeError as RangeValidationError } from "./currency/range.ts";
 
 export interface PurchaseRequest {
   resellerId: string; // global_reseller_applications.id for the store being bought from
@@ -88,7 +91,7 @@ export async function processPurchase(
   const { data: basePlan, error: basePlanError } = await supabaseAdmin
     .from("global_base_plans")
     .select(
-      "id, provider, provider_plan_id, country_code, network, name, category, base_price, currency",
+      "id, provider, provider_plan_id, country_code, network, name, category, base_price, currency, price_type, range_min, range_max, range_increment, send_value, send_currency, zendit_fx",
     )
     .eq("provider_plan_id", providerPlanId)
     .eq("category", category)
@@ -143,16 +146,48 @@ export async function processPurchase(
       supabaseAdmin,
       { countryCode: storeCountry, planId: basePlan.id },
     );
-    priceDetail = pricePlan(
-      basePlan as never,
-      planConfig as never,
-      context,
-      platformMarkups,
-    );
+
+    // A RANGE offer is priced from the amount the customer chose, against
+    // the bounds we just read (current, not a cached snapshot), so a stale
+    // bound cannot let an invalid amount reach Zendit. A FIXED offer prices
+    // from its stored cost as before.
+    const isRange =
+      (basePlan.price_type ?? "FIXED").toUpperCase() === "RANGE";
+
+    if (isRange) {
+      if (!req.value) {
+        return {
+          success: false,
+          error: "Choose an amount",
+          message: "Choose an amount",
+        };
+      }
+      // The customer's entry is a recipient amount in the send currency.
+      // `value.value` is in minor units, so it is scaled back for pricing.
+      const sendDivisor = currencyDivisor(basePlan.send_currency ?? context.currency);
+      priceDetail = priceRangePlan(
+        basePlan as never,
+        planConfig as never,
+        context,
+        platformMarkups,
+        req.value.value / sendDivisor,
+      );
+    } else {
+      priceDetail = pricePlan(
+        basePlan as never,
+        planConfig as never,
+        context,
+        platformMarkups,
+      );
+    }
+
     finalPrice = priceDetail.customerPriceDecimal;
     costPrice = priceDetail.costLocalDecimal;
     profit = finalPrice - costPrice;
   } catch (error) {
+    if (error instanceof RangeValidationError) {
+      return { success: false, error: error.message, message: error.message };
+    }
     if (error instanceof PriceUnavailableError) {
       console.error("purchase pricing unavailable:", error.message);
       return {

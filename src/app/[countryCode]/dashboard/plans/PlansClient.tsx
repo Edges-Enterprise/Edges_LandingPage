@@ -924,6 +924,26 @@ export default function PlansClient({
                           {plan.validity}
                         </span>
                       )}
+                      {plan.price_type === "RANGE" && (
+                        <span
+                          className="plan-validity"
+                          title={`Customer chooses an amount${
+                            plan.range_max
+                              ? ` up to ${formatPrice(plan.range_max, plan.display_currency || localCurrency)}`
+                              : ""
+                          }`}
+                          style={{
+                            fontSize: "0.7rem",
+                            color: "var(--brand-color)",
+                            background: "var(--bg2)",
+                            padding: "0.15rem 0.5rem",
+                            borderRadius: 4,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {t?.range || "Range"}
+                        </span>
+                      )}
                       {/* Toggle */}
                       <button
                         className={`plan-toggle ${isEnabled ? "is-on" : "is-off"}`}

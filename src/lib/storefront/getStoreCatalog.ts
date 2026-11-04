@@ -1,6 +1,6 @@
 // src/lib/storefront/getStoreCatalog.ts
 //
-// Customer-storefront plan catalog (Task 4, branch 2.b).
+// Customer-storefront plan catalog (Task 4, branch 2.b; Phase 2 rework).
 //
 // Reads ONLY the plans the reseller selected and turned on: a
 // `global_reseller_plan_configs` row for this reseller with
@@ -10,10 +10,16 @@
 // dashboard/plans/PlansClient.tsx, which would leak unselected plans
 // into the store). An empty result means the store has no active plans.
 //
-// Price shown is the reseller's `selling_price` (already includes the
-// markup); when it is missing, the markup is recomputed the same way
-// purchaseOrchestrator.ts / updatePlanConfig.ts do, so the storefront
-// and the purchase flow agree on the amount.
+// Phase 2: pricing is NOT computed here. It calls the one pipeline in
+// supabase/functions/_shared/currency/storePrice.ts — the same function the
+// edge functions and the dashboard use — so the storefront, the purchase
+// flow and the dashboard cannot disagree on a price. This file previously
+// carried its own `computeSellingPrice`, which was the third copy of the
+// arithmetic the Phase 2 design set out to remove.
+//
+// A store is NOT scoped to its own country: a reseller sells any country
+// Zendit covers, priced in the store's own currency. The country filter is
+// the customer's to make.
 //
 // `plan_id` on each returned plan is `global_base_plans.provider_plan_id`
 // — the id the purchase edge function (`global-purchase-data` /
@@ -31,6 +37,11 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { StoreProduct } from "@/types/reseller/storefront";
+import {
+  loadStoreContext,
+  pricePlan,
+  priceRangePlan,
+} from "../../../supabase/functions/_shared/currency/storePrice.ts";
 
 export interface StoreCatalog {
   plans: StoreProduct[];
@@ -38,18 +49,19 @@ export interface StoreCatalog {
   networks: string[];
   /** Category tab values actually present, in display order. */
   categories: string[];
+  /** Destination countries present, so the storefront can filter. */
+  countries: string[];
+  /** The store's currency, for formatting every price. */
+  currency: string | null;
 }
 
-const EMPTY: StoreCatalog = { plans: [], networks: [], categories: [] };
-
-function computeSellingPrice(
-  basePrice: number,
-  markupType: string | null,
-  markupValue: number,
-): number {
-  if (markupType === "fixed") return Math.round(basePrice + markupValue);
-  return Math.round(basePrice * (1 + markupValue / 100));
-}
+const EMPTY: StoreCatalog = {
+  plans: [],
+  networks: [],
+  categories: [],
+  countries: [],
+  currency: null,
+};
 
 function uniqueSorted(values: (string | null | undefined)[]): string[] {
   return [
@@ -83,11 +95,11 @@ export async function getStoreCatalog(
   let query = supabase
     .from("global_base_plans")
     .select(
-      "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, send_value, send_currency, is_active",
+      "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx, is_active",
     )
     .in("id", planIds)
-    .eq("country_code", countryCode.toUpperCase())
     .eq("is_active", true)
+    .order("country_code", { ascending: true })
     .order("category", { ascending: true })
     .order("name", { ascending: true });
 
@@ -101,21 +113,45 @@ export async function getStoreCatalog(
   }
   if (!basePlans || basePlans.length === 0) return EMPTY;
 
+  // The store's currency and rate, loaded once through the shared loader.
+  // A missing rate is a hard failure (an empty catalog) rather than a guess.
+  let storeContext, platformMarkups;
+  try {
+    const loaded = await loadStoreContext(supabase, {
+      countryCode: (countryCode || "").toLowerCase(),
+    });
+    storeContext = loaded.context;
+    platformMarkups = loaded.platformMarkups;
+  } catch (error) {
+    console.error("Store catalog pricing unavailable:", error);
+    return EMPTY;
+  }
+
   const configById = new Map(configs.map((c) => [c.plan_id, c]));
 
   const plans: StoreProduct[] = basePlans.map((p) => {
     const cfg = configById.get(p.id);
-    const basePrice = Number(p.base_price);
-    const sellingPrice =
-      cfg?.selling_price !== null && cfg?.selling_price !== undefined
-        ? Number(cfg.selling_price)
-        : computeSellingPrice(
-            basePrice,
-            cfg?.markup_type ?? null,
-            Number(cfg?.markup_value ?? 0),
-          );
-    const network =
-      (p.network && p.network.trim()) || p.provider || undefined;
+    const isRange = (p.price_type ?? "FIXED").toUpperCase() === "RANGE";
+    // A RANGE offer shows the price of its minimum amount ("from X"); the
+    // customer's chosen amount is priced at checkout through the same
+    // pipeline. A FIXED offer prices from its stored cost.
+    const priced = isRange && p.range_min != null
+      ? priceRangePlan(
+        p as never,
+        (cfg ?? null) as never,
+        storeContext,
+        platformMarkups,
+        Number(p.range_min),
+      )
+      : pricePlan(
+        p as never,
+        (cfg ?? null) as never,
+        storeContext,
+        platformMarkups,
+      );
+
+    const sellingPrice = priced.customerPriceDecimal;
+    const costLocal = priced.costLocalDecimal;
 
     return {
       id: p.id,
@@ -123,16 +159,25 @@ export async function getStoreCatalog(
       name: p.name,
       description: p.description ?? undefined,
       category: p.category,
-      network,
+      network: (p.network && p.network.trim()) || p.provider || undefined,
       price: sellingPrice,
-      base_price: basePrice,
-      profit: sellingPrice - basePrice,
-      markup_percent:
-        basePrice > 0 ? ((sellingPrice - basePrice) / basePrice) * 100 : 0,
+      base_price: costLocal,
+      profit: sellingPrice - costLocal,
+      markup_percent: costLocal > 0 ? ((sellingPrice - costLocal) / costLocal) * 100 : 0,
       validity: p.validity ?? undefined,
       data_amount: p.data_amount ?? undefined,
       is_active: true,
       is_featured: false,
+      currency: priced.storeCurrency,
+      country_code: p.country_code ?? undefined,
+      price_type: isRange ? "RANGE" : "FIXED",
+      range_min: isRange ? Number(p.range_min) : undefined,
+      range_max: isRange ? Number(p.range_max ?? 0) : undefined,
+      range_increment: isRange
+        ? (p.range_increment != null ? Number(p.range_increment) : undefined)
+        : undefined,
+      send_value: p.send_value != null ? Number(p.send_value) : undefined,
+      send_currency: p.send_currency ?? undefined,
     };
   });
 
@@ -140,5 +185,7 @@ export async function getStoreCatalog(
     plans,
     networks: uniqueSorted(plans.map((p) => p.network)),
     categories: uniqueSorted(plans.map((p) => p.category)),
+    countries: uniqueSorted(plans.map((p) => p.country_code)),
+    currency: storeContext.currency,
   };
 }

@@ -3,12 +3,18 @@
 
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveStoredSellingPrice } from "@/lib/pricing/resellerPlanPrice";
 
 interface UpdatePlanConfigParams {
   planId: string;
   markupType: "percentage" | "fixed";
   markupValue: number;
 }
+
+// Every column the pricing pipeline reads, so the stored selling price is the
+// converted customer price rather than `base_price + markup` (Phase 2, step 6).
+const PLAN_PRICING_COLUMNS =
+  "id, provider_plan_id, country_code, network, name, category, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx";
 
 export async function updatePlanConfig(
   params: UpdatePlanConfigParams,
@@ -32,7 +38,7 @@ export async function updatePlanConfig(
 
     const { data: application, error: appError } = await adminClient
       .from("global_reseller_applications")
-      .select("id")
+      .select("id, country_code")
       .eq("auth_user_id", user.id)
       .single();
 
@@ -42,7 +48,7 @@ export async function updatePlanConfig(
 
     const { data: plan, error: planError } = await adminClient
       .from("global_base_plans")
-      .select("base_price")
+      .select(PLAN_PRICING_COLUMNS)
       .eq("id", params.planId)
       .single();
 
@@ -50,11 +56,19 @@ export async function updatePlanConfig(
       return { success: false, error: "Plan not found" };
     }
 
-    const sellingPrice = calculateSellingPrice(
-      plan.base_price,
-      params.markupType,
-      params.markupValue,
-    );
+    // The stored selling price is the pipeline's customer price in the store
+    // currency, not `base_price + markup`. `base_price` is a USD cost, so the
+    // old arithmetic stored a dollar figure as if it were RWF.
+    const sellingPrice = await resolveStoredSellingPrice({
+      countryCode: application.country_code,
+      plan,
+      config: {
+        markup_type: params.markupType,
+        markup_value: params.markupValue,
+        // Ignore any previously pinned price: this call sets a NEW markup.
+        selling_price: null,
+      },
+    });
 
     // Check if config exists
     const { data: existingConfig } = await adminClient
@@ -108,15 +122,4 @@ export async function updatePlanConfig(
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
-}
-
-function calculateSellingPrice(
-  basePrice: number,
-  markupType: "percentage" | "fixed",
-  markupValue: number,
-): number {
-  if (markupType === "percentage") {
-    return Math.round(basePrice * (1 + markupValue / 100));
-  }
-  return Math.round(basePrice + markupValue);
 }

@@ -24,6 +24,9 @@ ALTER TABLE public.global_base_plans
   ADD COLUMN IF NOT EXISTS price_type text NOT NULL DEFAULT 'FIXED',
   ADD COLUMN IF NOT EXISTS range_min numeric,
   ADD COLUMN IF NOT EXISTS range_max numeric,
+  -- The step a RANGE amount must land on. Zendit rejects an off-step amount,
+  -- so it is stored and validated at purchase rather than assumed to be 1.
+  ADD COLUMN IF NOT EXISTS range_increment numeric,
   ADD COLUMN IF NOT EXISTS zendit_fx numeric,
   -- When the provider last reported this offer. Lets a sync soft-deactivate
   -- an offer that has disappeared rather than deleting live rows.
@@ -37,7 +40,8 @@ ALTER TABLE public.global_base_plans
   ADD CONSTRAINT global_base_plans_price_type_check
   CHECK (price_type IN ('FIXED', 'RANGE'));
 
--- A RANGE offer must carry bounds; a FIXED offer must not need them.
+-- A RANGE offer must carry bounds; a FIXED offer must not need them. The
+-- increment, when present, must be positive.
 ALTER TABLE public.global_base_plans
   DROP CONSTRAINT IF EXISTS global_base_plans_range_check;
 ALTER TABLE public.global_base_plans
@@ -45,7 +49,8 @@ ALTER TABLE public.global_base_plans
   CHECK (
     (price_type = 'FIXED')
     OR (price_type = 'RANGE' AND range_min IS NOT NULL AND range_max IS NOT NULL
-        AND range_min >= 0 AND range_max >= range_min)
+        AND range_min >= 0 AND range_max >= range_min
+        AND (range_increment IS NULL OR range_increment > 0))
   );
 
 -- The sync upserts on (provider, provider_plan_id). Without this the

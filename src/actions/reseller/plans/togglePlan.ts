@@ -4,6 +4,7 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
+import { resolveStoredSellingPrice } from "@/lib/pricing/resellerPlanPrice";
 
 export async function togglePlan(
   planId: string,
@@ -76,10 +77,12 @@ export async function togglePlan(
       // first time must persist enabled=true); otherwise default OFF.
       newEnabled = enabled ?? false;
 
-      // Get base plan price (also verify it's from the correct provider)
+      // Get the base plan (also verify it's from the correct provider)
       const { data: plan, error: planError } = await adminClient
         .from("global_base_plans")
-        .select("base_price")
+        .select(
+          "id, provider_plan_id, country_code, network, name, category, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx",
+        )
         .eq("id", planId)
         .eq("provider", serviceProvider) // 🔥 VERIFY CORRECT PROVIDER
         .single();
@@ -89,12 +92,18 @@ export async function togglePlan(
       }
 
       // Create config with the requested enabled state, seeded with the
-      // country's default markup so the stored selling_price is real.
+      // country's default markup. The stored selling price is the pipeline's
+      // converted customer price, not `base_price + markup`.
       const defaultMarkup = countryConfig.defaultMarkup || 0;
-      const sellingPrice =
-        defaultMarkup > 0
-          ? Math.round(plan.base_price * (1 + defaultMarkup / 100))
-          : plan.base_price;
+      const sellingPrice = await resolveStoredSellingPrice({
+        countryCode: countryCodeLower,
+        plan,
+        config: {
+          markup_type: "percentage",
+          markup_value: defaultMarkup,
+          selling_price: null,
+        },
+      });
 
       const { error: insertError } = await adminClient
         .from("global_reseller_plan_configs")
