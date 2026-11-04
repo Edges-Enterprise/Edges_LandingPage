@@ -330,6 +330,27 @@ rotation, which is a person step:
    only *after* the rotation, since history rewriting alone does not revoke a
    leaked key.
 
+**Scope of the exposure in history** (measured by scanning every blob in the
+repo — 2,329 of them, all refs): **10 blobs carry a JWT**, 8 of them the same
+live `service_role` + `anon` pair in a `schema.sql` (the file was committed as
+both `supabase/schema.sql` and, early on, a top-level `schema.sql`). The
+exposure starts at the very first snapshot (`377b797`, "Add database schema
+dump") and runs through `f083a6f`, so the live key has been public since the
+first dump and is present in every clone and fork made since. The other two
+blobs are benign and need no action: `mfiles/sflutter.txt` (removed Korapay
+integration documentation whose "JWT"s are example `eyJ…`-shaped strings with
+no `role` claim) and `src/app/api/v1/docs/route.ts` (`sk_live_xxxxxxxx…`, a
+documentation placeholder). No other credential pattern — GitHub PAT, `sbp_`
+token, AWS key, private key, or a password-bearing Postgres URL — appears
+anywhere in history. The sibling repo `Erudite885/reseller-app` is also public
+but has no `supabase/` dump, so it is unaffected.
+
+**A note on `PHASE2_DB_URL`:** it is intentionally unset in production. It is
+read only by `_shared/currency/phase2.integration.test.ts`, which skips (does
+not fail) when it is absent — those are the 4 ignored tests in the suite. Do
+not set it on the live project; it would point the integration test at the
+production database.
+
 ## Schema snapshots — committed directly, not via patch (standing rule)
 
 `supabase/schema.sql` is a tracked, schema-only snapshot of the live DB
