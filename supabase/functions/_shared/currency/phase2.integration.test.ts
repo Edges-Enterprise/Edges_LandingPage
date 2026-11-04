@@ -97,6 +97,7 @@ maybeTest("integration: an RW store sells a UG plan, priced in RWF", async () =>
       rateSource: "collection_provider",
       rateExpiresAt: new Date(Date.now() + 3600_000).toISOString(),
       rateIsFallback: false,
+      currencyIsFallback: false,
       bufferFraction: Number(mapping.buffer_fraction),
     };
 

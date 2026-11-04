@@ -124,11 +124,12 @@ export default function PlansClient({
     // and selling price) so the optimistic state has a real `config`.
     const seedConfig = (plan: PlanWithConfig) => {
       const markup = plan.config?.markup_value ?? config.defaultMarkup ?? 0;
+      // `getPlans` already priced this plan through the pipeline, so seed
+      // from that value rather than re-deriving it from a USD base_price.
       const sellingPrice =
         plan.config?.selling_price ??
-        (markup > 0
-          ? Math.round(plan.base_price * (1 + markup / 100))
-          : plan.base_price);
+        plan.selling_price_local ??
+        plan.base_price;
       return {
         id: plan.config?.id ?? `pending-${plan.id}`,
         reseller_id: plan.config?.reseller_id ?? "",
