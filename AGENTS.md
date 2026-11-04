@@ -286,3 +286,36 @@ PHASE2_DB_URL=postgres://postgres@localhost:5432/phase2 \
   deno test --no-check --allow-env --allow-read --allow-net \
   supabase/functions/_shared/currency/phase2.integration.test.ts
 ```
+### Testing the edge functions (read this before trusting a green suite)
+
+The Phase 2 unit tests stub the Supabase client and hand-build every row.
+That is why **six defects shipped with a 99/99 green suite** — the stubs were
+written against imagined shapes, not the real ones. When you touch a function
+that talks to PostgREST or a provider API, verify against the live shape:
+
+- **PostgREST returns snake_case columns.** A stub that returns camelCase
+  (`expiresAt`) hides a query that selects a non-existent column (`base,
+  quote`) and a guard that reads `undefined`. Select exactly the column names
+  that exist; read exactly what PostgREST returns.
+- **`select("*")` masks a broken explicit select.** The store-catalog bug
+  (a missing `zendit_fx` in the select list) was invisible to a probe that
+  used `select("*")`. Test the query the function actually runs.
+- **Verify a provider shape from a live response**, not from memory. Zendit
+  RANGE offers use `cost.min`/`cost.max` (never `cost.fixed`), and the real
+  USD→local rate is `cost.fx` — `send.fx` is always 1. Reading the wrong
+  field produced 1:1 rates and silently rejected every RANGE offer.
+- **A function that swallows errors into a 400/503 hides its own failure.**
+  `global-store-catalog` returned "Catalog request failed" for a single bad
+  plan; it now skips and logs the offending plan id.
+- **Run the deployed function, not just the module.** `deno check` and the
+  unit suite both passed while every store 503'd.
+
+Two operational invariants worth keeping:
+
+- The **Zendit fallback rate has a 6h TTL** and `catalog-sync` is the only
+  writer of it while Korapay's key is invalid, so `catalog-sync` runs **every
+  4h**, not daily — a daily run leaves stores unpriceable ~18h a day.
+- The cron chain is `pg_cron` → `public.run_scheduled_edge(fn, vault_secret)`
+  (`SECURITY DEFINER`, reads the secret from Vault) → the edge function, which
+  checks the `x-sync-secret` header. Run the `cron.job.command` by hand to
+  test the whole chain; the response lands in `net._http_response`.
