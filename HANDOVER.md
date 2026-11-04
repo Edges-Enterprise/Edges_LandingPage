@@ -5110,6 +5110,66 @@ Where each step lives, so a later session does not rebuild it:
 Schema: `supabase/migrations/20261103_phase2_catalog_fx_pricing.sql` adds the
 RANGE columns, the unique upsert index and `global_platform_markups`.
 
+**Remaining operational steps (not code — they need the person, same as every
+other deploy in this project).** Phase 2 is merged to `main`, but none of the
+below has been run, so the features are inert in production until it is:
+
+1. **Apply the migration.** `20261103_phase2_catalog_fx_pricing.sql` has not
+   been run against the live DB. Until it is, the RANGE columns, the upsert
+   index and `global_platform_markups` do not exist and the new code paths
+   error.
+2. **Deploy the new/changed edge functions.** `global-catalog-sync`,
+   `global-fx-refresh`, `global-network-lookup`, `global-store-catalog`,
+   `global-purchase-airtime` (and `-data`). None is deployed.
+3. **Set the secrets** the sync and rate functions read: `CATALOG_SYNC_SECRET`,
+   `FX_REFRESH_SECRET`, `KORAPAY_SECRET_KEY` (and confirm `ZENDIT_API_KEY`).
+4. **Schedule the two jobs.** Both `global-catalog-sync` and
+   `global-fx-refresh` carry a shared-secret guard and are cron-ready, but
+   **nothing schedules them** — there is no `pg_cron` job or dashboard cron in
+   the tree. Until one exists, the catalog never refreshes and no FX rate is
+   ever recorded, so `loadStoreContext` throws `PriceUnavailableError` and
+   every store prices to an empty catalog. This is the one piece that makes
+   the rest work. It is not committed as a migration because the shared
+   secrets are not in the repo and an unapplied cron job pointing at a missing
+   secret is worse than none; run it directly once the secrets exist, reading
+   them from Vault rather than hardcoding them (the trigger functions above
+   hardcode a bearer token — do not copy that):
+
+   ```sql
+   -- once, after `supabase secrets set CATALOG_SYNC_SECRET=... FX_REFRESH_SECRET=...`
+   CREATE EXTENSION IF NOT EXISTS pg_cron;
+   CREATE EXTENSION IF NOT EXISTS pg_net;
+   SELECT vault.create_secret('<value>', 'catalog_sync_secret', 'catalog sync shared secret');
+   SELECT vault.create_secret('<value>', 'fx_refresh_secret',  'fx refresh shared secret');
+
+   CREATE OR REPLACE FUNCTION public.run_scheduled_edge(p_fn text, p_secret_name text)
+   RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
+   DECLARE v_secret text;
+   BEGIN
+     SELECT decrypted_secret INTO v_secret FROM vault.decrypted_secrets WHERE name = p_secret_name;
+     PERFORM net.http_post(
+       url := 'https://<project-ref>.supabase.co/functions/v1/' || p_fn,
+       headers := jsonb_build_object(
+         'Content-Type', 'application/json',
+         'x-sync-secret', v_secret),
+       body := '{}'::jsonb);
+   END; $$;
+
+   -- Rates first: the catalog sync records Zendit's fx as a fallback, and the
+   -- refresh overwrites it with the collection provider's real rate. Zendit
+   -- refreshes its own fx at 08:30 UTC, so sync shortly after.
+   SELECT cron.schedule('fx-refresh', '0 * * * *',
+     $$SELECT public.run_scheduled_edge('global-fx-refresh', 'fx_refresh_secret')$$);
+   SELECT cron.schedule('catalog-sync', '45 8 * * *',
+     $$SELECT public.run_scheduled_edge('global-catalog-sync', 'catalog_sync_secret')$$);
+   ```
+
+   Note the edge functions read `CATALOG_SYNC_SECRET` / `FX_REFRESH_SECRET`;
+   the Vault names above are separate and must hold the same values.
+5. **Backfill/rebuild the catalog** by invoking `global-catalog-sync` once, so
+   `global_base_plans` carries the normalised USD cost and RANGE metadata the
+   pipeline expects. Per the design, existing rows are rewritten, not migrated.
+
 ### Structural notes
 
 - **The catalog becomes per-store and rate-dependent.** Price = f(rate, platform
