@@ -54,7 +54,9 @@ export async function getPlanStats(): Promise<{
         )
       `,
       )
-      .eq("country_code", application.country_code.toUpperCase())
+      // See getPlans: country_code is mixed-case across the two syncs, so
+      // match case-insensitively or one provider's stores see zero plans.
+      .ilike("country_code", application.country_code)
       .eq("is_active", true)
       .eq("config.reseller_id", application.id);
 

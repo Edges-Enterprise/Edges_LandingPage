@@ -60,7 +60,9 @@ export async function bulkUpdatePlans(params: BulkUpdatePlansParams): Promise<{
     let query = adminClient
       .from("global_base_plans")
       .select(PLAN_PRICING_COLUMNS)
-      .eq("country_code", countryCodeUpper)
+      // See getPlans: country_code is mixed-case across the two syncs, so
+      // match case-insensitively or one provider's stores see zero plans.
+      .ilike("country_code", countryCodeUpper)
       .eq("is_active", true)
       .eq("provider", serviceProvider); // 🔥 FILTER BY SERVICE PROVIDER
 

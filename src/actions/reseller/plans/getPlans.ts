@@ -91,7 +91,10 @@ export async function getPlans(params: GetPlansParams = {}): Promise<{
         )
       `,
       )
-      .eq("country_code", countryCodeUpper)
+      // country_code is written lowercased by the Zendit sync and uppercased
+      // by the Accragh sync, so an exact match on one case silently returns
+      // zero rows for the other provider's stores. Match case-insensitively.
+      .ilike("country_code", countryCodeUpper)
       .eq("is_active", true)
       .eq("provider", serviceProvider);
 
