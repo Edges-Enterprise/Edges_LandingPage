@@ -319,3 +319,11 @@ Two operational invariants worth keeping:
   (`SECURITY DEFINER`, reads the secret from Vault) → the edge function, which
   checks the `x-sync-secret` header. Run the `cron.job.command` by hand to
   test the whole chain; the response lands in `net._http_response`.
+
+- **`global_base_plans.country_code` is mixed-case.** The Zendit sync writes
+  it lowercased (`rw`), the Accragh sync uppercased (`GH`). Any filter on it
+  must be case-insensitive (`.ilike`) — an exact `.eq` on one case silently
+  returns zero rows for the other provider's stores (this made the dashboard
+  plans page show "no plans" while the storefront, which does not filter by
+  country, listed them). The storefront comment in `global-store-catalog`
+  already states this; the dashboard actions now follow it.
