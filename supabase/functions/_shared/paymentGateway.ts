@@ -75,9 +75,10 @@ export function getPaymentProvider(countryCode: string): PaymentProvider {
 /**
  * Providers that can take a USD charge. Korapay holds USD but its checkout
  * channel is disabled on the live account (`409 AA021`), so USD never routes
- * there. Juicyway documents USD but has no client in this codebase yet, so
- * Flutterwave is the only wired USD provider. Mirrors the web's
- * `USD_CAPABLE_PROVIDERS` in `src/lib/payments/index.ts`.
+ * there. Flutterwave is the sole USD rail by decision (2026-11-06): its
+ * hosted link takes card + USD ACH and covers the intended function, so
+ * Juicyway is not wired. Mirrors the web's `USD_CAPABLE_PROVIDERS` in
+ * `src/lib/payments/index.ts`.
  */
 const USD_CAPABLE_PROVIDERS: PaymentProvider[] = ["flutterwave"];
 
