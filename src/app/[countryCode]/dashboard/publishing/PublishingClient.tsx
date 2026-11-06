@@ -168,6 +168,7 @@ export default function PublishingClient({
         application={data.application}
         currentPlan={publishingPlan}
         walletBalance={data.walletBalance ?? 0}
+        walletCurrency={data.walletCurrency ?? "USD"}
         usdToLocalRate={data.usdToLocalRate ?? null}
         config={config}
         translations={t}

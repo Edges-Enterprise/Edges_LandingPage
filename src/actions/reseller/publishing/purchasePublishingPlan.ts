@@ -4,6 +4,7 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUsdToLocalRate } from "@/lib/currency/exchangeRate";
+import { getCountryConfig } from "@/config/countries";
 // Server-side price list. The client sends only the plan id, so the amount
 // charged cannot be edited from the browser.
 import { PUBLISHING_PLAN_PRICES } from "@/lib/publishing/plans";
@@ -16,6 +17,8 @@ interface PurchaseResult {
   amountUsd?: number;
   amountLocal?: number | null;
   localCurrency?: string;
+  /** What actually left the wallet, in the wallet's own currency. */
+  charged?: number;
   newBalance?: number;
 }
 
@@ -50,13 +53,46 @@ export async function purchasePublishingPlan(
 
     const admin = createAdminClient();
 
-    // The wallet is denominated in USD (global_wallets.currency), so the USD
-    // price is what gets debited. deduct_global_reseller_cost is SECURITY
-    // DEFINER and locks the wallet row with FOR UPDATE, so two concurrent
-    // purchases cannot both pass the balance check.
+    // Read the wallet before charging so the charge is in the wallet's own
+    // currency. A reseller wallet is denominated in the store's country
+    // currency (USD when the country has no local rail — Blocker 13), so a
+    // local-currency wallet is debited the local value of the USD price, and
+    // a USD wallet is debited the USD price. The plan's price list is USD;
+    // this is the conversion to what actually leaves the wallet.
+    const { data: wallet } = await admin
+      .from("global_wallets")
+      .select("id, balance, currency")
+      .eq("reseller_id", application.id)
+      .maybeSingle();
+
+    const walletCurrency = wallet?.currency || "USD";
+    // The local currency is the wallet's own currency, or the store's country
+    // currency when the wallet is a USD wallet (for the plan record only).
+    const localCurrency =
+      walletCurrency === "USD"
+        ? countryCurrency(application.country_code)
+        : walletCurrency;
+    const rate = await getUsdToLocalRate(localCurrency);
+    const amountLocal = rate ? Math.round(price * rate) : null;
+
+    // USD wallet: the USD price is debited as-is. Local wallet: the local
+    // value is debited. A missing rate is a hard failure — charging USD into
+    // a local wallet (or vice versa) is how the wrong magnitude leaves the
+    // wallet, so never guess.
+    const chargeAmount = walletCurrency === "USD" ? price : amountLocal;
+    if (chargeAmount == null || chargeAmount <= 0) {
+      return {
+        success: false,
+        error: `Exchange rate unavailable for ${localCurrency}`,
+      };
+    }
+
+    // deduct_global_reseller_cost is SECURITY DEFINER and locks the wallet
+    // row with FOR UPDATE, so two concurrent purchases cannot both pass the
+    // balance check.
     const { data: deducted, error: deductError } = await admin.rpc(
       "deduct_global_reseller_cost",
-      { p_reseller_id: application.id, p_cost_price: price },
+      { p_reseller_id: application.id, p_cost_price: chargeAmount },
     );
 
     if (deductError) {
@@ -79,20 +115,6 @@ export async function purchasePublishingPlan(
         error: deducted?.error || "Failed to deduct from wallet",
       };
     }
-
-    const { data: wallet } = await admin
-      .from("global_wallets")
-      .select("id, balance, currency")
-      .eq("reseller_id", application.id)
-      .maybeSingle();
-
-    const currency = wallet?.currency || "USD";
-    const localCurrency =
-      currency === "USD"
-        ? countryCurrency(application.country_code)
-        : currency;
-    const rate = await getUsdToLocalRate(localCurrency);
-    const amountLocal = rate ? Math.round(price * rate) : null;
 
     const now = new Date().toISOString();
 
@@ -118,12 +140,13 @@ export async function purchasePublishingPlan(
     }
 
     // Ledger row. type/status are constrained to the values the rest of the
-    // transactions code uses.
+    // transactions code uses. `amount` is what left the wallet (the wallet's
+    // own currency); the USD price and local equivalent are kept in metadata.
     const { error: txError } = await admin.from("global_transactions").insert({
       reseller_id: application.id,
       wallet_id: wallet?.id || null,
       type: "debit",
-      amount: price,
+      amount: chargeAmount,
       description: `App publishing plan — ${planId}`,
       status: "completed",
       reference: `PUB-${Date.now()}`,
@@ -132,6 +155,8 @@ export async function purchasePublishingPlan(
         amount_usd: price,
         amount_local: amountLocal,
         local_currency: localCurrency,
+        wallet_currency: walletCurrency,
+        charged: chargeAmount,
       },
     });
 
@@ -147,6 +172,7 @@ export async function purchasePublishingPlan(
       amountUsd: price,
       amountLocal,
       localCurrency,
+      charged: chargeAmount,
       newBalance: Number(deducted.new_balance ?? wallet?.balance ?? 0),
     };
   } catch (error) {
@@ -158,19 +184,9 @@ export async function purchasePublishingPlan(
   }
 }
 
-// Country code -> local currency, mirroring src/config/countries. Kept as a
-// tiny map so this server action does not import the React-bearing config
-// module.
+// Country code -> local currency, via the one country config. The wallet's
+// own currency is authoritative when it is not USD; this only supplies the
+// store's country currency for a USD wallet's plan record.
 function countryCurrency(countryCode: string): string {
-  const map: Record<string, string> = {
-    ng: "NGN",
-    gh: "GHS",
-    ke: "KES",
-    za: "ZAR",
-    cm: "XAF",
-    rw: "RWF",
-    ug: "UGX",
-    zm: "ZMW",
-  };
-  return map[countryCode] || "USD";
+  return getCountryConfig(countryCode).currency;
 }

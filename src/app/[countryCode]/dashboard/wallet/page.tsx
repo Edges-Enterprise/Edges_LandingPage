@@ -56,7 +56,11 @@ async function getWalletData(userId: string) {
 
     return {
       application,
-      wallet: wallet || { balance: 0, currency: "USD", status: "active" },
+      wallet: wallet || {
+        balance: 0,
+        currency: getCountryConfig(application.country_code).currency,
+        status: "active",
+      },
       transactions: transactions || [],
       virtualAccount: virtualAccount || null,
     };

@@ -77,6 +77,10 @@ export default function StoreFundWalletModal({
 }: StoreFundWalletModalProps) {
   const isXixapay = config.paymentGateway?.provider === "xixapay";
   const isFlutterwave = config.paymentGateway?.provider === "flutterwave";
+  // A USD store funds by card / USD ACH through Flutterwave's hosted link,
+  // not mobile money (Flutterwave has no USD mobile-money method). The store's
+  // own currency decides this, not the provider name.
+  const isUsd = (config.currency || "").toUpperCase() === "USD";
 
   const [amount, setAmount] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
@@ -105,7 +109,7 @@ export default function StoreFundWalletModal({
 
   if (!open) return null;
 
-  const needsMobileInput = isFlutterwave || useDirectApi;
+  const needsMobileInput = !isUsd && (isFlutterwave || useDirectApi);
   const currencySymbol = config.currencySymbol || "₦";
 
   const handleSubmit = async () => {
@@ -392,9 +396,11 @@ export default function StoreFundWalletModal({
             >
               {isXixapay
                 ? "One-click setup to fund your wallet instantly"
-                : isFlutterwave
-                  ? "Fund your wallet using mobile money via Flutterwave"
-                  : "Fund your wallet using mobile money. You will be redirected to complete your payment securely."}
+                : isUsd
+                  ? "Fund your wallet by card or bank transfer (USD)"
+                  : isFlutterwave
+                    ? "Fund your wallet using mobile money via Flutterwave"
+                    : "Fund your wallet using mobile money. You will be redirected to complete your payment securely."}
             </p>
 
             {banner}
@@ -579,7 +585,9 @@ export default function StoreFundWalletModal({
                     marginTop: "0.85rem",
                   }}
                 >
-                  \ud83d\udcb3 You will be redirected to complete your payment securely.
+                  {isUsd
+                    ? "💳 You will be redirected to complete your payment by card or USD bank transfer."
+                    : "💳 You will be redirected to complete your payment securely."}
                 </p>
               </>
             )}

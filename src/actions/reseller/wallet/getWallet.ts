@@ -2,6 +2,7 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabase/server";
+import { getCountryConfig } from "@/config/countries";
 
 export interface WalletData {
   id: string;
@@ -32,7 +33,7 @@ export async function getWallet(): Promise<{
     // Get the reseller's application
     const { data: application, error: appError } = await supabase
       .from("global_reseller_applications")
-      .select("id")
+      .select("id, country_code")
       .eq("auth_user_id", user.id)
       .single();
 
@@ -62,13 +63,15 @@ export async function getWallet(): Promise<{
       };
     }
 
-    // No wallet found - create one (will work with RLS now)
+    // No wallet found - create one, denominated in the store's own country
+    // currency (USD when the country has no local currency rail) so the
+    // balance, the shelf prices and the funding charge are one currency.
     const { data: newWallet, error: createError } = await supabase
       .from("global_wallets")
       .insert({
         reseller_id: application.id,
         balance: 0,
-        currency: "USD",
+        currency: getCountryConfig(application.country_code).currency,
         status: "active",
       })
       .select()

@@ -253,6 +253,14 @@ is the specific bug the layer exists to prevent.
   **USD**, never NGN and never an error — that is what lets a reseller
   outside the 24 mapped countries sell every Zendit plan. `phase2.integration.test.ts`
   fails if the two lists drift.
+- **The reseller wallet's currency is the store's country currency too.**
+  `global_wallets.currency` is set at creation from
+  `public.wallet_currency_for_country(country_code)` (the SQL twin of
+  `_shared/countryCurrency.ts`), never hardcoded. It was USD for every store
+  until 2026-11-06 (Blocker 13), which mislabelled a store-currency float as
+  dollars. Deposits credit and the purchase RPCs debit the store currency, so
+  the wallet, the shelf price and the charge are one currency; do not convert
+  the deduction to USD or back.
 - **`base_price` is a USD wholesale cost.** It is normalised at catalog sync.
   Nothing may compare a `base_price` to a store-currency price without
   converting first.

@@ -38,6 +38,11 @@ export default function FundWalletModal({
   const isFlutterwave = config.paymentGateway?.provider === "flutterwave";
   const isXixapay = config.paymentGateway?.provider === "xixapay";
 
+  // A USD store funds by card / USD ACH through Flutterwave's hosted link, not
+  // mobile money (Flutterwave has no USD mobile-money method). The store's own
+  // currency decides this, not the provider name.
+  const isUsd = (config.currency || "").toUpperCase() === "USD";
+
   // ✅ If Xixapay, this modal should not be shown
   if (isXixapay) {
     return null;
@@ -96,7 +101,7 @@ export default function FundWalletModal({
   };
 
   // ✅ Determine if we need mobile money input
-  const needsMobileInput = (isKorapay && useDirectApi) || isFlutterwave;
+  const needsMobileInput = !isUsd && ((isKorapay && useDirectApi) || isFlutterwave);
 
   const handleSubmit = async () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -235,12 +240,14 @@ export default function FundWalletModal({
             marginBottom: "1.5rem",
           }}
         >
-          {isFlutterwave
-            ? "Fund your wallet using mobile money via Flutterwave"
-            : isRedirectFlow
-              ? "You will be redirected to complete your payment via mobile money"
-              : t?.fundWalletDescription ||
-                "Add funds to your wallet to start selling."}
+          {isUsd
+            ? "Fund your wallet by card or bank transfer (USD)"
+            : isFlutterwave
+              ? "Fund your wallet using mobile money via Flutterwave"
+              : isRedirectFlow
+                ? "You will be redirected to complete your payment via mobile money"
+                : t?.fundWalletDescription ||
+                  "Add funds to your wallet to start selling."}
         </p>
 
         {/* ✅ Mobile Money Input - For Flutterwave and Korapay Direct API */}
@@ -318,9 +325,11 @@ export default function FundWalletModal({
                 margin: "0.5rem 0 0 0",
               }}
             >
-              {isFlutterwave
-                ? "Supported: MTN, Airtel (Rwanda, Uganda)"
-                : "Supported: Mobile Money"}
+              {isUsd
+                ? "Supported: Card, USD bank transfer (ACH)"
+                : isFlutterwave
+                  ? "Supported: MTN, Airtel (Rwanda, Uganda)"
+                  : "Supported: Mobile Money"}
             </p>
           </div>
         )}

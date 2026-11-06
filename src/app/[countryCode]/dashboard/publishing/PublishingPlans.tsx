@@ -22,6 +22,8 @@ interface PublishingPlansProps {
   };
   currentPlan: string | null;
   walletBalance?: number;
+  /** Currency the wallet (and its balance) is denominated in. */
+  walletCurrency?: string;
   /** USD -> local currency rate, so a card can show the local amount too. */
   usdToLocalRate?: number | null;
   config: CountryConfig;
@@ -43,6 +45,7 @@ export default function PublishingPlans({
   application,
   currentPlan,
   walletBalance = 0,
+  walletCurrency = "USD",
   usdToLocalRate = null,
   config,
   translations,
@@ -103,20 +106,29 @@ export default function PublishingPlans({
 
   const currencySymbol = config.currencySymbol || "$";
 
-  // The wallet is denominated in USD, so the balance and the price are
-  // compared in USD; the local figure is what the reseller recognises.
+  // The wallet's own currency is what gets debited: a local-currency wallet
+  // pays the local value of the USD price, a USD wallet pays the USD price.
+  // Compare the balance in the same currency as the charge, and show the
+  // local figure the reseller recognises.
   // formatStorePrice renders the store's symbol + locale with no letter code.
+  const localFor = (usdPrice: number): number | null =>
+    usdToLocalRate ? Math.round(usdPrice * usdToLocalRate) : null;
+
+  const walletIsUsd = walletCurrency.toUpperCase() === "USD";
+  const chargeFor = (usdPrice: number): number | null =>
+    walletIsUsd ? usdPrice : localFor(usdPrice);
+
   const formatLocal = (usdPrice: number) => {
-    if (!usdToLocalRate) return null;
-    const local = Math.round(usdPrice * usdToLocalRate);
-    return formatStorePrice(local, config);
+    const local = localFor(usdPrice);
+    return local == null ? null : formatStorePrice(local, config);
   };
 
   const selectedPlanDetails = plans.find((p) => p.id === selectedPlan);
   const activePlanDetails = plans.find((p) => p.id === currentPlan);
 
   const insufficientFunds =
-    !!selectedPlanDetails && walletBalance < selectedPlanDetails.price;
+    !!selectedPlanDetails &&
+    (chargeFor(selectedPlanDetails.price) ?? Infinity) > walletBalance;
 
   const canPublish =
     !!selectedPlan &&
