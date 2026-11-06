@@ -20,7 +20,6 @@ import { computePrice } from "./pricing.ts";
 import {
   loadStoreContext,
   pricePlan,
-  PriceUnavailableError,
   type StoreContext,
 } from "./storePrice.ts";
 import { getCountryCurrency, countryCurrencyMap } from "../countryCurrency.ts";
@@ -319,10 +318,29 @@ Deno.test("storePrice: a mapped country resolves to its own currency", async () 
   assert.equal(context.bufferFraction, 0.03);
 });
 
-Deno.test("storePrice: an expired rate is not used", async () => {
-  // A stale rate silently mis-prices, so it must be treated as no rate. The
-  // row is snake_case exactly as PostgREST returns it — a camelCase fixture
-  // hid a bug where the expiry field was read as `expiresAt`.
+Deno.test("storePrice: a mapped currency with no rate row falls back to USD", async () => {
+  // The live case: CDF is mapped to `cd`, but the DRC is not in Zendit's
+  // quote list, so no rate row exists. The store must still sell — priced in
+  // USD, whose rate is 1 — rather than going dark.
+  const client = stubClient({
+    countryCurrency: { currency_code: "CDF" },
+    currencyRow: { buffer_fraction: 0 },
+    rate: null,
+  });
+  const { context } = await loadStoreContext(client, {
+    countryCode: "cd",
+    planId: null,
+  });
+  assert.equal(context.currency, "USD");
+  assert.equal(context.currencyIsFallback, true);
+  assert.equal(context.usdToStoreRate, 1);
+});
+
+Deno.test("storePrice: an expired rate falls back to USD, not an error", async () => {
+  // A stale rate silently mis-prices, so it must be treated as no rate — but
+  // "no rate" is now the USD fallback, not a hard failure. The row is
+  // snake_case exactly as PostgREST returns it — a camelCase fixture hid a
+  // bug where the expiry field was read as `expiresAt`.
   const client = stubClient({
     countryCurrency: { currency_code: "RWF" },
     currencyRow: { buffer_fraction: 0 },
@@ -335,8 +353,11 @@ Deno.test("storePrice: an expired rate is not used", async () => {
       expires_at: new Date(Date.now() - 3600_000).toISOString(),
     },
   });
-  await assert.rejects(
-    () => loadStoreContext(client, { countryCode: "rw", planId: null }),
-    PriceUnavailableError,
-  );
+  const { context } = await loadStoreContext(client, {
+    countryCode: "rw",
+    planId: null,
+  });
+  assert.equal(context.currency, "USD");
+  assert.equal(context.currencyIsFallback, true);
+  assert.equal(context.usdToStoreRate, 1);
 });

@@ -119,9 +119,10 @@ export interface StoreContext {
   rateIsFallback: boolean;
   bufferFraction: number;
   /**
-   * True when the store's country has no currency mapping and USD was used.
-   * The store still prices and sells; the flag exists so the USD default is
-   * visible in logs and can be told apart from a genuinely USD country.
+   * True when the store is pricing in USD as a fallback rather than because
+   * USD is its mapped currency: either the country has no mapping, or it has
+   * one whose currency had no fresh rate. The flag exists so the USD default
+   * is visible in logs and can be told apart from a genuinely USD store.
    */
   currencyIsFallback: boolean;
 }
@@ -187,12 +188,30 @@ export async function loadStoreContextRows(
       .maybeSingle(),
   );
   const bufferFraction = Number(currencyRow?.buffer_fraction ?? 0);
-  const currency = currencyCode;
 
-  const rate = await findFreshRate(client as unknown as RateStore, currency);
-  if (!rate) {
+  // A mapped currency with no usable rate falls back to USD, the same way a
+  // country with no mapping does. The alternative — a hard failure — blanks
+  // the storefront and rejects the purchase, which is the wrong trade when
+  // the fallback is safe: the whole catalogue's wholesale cost is USD
+  // (`base_price` is normalised at catalog sync), so pricing in USD costs
+  // the reseller nothing and keeps the store sellable. This is the live case
+  // for CDF, which is mapped to `cd` but has no rate row (the DRC is not in
+  // Zendit's quote list).
+  //
+  // USD is safe ONLY because a store's customer wallets are denominated in
+  // the same currency the store prices in (both derive from the country, and
+  // `cd` is USD on both sides). A store whose wallets held CDF while it
+  // priced in USD would debit the wrong currency, so if that invariant ever
+  // changes this fallback must be revisited.
+  const rate = await findFreshRate(client as unknown as RateStore, currencyCode);
+  const currency = rate ? currencyCode : BASE_CURRENCY;
+  // A USD rate is always rate 1 (`findFreshRate` special-cases the base), so
+  // this is the currency's own rate or 1 — never a stale or borrowed one.
+  const resolvedRate = rate ??
+    (await findFreshRate(client as unknown as RateStore, BASE_CURRENCY));
+  if (!resolvedRate) {
     throw new PriceUnavailableError(
-      `no fresh USD->${currency} rate available`,
+      `no fresh USD->${currencyCode} rate and no USD base rate`,
     );
   }
 
@@ -207,12 +226,15 @@ export async function loadStoreContextRows(
     context: {
       countryCode: country,
       currency,
-      usdToStoreRate: rate.rate,
-      rateSource: rate.source,
-      rateExpiresAt: rate.expiresAt,
-      rateIsFallback: rate.fallback,
+      usdToStoreRate: resolvedRate.rate,
+      rateSource: resolvedRate.source,
+      rateExpiresAt: resolvedRate.expiresAt,
+      rateIsFallback: resolvedRate.fallback,
       bufferFraction,
-      currencyIsFallback,
+      // True when USD was used because the country has no mapping OR because
+      // its mapped currency had no fresh rate. Either way the store is
+      // pricing in USD, and that must be visible in logs.
+      currencyIsFallback: currencyIsFallback || !rate,
     },
     markupRows,
   };

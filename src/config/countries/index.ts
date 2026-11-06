@@ -19,6 +19,7 @@ import { COUNTRY_ML } from "./ml";
 import { COUNTRY_GN } from "./gn";
 import { COUNTRY_RW } from "./rw";
 import { COUNTRY_UG } from "./ug";
+import { COUNTRY_USD } from "./usd";
 import { ReactNode } from "react";
 
 export type PaymentProvider = "xixapay" | "korapay" | "flutterwave";
@@ -194,8 +195,20 @@ export const COUNTRIES: Record<string, CountryConfig> = {
   ug: COUNTRY_UG,
 };
 
+/**
+ * The config a lookup falls back to when a country has no config of its own.
+ *
+ * A country outside `SUPPORTED_COUNTRIES` is priced in USD by the pricing
+ * engine (`_shared/currency/storePrice.ts`) and holds a USD wallet
+ * (`_shared/countryCurrency.ts`), so the display must be USD too. Falling
+ * back to Nigeria showed an NGN symbol on a USD price and NGN-only copy for
+ * a store that cannot be paid in naira — the two halves of the same policy
+ * have to agree. See `usd.ts` for what this config is and is not.
+ */
+export const USD_FALLBACK_CONFIG = COUNTRY_USD;
+
 export const getCountryConfig = (code: string): CountryConfig => {
-  return COUNTRIES[code] || COUNTRIES.ng;
+  return COUNTRIES[code] || USD_FALLBACK_CONFIG;
 };
 
 export const getDefaultCountry = (): string => "ng";

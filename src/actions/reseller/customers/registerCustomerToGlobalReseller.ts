@@ -92,10 +92,10 @@ export async function registerCustomerToGlobalReseller(
   // Resolve currency from the reseller's own country, not a caller-
   // supplied value — avoids a Nigerian customer's wallet silently
   // defaulting to global_customer_wallets.currency's USD default.
-  // getCountryConfig never returns undefined — it falls back to
-  // Nigeria's config for an unrecognized code, which is a more
-  // sensible fallback here than USD given the rest of this codebase
-  // already treats NG as the default country.
+  // getCountryConfig never returns undefined: for a country with no config
+  // it returns the USD fallback, which is the same currency the pricing
+  // engine and the wallet-side map use for that country, so the customer's
+  // wallet is denominated in the currency the store prices in.
   const countryConfig = getCountryConfig(reseller.country_code);
 
   const { error: walletError } = await admin

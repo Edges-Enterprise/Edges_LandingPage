@@ -138,14 +138,18 @@ export default function StoreContent({
     const result = auth.isStoreOwner
       ? await fundWallet({
           amount,
-          countryCode: config.code,
+          // The store's own country, not `config.code`: for a country
+          // outside the supported set the config is the USD fallback and
+          // its code is empty, so the gateway/currency must come from the
+          // store record itself.
+          countryCode: storeData.application.country_code,
           source: "web",
           mobileMoney: mobileNumber ? { number: mobileNumber } : undefined,
         })
       : await fundGlobalCustomerWallet({
           resellerId: storeData.application.id,
           amount,
-          countryCode: config.code,
+          countryCode: storeData.application.country_code,
           source: "web",
           mobileMoney: mobileNumber ? { number: mobileNumber } : undefined,
           returnPath: `/${storeData.application.country_code}/${storeData.application.store_slug}`,

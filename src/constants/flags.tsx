@@ -26,6 +26,71 @@ export const flags = {
       <path fill="#ffffff" d="M213.3 0h213.4v480H213.3z" />
     </svg>
   ),
+  // ✅ ADDED: United States — used by the USD fallback config
+  // (src/config/countries/usd.ts) for a country outside SUPPORTED_COUNTRIES.
+  UnitedStates: (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 640 480"
+      width="24"
+      height="16"
+      style={{ display: "block" }}
+    >
+      <path fill="#bd3d44" d="M0 0h640v480H0z" />
+      <path
+        stroke="#fff"
+        strokeWidth="37"
+        d="M0 55.3h640M0 129h640M0 202.8h640M0 276.5h640M0 350.2h640M0 423.9h640"
+      />
+      <path fill="#192f5d" d="M0 0h364.8v258.5H0z" />
+      <g fill="#fff">
+        <circle cx="30" cy="30" r="9" />
+        <circle cx="90" cy="30" r="9" />
+        <circle cx="150" cy="30" r="9" />
+        <circle cx="210" cy="30" r="9" />
+        <circle cx="270" cy="30" r="9" />
+        <circle cx="330" cy="30" r="9" />
+        <circle cx="60" cy="60" r="9" />
+        <circle cx="120" cy="60" r="9" />
+        <circle cx="180" cy="60" r="9" />
+        <circle cx="240" cy="60" r="9" />
+        <circle cx="300" cy="60" r="9" />
+        <circle cx="30" cy="90" r="9" />
+        <circle cx="90" cy="90" r="9" />
+        <circle cx="150" cy="90" r="9" />
+        <circle cx="210" cy="90" r="9" />
+        <circle cx="270" cy="90" r="9" />
+        <circle cx="330" cy="90" r="9" />
+        <circle cx="60" cy="120" r="9" />
+        <circle cx="120" cy="120" r="9" />
+        <circle cx="180" cy="120" r="9" />
+        <circle cx="240" cy="120" r="9" />
+        <circle cx="300" cy="120" r="9" />
+        <circle cx="30" cy="150" r="9" />
+        <circle cx="90" cy="150" r="9" />
+        <circle cx="150" cy="150" r="9" />
+        <circle cx="210" cy="150" r="9" />
+        <circle cx="270" cy="150" r="9" />
+        <circle cx="330" cy="150" r="9" />
+        <circle cx="60" cy="180" r="9" />
+        <circle cx="120" cy="180" r="9" />
+        <circle cx="180" cy="180" r="9" />
+        <circle cx="240" cy="180" r="9" />
+        <circle cx="300" cy="180" r="9" />
+        <circle cx="30" cy="210" r="9" />
+        <circle cx="90" cy="210" r="9" />
+        <circle cx="150" cy="210" r="9" />
+        <circle cx="210" cy="210" r="9" />
+        <circle cx="270" cy="210" r="9" />
+        <circle cx="330" cy="210" r="9" />
+        <circle cx="60" cy="240" r="9" />
+        <circle cx="120" cy="240" r="9" />
+        <circle cx="180" cy="240" r="9" />
+        <circle cx="240" cy="240" r="9" />
+        <circle cx="300" cy="240" r="9" />
+      </g>
+    </svg>
+  ),
   // ✅ ADDED: Kenya
   Kenya: (
     <svg
