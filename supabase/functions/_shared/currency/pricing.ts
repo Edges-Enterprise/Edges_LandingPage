@@ -11,7 +11,7 @@
 //
 // The pipeline, in order — the order matters and is the whole point:
 //
-//   1. start from the USD wholesale cost (normalised at sync time)
+//   1. start from the wholesale cost, normalised to USD
 //   2. apply the PLATFORM markup            -> platform price, USD
 //   3. convert to the store currency        -> store price, minor units
 //   4. apply the RESELLER markup            -> customer price, minor units
@@ -21,10 +21,17 @@
 // not move with the rate. Step 5 is the invariant from HANDOVER.md: if a
 // rounding or a stale rate ever pushes the shelf price below the wholesale
 // cost, that is a bug, not a pricing choice, and it throws.
+//
+// Step 1 has to respect the cost's OWN currency. Zendit's catalog is
+// normalised to USD at sync time, but the Accragh and Lizzysub catalogues
+// store `base_price` in the plan's own currency (GHS, NGN). Treating those
+// as USD multiplied them by the USD->store rate a second time — a Rwandan
+// store showed NGN 400 as 523,783.78 RWF. A cost that is not USD is
+// normalised here, once, at the single entry to the pipeline, so every
+// caller (storefront, purchase, dashboard) inherits the fix.
 
 import {
   BASE_CURRENCY,
-  convertMinor,
   currencyDivisor,
   toMinor,
 } from "./registry.ts";
@@ -53,12 +60,30 @@ export interface MarkupStep {
 }
 
 export interface PricingInput {
-  /** Wholesale cost in USD, decimal (as stored in global_base_plans). */
+  /**
+   * Wholesale cost as stored in `global_base_plans.base_price`, in
+   * `costCurrency` (USD for Zendit, the plan's own currency for Accragh and
+   * Lizzysub). Normalised to USD inside the pipeline.
+   */
   costUsd: number;
-  /** The store's currency (one currency per store, permanent). */
-  storeCurrency: string;
+  /**
+   * The currency `costUsd` is denominated in. Defaults to USD, which is the
+   * Zendit catalogue's normalised basis. When it is not USD the cost is
+   * divided by that currency's USD rate before any markup — a local-currency
+   * cost must NOT be multiplied by the USD->store rate.
+   */
+  costCurrency?: string;
   /** USD -> storeCurrency multiplier from the rate service. */
   usdToStoreRate: number;
+  /**
+   * The USD rate of `costCurrency` (1 USD = this many units of it), used only
+   * when `costCurrency` is not USD. For a store whose own currency is the
+   * cost currency, pass `usdToStoreRate`; for any other store, pass that
+   * currency's own fresh rate.
+   */
+  costCurrencyUsdRate?: number;
+  /** The store's currency (one currency per store, permanent). */
+  storeCurrency: string;
   /**
    * Platform markup for this plan, most specific first. They are applied in
    * order (default -> country -> plan), each compounding on the previous.
@@ -77,8 +102,10 @@ export interface PricingInput {
 }
 
 export interface PricingResult {
-  /** Wholesale cost, USD decimal. */
+  /** Wholesale cost normalised to USD decimal. */
   costUsd: number;
+  /** The currency the cost was stored in, before normalisation. */
+  costCurrency: string;
   /** Cost after platform markup, USD decimal. */
   platformPriceUsd: number;
   /** Platform price converted to the store currency, minor units. */
@@ -88,13 +115,13 @@ export interface PricingResult {
   /** Customer price as a decimal, for a numeric DB column or display. */
   customerPriceDecimal: number;
   /**
-   * The wholesale cost converted into the store currency, decimal. This is
-   * the `cost_price` the purchase RPC deducts, and the basis of the
-   * reseller's profit (`selling_price - cost_price`). It is deliberately the
-   * same number as the floor, so profit can never be negative.
+   * The wholesale cost in the store currency, decimal. This is the
+   * `cost_price` the purchase RPC deducts, and the basis of the reseller's
+   * profit (`selling_price - cost_price`). It is deliberately the same number
+   * as the floor, so profit can never be negative.
    */
   costLocalDecimal: number;
-  /** The wholesale cost converted into the store currency, minor units. */
+  /** The wholesale cost in the store currency, minor units. */
   costLocalMinor: number;
   storeCurrency: string;
   /** Margin over cost in store-currency minor units (may be negative if floored). */
@@ -136,8 +163,10 @@ export function applyMarkup(amount: number, rule: MarkupRule): number {
 export function computePrice(input: PricingInput): PricingResult {
   const {
     costUsd,
-    storeCurrency,
+    costCurrency: rawCostCurrency = BASE_CURRENCY,
     usdToStoreRate,
+    costCurrencyUsdRate,
+    storeCurrency,
     platformMarkups = [],
     resellerMarkup = null,
     resellerSellingPrice = null,
@@ -151,11 +180,31 @@ export function computePrice(input: PricingInput): PricingResult {
     throw new PricingFloorError(`invalid usdToStoreRate: ${usdToStoreRate}`);
   }
 
+  const costCurrency = (rawCostCurrency || BASE_CURRENCY).toUpperCase();
   const storeDivisor = currencyDivisor(storeCurrency);
+
+  // Step 1: normalise the cost to USD. A USD cost (Zendit) is already there.
+  // A local-currency cost (Accragh GHS, Lizzysub NGN) is divided by that
+  // currency's USD rate, which stops step 3 multiplying it by the store rate
+  // a second time. A cost already in the store currency uses the store rate
+  // the caller has loaded; any other currency needs its own rate supplied,
+  // and its absence is a configuration fault rather than a silent misprice.
+  let usdCost = costUsd;
+  if (costCurrency !== BASE_CURRENCY) {
+    const costRate = costCurrency === storeCurrency.toUpperCase()
+      ? usdToStoreRate
+      : costCurrencyUsdRate;
+    if (!(typeof costRate === "number" && costRate > 0 && Number.isFinite(costRate))) {
+      throw new PricingFloorError(
+        `no USD rate for cost currency ${costCurrency}`,
+      );
+    }
+    usdCost = costUsd / costRate;
+  }
 
   // Steps 1-2: platform markup, in USD.
   const steps: MarkupStep[] = [];
-  let platformPriceUsd = costUsd;
+  let platformPriceUsd = usdCost;
   for (const rule of platformMarkups) {
     platformPriceUsd = applyMarkup(platformPriceUsd, rule);
     steps.push({
@@ -204,12 +253,12 @@ export function computePrice(input: PricingInput): PricingResult {
   // measuring the floor at the unbuffered rate would hand the buffer to the
   // reseller as margin. If rounding or a negative markup has pushed the
   // price under, lift it to exactly the floor.
-  const costFloorMinor = convertMinor(
-    toMinor(costUsd, currencyDivisor(BASE_CURRENCY)),
-    currencyDivisor(BASE_CURRENCY),
-    effectiveRate,
-    storeDivisor,
-  );
+  //
+  // The cost is converted from its normalised USD form in one multiplication
+  // rather than a round trip through USD minor units, so a cost already in
+  // the store's own currency lands back on its exact value (NGN 380 -> 380,
+  // not 384) instead of absorbing a rounding error.
+  const costFloorMinor = toMinor(usdCost * effectiveRate, storeDivisor);
   let floorApplied = false;
   if (customerPriceMinor < costFloorMinor) {
     customerPriceMinor = costFloorMinor;
@@ -220,7 +269,8 @@ export function computePrice(input: PricingInput): PricingResult {
   const marginMinor = customerPriceMinor - costFloorMinor;
 
   return {
-    costUsd,
+    costUsd: usdCost,
+    costCurrency,
     platformPriceUsd,
     storePriceMinor,
     customerPriceMinor,

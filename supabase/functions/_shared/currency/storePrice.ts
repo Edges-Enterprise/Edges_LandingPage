@@ -17,6 +17,7 @@ import {
   type MarkupRule,
   type PricingResult,
 } from "./pricing.ts";
+import { BASE_CURRENCY } from "./registry.ts";
 import { findFreshRate, type RateStore } from "./rates.ts";
 import { platformMarkupChain, type PlatformMarkupRow } from "./markup.ts";
 import { priceRangeOffer } from "./range.ts";
@@ -239,6 +240,11 @@ export function pricePlan(
 
   const result = computePrice({
     costUsd: Number(plan.base_price),
+    // The cost's own currency. Zendit normalises base_price to USD; Accragh
+    // and Lizzysub store it in the plan's own currency (GHS, NGN). Passing it
+    // through is what stops a local-currency cost being multiplied by the
+    // USD->store rate a second time.
+    costCurrency: plan.currency ?? BASE_CURRENCY,
     storeCurrency: ctx.currency,
     usdToStoreRate: ctx.usdToStoreRate,
     platformMarkups,

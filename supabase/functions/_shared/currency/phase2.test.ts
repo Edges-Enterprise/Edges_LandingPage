@@ -342,3 +342,79 @@ Deno.test("pricing: an invalid rate is a configuration fault, not a price", () =
     PricingFloorError,
   );
 });
+
+Deno.test("pricing: a local-currency cost is NOT multiplied by the USD rate", () => {
+  // Regression guard for the live Accragh/Lizzysub defect. Their catalogues
+  // store base_price in the plan's own currency (GHS, NGN), not USD. The
+  // pipeline multiplied it by the USD->store rate anyway, so a Rwandan store
+  // showed an NGN 380 plan as 523,783.78 RWF — about 1351x too high.
+  //
+  // The store's currency here IS the cost's currency, which is the common
+  // case (a GHS store selling GHS plans): the shelf price is the local cost
+  // plus the reseller markup, with no FX at all.
+  const result = computePrice({
+    costUsd: 380, // Lizzysub 1000MB, NGN 380
+    costCurrency: "NGN",
+    storeCurrency: "NGN",
+    usdToStoreRate: 1600,
+    resellerMarkup: { markup_type: "percentage", markup_value: 10 },
+  });
+  assert.equal(result.costCurrency, "NGN");
+  assert.equal(result.costLocalDecimal, 380, "the NGN cost, unconverted");
+  assert.equal(result.customerPriceMinor, 41800, "380 NGN + 10% = 418 NGN");
+  assert.equal(result.customerPriceDecimal, 418);
+});
+
+Deno.test("pricing: a local-currency cost in a DIFFERENT store currency converts once", () => {
+  // The Rwandan-store case that was broken: an NGN cost priced in RWF. The
+  // cost must be normalised to USD once and then converted to RWF once.
+  const result = computePrice({
+    costUsd: 380, // NGN 380
+    costCurrency: "NGN",
+    storeCurrency: "RWF",
+    usdToStoreRate: 1400, // USD -> RWF
+    costCurrencyUsdRate: 1600, // USD -> NGN (the cost currency's own rate)
+    resellerMarkup: { markup_type: "percentage", markup_value: 20 },
+  });
+  // NGN 380 / 1600 = $0.2375 USD -> * 1400 = 332.5 RWF cost; RWF has no
+  // minor units, so the cost floor is 333 RWF; +20% = 399.6 -> 400 RWF.
+  assert.equal(result.costCurrency, "NGN");
+  assert.equal(result.costLocalDecimal, 333);
+  assert.equal(result.customerPriceDecimal, 400);
+  // The old, broken path produced 380 * 1400 * 1.2 = 638,400 RWF.
+  assert.ok(
+    result.customerPriceDecimal < 1000,
+    "a local cost must never be multiplied by the store rate",
+  );
+});
+
+Deno.test("pricing: a non-USD cost with no rate is a fault, not a misprice", () => {
+  // Guessing here is how a plan gets sold at a wrong price; refuse instead.
+  assert.throws(
+    () =>
+      computePrice({
+        costUsd: 380,
+        costCurrency: "NGN",
+        storeCurrency: "RWF",
+        usdToStoreRate: 1400,
+        // costCurrencyUsdRate deliberately absent
+      }),
+    PricingFloorError,
+  );
+});
+
+Deno.test("pricing: a USD cost is unchanged by the cost-currency path", () => {
+  // Zendit plans are USD; the fix must be a no-op for them.
+  const withField = computePrice({
+    costUsd: 1.0,
+    costCurrency: "USD",
+    storeCurrency: "RWF",
+    usdToStoreRate: 1400,
+  });
+  const withoutField = computePrice({
+    costUsd: 1.0,
+    storeCurrency: "RWF",
+    usdToStoreRate: 1400,
+  });
+  assert.deepEqual(withField, withoutField);
+});
