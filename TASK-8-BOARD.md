@@ -729,6 +729,10 @@ lands, browsing a catalog works but buying fails.**
 
 Blocker 1 (customer cannot read `global_*` under RLS) is **resolved by Option B**.
 
+| # | Blocker | Impact | Resolution options |
+|---|---|---|---|
+| 10 | **`global-fx-refresh`'s Korapay leg is dead and reports success.** `POST /merchant/api/v1/conversions/rates` with the live key returns `401 unauthorized`; `fetchKorapayRate` maps any non-OK response to `null`, which the caller records as `missing` rather than `failed`, so the hourly cron exits clean while writing nothing. All **528** rows in `global_fx_rates` are `source='zendit'`; zero are `collection_provider`. Every shelf price is therefore on the Zendit **retail fallback** (a rate with Zendit's own margin baked in) with a 6h TTL refreshed only by the 4-hourly `catalog-sync`. | Prices track Zendit's retail rate, not the rate the platform's held money is worth; the design's primary rate source is silently unused. The 2026-11-04 note that "88 fallback rates are real" measured the Zendit leg, not this one. | (a) enable the Korapay Conversions API on the account (a Korapay-dashboard step — the key is valid for balances and charges, so this is an entitlement, not a bad key); (b) treat a non-OK provider response as `failed`, not `missing`, so a dead leg is visible in the sync result; (c) if the entitlement cannot be enabled, make Zendit the documented primary and drop the provider leg rather than leaving a silent no-op. Agent fix for (b); (a) is a person step. |
+
 ## Person-only manual steps (roll-up)
 
 **The remaining person steps (the last three rows below, plus `8.d.iii`) are
