@@ -111,6 +111,22 @@ export const korapay: PaymentGateway = {
         };
       }
 
+      // A USD charge cannot go through Korapay: the live account has no USD
+      // checkout channel, so `/charges/initialize` answers
+      // `409 AA021 "You don't have any channel enabled for checkout
+      // payment"`. Fail here with the real cause instead of forwarding that.
+      // Callers route USD to Flutterwave (see lib/payments/index.ts,
+      // resolvePaymentGatewayType); this guards the gateway itself.
+      if (resolvedCurrency.toUpperCase() === "USD") {
+        return {
+          success: false,
+          reference,
+          error:
+            "Korapay cannot charge in USD (no USD channel on this account). " +
+            "Use a USD-capable provider such as Flutterwave.",
+        };
+      }
+
       // Get reseller details
       const supabase = await import("@/lib/supabase/server").then((m) =>
         m.createServerClient(),

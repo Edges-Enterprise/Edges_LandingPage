@@ -16,20 +16,22 @@
 // for those, Zendit's catalog fx remains the fallback recorded by the
 // catalog sync.
 //
+// As of 2026-11-06 the live Korapay account returns 401 on this endpoint
+// (the Conversions API is not enabled), so every pair falls to the Zendit
+// fallback. That is now reported as a dead leg — `legDead: true` and HTTP
+// 500 — instead of the clean no-op that hid it for weeks (Blocker 10).
+//
 // A currency with no fresh rate from either leg cannot be priced. The
 // function reports those explicitly rather than writing a stale or guessed
 // rate, because a wrong rate is worse than a missing one.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { BASE_CURRENCY } from "../_shared/currency/registry.ts";
 import {
-  RATE_TTL_MS,
   recordRate,
+  RATE_TTL_MS,
   type RateStore,
 } from "../_shared/currency/rates.ts";
-
-const KORAPAY_BASE = Deno.env.get("KORAPAY_BASE_URL") ||
-  "https://api.korapay.com";
+import { fetchKorapayRate } from "../_shared/currency/providerRate.ts";
 
 /** Currencies Korapay can quote against USD. */
 const KORAPAY_CURRENCIES = [
@@ -43,52 +45,6 @@ const KORAPAY_CURRENCIES = [
   "XOF",
   "XAF",
 ];
-
-interface KorapayRateResponse {
-  status?: boolean;
-  data?: {
-    rate?: number;
-    source_currency?: string;
-    destination_currency?: string;
-  };
-  message?: string;
-}
-
-/**
- * Ask Korapay for the USD -> `quote` rate.
- *
- * Returns null when Korapay has no rate for the pair, which is a normal
- * outcome (not every currency is convertible), not an error.
- */
-export async function fetchKorapayRate(
-  quote: string,
-  fetcher: typeof fetch = fetch,
-): Promise<number | null> {
-  const secret = Deno.env.get("KORAPAY_SECRET_KEY");
-  if (!secret) throw new Error("KORAPAY_SECRET_KEY is not configured");
-
-  const response = await fetcher(
-    `${KORAPAY_BASE}/merchant/api/v1/conversions/rates`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${secret}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        source_currency: BASE_CURRENCY,
-        destination_currency: quote,
-        amount: 1,
-      }),
-    },
-  );
-
-  if (!response.ok) return null;
-  const body = (await response.json()) as KorapayRateResponse;
-  const rate = body?.data?.rate;
-  if (typeof rate !== "number" || !(rate > 0)) return null;
-  return rate;
-}
 
 Deno.serve(async (req) => {
   const secret = Deno.env.get("FX_REFRESH_SECRET");
@@ -122,14 +78,23 @@ Deno.serve(async (req) => {
   for (const quote of KORAPAY_CURRENCIES) {
     if (!wanted.has(quote)) continue;
     try {
-      const rate = await fetchKorapayRate(quote);
-      if (rate === null) {
-        missing.push(quote);
+      const outcome = await fetchKorapayRate(quote);
+      if (outcome.kind === "rejected") {
+        // A rejected request is a dead leg, not a per-pair miss: record it
+        // as a failure so the run is visibly unhealthy instead of a clean
+        // no-op (Blocker 10).
+        failed.push(
+          `${quote}: provider rejected the request (HTTP ${outcome.status}) — ${outcome.detail}`,
+        );
+        continue;
+      }
+      if (outcome.kind === "no_rate") {
+        missing.push(`${quote}: ${outcome.detail}`);
         continue;
       }
       await recordRate(supabase as unknown as RateStore, {
         quote,
-        rate,
+        rate: outcome.rate,
         source: "collection_provider",
         ttlMs: RATE_TTL_MS,
       });
@@ -139,8 +104,25 @@ Deno.serve(async (req) => {
     }
   }
 
-  return new Response(
-    JSON.stringify({ ok: failed.length === 0, updated, missing, failed }),
-    { headers: { "Content-Type": "application/json" } },
+  // A leg that answered for no pair at all is dead — every price is on the
+  // Zendit fallback. Surface that as a non-2xx so the scheduler's history
+  // shows a failure rather than a run that quietly wrote nothing.
+  const legDead = failed.length > 0 && updated.length === 0;
+  const body = {
+    ok: failed.length === 0,
+    leg: "collection_provider",
+    legDead,
+    updated,
+    missing,
+    failed,
+  };
+  console.error(
+    `global-fx-refresh: leg=collection_provider updated=${updated.length} ` +
+      `missing=${missing.length} failed=${failed.length} legDead=${legDead}`,
   );
+
+  return new Response(JSON.stringify(body), {
+    status: legDead ? 500 : 200,
+    headers: { "Content-Type": "application/json" },
+  });
 });

@@ -14,7 +14,7 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
-import { getPaymentGatewayByCountry } from "@/lib/payments";
+import { resolvePaymentGateway, resolvePaymentGatewayType } from "@/lib/payments";
 import { PaymentInitiateParams } from "@/lib/payments/payment.types";
 
 interface FundGlobalCustomerWalletParams {
@@ -22,6 +22,8 @@ interface FundGlobalCustomerWalletParams {
   amount: number;
   countryCode: string;
   source?: "web" | "app";
+  /** Charge currency; defaults to the store country's currency. */
+  currency?: string;
   mobileMoney?: {
     number: string;
     network?: string;
@@ -48,6 +50,7 @@ export async function fundGlobalCustomerWallet({
   amount,
   countryCode,
   source = "web",
+  currency,
   mobileMoney,
   returnPath,
 }: FundGlobalCustomerWalletParams): Promise<FundGlobalCustomerWalletResult> {
@@ -91,8 +94,10 @@ export async function fundGlobalCustomerWallet({
     }
 
     const config = getCountryConfig(countryCode);
-    const currencyCode = config.currency;
-    const gatewayProvider = config.paymentGateway?.provider;
+    const currencyCode = currency || config.currency;
+    // A USD charge must not go to a provider without a USD channel (Korapay's
+    // is disabled live), so resolve the provider by currency, not country.
+    const gatewayProvider = resolvePaymentGatewayType(countryCode, currencyCode);
 
     // xixapay countries fund via the persistent virtual account
     // (1.c.ii) instead of an initiate-payment call - see file header.
@@ -104,7 +109,7 @@ export async function fundGlobalCustomerWallet({
       };
     }
 
-    const gateway = getPaymentGatewayByCountry(countryCode);
+    const gateway = resolvePaymentGateway(countryCode, currencyCode);
     const customerName =
       `${customer.first_name} ${customer.last_name}`.trim() ||
       customer.email;

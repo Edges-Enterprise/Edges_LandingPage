@@ -100,8 +100,18 @@ export const flutterwave: PaymentGateway = {
         };
       }
 
-      // Only support mobile money for Rwanda and Uganda
-      if (!supportsMobileMoney(countryCode)) {
+      // A USD charge is a card/bank hosted-link payment, not mobile money:
+      // mobile money is a local-currency rail and Flutterwave has no USD
+      // mobile-money method. Build the standard payment payload (no
+      // `payment_options`/`mobilemoney`) and let Flutterwave's hosted page
+      // offer card + USD ACH. This is the path a USD top-up takes when the
+      // country's configured gateway is Korapay, whose USD checkout channel
+      // is disabled on the live account.
+      const isUsd = resolvedCurrency.toUpperCase() === "USD";
+
+      // Mobile money is only supported for Rwanda and Uganda, and never for
+      // USD.
+      if (!isUsd && !supportsMobileMoney(countryCode)) {
         return {
           success: false,
           reference,
@@ -110,7 +120,7 @@ export const flutterwave: PaymentGateway = {
       }
 
       // Check if mobile money number is provided
-      if (!mobileMoney?.number) {
+      if (!isUsd && !mobileMoney?.number) {
         return {
           success: false,
           reference,
@@ -155,13 +165,7 @@ export const flutterwave: PaymentGateway = {
         customer: {
           email: customerEmail,
           name: customerName,
-          phone_number: mobileMoney.number,
-        },
-        payment_options: "mobilemoney",
-        mobilemoney: {
-          phone: mobileMoney.number,
-          network: mobileMoney.network || getDefaultNetwork(countryCode),
-          country: upperCountry,
+          ...(mobileMoney?.number ? { phone_number: mobileMoney.number } : {}),
         },
         meta: {
           reseller_id: resellerId,
@@ -172,9 +176,23 @@ export const flutterwave: PaymentGateway = {
         },
         customizations: {
           title: `Wallet Funding - ${application.store_slug || "Edges"}`,
-          description: "Fund your wallet via mobile money",
+          description: isUsd
+            ? "Fund your wallet via card or bank transfer"
+            : "Fund your wallet via mobile money",
         },
       };
+
+      if (!isUsd) {
+        payload.payment_options = "mobilemoney";
+        payload.mobilemoney = {
+          phone: mobileMoney!.number,
+          network: mobileMoney!.network || getDefaultNetwork(countryCode),
+          country: upperCountry,
+        };
+      } else {
+        // Card + USD ACH. `account` is Flutterwave's bank-transfer option.
+        payload.payment_options = "card,account";
+      }
 
       console.log("📤 Flutterwave Request:", {
         url: `${FLUTTERWAVE_BASE_URL}/payments`,

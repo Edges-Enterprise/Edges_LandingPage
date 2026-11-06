@@ -4,7 +4,7 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
-import { getPaymentGatewayByCountry } from "@/lib/payments";
+import { resolvePaymentGateway, resolvePaymentGatewayType } from "@/lib/payments";
 import { PaymentInitiateParams } from "@/lib/payments/payment.types";
 
 interface FundWalletParams {
@@ -66,10 +66,12 @@ export async function fundWallet({
     // Get country configuration
     const config = getCountryConfig(countryCode);
     const currencyCode = currency || config.currency;
-    const gatewayProvider = config.paymentGateway?.provider || "korapay";
+    // A USD charge must not go to a provider without a USD channel (Korapay's
+    // is disabled live), so resolve the provider by currency, not country.
+    const gatewayProvider = resolvePaymentGatewayType(countryCode, currencyCode);
 
-    // Get payment gateway for this country
-    const gateway = getPaymentGatewayByCountry(countryCode);
+    // Get payment gateway for this country + currency
+    const gateway = resolvePaymentGateway(countryCode, currencyCode);
 
     // Build initiate params
     const initiateParams: PaymentInitiateParams = {
