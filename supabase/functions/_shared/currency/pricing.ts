@@ -115,14 +115,23 @@ export interface PricingResult {
   /** Customer price as a decimal, for a numeric DB column or display. */
   customerPriceDecimal: number;
   /**
-   * The wholesale cost in the store currency, decimal. This is the
-   * `cost_price` the purchase RPC deducts, and the basis of the reseller's
-   * profit (`selling_price - cost_price`). It is deliberately the same number
-   * as the floor, so profit can never be negative.
+   * The wholesale cost in the store currency, decimal, at the buffered rate.
+   * This is what the platform pays the provider — NOT what the reseller is
+   * charged. It is the `amount` passed to the provider call.
    */
   costLocalDecimal: number;
   /** The wholesale cost in the store currency, minor units. */
   costLocalMinor: number;
+  /**
+   * The PLATFORM price in the store currency, decimal — the wholesale cost
+   * with the platform markup and the FX buffer applied. This is the
+   * reseller's cost basis: the `cost_price` the purchase RPC deducts, and
+   * the number the reseller's markup is applied on top of. It is the floor
+   * the customer price cannot fall below.
+   */
+  platformLocalDecimal: number;
+  /** The platform price in the store currency, minor units. */
+  platformLocalMinor: number;
   storeCurrency: string;
   /** Margin over cost in store-currency minor units (may be negative if floored). */
   marginMinor: number;
@@ -246,27 +255,33 @@ export function computePrice(input: PricingInput): PricingResult {
     });
   }
 
-  // Step 5: the floor. The customer price must cover the wholesale cost
-  // converted at the rate the platform is actually exposed to. That is the
-  // BUFFERED rate, not the raw one: the buffer is the platform's own
-  // protection against the rate moving between pricing and settlement, so
-  // measuring the floor at the unbuffered rate would hand the buffer to the
-  // reseller as margin. If rounding or a negative markup has pushed the
-  // price under, lift it to exactly the floor.
+  // Step 5: the floor. The customer price must cover the PLATFORM price —
+  // the wholesale cost with the platform markup and the FX buffer applied,
+  // converted at the buffered rate. The platform markup is the platform's
+  // cut and the buffer is its protection against the rate moving between
+  // pricing and settlement, so both belong to the platform: measuring the
+  // floor at the raw cost would hand the reseller the platform's margin as
+  // its own. If rounding or a negative markup has pushed the price under,
+  // lift it to exactly the floor.
   //
-  // The cost is converted from its normalised USD form in one multiplication
+  // `costFloorMinor` stays the RAW cost at the buffered rate (what the
+  // platform pays the provider); `platformFloorMinor` is the platform price
+  // and is what the purchase RPC deducts from the reseller.
+  //
+  // Both are converted from their normalised USD form in one multiplication
   // rather than a round trip through USD minor units, so a cost already in
   // the store's own currency lands back on its exact value (NGN 380 -> 380,
   // not 384) instead of absorbing a rounding error.
   const costFloorMinor = toMinor(usdCost * effectiveRate, storeDivisor);
+  const platformFloorMinor = toMinor(platformPriceUsd * effectiveRate, storeDivisor);
   let floorApplied = false;
-  if (customerPriceMinor < costFloorMinor) {
-    customerPriceMinor = costFloorMinor;
+  if (customerPriceMinor < platformFloorMinor) {
+    customerPriceMinor = platformFloorMinor;
     floorApplied = true;
   }
 
   const customerPriceDecimal = customerPriceMinor / storeDivisor;
-  const marginMinor = customerPriceMinor - costFloorMinor;
+  const marginMinor = customerPriceMinor - platformFloorMinor;
 
   return {
     costUsd: usdCost,
@@ -277,6 +292,8 @@ export function computePrice(input: PricingInput): PricingResult {
     customerPriceDecimal,
     costLocalDecimal: costFloorMinor / storeDivisor,
     costLocalMinor: costFloorMinor,
+    platformLocalDecimal: platformFloorMinor / storeDivisor,
+    platformLocalMinor: platformFloorMinor,
     storeCurrency,
     marginMinor,
     marginFraction: customerPriceMinor > 0

@@ -261,12 +261,16 @@ is the specific bug the layer exists to prevent.
   storefront, the orchestrator and the dashboard all call it. Do not add a
   second arithmetic path (the old `computeStorePrice` was removed for this
   reason).
-- **`cost_price` passed to the purchase RPC is the CONVERTED cost**
-  (`costLocalDecimal`), not the USD `base_price`. The RPC credits the reseller
-  `selling_price - cost_price`; passing USD would hand them the whole sale.
-- **The FX buffer stays with the platform.** The cost floor uses the buffered
-  rate (`usdToStoreRate * (1 + bufferFraction)`). Measuring it at the raw rate
-  pays the buffer out as reseller margin.
+- **`cost_price` passed to the purchase RPC is the PLATFORM price**
+  (`platformLocalDecimal`) — the raw cost with the platform markup and FX
+  buffer applied — not the USD `base_price` and not the raw cost. The RPC
+  credits the reseller `selling_price - cost_price` and checks the reseller's
+  balance against it, so passing the raw cost would hand the reseller the
+  platform's markup as margin. The raw cost (`costLocalDecimal`) is what the
+  provider call is paid; the two are different numbers and must not be swapped.
+- **The FX buffer stays with the platform.** The floor and the platform price
+  use the buffered rate (`usdToStoreRate * (1 + bufferFraction)`). Measuring
+  them at the raw rate pays the buffer out as reseller margin.
 - **A stale or missing rate is a hard failure**, not a guess — except USD,
   whose rate is 1 and needs no row.
 

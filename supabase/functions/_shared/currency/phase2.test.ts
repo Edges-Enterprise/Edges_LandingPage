@@ -224,14 +224,60 @@ Deno.test("pricing: platform markup in USD, then convert, then reseller", () => 
   assert.equal(result.steps.length, 2);
   assert.equal(result.steps[0].source, "platform_default");
   assert.equal(result.steps[1].source, "reseller");
-  // The converted cost is what the purchase RPC deducts and what the
-  // reseller's profit is measured against. Profit must never be negative.
+  // The converted cost is what the platform pays the provider.
   assert.equal(result.costLocalDecimal, 1400, "$1.00 at 1400");
   assert.equal(result.costLocalMinor, 1400);
+  // The reseller's cost basis is the PLATFORM price, not the raw cost:
+  // $1.10 at 1400 = 1540 RWF. The reseller marks up on this, and this is the
+  // number the purchase RPC deducts, so the platform keeps its 10%.
+  assert.equal(result.platformLocalDecimal, 1540, "$1.10 at 1400");
+  assert.equal(result.platformLocalMinor, 1540);
   assert.ok(
-    result.customerPriceDecimal >= result.costLocalDecimal,
-    "profit cannot be negative",
+    result.customerPriceDecimal >= result.platformLocalDecimal,
+    "the customer price cannot fall below the platform price",
   );
+});
+
+Deno.test("pricing: the reseller's cost basis is the platform price, and the platform keeps its markup", () => {
+  // Regression guard for the "reseller sees the raw Zendit cost" defect. With
+  // a 12% platform markup and an 18% reseller markup, the reseller's margin
+  // must be measured against the PLATFORM price, so the platform keeps its
+  // 12% instead of handing it to the reseller as margin.
+  const result = computePrice({
+    costUsd: 1.0,
+    storeCurrency: "RWF",
+    usdToStoreRate: 1450,
+    platformMarkups: [
+      { markup_type: "percentage", markup_value: 12, source: "platform_default" },
+    ],
+    resellerMarkup: { markup_type: "percentage", markup_value: 18 },
+  });
+  // $1.00 -> platform 12% = $1.12 -> 1624 RWF (the reseller's cost basis)
+  assert.equal(result.platformPriceUsd, 1.12);
+  assert.equal(result.platformLocalDecimal, 1624);
+  // 1624 * 1.18 = 1916.32 -> 1916 RWF
+  assert.equal(result.customerPriceDecimal, 1916);
+  assert.equal(result.costLocalDecimal, 1450, "raw cost is unchanged");
+  // The reseller's margin is on the platform price, not the raw cost.
+  assert.equal(result.customerPriceDecimal - result.platformLocalDecimal, 292);
+  assert.ok(result.customerPriceDecimal - result.costLocalDecimal > 292);
+});
+
+Deno.test("pricing: the floor protects the platform price, not the raw cost", () => {
+  // A zero reseller markup must still leave the platform its markup: the
+  // customer price floors at the platform price, never at the raw cost.
+  const result = computePrice({
+    costUsd: 1.0,
+    storeCurrency: "RWF",
+    usdToStoreRate: 1450,
+    platformMarkups: [
+      { markup_type: "percentage", markup_value: 12, source: "platform_default" },
+    ],
+    resellerMarkup: { markup_type: "percentage", markup_value: 0 },
+  });
+  assert.equal(result.customerPriceDecimal, 1624, "floors at the platform price");
+  assert.equal(result.customerPriceDecimal, result.platformLocalDecimal);
+  assert.ok(result.customerPriceDecimal > result.costLocalDecimal);
 });
 
 Deno.test("pricing: the reseller keeps the margin, not the whole sale", () => {

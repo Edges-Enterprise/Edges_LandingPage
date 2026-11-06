@@ -128,16 +128,25 @@ export async function processPurchase(
   // 4. Calculate the final price through the one pricing pipeline.
   //
   //    base_price is a USD wholesale cost (normalised at catalog sync), so
-  //    the customer price and the reseller's cost are both in the store
-  //    currency. cost_price must be the CONVERTED cost, not the USD number:
-  //    process_global_purchase_deductions credits the reseller
-  //    (selling_price - cost_price), so a USD cost deducted from a
-  //    store-currency price would hand the reseller the whole sale.
+  //    the customer price, the platform price and the provider cost are all
+  //    in the store currency.
+  //
+  //    Two different numbers come out of the pipeline and must not be
+  //    confused:
+  //      * costPrice     = the PLATFORM price (raw cost + platform markup +
+  //                        FX buffer). This is the reseller's cost basis:
+  //                        process_global_purchase_deductions credits the
+  //                        reseller (selling_price - cost_price), and the
+  //                        balance check uses it.
+  //      * providerCost  = the RAW wholesale cost. This is what the platform
+  //                        pays the provider, so it is what the provider call
+  //                        must send — never the platform price.
   //
   //    This replaces the old local arithmetic (selling_price, else markup on
   //    base_price) with the same function the storefront and dashboard use,
   //    so the three can no longer disagree.
   let costPrice: number;
+  let providerCost: number;
   let finalPrice: number;
   let profit: number;
   let priceDetail;
@@ -182,7 +191,8 @@ export async function processPurchase(
     }
 
     finalPrice = priceDetail.customerPriceDecimal;
-    costPrice = priceDetail.costLocalDecimal;
+    costPrice = priceDetail.platformLocalDecimal;
+    providerCost = priceDetail.costLocalDecimal;
     profit = finalPrice - costPrice;
   } catch (error) {
     if (error instanceof RangeValidationError) {
@@ -293,7 +303,8 @@ export async function processPurchase(
       providerPlanId: basePlan.provider_plan_id,
       phoneNumber,
       countryDialCode: dialCode,
-      amount: costPrice,
+      // The provider is paid the raw wholesale cost, not the platform price.
+      amount: providerCost,
       requestId,
       // Phase 2: a RANGE offer needs the chosen amount carried through to
       // the provider call. A FIXED offer must not send one.

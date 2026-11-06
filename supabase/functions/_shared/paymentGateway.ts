@@ -56,7 +56,7 @@ const COUNTRY_PROVIDER: Record<string, PaymentProvider> = {
 };
 
 /**
- * The gateway that funds a store's wallet.
+ * The gateway that funds a store's wallet, from the store's country alone.
  *
  * Phase 2: a country outside this map is not rejected. It funds by
  * Korapay/Flutterwave in USD, matching `getCountryCurrency`'s USD fallback —
@@ -64,9 +64,52 @@ const COUNTRY_PROVIDER: Record<string, PaymentProvider> = {
  * denominated in another. Whether Korapay/Flutterwave will actually settle a
  * USD charge for a given country is a live-credential question, not
  * something this map can answer; see HANDOVER.md Phase 2 open items.
+ *
+ * For the USD case specifically, prefer `resolvePaymentProvider` below: this
+ * function is not currency-aware and its Korapay default cannot charge USD.
  */
 export function getPaymentProvider(countryCode: string): PaymentProvider {
   return COUNTRY_PROVIDER[(countryCode || "").toLowerCase()] || "korapay";
+}
+
+/**
+ * Providers that can take a USD charge. Korapay holds USD but its checkout
+ * channel is disabled on the live account (`409 AA021`), so USD never routes
+ * there. Juicyway documents USD but has no client in this codebase yet, so
+ * Flutterwave is the only wired USD provider. Mirrors the web's
+ * `USD_CAPABLE_PROVIDERS` in `src/lib/payments/index.ts`.
+ */
+const USD_CAPABLE_PROVIDERS: PaymentProvider[] = ["flutterwave"];
+
+/**
+ * The gateway to actually charge with, which is not always the country's
+ * configured one. A USD charge must go to a USD-capable provider: an
+ * unmapped country defaults to Korapay (via `getPaymentProvider`), whose USD
+ * checkout channel is off, so a USD top-up would otherwise fail at the
+ * gateway with `AA021`. Every other currency keeps the configured provider.
+ */
+export function resolvePaymentProvider(
+  countryCode: string,
+  currency?: string,
+): PaymentProvider {
+  const configured = getPaymentProvider(countryCode);
+  if ((currency || "").toUpperCase() === "USD") {
+    return USD_CAPABLE_PROVIDERS.includes(configured)
+      ? configured
+      : USD_CAPABLE_PROVIDERS[0];
+  }
+  return configured;
+}
+
+/** True when a charge in this currency must not be sent to `provider`. */
+export function providerSupportsCurrency(
+  provider: PaymentProvider,
+  currency: string,
+): boolean {
+  if (currency.toUpperCase() === "USD") {
+    return USD_CAPABLE_PROVIDERS.includes(provider);
+  }
+  return true;
 }
 
 // Korapay rejects `charges/initialize` with "One or more fields are invalid.
@@ -109,6 +152,13 @@ function generateReference(prefix: string): string {
 export interface InitiateParams {
   amount: number;
   countryCode: string;
+  /**
+   * The currency to charge in. Defaults to the country's own currency
+   * (`getCountryCurrency`). Set to `USD` for a USD charge, which routes to a
+   * USD-capable provider and builds a card/bank payload rather than mobile
+   * money.
+   */
+  currency?: string;
   source: "app" | "web";
   customerName: string;
   customerEmail: string;
@@ -139,6 +189,22 @@ function callbackUrl(reference: string, returnPath?: string): string {
 async function initiateKorapay(params: InitiateParams): Promise<InitiateResult> {
   const reference = generateReference("KPY");
   const secret = Deno.env.get("KORAPAY_SECRET_KEY") || "";
+  const currency = (params.currency || getCountryCurrency(params.countryCode))
+    .toUpperCase();
+
+  // A USD charge cannot go through Korapay: the live account has no USD
+  // checkout channel, so `charges/initialize` returns 409 `AA021`. Callers
+  // route USD to Flutterwave (`resolvePaymentProvider`), so reaching here
+  // with USD is a bug — refuse with the cause rather than forwarding AA021.
+  if (currency === "USD") {
+    return {
+      success: false,
+      reference,
+      error:
+        "Korapay cannot charge in USD (no USD channel on this account). " +
+        "Use a USD-capable provider such as Flutterwave.",
+    };
+  }
 
   if (!secret) {
     return {
@@ -151,7 +217,7 @@ async function initiateKorapay(params: InitiateParams): Promise<InitiateResult> 
   try {
     const payload = {
       amount: params.amount,
-      currency: getCountryCurrency(params.countryCode),
+      currency,
       reference,
       customer: {
         name: sanitizeCustomerName(params.customerName),
@@ -226,8 +292,14 @@ async function initiateFlutterwave(
   const reference = generateReference("FLW");
   const secret = Deno.env.get("FLUTTERWAVE_SECRET_KEY") || "";
   const upperCountry = params.countryCode.toUpperCase();
+  const currency = (params.currency || getCountryCurrency(params.countryCode))
+    .toUpperCase();
+  // A USD charge is a card/bank hosted-link payment, not mobile money:
+  // mobile money is a local-currency rail and Flutterwave has no USD
+  // mobile-money method. Mirrors src/lib/payments/flutterwave.ts.
+  const isUsd = currency === "USD";
 
-  if (!FLUTTERWAVE_MOBILE_MONEY_COUNTRIES.has(upperCountry)) {
+  if (!isUsd && !FLUTTERWAVE_MOBILE_MONEY_COUNTRIES.has(upperCountry)) {
     return {
       success: false,
       reference,
@@ -243,7 +315,7 @@ async function initiateFlutterwave(
     };
   }
 
-  if (!params.mobileMoney?.number) {
+  if (!isUsd && !params.mobileMoney?.number) {
     return {
       success: false,
       reference,
@@ -252,31 +324,41 @@ async function initiateFlutterwave(
   }
 
   try {
-    const payload = {
+    const payload: Record<string, unknown> = {
       tx_ref: reference,
       amount: params.amount,
-      currency: getCountryCurrency(params.countryCode),
+      currency,
       redirect_url: callbackUrl(reference, params.returnPath),
       customer: {
         email: params.customerEmail,
         name: sanitizeCustomerName(params.customerName),
-        phone_number: params.mobileMoney.number,
-      },
-      payment_options: "mobilemoney",
-      mobilemoney: {
-        phone: params.mobileMoney.number,
-        network:
-          params.mobileMoney.network ||
-          FLUTTERWAVE_NETWORKS[upperCountry]?.[0] ||
-          "MTN",
-        country: upperCountry,
+        ...(params.mobileMoney?.number
+          ? { phone_number: params.mobileMoney.number }
+          : {}),
       },
       meta: params.metadata,
       customizations: {
         title: "Wallet Funding",
-        description: "Fund your wallet via mobile money",
+        description: isUsd
+          ? "Fund your wallet via card or bank transfer"
+          : "Fund your wallet via mobile money",
       },
     };
+
+    if (isUsd) {
+      // Card + USD ACH. `account` is Flutterwave's bank-transfer option.
+      payload.payment_options = "card,account";
+    } else {
+      payload.payment_options = "mobilemoney";
+      payload.mobilemoney = {
+        phone: params.mobileMoney!.number,
+        network:
+          params.mobileMoney!.network ||
+          FLUTTERWAVE_NETWORKS[upperCountry]?.[0] ||
+          "MTN",
+        country: upperCountry,
+      };
+    }
 
     const response = await fetch(`${FLUTTERWAVE_BASE_URL}/payments`, {
       method: "POST",

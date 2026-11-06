@@ -201,16 +201,12 @@ export default function PlansClient({
       setPlansData((prev) =>
         prev.map((p) => {
           if (p.id === planId) {
-            // Markup is ALWAYS entered and applied in local currency.
-            // For Zendit plans that means cost_local (never base_price,
-            // which is USD and must never be mixed with a local-currency
-            // markup input). For non-Zendit plans base_price is already
-            // the local currency.
-            const isZendit =
-              p.provider === "zendit" &&
-              p.cost_local !== undefined &&
-              p.cost_local !== null;
-            const costBasis = isZendit ? p.cost_local! : p.base_price;
+            // Markup is ALWAYS entered and applied in local currency, on the
+            // PLATFORM price — `cost_local` from the pipeline (raw cost +
+            // platform markup + FX buffer). Never `base_price`, which is a
+            // USD wholesale cost for Zendit and a raw local cost for the
+            // others; either way it is not the reseller's cost basis.
+            const costBasis = p.cost_local ?? p.base_price;
 
             const sellingPrice =
               editType === "percentage"
@@ -234,8 +230,8 @@ export default function PlansClient({
               profit_percent: profitPercent,
             };
 
-            // If Zendit plan, keep the local-currency fields in sync too
-            if (isZendit) {
+            // Keep the local-currency fields in sync too
+            if (p.cost_local !== undefined && p.cost_local !== null) {
               updates.selling_price_local = sellingPrice;
               updates.profit_local = profit;
             }

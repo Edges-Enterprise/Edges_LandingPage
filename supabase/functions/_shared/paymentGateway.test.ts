@@ -6,7 +6,12 @@
 // src/config/countries/*.ts (the source of truth) — the pair is checked in
 // the same way 8.e.iv checked the mobile copy.
 import assert from "node:assert/strict";
-import { getPaymentProvider, sanitizeCustomerName } from "./paymentGateway.ts";
+import {
+  getPaymentProvider,
+  providerSupportsCurrency,
+  resolvePaymentProvider,
+  sanitizeCustomerName,
+} from "./paymentGateway.ts";
 import { getCountryCurrency } from "./countryCurrency.ts";
 
 Deno.test("ng resolves to xixapay (virtual-account country)", () => {
@@ -49,6 +54,33 @@ Deno.test("currency is the country's own, with USD as the fallback", () => {
   assert.equal(getCountryCurrency("us"), "USD");
   assert.equal(getCountryCurrency("xx"), "USD");
   assert.equal(getCountryCurrency(""), "USD");
+});
+
+Deno.test("a USD charge routes to a USD-capable provider, never Korapay", () => {
+  // Korapay's USD checkout channel is off on the live account (`409 AA021`),
+  // so a USD charge must go to Flutterwave. This is the currency-aware
+  // resolver the fund path uses, not the country-only `getPaymentProvider`.
+  // An unmapped country defaults to Korapay, so the override is load-bearing.
+  assert.equal(resolvePaymentProvider("xx", "USD"), "flutterwave");
+  assert.equal(resolvePaymentProvider("", "USD"), "flutterwave");
+  assert.equal(resolvePaymentProvider("gh", "USD"), "flutterwave");
+  assert.equal(resolvePaymentProvider("ke", "USD"), "flutterwave");
+  // A country already on Flutterwave stays there.
+  assert.equal(resolvePaymentProvider("rw", "USD"), "flutterwave");
+  // A local currency keeps the country's configured provider, unchanged.
+  assert.equal(resolvePaymentProvider("gh", "GHS"), "korapay");
+  assert.equal(resolvePaymentProvider("rw", "RWF"), "flutterwave");
+  assert.equal(resolvePaymentProvider("ng", "NGN"), "xixapay");
+  // Case-insensitive.
+  assert.equal(resolvePaymentProvider("gh", "usd"), "flutterwave");
+});
+
+Deno.test("providerSupportsCurrency refuses USD on Korapay", () => {
+  assert.equal(providerSupportsCurrency("flutterwave", "USD"), true);
+  assert.equal(providerSupportsCurrency("korapay", "USD"), false);
+  assert.equal(providerSupportsCurrency("xixapay", "USD"), false);
+  // A local currency is not restricted here.
+  assert.equal(providerSupportsCurrency("korapay", "GHS"), true);
 });
 
 Deno.test("a rejected character in the payer name is replaced, not passed through", () => {

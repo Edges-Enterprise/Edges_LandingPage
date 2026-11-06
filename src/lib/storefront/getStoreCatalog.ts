@@ -151,7 +151,8 @@ export async function getStoreCatalog(
       );
 
     const sellingPrice = priced.customerPriceDecimal;
-    const costLocal = priced.costLocalDecimal;
+    // The reseller's cost basis is the platform price, not the raw cost.
+    const costLocal = priced.platformLocalDecimal;
 
     return {
       id: p.id,

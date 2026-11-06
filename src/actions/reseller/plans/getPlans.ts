@@ -156,7 +156,11 @@ export async function getPlans(params: GetPlansParams = {}): Promise<{
           platformMarkups,
         );
 
-      const costLocal = priced.costLocalDecimal;
+      // The reseller's cost basis is the PLATFORM price — the raw wholesale
+      // cost plus the platform markup and FX buffer — not the raw cost. The
+      // reseller marks up on this number, and it is what the purchase RPC
+      // deducts; the raw cost stays the platform's own exposure.
+      const costLocal = priced.platformLocalDecimal;
       const sellingPriceLocal = priced.customerPriceDecimal;
       const profitLocal = sellingPriceLocal - costLocal;
       const profitPercent = costLocal > 0

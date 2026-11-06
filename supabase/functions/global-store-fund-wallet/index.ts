@@ -29,7 +29,7 @@ import {
   resolveStoreIdentity,
 } from "../_shared/storeIdentity.ts";
 import {
-  getPaymentProvider,
+  resolvePaymentProvider,
   initiatePayment,
 } from "../_shared/paymentGateway.ts";
 import { getCountryCurrency } from "../_shared/countryCurrency.ts";
@@ -77,7 +77,12 @@ Deno.serve(async (req) => {
     }
 
     const countryCode: string = (store.country_code || "").toLowerCase();
-    const provider = getPaymentProvider(countryCode);
+    // The store's own currency decides the charge currency. A USD store (an
+    // unmapped country, or a country whose currency is USD) must charge in
+    // USD, which routes to a USD-capable provider — Korapay's USD channel is
+    // off on the live account.
+    const currency = getCountryCurrency(countryCode);
+    const provider = resolvePaymentProvider(countryCode, currency);
 
     if (provider === "xixapay") {
       return jsonResponse(
@@ -141,6 +146,7 @@ Deno.serve(async (req) => {
     const result = await initiatePayment(provider, {
       amount: parsedAmount,
       countryCode,
+      currency,
       source: "app",
       customerName: payerName,
       customerEmail: payerEmail,
