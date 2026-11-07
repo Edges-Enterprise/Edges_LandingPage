@@ -322,7 +322,26 @@ that talks to PostgREST or a provider API, verify against the live shape:
 - **Run the deployed function, not just the module.** `deno check` and the
   unit suite both passed while every store 503'd.
 
-Two operational invariants worth keeping:
+Operational invariants worth keeping:
+
+- **CLI 3.0.0 defaults `verify_jwt` to `false`, and there is no positive
+  flag to set it back** — `supabase functions deploy` only offers
+  `--no-verify-jwt`. So `supabase functions deploy global-purchase-airtime
+  global-purchase-data` silently flips both to `verify_jwt=false`, a
+  regression: an unauthenticated `POST` then reaches the purchase function
+  (it returned 200, should be 401). Restore it with the Management API after
+  any such deploy, and verify the posture rather than assume it:
+  ```bash
+  curl -s -X PATCH -H "Authorization: Bearer $SUPABASE_OPEN_HANDS" \
+    -H "Content-Type: application/json" \
+    "https://api.supabase.com/v1/projects/<ref>/functions/<slug>" \
+    -d '{"verify_jwt":true}'
+  # then GET the function and check verify_jwt
+  ```
+  Expected posture: `global-purchase-airtime`/`-data` and
+  `global-store-fund-wallet` = `true`; `global-network-lookup`,
+  `global-store-catalog`, `global-catalog-sync`, `global-fx-refresh` =
+  `false` (deliberately anon or secret-header-gated).
 
 - The **Zendit fallback rate has a 6h TTL** and `catalog-sync` is the only
   writer of it while Korapay's key is invalid, so `catalog-sync` runs **every
