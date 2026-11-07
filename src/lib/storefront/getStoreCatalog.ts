@@ -51,6 +51,14 @@ export interface StoreCatalog {
   categories: string[];
   /** Destination countries present, so the storefront can filter. */
   countries: string[];
+  /**
+   * Networks grouped by destination country (lowercased key). The store's
+   * own tabs must show only its own country's networks; every other
+   * country's networks belong to the destination (globe) view. A network
+   * name is NOT unique across countries (Airtel sells in rw, ug, ke, tz…),
+   * so filtering by name alone would mix countries — group by country.
+   */
+  networksByCountry: Record<string, string[]>;
   /** The store's currency, for formatting every price. */
   currency: string | null;
 }
@@ -60,6 +68,7 @@ const EMPTY: StoreCatalog = {
   networks: [],
   categories: [],
   countries: [],
+  networksByCountry: {},
   currency: null,
 };
 
@@ -69,6 +78,26 @@ function uniqueSorted(values: (string | null | undefined)[]): string[] {
   ]
     .map((v) => v.trim())
     .sort();
+}
+
+/**
+ * Group each plan's network by its destination country (lowercased key).
+ * The storefront's own tabs use only the store's country's group; the
+ * destination (globe) view uses the rest.
+ */
+function groupNetworksByCountry(plans: StoreProduct[]): Record<string, string[]> {
+  const byCountry: Record<string, Set<string>> = {};
+  for (const p of plans) {
+    const cc = (p.country_code || "").toLowerCase();
+    const net = (p.network || "").trim();
+    if (!cc || !net) continue;
+    (byCountry[cc] ||= new Set()).add(net);
+  }
+  const result: Record<string, string[]> = {};
+  for (const [cc, set] of Object.entries(byCountry)) {
+    result[cc] = [...set].sort();
+  }
+  return result;
 }
 
 export async function getStoreCatalog(
@@ -187,6 +216,7 @@ export async function getStoreCatalog(
     networks: uniqueSorted(plans.map((p) => p.network)),
     categories: uniqueSorted(plans.map((p) => p.category)),
     countries: uniqueSorted(plans.map((p) => p.country_code)),
+    networksByCountry: groupNetworksByCountry(plans),
     currency: storeContext.currency,
   };
 }

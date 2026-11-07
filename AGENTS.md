@@ -366,3 +366,14 @@ Two operational invariants worth keeping:
   keys its two tabs on those strings; `price_type === "RANGE"` is what marks
   a top-up ("choose an amount") versus a fixed bundle tile.
 
+- **A network name is NOT unique across countries.** `Airtel` sells in rw, ug,
+  ke, tz, zm, mw…; `MTN` in rw, gh, ng… So the storefront's own network tabs
+  must be scoped by the plan's `country_code`, not by network name — filtering
+  `products` by network alone mixes countries. `getStoreCatalog` returns
+  `networksByCountry` (a `Record<cc, string[]>`); `StoreContent` uses only the
+  store's own country's group for the local tabs, and passes the whole catalog
+  to `StoreDestinationFlow`, whose country tabs (`countryTabs`, derived from
+  the enabled plans) each carry that country's own network tabs. A Rwandan
+  store previously showed UAE (`Du`/`Etisalat`) and Zimbabwe (`Econet`) tabs
+  because 11 AE and 6 ZW plans were enabled for it.
+

@@ -200,7 +200,20 @@ export default function StoreContent({
     setTimeout(() => wallet.setCopiedAccount(null), 2000);
   };
 
-  const filteredProducts = storeData.products;
+  // The store's own country. The storefront's primary (network-tab) view
+  // shows ONLY this country's networks and plans — a Rwandan store must not
+  // offer a UAE or Zimbabwe network tab. Every other country's plans are
+  // reached through the destination (globe) view, which carries the
+  // country/network tabs for all available destinations.
+  const storeCountry = (storeData.application.country_code || "").toLowerCase();
+  const localNetworks: string[] =
+    storeData.networksByCountry?.[storeCountry] ?? [];
+  const localProducts = storeData.products.filter(
+    (p: { country_code?: string }) =>
+      (p.country_code || "").toLowerCase() === storeCountry,
+  );
+  // The globe view sees the whole enabled catalog, every country.
+  const globalProducts = storeData.products;
 
   return (
     <div
@@ -272,7 +285,7 @@ export default function StoreContent({
                 </button>
               </div>
               <StoreDestinationFlow
-                products={filteredProducts}
+                products={globalProducts}
                 config={config}
                 translations={t}
                 canSell={storeData.storeStatus?.canSell !== false}
@@ -283,8 +296,8 @@ export default function StoreContent({
             </>
           ) : (
             <StoreProducts
-              products={filteredProducts}
-              networks={storeData.networks}
+              products={localProducts}
+              networks={localNetworks}
               selectedNetwork={selectedNetwork}
               onNetworkChange={setSelectedNetwork}
               onAddToCart={purchase.startPurchase}
@@ -292,6 +305,7 @@ export default function StoreContent({
               translations={t}
               config={config}
               onOpenDestination={() => setShowDestination(true)}
+              hasGlobalPlans={globalProducts.length > 0}
             />
           )}
         </main>

@@ -21,6 +21,12 @@ interface StoreProductsProps {
   config: CountryConfig;
   /** Opens the destination (world) flow; the globe icon on the tabs row. */
   onOpenDestination?: () => void;
+  /**
+   * The store has enabled plans for other countries (reachable via the
+   * destination view). When true, the globe is shown even if the store's
+   * own country has no networks, and the empty state points to it.
+   */
+  hasGlobalPlans?: boolean;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -42,6 +48,7 @@ export default function StoreProducts({
   translations,
   config,
   onOpenDestination,
+  hasGlobalPlans = false,
 }: StoreProductsProps) {
   const t = translations;
 
@@ -64,14 +71,18 @@ export default function StoreProducts({
   return (
     <section id="products" style={{ padding: "1rem 0 2rem" }}>
       {/* Network Tabs — legacy primary navigation (MTN/AIRTEL/GLO/…).
-          The globe icon sits to the right, on top of the row: the tabs
-          scroll horizontally underneath it, so a store with many networks
-          still reaches all of them and the icon never moves. */}
-      {networkTabs.length > 0 && (
+          These are ONLY the store's own country's networks. Other
+          countries' networks live behind the globe icon, which sits to the
+          right: the tabs scroll horizontally underneath it, so a store with
+          many networks still reaches all of them and the icon never moves.
+          When the store's own country has no networks, the row collapses to
+          just the globe (if there are global plans to reach). */}
+      {(networkTabs.length > 0 || (onOpenDestination && hasGlobalPlans)) && (
         <div
           style={{
             position: "relative",
             marginBottom: "1.5rem",
+            minHeight: 38,
           }}
         >
           <div
@@ -159,12 +170,47 @@ export default function StoreProducts({
             size={36}
             style={{ margin: "0 auto 0.75rem", opacity: 0.25 }}
           />
-          <p style={{ fontWeight: 600, color: "var(--text2)" }}>
-            {t?.noActivePlans || "No active plans on this store yet."}
-          </p>
-          <p style={{ fontSize: "0.82rem", marginTop: 4 }}>
-            {t?.comingSoon || "More products coming soon!"}
-          </p>
+          {hasGlobalPlans ? (
+            <>
+              <p style={{ fontWeight: 600, color: "var(--text2)" }}>
+                {t?.noLocalPlans || "No plans for your country here yet."}
+              </p>
+              <p style={{ fontSize: "0.82rem", marginTop: 4 }}>
+                {t?.browseGlobalPlans ||
+                  "Browse plans for other destinations."}
+              </p>
+              <button
+                onClick={onOpenDestination}
+                style={{
+                  marginTop: "1rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "0.6rem 1.2rem",
+                  borderRadius: 10,
+                  background: "var(--brand-color)",
+                  border: "none",
+                  color: "#FDF8F3",
+                  fontWeight: 700,
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                <Globe size={15} />
+                {t?.globalPlans || "Global plans"}
+              </button>
+            </>
+          ) : (
+            <>
+              <p style={{ fontWeight: 600, color: "var(--text2)" }}>
+                {t?.noActivePlans || "No active plans on this store yet."}
+              </p>
+              <p style={{ fontSize: "0.82rem", marginTop: 4 }}>
+                {t?.comingSoon || "More products coming soon!"}
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <>

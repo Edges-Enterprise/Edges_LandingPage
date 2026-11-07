@@ -51,10 +51,13 @@ async function getStoreData(storeSlug: string) {
     // network column and is not what the purchase flow reads). Strictly
     // opt-in: nothing enabled -> an empty catalog, which StoreProducts
     // renders as "no active plans on this store".
-    const { plans: products, categories, networks } = await getStoreCatalog(
-      application.id,
-      application.country_code,
-    );
+    const {
+      plans: products,
+      categories,
+      networks,
+      countries,
+      networksByCountry,
+    } = await getStoreCatalog(application.id, application.country_code);
 
     // Store sell-readiness (legacy /api/store-status equivalent, global
     // tables) — gates every "Buy" until the owner has WhatsApp, an
@@ -77,6 +80,8 @@ async function getStoreData(storeSlug: string) {
       products,
       categories,
       networks,
+      countries,
+      networksByCountry,
       apkUrl,
       storeStatus,
       settings: {

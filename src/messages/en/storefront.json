@@ -5,6 +5,8 @@
   "plans": "Plans",
   "popularPlans": "Popular Plans",
   "noActivePlans": "No active plans on this store yet.",
+  "noLocalPlans": "No plans for your country here yet.",
+  "browseGlobalPlans": "Browse plans for other destinations.",
   "categories": "Categories",
   "networks": "Networks",
   "allCategories": "All Categories",

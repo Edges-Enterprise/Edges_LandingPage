@@ -29,6 +29,7 @@ import {
   lookupNetwork,
   type NetworkDetection,
 } from "@/lib/storefront/networkLookup";
+import { countryLabel, countryFlag } from "@/lib/storefront/countryLabel";
 
 type Category = "airtime" | "data";
 
@@ -50,6 +51,7 @@ export default function StoreDestinationFlow({
   const t = translations;
 
   const [category, setCategory] = useState<Category | null>(null);
+  const [country, setCountry] = useState<string>("all");
   const [phone, setPhone] = useState("");
   const [detection, setDetection] = useState<NetworkDetection | null>(null);
   const [detecting, setDetecting] = useState(false);
@@ -59,14 +61,31 @@ export default function StoreDestinationFlow({
   const hasNumber = phone.replace(/\D/g, "").length >= 6;
   const amountNumber = Number(amount);
 
-  // The destination country comes from the number. If the lookup could not
-  // run (edge function down, no session) fall back to the store's own
-  // country, so a local customer is never blocked by a failed lookup.
+  // The destination country: the country tab the customer picked, else the
+  // one the number resolves to. If the lookup could not run (edge function
+  // down, no session) fall back to the store's own country, so a local
+  // customer is never blocked by a failed lookup.
   const detectedCountry = (
     detection?.country ||
     (hasNumber ? config.code : "") ||
     ""
   ).toLowerCase();
+  const effectiveCountry =
+    country !== "all" ? country : detectedCountry;
+
+  // Every destination country that actually has enabled plans, with counts —
+  // the country tabs of the global view.
+  const countryTabs = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of products) {
+      const cc = (p.country_code || "").toLowerCase();
+      if (!cc) continue;
+      counts.set(cc, (counts.get(cc) || 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([c, count]) => ({ country: c, count }))
+      .sort((a, b) => a.country.localeCompare(b.country));
+  }, [products]);
 
   // Debounced provider lookup as the number is typed.
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,6 +102,9 @@ export default function StoreDestinationFlow({
       const found = await lookupNetwork(phone);
       setDetection(found);
       setDetecting(false);
+      // Jump the country tab to the detected destination so the network
+      // tabs below match the number.
+      if (found?.country) setCountry(found.country.toLowerCase());
       // Prefer the detected carrier when the store carries it.
       setNetwork(found?.network || "all");
     }, 500);
@@ -91,15 +113,15 @@ export default function StoreDestinationFlow({
     };
   }, [phone]);
 
-  // Every enabled plan for the detected destination.
+  // Every enabled plan for the effective destination.
   const countryPlans = useMemo(
     () =>
-      detectedCountry
+      effectiveCountry
         ? products.filter(
-            (p) => (p.country_code || "").toLowerCase() === detectedCountry,
+            (p) => (p.country_code || "").toLowerCase() === effectiveCountry,
           )
         : [],
-    [products, detectedCountry],
+    [products, effectiveCountry],
   );
 
   const categoryPlans = useMemo(
@@ -160,6 +182,56 @@ export default function StoreDestinationFlow({
 
   return (
     <section id="products" style={{ padding: "1rem 0 2rem" }}>
+      {/* Country tabs — the destinations this store sells. This is the
+          global view's primary navigation: the store's own network tabs
+          never list another country's networks, so they are reached here. */}
+      {countryTabs.length > 0 && (
+        <div
+          className="store-country-scroll"
+          style={{
+            display: "flex",
+            gap: "0.5rem",
+            overflowX: "auto",
+            marginBottom: "1rem",
+            paddingBottom: 2,
+            scrollbarWidth: "none",
+          }}
+        >
+          {countryTabs.map((c) => {
+            const isActive = effectiveCountry === c.country;
+            return (
+              <button
+                key={c.country}
+                onClick={() => {
+                  setCountry(c.country);
+                  setNetwork("all");
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "0.5rem 0.95rem",
+                  borderRadius: 10,
+                  fontSize: "0.8rem",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  transition: "all 0.15s",
+                  background: isActive ? "var(--brand-color)" : "var(--card)",
+                  color: isActive ? "#FDF8F3" : "var(--text2)",
+                  border: isActive ? "none" : "1.5px solid var(--border)",
+                }}
+              >
+                <span aria-hidden>{countryFlag(c.country)}</span>
+                {countryLabel(c.country)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Product-type tabs — airtime or data bundle. */}
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.25rem" }}>
         {(["airtime", "data"] as Category[]).map((c) => {
@@ -288,10 +360,13 @@ export default function StoreDestinationFlow({
             )}
           </div>
 
-          {/* Network picker, only when the store carries more than one for
-              this country and the detected carrier is not already fixed. */}
-          {hasNumber && networks.length > 1 && effectiveNetwork === "all" && (
+          {/* Network tabs for the selected destination — the networks that
+              country's enabled plans actually use. Shown whenever the
+              destination carries more than one, so the customer can switch
+              carriers; the detected carrier is pre-selected. */}
+          {networks.length > 1 && (
             <div
+              className="store-net-scroll"
               style={{
                 display: "flex",
                 gap: "0.4rem",
@@ -310,9 +385,9 @@ export default function StoreDestinationFlow({
                     fontWeight: 700,
                     cursor: "pointer",
                     fontFamily: "inherit",
-                    background: network === n ? "var(--brand-color)" : "var(--bg2)",
-                    color: network === n ? "#FDF8F3" : "var(--muted)",
-                    border: network === n ? "none" : "1px solid var(--border)",
+                    background: effectiveNetwork === n ? "var(--brand-color)" : "var(--bg2)",
+                    color: effectiveNetwork === n ? "#FDF8F3" : "var(--muted)",
+                    border: effectiveNetwork === n ? "none" : "1px solid var(--border)",
                   }}
                 >
                   {n}
@@ -321,7 +396,7 @@ export default function StoreDestinationFlow({
             </div>
           )}
 
-          {!hasNumber ? (
+          {!effectiveCountry ? (
             <p
               style={{
                 textAlign: "center",
@@ -330,7 +405,8 @@ export default function StoreDestinationFlow({
                 padding: "1.5rem 0",
               }}
             >
-              {t?.enterNumber || "Enter a phone number to see available plans"}
+              {t?.enterNumber ||
+                "Enter a phone number or pick a country to see available plans"}
             </p>
           ) : categoryPlans.length === 0 ? (
             // Nothing of the chosen type for this destination.
@@ -554,6 +630,9 @@ export default function StoreDestinationFlow({
           to {
             transform: rotate(360deg);
           }
+        }
+        .store-country-scroll::-webkit-scrollbar {
+          display: none;
         }
       `}</style>
     </section>
