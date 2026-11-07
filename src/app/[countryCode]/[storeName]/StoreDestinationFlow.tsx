@@ -30,6 +30,10 @@ import {
   type NetworkDetection,
 } from "@/lib/storefront/networkLookup";
 import { countryLabel, countryFlag } from "@/lib/storefront/countryLabel";
+import {
+  MAX_COUNTRY_TABS,
+  rankCountryTabs,
+} from "@/lib/storefront/countryTabs";
 
 type Category = "airtime" | "data";
 
@@ -73,21 +77,18 @@ export default function StoreDestinationFlow({
   const effectiveCountry =
     country !== "all" ? country : detectedCountry;
 
-  // Every destination country that actually has enabled plans, with counts —
-  // the country tabs of the global view.
-  const countryTabs = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const p of products) {
-      const cc = (p.country_code || "").toLowerCase();
-      if (!cc) continue;
-      counts.set(cc, (counts.get(cc) || 0) + 1);
-    }
-    return [...counts.entries()]
-      .map(([c, count]) => ({ country: c, count }))
-      .sort((a, b) => a.country.localeCompare(b.country));
-  }, [products]);
+  // The country tabs of the global view, ranked by catalog size and capped
+  // at MAX_COUNTRY_TABS, with the selected (or detected) country always kept.
+  const countryTabs = useMemo(
+    () => rankCountryTabs(products, MAX_COUNTRY_TABS, effectiveCountry),
+    [products, effectiveCountry],
+  );
 
-  // Debounced provider lookup as the number is typed.
+  // Debounced provider lookup as the number is typed. The hint is the country
+  // tab the customer is on, else the store's own country: a local number
+  // ("08036076543") needs it to be placed on a country, and the tab is the
+  // customer's stated intent.
+  const hintCountry = country !== "all" ? country : config.code;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const digits = phone.replace(/\D/g, "");
@@ -99,7 +100,7 @@ export default function StoreDestinationFlow({
     setDetecting(true);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
-      const found = await lookupNetwork(phone);
+      const found = await lookupNetwork(phone, hintCountry);
       setDetection(found);
       setDetecting(false);
       // Jump the country tab to the detected destination so the network
@@ -111,7 +112,7 @@ export default function StoreDestinationFlow({
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [phone]);
+  }, [phone, hintCountry]);
 
   // Every enabled plan for the effective destination.
   const countryPlans = useMemo(
@@ -313,7 +314,9 @@ export default function StoreDestinationFlow({
               <Phone size={16} style={{ color: "var(--muted)" }} />
               <input
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) =>
+                  setPhone(e.target.value.replace(/[^0-9+]/g, "").slice(0, 16))
+                }
                 inputMode="tel"
                 placeholder={t?.phonePlaceholder || "e.g. 0788 123 456"}
                 style={{

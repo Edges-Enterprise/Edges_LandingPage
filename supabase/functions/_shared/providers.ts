@@ -227,8 +227,14 @@ async function purchaseZendit(
   }
 
   // Zendit requires e.164 (+<dial code><local number without leading 0>).
-  const localDigits = params.phoneNumber.replace(/^0+/, "");
-  const recipientE164 = `+${params.countryDialCode}${localDigits}`;
+  // Callers pass national digits, but an international form is tolerated:
+  // a dial code already on the front is not added twice.
+  const dial = params.countryDialCode.replace(/\D/g, "");
+  let localDigits = params.phoneNumber.replace(/\D/g, "").replace(/^0+/, "");
+  if (dial && localDigits.startsWith(dial)) {
+    localDigits = localDigits.slice(dial.length);
+  }
+  const recipientE164 = `+${dial}${localDigits}`;
 
   // A RANGE offer REQUIRES `value`; a FIXED offer must NOT carry it. Getting
   // this wrong is a hard rejection, so it is included only when the caller

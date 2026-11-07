@@ -303,10 +303,14 @@ export default function StorePurchaseModal({
           </label>
           <input
             type="text"
-            inputMode="numeric"
+            inputMode="tel"
             value={phone}
             onChange={(e) =>
-              setPhone(digitsOnly(e.target.value, config.phoneNumber.maxDigits + 1))
+              setPhone(
+                e.target.value
+                  .replace(/[^0-9+]/g, "")
+                  .slice(0, 16),
+              )
             }
             placeholder="Phone number"
             style={inputStyle}

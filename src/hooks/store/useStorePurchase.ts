@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isValidPhoneNumber } from "@/lib/phone/validatePhoneNumber";
+import { toNationalDigits } from "../../../supabase/functions/_shared/phone/normalize.ts";
 import { getCountryConfig, type CountryConfig } from "@/config/countries";
 import type { StoreProduct } from "@/types/reseller/storefront";
 import { priceRangeAmount } from "@/actions/reseller/plans/priceRangeAmount";
@@ -116,8 +117,13 @@ export function useStorePurchase({
     setPurchaseModalOpen(false);
   }, [purchaseLoading]);
 
-  // Detection: debounce the phone input and resolve the carrier/country.
+  // Detection: debounce the phone input and resolve the carrier/country. The
+  // hint is the plan's country (else the store's) so a local number can be
+  // placed on a country.
   const detectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detectionHint = (
+    selectedPlan?.country_code || config.code || ""
+  ).toLowerCase();
   useEffect(() => {
     if (!purchaseModalOpen) return;
     const digits = purchasePhone.replace(/\D/g, "");
@@ -127,13 +133,13 @@ export function useStorePurchase({
     }
     if (detectTimer.current) clearTimeout(detectTimer.current);
     detectTimer.current = setTimeout(async () => {
-      const found = await lookupNetwork(purchasePhone);
+      const found = await lookupNetwork(purchasePhone, detectionHint);
       setDetection(found);
     }, 500);
     return () => {
       if (detectTimer.current) clearTimeout(detectTimer.current);
     };
-  }, [purchasePhone, purchaseModalOpen]);
+  }, [purchasePhone, purchaseModalOpen, detectionHint]);
 
   // RANGE: price the entered amount through the same pipeline the purchase
   // uses, so the confirm screen shows what the customer is actually charged.
@@ -177,10 +183,17 @@ export function useStorePurchase({
     // store's own config when the plan carries no country or the detected
     // country is unknown.
     const planCountry = (selectedPlan.country_code || "").toLowerCase();
-    const phoneConfig = planCountry
-      ? getCountryConfig(planCountry).phoneNumber
-      : config.phoneNumber;
-    if (!isValidPhoneNumber(purchasePhone, phoneConfig)) {
+    const destConfig = planCountry ? getCountryConfig(planCountry) : config;
+    const phoneConfig = destConfig.phoneNumber;
+    // The customer may type the number as "+2348036076543", "2348036076543",
+    // "08036076543" or "8036076543"; reduce all of them to the national digits
+    // the provider and the validation both expect, so the format typed cannot
+    // decide whether the purchase succeeds.
+    const nationalPhone = toNationalDigits(
+      purchasePhone,
+      destConfig.phoneCode.replace(/\D/g, ""),
+    );
+    if (!isValidPhoneNumber(nationalPhone, phoneConfig)) {
       setPurchaseError("Please enter a valid phone number");
       return;
     }
@@ -259,7 +272,7 @@ export function useStorePurchase({
           body: JSON.stringify({
             resellerId,
             planId: selectedPlan.plan_id,
-            phoneNumber: purchasePhone,
+            phoneNumber: nationalPhone,
             transactionPin: purchasePin,
             userId: user.id,
             // Phase 2: a RANGE offer carries the recipient amount the

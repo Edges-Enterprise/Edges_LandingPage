@@ -82,3 +82,69 @@ Deno.test("detect: unknown when both fail, never a wrong guess", async () => {
   assert.equal(result.method, "unknown");
   assert.equal(result.country, "");
 });
+
+Deno.test("detect: a local number needs the country hint to be placed", async () => {
+  clearDetectionCache();
+  // Without a hint a bare local number has no dial code and cannot be placed.
+  const noHint = await detectNetwork("08036076543", async () => {
+    throw new Error("lookup unavailable");
+  });
+  assert.equal(noHint.method, "unknown");
+
+  // With the hint, "08036076543" normalises to the Nigerian MSISDN and the
+  // prefix fallback places it on MTN.
+  clearDetectionCache();
+  const hinted = await detectNetwork(
+    "08036076543",
+    async () => {
+      throw new Error("lookup unavailable");
+    },
+    "ng",
+  );
+  assert.equal(hinted.country, "ng");
+  assert.equal(hinted.network, "MTN");
+  assert.equal(hinted.method, "prefix");
+});
+
+Deno.test("detect: every Nigerian input form resolves to the same network", async () => {
+  for (const form of [
+    "+2348036076543",
+    "2348036076543",
+    "08036076543",
+    "8036076543",
+    "0803 607 6543",
+  ]) {
+    clearDetectionCache();
+    const result = await detectNetwork(
+      form,
+      async () => {
+        throw new Error("lookup unavailable");
+      },
+      "ng",
+    );
+    assert.equal(result.country, "ng", `country of ${form}`);
+    assert.equal(result.network, "MTN", `network of ${form}`);
+  }
+});
+
+Deno.test("detect: the lookup receives the normalised msisdn for a local number", async () => {
+  clearDetectionCache();
+  let seen = "";
+  const result = await detectNetwork(
+    "08036076543",
+    async (m) => {
+      seen = m;
+      return {
+        brand: "MTN",
+        country: "NG",
+        mobileCountryCode: "621",
+        mobileNetworkCode: "30",
+        msisdn: m,
+      };
+    },
+    "ng",
+  );
+  assert.equal(seen, "2348036076543", "lookup gets the msisdn, not the local form");
+  assert.equal(result.method, "lookup");
+  assert.equal(result.country, "ng");
+});

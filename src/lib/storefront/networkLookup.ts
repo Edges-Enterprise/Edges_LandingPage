@@ -24,9 +24,14 @@ export interface NetworkDetection {
  * Look up the carrier/country for a phone number. Returns null when the
  * lookup could not run (no session, network error) so the caller can simply
  * not show a badge rather than show a wrong one.
+ *
+ * `countryHint` is the destination the caller expects (the store's country, or
+ * the plan's). It is optional, but a bare local number ("08036076543") can
+ * only be placed on a country with it.
  */
 export async function lookupNetwork(
   phoneNumber: string,
+  countryHint?: string,
 ): Promise<NetworkDetection | null> {
   const trimmed = phoneNumber.replace(/\s/g, "");
   if (trimmed.length < 6) return null;
@@ -48,7 +53,10 @@ export async function lookupNetwork(
           apikey: anonKey,
           Authorization: `Bearer ${session?.access_token ?? anonKey}`,
         },
-        body: JSON.stringify({ phoneNumber: trimmed }),
+        body: JSON.stringify({
+          phoneNumber: trimmed,
+          country: countryHint || undefined,
+        }),
       },
     );
     if (!response.ok) return null;

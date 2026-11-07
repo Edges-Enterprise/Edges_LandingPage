@@ -36,12 +36,19 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { phoneNumber } = await req.json();
+    const { phoneNumber, country } = await req.json();
     if (!phoneNumber || typeof phoneNumber !== "string") {
       return json({ error: "Missing required field: phoneNumber" }, 400);
     }
 
-    const detection = await detectNetwork(phoneNumber);
+    // `country` is the destination the caller expects (the plan's, or the
+    // store's). It is optional, but without it a bare local number cannot be
+    // placed on a country.
+    const detection = await detectNetwork(
+      phoneNumber,
+      undefined,
+      typeof country === "string" ? country : "",
+    );
 
     return json({
       country: detection.country,
