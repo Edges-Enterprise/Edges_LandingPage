@@ -21,7 +21,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Globe, Phone, Loader2, Signal, Zap, ShoppingBag } from "lucide-react";
+import { Phone, Loader2, Signal, Zap, ShoppingBag } from "lucide-react";
 import { StoreProduct } from "@/types/reseller/storefront";
 import { CountryConfig } from "@/config/countries";
 import { formatStorePrice } from "@/lib/currency/formatStorePrice";
@@ -54,7 +54,10 @@ export default function StoreDestinationFlow({
 }: StoreDestinationFlowProps) {
   const t = translations;
 
-  const [category, setCategory] = useState<Category | null>(null);
+  // Data is the default product type — the common case — and the customer can
+  // switch to airtime. (Previously neither was selected until the customer
+  // picked one, so the phone field and plans were hidden on arrival.)
+  const [category, setCategory] = useState<Category>("data");
   const [country, setCountry] = useState<string>("all");
   const [phone, setPhone] = useState("");
   const [detection, setDetection] = useState<NetworkDetection | null>(null);
@@ -84,11 +87,21 @@ export default function StoreDestinationFlow({
     [products, effectiveCountry],
   );
 
-  // Debounced provider lookup as the number is typed. The hint is the country
-  // tab the customer is on, else the store's own country: a local number
-  // ("08036076543") needs it to be placed on a country, and the tab is the
-  // customer's stated intent.
+  // Debounced provider lookup as the number is typed. The number's own country
+  // decides the answer; the hint is the country tab the customer is on, else
+  // the store's own country, and `preferred` is every country the store sells —
+  // both only break ties for an ambiguous local number.
   const hintCountry = country !== "all" ? country : config.code;
+  const preferredCountries = useMemo(
+    () => [
+      ...new Set(
+        products
+          .map((p) => (p.country_code || "").toLowerCase())
+          .filter(Boolean),
+      ),
+    ],
+    [products],
+  );
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const digits = phone.replace(/\D/g, "");
@@ -100,7 +113,7 @@ export default function StoreDestinationFlow({
     setDetecting(true);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
-      const found = await lookupNetwork(phone, hintCountry);
+      const found = await lookupNetwork(phone, hintCountry, preferredCountries);
       setDetection(found);
       setDetecting(false);
       // Jump the country tab to the detected destination so the network
@@ -112,7 +125,7 @@ export default function StoreDestinationFlow({
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [phone, hintCountry]);
+  }, [phone, hintCountry, preferredCountries]);
 
   // Every enabled plan for the effective destination.
   const countryPlans = useMemo(
@@ -137,6 +150,11 @@ export default function StoreDestinationFlow({
 
   const dataAvailableForCountry = useMemo(
     () => countryPlans.some((p) => (p.category || "").toLowerCase() === "data"),
+    [countryPlans],
+  );
+
+  const airtimeAvailableForCountry = useMemo(
+    () => countryPlans.some((p) => (p.category || "").toLowerCase() === "airtime"),
     [countryPlans],
   );
 
@@ -261,25 +279,8 @@ export default function StoreDestinationFlow({
         })}
       </div>
 
-      {!category ? (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "3rem 2rem",
-            color: "var(--muted)",
-            background: "var(--card)",
-            borderRadius: 16,
-            border: "1.5px dashed var(--border)",
-          }}
-        >
-          <Globe size={34} style={{ margin: "0 auto 0.75rem", opacity: 0.25 }} />
-          <p style={{ fontWeight: 600, color: "var(--text2)" }}>
-            {t?.chooseType || "Choose Airtime or Data Bundles to continue"}
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Phone number — the destination is derived from this. */}
+      <>
+        {/* Phone number — the destination is derived from this. */}
           <div
             style={{
               background: "var(--card)",
@@ -447,6 +448,32 @@ export default function StoreDestinationFlow({
                     }}
                   >
                     {t?.viewDataBundles || "View Data Bundles"}
+                  </button>
+                </>
+              ) : category === "data" && airtimeAvailableForCountry ? (
+                <>
+                  <p style={{ fontWeight: 600, color: "var(--text2)" }}>
+                    {t?.noData || "No data bundles for this number."}
+                  </p>
+                  <p style={{ fontSize: "0.82rem", marginTop: 4 }}>
+                    {t?.tryAirtime || "Try airtime instead."}
+                  </p>
+                  <button
+                    onClick={() => resetFlow("airtime")}
+                    style={{
+                      marginTop: "1rem",
+                      padding: "0.6rem 1.2rem",
+                      borderRadius: 10,
+                      background: "var(--brand-color)",
+                      border: "none",
+                      color: "#FDF8F3",
+                      fontWeight: 700,
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {t?.viewAirtime || "View Airtime"}
                   </button>
                 </>
               ) : (
@@ -622,8 +649,7 @@ export default function StoreDestinationFlow({
               )}
             </>
           )}
-        </>
-      )}
+      </>
 
       <style jsx>{`
         @keyframes spin {

@@ -2,36 +2,35 @@
 //
 // Phase 2. Detect a phone number's carrier and country.
 //
-// The design's rule: ask the provider, do not guess from prefix tables. A
-// prefix table is a copy of reality that drifts; Zendit's lookup is the
-// answer from the party that will actually deliver the topup, so the two
-// cannot disagree.
+// The design's rule is to ask the provider rather than guess from a prefix
+// table, so the lookup is tried first and its answer wins when it answers.
+// Zendit's lookup answers `LOOKUP_NOT_ENABLED` for this account, so in
+// practice the local reading is what customers hit — which is why that reading
+// has to be right, not merely a stopgap.
 //
-// The lookup is a network call on a path the customer is waiting on, so it
-// is cached per MSISDN and falls back to a local prefix match only when the
-// lookup is unavailable — never silently, and the caller can tell which
-// happened.
+// The local reading is libphonenumber's metadata (see
+// `_shared/phone/detectCountry.ts`): the country comes from the number itself,
+// so a Rwandan store sees that a Nigerian number is Nigerian even though the
+// store never enabled Nigeria. The caller's `hint` (the store's country, or
+// the tab the customer is on) and its `preferred` list (the countries the store
+// sells) only break ties for an ambiguous local number; they never override a
+// number whose own form is unambiguous.
 //
-// Zendit's lookup requires the number in MSISDN form (dial code + national
-// digits, no '+'), and answers `LOOKUP_NOT_ENABLED` for some accounts, so the
-// fallback is the path most customers actually hit. A customer may type the
-// number the way they know it — "+2348036076543", "2348036076543",
-// "08036076543" — so the input is normalised to an MSISDN before either the
-// lookup or the prefix match sees it. The caller passes the destination
-// country it expects (the plan's, or the store's) as a hint; without it a bare
-// local number cannot be placed on a country and is reported unknown rather
-// than guessed.
+// The brand is the one part that stays an estimate: with the provider lookup
+// unavailable, the brand is read from a small country/carrier map and the
+// response is labelled `fallback` so the UI can say so.
 
 import { lookupPhoneNumber, type PhoneNumberLookup } from "./zenditClient.ts";
 import { getCountryDialCode } from "../countryDialCodes.ts";
-import { digitsOnly, hasCountryPrefix, toMsisdn } from "../phone/normalize.ts";
+import { digitsOnly, toMsisdn } from "../phone/normalize.ts";
+import { detectCountry } from "../phone/detectCountry.ts";
 
 export interface Detection {
   country: string;
   brand: string;
-  /** "lookup" = from Zendit; "prefix" = local fallback; "unknown". */
+  /** "lookup" = from Zendit; "prefix" = local estimate; "unknown". */
   method: "lookup" | "prefix" | "unknown";
-  /** Populated only for a prefix match. */
+  /** Populated only for a local estimate. */
   network: string | null;
 }
 
@@ -47,115 +46,115 @@ export function normaliseMsisdn(msisdn: string, dialCode = ""): string {
 }
 
 /**
- * Prefix table for the fallback match. Only used when the provider lookup is
- * unavailable; deliberately small and explicit rather than a full table, since
- * its job is to avoid a hard failure, not to be authoritative.
- *
- * Nigeria's entries are per-carrier: its mobile prefixes are allocated by
- * carrier, so a Nigerian number can be placed on the right network without the
- * provider lookup. The other countries are country-only — the country is
- * certain, the brand is the largest carrier, and the UI labels a fallback
- * result as an estimate for exactly this reason.
+ * The largest carrier per country, used only to label a locally-read number
+ * when the provider lookup is unavailable. A country absent here reports the
+ * brand as "unknown" — an honest gap rather than a guess.
  */
-const PREFIX_FALLBACK: { prefix: string; country: string; brand: string | null }[] = [
-  // Nigeria — per-carrier prefixes (national, without the trunk 0).
-  { prefix: "234803", country: "ng", brand: "MTN" },
-  { prefix: "234806", country: "ng", brand: "MTN" },
-  { prefix: "234703", country: "ng", brand: "MTN" },
-  { prefix: "234706", country: "ng", brand: "MTN" },
-  { prefix: "234813", country: "ng", brand: "MTN" },
-  { prefix: "234816", country: "ng", brand: "MTN" },
-  { prefix: "234810", country: "ng", brand: "MTN" },
-  { prefix: "234814", country: "ng", brand: "MTN" },
-  { prefix: "234903", country: "ng", brand: "MTN" },
-  { prefix: "234906", country: "ng", brand: "MTN" },
-  { prefix: "234913", country: "ng", brand: "MTN" },
-  { prefix: "234916", country: "ng", brand: "MTN" },
-  { prefix: "234805", country: "ng", brand: "Glo" },
-  { prefix: "234807", country: "ng", brand: "Glo" },
-  { prefix: "234705", country: "ng", brand: "Glo" },
-  { prefix: "234815", country: "ng", brand: "Glo" },
-  { prefix: "234811", country: "ng", brand: "Glo" },
-  { prefix: "234905", country: "ng", brand: "Glo" },
-  { prefix: "234915", country: "ng", brand: "Glo" },
-  { prefix: "234802", country: "ng", brand: "Airtel" },
-  { prefix: "234808", country: "ng", brand: "Airtel" },
-  { prefix: "234812", country: "ng", brand: "Airtel" },
-  { prefix: "234701", country: "ng", brand: "Airtel" },
-  { prefix: "234708", country: "ng", brand: "Airtel" },
-  { prefix: "234902", country: "ng", brand: "Airtel" },
-  { prefix: "234901", country: "ng", brand: "Airtel" },
-  { prefix: "234907", country: "ng", brand: "Airtel" },
-  { prefix: "234912", country: "ng", brand: "Airtel" },
-  { prefix: "234911", country: "ng", brand: "Airtel" },
-  { prefix: "234809", country: "ng", brand: "9mobile" },
-  { prefix: "234818", country: "ng", brand: "9mobile" },
-  { prefix: "234817", country: "ng", brand: "9mobile" },
-  { prefix: "234909", country: "ng", brand: "9mobile" },
-  { prefix: "234908", country: "ng", brand: "9mobile" },
-  // Country-only fallbacks.
-  { prefix: "234", country: "ng", brand: "MTN" },
-  { prefix: "250", country: "rw", brand: "MTN" },
-  { prefix: "256", country: "ug", brand: "MTN" },
-  { prefix: "254", country: "ke", brand: "Safaricom" },
-  { prefix: "255", country: "tz", brand: "Vodacom" },
-  { prefix: "233", country: "gh", brand: "MTN" },
-  { prefix: "27", country: "za", brand: "Vodacom" },
-  { prefix: "20", country: "eg", brand: "Vodafone" },
-  { prefix: "212", country: "ma", brand: "Maroc Telecom" },
-  { prefix: "243", country: "cd", brand: "Vodacom" },
-  { prefix: "260", country: "zm", brand: "MTN" },
-  { prefix: "237", country: "cm", brand: "MTN" },
-  { prefix: "225", country: "ci", brand: "Orange" },
-  { prefix: "221", country: "sn", brand: "Orange" },
+const COUNTRY_DEFAULT_BRAND: Record<string, string> = {
+  ng: "MTN",
+  rw: "MTN",
+  ug: "MTN",
+  ke: "Safaricom",
+  tz: "Vodacom",
+  gh: "MTN",
+  za: "Vodacom",
+  eg: "Vodafone",
+  ma: "Maroc Telecom",
+  cd: "Vodacom",
+  zm: "MTN",
+  cm: "MTN",
+  ci: "Orange",
+  sn: "Orange",
+};
+
+/**
+ * Nigeria's mobile prefixes are allocated per carrier, so a Nigerian number can
+ * be placed on the right network without the provider lookup. Keyed on the
+ * national digits (no dial code, no trunk `0`).
+ */
+const NG_CARRIER_PREFIXES: [prefix: string, brand: string][] = [
+  ["803", "MTN"], ["806", "MTN"], ["703", "MTN"], ["706", "MTN"],
+  ["813", "MTN"], ["816", "MTN"], ["810", "MTN"], ["814", "MTN"],
+  ["903", "MTN"], ["906", "MTN"], ["913", "MTN"], ["916", "MTN"],
+  ["805", "Glo"], ["807", "Glo"], ["705", "Glo"], ["815", "Glo"],
+  ["811", "Glo"], ["905", "Glo"], ["915", "Glo"],
+  ["802", "Airtel"], ["808", "Airtel"], ["812", "Airtel"], ["701", "Airtel"],
+  ["708", "Airtel"], ["902", "Airtel"], ["901", "Airtel"], ["907", "Airtel"],
+  ["912", "Airtel"], ["911", "Airtel"],
+  ["809", "9mobile"], ["818", "9mobile"], ["817", "9mobile"],
+  ["909", "9mobile"], ["908", "9mobile"],
 ];
 
-export function detectFromPrefix(msisdn: string): Detection | null {
-  const digits = digitsOnly(msisdn);
-  if (!digits) return null;
-  // Longest prefix wins: a Nigerian "234803…" must beat the bare "234" entry.
-  const match = PREFIX_FALLBACK
-    .filter((entry) => digits.startsWith(entry.prefix))
-    .sort((a, b) => b.prefix.length - a.prefix.length)[0];
-  if (!match) return null;
+/** The carrier to label a country with, using Nigeria's prefixes when known. */
+function brandFor(country: string, national: string): string | null {
+  if (country === "ng") {
+    const hit = NG_CARRIER_PREFIXES.find(([p]) => national.startsWith(p));
+    if (hit) return hit[1];
+  }
+  return COUNTRY_DEFAULT_BRAND[country] ?? null;
+}
+
+/**
+ * Read a number's country and brand locally, without the provider lookup.
+ *
+ * Kept as a named export because it is the fallback the caller degrades to and
+ * the piece the tests pin. Returns null when the number cannot be placed.
+ */
+export function detectFromPrefix(
+  msisdn: string,
+  hintCountry = "",
+  preferred: string[] = [],
+): Detection | null {
+  const read = detectCountry(msisdn, hintCountry, preferred);
+  if (!read.country) return null;
+  const dial = getCountryDialCode(read.country);
+  const national = dial && read.e164.startsWith("+" + dial)
+    ? read.e164.slice(dial.length + 1)
+    : digitsOnly(msisdn);
+  const brand = brandFor(read.country, national);
   return {
-    country: match.country,
-    brand: match.brand ?? "unknown",
+    country: read.country,
+    brand: brand ?? "unknown",
     method: "prefix",
-    network: match.brand,
+    network: brand,
   };
 }
 
 /**
- * Resolve the MSISDN to look up and match on.
+ * The MSISDN to hand the provider lookup (dial code + national digits).
  *
- * An explicit international prefix ("+…", "00…") or a number that already
- * starts with a known dial code is already an MSISDN. A local number needs the
- * hint's dial code to place it; without a hint it cannot be placed, so the
- * digits are returned unchanged and the caller reports unknown.
+ * The number's own country is read first, so a local number becomes a proper
+ * MSISDN even when the store never enabled that country. The hint's dial code
+ * is only a last resort for a number the local read could not place.
  */
-function resolveMsisdn(input: string, hintCountry: string): string {
+function resolveMsisdn(
+  input: string,
+  hintCountry: string,
+  preferred: string[],
+): string {
+  const read = detectCountry(input, hintCountry, preferred);
+  if (read.e164) return read.e164.replace("+", "");
   const digits = digitsOnly(input);
   if (!digits) return "";
-  if (hasCountryPrefix(input)) return toMsisdn(input, "");
   const hintDial = hintCountry ? getCountryDialCode(hintCountry) : "";
-  if (hintDial) return toMsisdn(input, hintDial);
-  return digits;
+  return hintDial ? toMsisdn(input, hintDial) : digits;
 }
 
 /**
  * Detect the country and carrier for a number.
  *
  * `lookup` is injectable so this is testable without the network.
- * `hintCountry` is the destination the caller expects (the plan's or the
- * store's country); it lets a local number be normalised to an MSISDN.
+ * `hintCountry` is the destination the caller expects (the store's country, or
+ * the tab the customer is on); `preferred` is the set of countries the store
+ * sells. Both only break ties for an ambiguous local number.
  */
 export async function detectNetwork(
   msisdn: string,
   lookup: (m: string) => Promise<PhoneNumberLookup> = lookupPhoneNumber,
   hintCountry = "",
+  preferred: string[] = [],
 ): Promise<Detection> {
-  const key = resolveMsisdn(msisdn, hintCountry);
+  const key = resolveMsisdn(msisdn, hintCountry, preferred);
   if (!key) return { country: "", brand: "", method: "unknown", network: null };
 
   const cached = cache.get(key);
@@ -178,7 +177,7 @@ export async function detectNetwork(
       network: found.brand,
     };
   } catch {
-    const fallback = detectFromPrefix(key);
+    const fallback = detectFromPrefix(msisdn, hintCountry, preferred);
     if (fallback) return fallback;
     return { country: "", brand: "", method: "unknown", network: null };
   }

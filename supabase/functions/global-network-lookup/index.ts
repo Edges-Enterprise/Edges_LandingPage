@@ -36,18 +36,23 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { phoneNumber, country } = await req.json();
+    const { phoneNumber, country, preferred: preferredRaw } = await req.json();
     if (!phoneNumber || typeof phoneNumber !== "string") {
       return json({ error: "Missing required field: phoneNumber" }, 400);
     }
 
     // `country` is the destination the caller expects (the plan's, or the
-    // store's). It is optional, but without it a bare local number cannot be
-    // placed on a country.
+    // store's) and `preferred` the countries the store sells. Both only break
+    // ties for an ambiguous local number; the number's own country wins when
+    // its form is unambiguous, so a store can sell a country it never enabled.
+    const preferred = Array.isArray(preferredRaw)
+      ? preferredRaw.filter((c): c is string => typeof c === "string")
+      : [];
     const detection = await detectNetwork(
       phoneNumber,
       undefined,
       typeof country === "string" ? country : "",
+      preferred,
     );
 
     return json({

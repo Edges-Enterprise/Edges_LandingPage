@@ -83,27 +83,64 @@ Deno.test("detect: unknown when both fail, never a wrong guess", async () => {
   assert.equal(result.country, "");
 });
 
-Deno.test("detect: a local number needs the country hint to be placed", async () => {
+Deno.test("detect: a local number is placed by its own country, no hint needed", async () => {
   clearDetectionCache();
-  // Without a hint a bare local number has no dial code and cannot be placed.
+  // "08036076543" is Nigerian on its own — the store never had to enable
+  // Nigeria, and no hint is required for it to resolve.
   const noHint = await detectNetwork("08036076543", async () => {
     throw new Error("lookup unavailable");
   });
-  assert.equal(noHint.method, "unknown");
+  assert.equal(noHint.method, "prefix");
+  assert.equal(noHint.country, "ng");
+  assert.equal(noHint.network, "MTN");
+});
 
-  // With the hint, "08036076543" normalises to the Nigerian MSISDN and the
-  // prefix fallback places it on MTN.
+Deno.test("detect: the number's country wins over a mismatched hint", async () => {
   clearDetectionCache();
-  const hinted = await detectNetwork(
+  // A Rwandan store (hint "rw") with only Rwanda enabled is handed a Nigerian
+  // number: the number's own country must win, so the store can sell to a
+  // destination it never enabled.
+  const result = await detectNetwork(
     "08036076543",
     async () => {
       throw new Error("lookup unavailable");
     },
-    "ng",
+    "rw",
+    ["rw"],
   );
-  assert.equal(hinted.country, "ng");
-  assert.equal(hinted.network, "MTN");
-  assert.equal(hinted.method, "prefix");
+  assert.equal(result.country, "ng");
+  assert.equal(result.network, "MTN");
+});
+
+Deno.test("detect: a cross-border number resolves at a store that never enabled it", async () => {
+  clearDetectionCache();
+  // A Rwandan store selling a Ugandan number. The store sells rw and ug, but
+  // the number is typed in the local Ugandan form with no hint that it is
+  // Ugandan — the store's country (rw) does not claim it, so the store's own
+  // catalog breaks the tie and the number lands on Uganda.
+  const result = await detectNetwork(
+    "0712345678",
+    async () => {
+      throw new Error("lookup unavailable");
+    },
+    "rw",
+    ["rw", "ug"],
+  );
+  assert.equal(result.country, "ug");
+});
+
+Deno.test("detect: the hint breaks a tie for an ambiguous local number", async () => {
+  clearDetectionCache();
+  // "0712345678" is a valid mobile number in several countries; the hint (the
+  // store's country / active tab) decides which one.
+  const ug = await detectNetwork(
+    "0712345678",
+    async () => {
+      throw new Error("lookup unavailable");
+    },
+    "ug",
+  );
+  assert.equal(ug.country, "ug");
 });
 
 Deno.test("detect: every Nigerian input form resolves to the same network", async () => {

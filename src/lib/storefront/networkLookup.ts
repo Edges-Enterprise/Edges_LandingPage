@@ -25,13 +25,16 @@ export interface NetworkDetection {
  * lookup could not run (no session, network error) so the caller can simply
  * not show a badge rather than show a wrong one.
  *
- * `countryHint` is the destination the caller expects (the store's country, or
- * the plan's). It is optional, but a bare local number ("08036076543") can
- * only be placed on a country with it.
+ * The number's own country is read from the number itself (see the edge
+ * function), so a number for a country the store never enabled still resolves.
+ * `countryHint` (the store's country, or the tab the customer is on) and
+ * `preferred` (the countries the store sells) are tie-breaks for an ambiguous
+ * local number such as "0788123456", not a constraint on the answer.
  */
 export async function lookupNetwork(
   phoneNumber: string,
   countryHint?: string,
+  preferred?: string[],
 ): Promise<NetworkDetection | null> {
   const trimmed = phoneNumber.replace(/\s/g, "");
   if (trimmed.length < 6) return null;
@@ -56,6 +59,7 @@ export async function lookupNetwork(
         body: JSON.stringify({
           phoneNumber: trimmed,
           country: countryHint || undefined,
+          preferred: preferred && preferred.length ? preferred : undefined,
         }),
       },
     );
