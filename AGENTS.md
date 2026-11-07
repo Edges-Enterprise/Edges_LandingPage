@@ -339,3 +339,30 @@ Two operational invariants worth keeping:
   plans page show "no plans" while the storefront, which does not filter by
   country, listed them). The storefront comment in `global-store-catalog`
   already states this; the dashboard actions now follow it.
+
+- **Cross-border selling is a READ-scoping issue, not a write one.** A plan
+  is enabled/marked-up by its `global_base_plans.id`, which is unique across
+  countries, so `togglePlan` / `updatePlanConfig` / `bulkUpdatePlans` already
+  accept a plan from any country — do NOT re-scope those writes to the
+  reseller's own `country_code`/`serviceProvider` (that guard was removed).
+  What was missing was only the dashboard read: `getPlans` filters to the
+  store's own country, so foreign plans never appeared. `getGlobalPlans`
+  (all Zendit countries) + `GlobalPlansPanel` (the globe icon next to "Plan
+  Management") supply the missing read, and `bulkUpdatePlans` gained a
+  `global`/`provider`/`country` scope. The storefront (`getStoreCatalog`)
+  and the purchase pipeline were already country-agnostic: enabling a UG
+  plan for an RW store surfaces it there with no further change.
+
+- **A storefront purchase must validate the number against the PLAN's
+  country, not the store's.** `useStorePurchase.handlePurchase` now looks up
+  `getCountryConfig(selectedPlan.country_code).phoneNumber`, otherwise an RW
+  store could never accept a valid 9-digit UG number (and vice-versa). The
+  destination country for a typed number comes from `lookupNetwork`
+  (`global-network-lookup`), with the store's own country as the fallback
+  when the lookup cannot run.
+
+- **Plan `category` values are exactly `airtime` and `data`** (live catalog:
+  917 airtime, 83 data across 66 countries). The storefront destination flow
+  keys its two tabs on those strings; `price_type === "RANGE"` is what marks
+  a top-up ("choose an amount") versus a fixed bundle tile.
+

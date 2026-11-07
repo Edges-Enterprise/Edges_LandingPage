@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ShoppingBag, Zap } from "lucide-react";
+import { ShoppingBag, Zap, Globe } from "lucide-react";
 import { StoreProduct } from "@/types/reseller/storefront";
 import { CountryConfig } from "@/config/countries";
 import {
@@ -19,6 +19,8 @@ interface StoreProductsProps {
   canSell?: boolean;
   translations: any;
   config: CountryConfig;
+  /** Opens the destination (world) flow; the globe icon on the tabs row. */
+  onOpenDestination?: () => void;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -39,6 +41,7 @@ export default function StoreProducts({
   canSell = true,
   translations,
   config,
+  onOpenDestination,
 }: StoreProductsProps) {
   const t = translations;
 
@@ -60,40 +63,84 @@ export default function StoreProducts({
 
   return (
     <section id="products" style={{ padding: "1rem 0 2rem" }}>
-      {/* Network Tabs — legacy primary navigation (MTN/AIRTEL/GLO/…) */}
+      {/* Network Tabs — legacy primary navigation (MTN/AIRTEL/GLO/…).
+          The globe icon sits to the right, on top of the row: the tabs
+          scroll horizontally underneath it, so a store with many networks
+          still reaches all of them and the icon never moves. */}
       {networkTabs.length > 0 && (
         <div
           style={{
-            display: "flex",
-            gap: "0.5rem",
+            position: "relative",
             marginBottom: "1.5rem",
-            flexWrap: "wrap",
           }}
         >
-          {networkTabs.map((net) => {
-            const isActive = net === activeNetwork;
-            return (
-              <button
-                key={net}
-                onClick={() => onNetworkChange(net)}
-                style={{
-                  padding: "0.55rem 1.1rem",
-                  borderRadius: 10,
-                  fontSize: "0.82rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  letterSpacing: "0.02em",
-                  transition: "all 0.15s",
-                  background: isActive ? "var(--brand-color)" : "var(--card)",
-                  color: isActive ? "#FDF8F3" : "var(--text2)",
-                  border: isActive ? "none" : "1.5px solid var(--border)",
-                }}
-              >
-                {net}
-              </button>
-            );
-          })}
+          <div
+            className="store-net-scroll"
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              overflowX: "auto",
+              // Leave room under the globe so the last tab is not hidden.
+              paddingRight: onOpenDestination ? "3.25rem" : 0,
+              scrollbarWidth: "none",
+            }}
+          >
+            {networkTabs.map((net) => {
+              const isActive = net === activeNetwork;
+              return (
+                <button
+                  key={net}
+                  onClick={() => onNetworkChange(net)}
+                  style={{
+                    padding: "0.55rem 1.1rem",
+                    borderRadius: 10,
+                    fontSize: "0.82rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    letterSpacing: "0.02em",
+                    transition: "all 0.15s",
+                    flexShrink: 0,
+                    background: isActive ? "var(--brand-color)" : "var(--card)",
+                    color: isActive ? "#FDF8F3" : "var(--text2)",
+                    border: isActive ? "none" : "1.5px solid var(--border)",
+                  }}
+                >
+                  {net}
+                </button>
+              );
+            })}
+          </div>
+          {onOpenDestination && (
+            <button
+              className="store-net-globe"
+              onClick={onOpenDestination}
+              aria-label={t?.globalPlans || "Global plans"}
+              title={t?.globalPlans || "Global plans"}
+              style={{
+                position: "absolute",
+                top: 0,
+                right: 0,
+                zIndex: 2,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                border: "1.5px solid var(--border)",
+                background: "var(--card)",
+                color: "var(--brand-color)",
+                cursor: "pointer",
+                // A soft fade so tabs passing under the icon read as
+                // "behind" rather than clipped.
+                boxShadow:
+                  "-8px 0 10px -6px color-mix(in srgb, var(--bg) 90%, transparent)",
+              }}
+            >
+              <Globe size={18} />
+            </button>
+          )}
         </div>
       )}
 
@@ -261,6 +308,18 @@ export default function StoreProducts({
           )}
         </>
       )}
+
+      <style jsx>{`
+        /* The network row scrolls horizontally under the globe icon; the
+           scrollbar is hidden so it does not compete with the icon. */
+        .store-net-scroll {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .store-net-scroll::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </section>
   );
 }

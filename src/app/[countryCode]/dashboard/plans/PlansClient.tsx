@@ -9,6 +9,8 @@ import {
   Pencil,
   AlertTriangle,
   ChevronDown,
+  Globe,
+  LayoutList,
 } from "lucide-react";
 import { getPlans } from "@/actions/reseller/plans/getPlans";
 import { togglePlan } from "@/actions/reseller/plans/togglePlan";
@@ -18,6 +20,7 @@ import { CountryConfig } from "@/config/countries";
 import { PlanWithConfig } from "@/types/reseller/plans";
 import { formatPrice } from "@/lib/currency/currency";
 import ThemeSelect from "../ThemeSelect";
+import GlobalPlansPanel from "./GlobalPlansPanel";
 
 interface PlansClientProps {
   countryCode: string;
@@ -76,6 +79,10 @@ export default function PlansClient({
   // card always shows every detail inline.
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  // The plans page has two views: the store's own (local) plans, and the
+  // global/world view of every Zendit destination. The globe icon next to
+  // the title switches between them.
+  const [showGlobal, setShowGlobal] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -436,25 +443,65 @@ export default function PlansClient({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      {/* Header */}
-      <div>
+      {/* Header. The title stays on one line; on narrow screens it shrinks
+          rather than wrapping, and the globe icon sits to its right. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.6rem",
+        }}
+      >
         <h1
+          className="plans-title"
           style={{
             fontFamily: "'Playfair Display', serif",
             fontSize: "1.8rem",
             fontWeight: 700,
             color: "var(--text)",
-            marginBottom: "0.3rem",
+            whiteSpace: "nowrap",
+            minWidth: 0,
           }}
         >
           {t?.title || "Plan Management"}
         </h1>
-        <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-          {t?.subtitle ||
-            "Toggle plans on/off and set your markup for each network"}
-        </p>
+        <button
+          className="plans-globe"
+          onClick={() => setShowGlobal((v) => !v)}
+          aria-pressed={showGlobal}
+          aria-label={
+            showGlobal
+              ? t?.localPlans || "Your store plans"
+              : t?.globalPlans || "Global plans"
+          }
+          title={showGlobal ? t?.localPlans || "Your store plans" : t?.globalPlans || "Global plans"}
+        >
+          {showGlobal ? <LayoutList size={18} /> : <Globe size={18} />}
+        </button>
       </div>
+      <p
+        style={{
+          color: "var(--muted)",
+          fontSize: "0.9rem",
+          marginTop: "-1rem",
+        }}
+      >
+        {showGlobal
+          ? t?.globalPlansSubtitle ||
+            "Enable and price any destination Zendit covers — sold in your store currency"
+          : t?.subtitle ||
+            "Toggle plans on/off and set your markup for each network"}
+      </p>
 
+      {showGlobal ? (
+        <GlobalPlansPanel
+          countryCode={countryCode}
+          config={config}
+          translations={t}
+          onChanged={refreshPlans}
+        />
+      ) : (
+        <>
       {/* Stats */}
       <style>{`
         .plans-stats-grid {
@@ -1195,6 +1242,8 @@ export default function PlansClient({
           })
         )}
       </div>
+        </>
+      )}
 
       <style jsx>{`
         @keyframes spin {
@@ -1203,6 +1252,40 @@ export default function PlansClient({
           }
           to {
             transform: rotate(360deg);
+          }
+        }
+        /* The globe toggle sits to the right of the title on every viewport. */
+        .plans-globe {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 38px;
+          height: 38px;
+          flex-shrink: 0;
+          border-radius: 10px;
+          border: 1px solid var(--border);
+          background: var(--card);
+          color: var(--brand-color);
+          cursor: pointer;
+          transition: background 0.15s, color 0.15s;
+        }
+        .plans-globe:hover {
+          background: color-mix(in srgb, var(--brand-color) 12%, transparent);
+        }
+        .plans-globe[aria-pressed="true"] {
+          background: var(--brand-color);
+          color: #FDF8F3;
+          border-color: transparent;
+        }
+        /* The title stays on one line; on small screens it shrinks rather
+           than wrapping, so it and the icon always share the row. */
+        @media (max-width: 767px) {
+          .plans-title {
+            font-size: 1.25rem !important;
+          }
+          .plans-globe {
+            width: 34px;
+            height: 34px;
           }
         }
         /* Desktop: the details wrapper is transparent, so the card keeps its

@@ -25,7 +25,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isValidPhoneNumber } from "@/lib/phone/validatePhoneNumber";
-import type { CountryConfig } from "@/config/countries";
+import { getCountryConfig, type CountryConfig } from "@/config/countries";
 import type { StoreProduct } from "@/types/reseller/storefront";
 import { priceRangeAmount } from "@/actions/reseller/plans/priceRangeAmount";
 import {
@@ -79,24 +79,29 @@ export function useStorePurchase({
   const [detection, setDetection] = useState<NetworkDetection | null>(null);
 
   const startPurchase = useCallback(
-    (product: StoreProduct) => {
+    (product: StoreProduct, phone?: string, amount?: number) => {
       if (!loggedIn) {
         onRequireLogin();
         return;
       }
       setSelectedPlan(product);
       setIsCreatingPin(hasTransactionPin === false);
-      setPurchasePhone("");
+      // The destination flow already collected the number, so it is carried
+      // into the confirm modal rather than asked for twice.
+      setPurchasePhone(phone ?? "");
       setPurchasePin("");
       setPurchaseError("");
       setPurchaseSuccess("");
       setShowPin(false);
       setShowCreatePin(false);
       // Seed a RANGE plan at its minimum, which is always a valid amount.
+      // The destination flow's entered amount (if any) takes precedence.
       setPurchaseAmount(
-        product.price_type === "RANGE" && product.range_min != null
-          ? String(product.range_min)
-          : "",
+        amount != null && amount > 0
+          ? String(amount)
+          : product.price_type === "RANGE" && product.range_min != null
+            ? String(product.range_min)
+            : "",
       );
       setQuotedPrice(product.price_type === "RANGE" ? product.price : null);
       setAmountError("");
@@ -166,7 +171,16 @@ export function useStorePurchase({
   const handlePurchase = useCallback(async () => {
     if (!selectedPlan) return;
 
-    if (!isValidPhoneNumber(purchasePhone, config.phoneNumber)) {
+    // Cross-border: the number's own country decides what a valid number
+    // looks like (a Rwandan store selling a Ugandan bundle must accept a
+    // 9-digit UG number, not a 9-digit RW-shaped rule). Fall back to the
+    // store's own config when the plan carries no country or the detected
+    // country is unknown.
+    const planCountry = (selectedPlan.country_code || "").toLowerCase();
+    const phoneConfig = planCountry
+      ? getCountryConfig(planCountry).phoneNumber
+      : config.phoneNumber;
+    if (!isValidPhoneNumber(purchasePhone, phoneConfig)) {
       setPurchaseError("Please enter a valid phone number");
       return;
     }

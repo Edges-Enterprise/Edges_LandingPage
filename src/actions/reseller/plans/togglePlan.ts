@@ -40,7 +40,6 @@ export async function togglePlan(
 
     const countryCodeLower = application.country_code.toLowerCase();
     const countryConfig = getCountryConfig(countryCodeLower);
-    const serviceProvider = countryConfig.serviceProvider;
 
     // Check if config exists
     const { data: existingConfig, error: configError } = await adminClient
@@ -77,14 +76,17 @@ export async function togglePlan(
       // first time must persist enabled=true); otherwise default OFF.
       newEnabled = enabled ?? false;
 
-      // Get the base plan (also verify it's from the correct provider)
+      // Get the base plan. The plan id is authoritative and unique across
+      // countries/providers, so it is not re-scoped to the country's
+      // service provider — a reseller may enable any provider's plan
+      // (e.g. a Zendit plan from the global/world view).
       const { data: plan, error: planError } = await adminClient
         .from("global_base_plans")
         .select(
-          "id, provider_plan_id, country_code, network, name, category, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx",
+          "id, provider, provider_plan_id, country_code, network, name, category, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx",
         )
         .eq("id", planId)
-        .eq("provider", serviceProvider) // 🔥 VERIFY CORRECT PROVIDER
+        .eq("is_active", true)
         .single();
 
       if (planError || !plan) {

@@ -30,5 +30,12 @@
   "hidden": "Hidden",
   "sell": "Sell",
   "editMarkup": "Edit markup",
-  "customerReceives": "Customer Receives"
+  "customerReceives": "Customer Receives",
+  "globalPlansTitle": "Global Plans",
+  "globalPlansSubtitle": "Enable and price any destination Zendit covers — sold in your store currency",
+  "globalPlans": "Global plans",
+  "localPlans": "Your store plans",
+  "allCountries": "All Countries",
+  "searchPlans": "Search plans",
+  "enabled": "enabled"
 }

@@ -2,9 +2,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Network } from "lucide-react";
 import StoreHeader from "./StoreHeader";
 import StoreHero from "./StoreHero";
 import StoreProducts from "./StoreProducts";
+import StoreDestinationFlow from "./StoreDestinationFlow";
 import StoreFooter from "./StoreFooter";
 import StoreStatusBanner from "./StoreStatusBanner";
 import StoreAuthModal from "./StoreAuthModal";
@@ -45,6 +47,9 @@ export default function StoreContent({
   const [loginOpen, setLoginOpen] = useState(false);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [selectedNetwork, setSelectedNetwork] = useState<string>("all");
+  // The storefront has two views: the store's own network tabs, and the
+  // destination (world) flow opened from the globe icon. Only one renders.
+  const [showDestination, setShowDestination] = useState(false);
   const router = useRouter();
 
   // StoreHeader's sign-in button navigates with ?login=true.
@@ -231,16 +236,64 @@ export default function StoreContent({
             onAddToCart={purchase.startPurchase}
           />
 
-          <StoreProducts
-            products={filteredProducts}
-            networks={storeData.networks}
-            selectedNetwork={selectedNetwork}
-            onNetworkChange={setSelectedNetwork}
-            onAddToCart={purchase.startPurchase}
-            canSell={storeData.storeStatus?.canSell !== false}
-            translations={t}
-            config={config}
-          />
+          {showDestination ? (
+            <>
+              {/* Back to the store's own network tabs. Mirrors the globe icon
+                  that opened this view. */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                <button
+                  onClick={() => setShowDestination(false)}
+                  aria-label={t?.networkPlans || "Network plans"}
+                  title={t?.networkPlans || "Network plans"}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "0.45rem 0.9rem",
+                    borderRadius: 10,
+                    border: "1.5px solid var(--border)",
+                    background: "var(--card)",
+                    color: "var(--brand-color)",
+                    fontWeight: 700,
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  <Network size={16} />
+                  {t?.networkPlans || "Network Plans"}
+                </button>
+              </div>
+              <StoreDestinationFlow
+                products={filteredProducts}
+                config={config}
+                translations={t}
+                canSell={storeData.storeStatus?.canSell !== false}
+                onBuy={(product, phone, amount) => {
+                  purchase.startPurchase(product, phone, amount);
+                }}
+              />
+            </>
+          ) : (
+            <StoreProducts
+              products={filteredProducts}
+              networks={storeData.networks}
+              selectedNetwork={selectedNetwork}
+              onNetworkChange={setSelectedNetwork}
+              onAddToCart={purchase.startPurchase}
+              canSell={storeData.storeStatus?.canSell !== false}
+              translations={t}
+              config={config}
+              onOpenDestination={() => setShowDestination(true)}
+            />
+          )}
         </main>
 
         <StoreFooter storeData={storeData} translations={t} config={config} />

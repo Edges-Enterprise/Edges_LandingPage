@@ -15,6 +15,15 @@ interface BulkUpdatePlansParams {
   network?: string;
   markupType: "percentage" | "fixed";
   markupValue: number;
+  /**
+   * Global (world) view: apply across every country for this provider
+   * instead of only the reseller's own country. `country` narrows it to one
+   * destination. Both default to the reseller's own country + provider, so
+   * the existing dashboard behaviour is unchanged.
+   */
+  global?: boolean;
+  provider?: string;
+  country?: string;
 }
 
 const PLAN_PRICING_COLUMNS =
@@ -56,15 +65,28 @@ export async function bulkUpdatePlans(params: BulkUpdatePlansParams): Promise<{
     const countryConfig = getCountryConfig(countryCodeLower);
     const serviceProvider = countryConfig.serviceProvider;
 
-    // Get all plans for this reseller's country, optionally filtered by network
+    // Global (world) view: the reseller may bulk-apply across every country
+    // Zendit covers, not only their own. `country` narrows to one
+    // destination. The default path is unchanged (own country + provider).
+    const provider = params.global ? (params.provider || "zendit") : serviceProvider;
+
+    // Get all plans for the scope, optionally filtered by network
     let query = adminClient
       .from("global_base_plans")
       .select(PLAN_PRICING_COLUMNS)
+      .eq("is_active", true)
+      .eq("provider", provider);
+
+    if (params.global) {
+      if (params.country) {
+        // country_code is mixed-case across the syncs, so match loosely.
+        query = query.ilike("country_code", params.country);
+      }
+    } else {
       // See getPlans: country_code is mixed-case across the two syncs, so
       // match case-insensitively or one provider's stores see zero plans.
-      .ilike("country_code", countryCodeUpper)
-      .eq("is_active", true)
-      .eq("provider", serviceProvider); // 🔥 FILTER BY SERVICE PROVIDER
+      query = query.ilike("country_code", countryCodeUpper);
+    }
 
     if (params.network) {
       query = query.eq("network", params.network);
