@@ -224,6 +224,25 @@ reseller dashboard).
   user agent (`showInstallBanner`); to see it in headless Chromium, set an
   Android UA and `isMobile: true`/`hasTouch: true`, and wait ~3s for its timer.
 
+## Downloading test APKs (Termux)
+
+- The person installs builds on an Android device via **Termux**. The canonical
+  download directory is **`~/storage/downloads/edges-apks/`** — the handover
+  does not name one, so use this and `mkdir -p` it first (run
+  `termux-setup-storage` once to create the `~/storage/downloads` symlink).
+- Releases live in **`Erudite885/tenant-distribution`** and are public, so no
+  token is needed. Pattern:
+  `curl -L --fail --retry 3 -C - -o ~/storage/downloads/edges-apks/<store>.apk "https://github.com/Erudite885/tenant-distribution/releases/download/<tag>/<store>.apk"`.
+  `-L` is required (GitHub 302s to a signed CDN URL); `--fail` avoids writing an
+  error page as the APK; `-C -` resumes a dropped mobile download.
+- Each release carries **both** `<store>.apk` (sideload) and `<store>.aab`
+  (Play upload). Record the APK **byte size and SHA-256** in `HANDOVER.md` so
+  the person can verify the download with
+  `ls -l … && sha256sum …`. Releases are cut from `main`, and the build's
+  `head_sha` plus bundle markers (see below) prove the shipped bytes, not just
+  git.
+
+
 ## Pushing to this repo (credentials)
 
 - The system-injected `GITHUB_TOKEN` is a GitHub **App installation token**
