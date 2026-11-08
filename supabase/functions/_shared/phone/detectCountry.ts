@@ -18,7 +18,9 @@
 //      the caller's `hint` (the store's country, or the tab the customer is on)
 //      and its `preferred` list (the countries the store actually sells) are
 //      tried first, so an ambiguous local number lands on the customer's own
-//      country rather than the first alphabetically-valid one.
+//      country rather than the first alphabetically-valid one. A number that
+//      stays valid in several countries with no such tie-break is left
+//      unresolved, never guessed.
 //
 // libphonenumber's metadata (the same data Android's dialer uses) is the source
 // of truth, so the answer agrees with what a device would report and does not
@@ -105,23 +107,63 @@ function byDialPrefix(digits: string): CountryDetection | null {
   return null;
 }
 
-/** Countries to try for a bare local number, in priority order. */
-function localOrder(hint: string, preferred: string[]): string[] {
-  const order: string[] = [];
+/**
+ * The caller's tie-break countries in priority order: the hint (the store's
+ * country, or the tab the customer is on) first, then the store's own catalog.
+ * Uppercased, deduped and limited to real countries.
+ */
+function priorityCountries(hint: string, preferred: string[]): string[] {
   const seen = new Set<string>();
-  const push = (c: string) => {
+  const order: string[] = [];
+  const add = (c: string) => {
     const cu = (c || "").trim().toUpperCase();
     if (cu && COUNTRY_SET.has(cu) && !seen.has(cu)) {
       seen.add(cu);
       order.push(cu);
     }
   };
-  // The caller's hint (store country / active tab) and the store's own catalog
-  // first, then every platform country as a fallback.
-  push(hint);
-  for (const c of preferred) push(c);
-  for (const c of SERVED) push(c);
+  add(hint);
+  for (const c of preferred) add(c);
   return order;
+}
+
+/**
+ * Every country a bare local number is a valid *mobile* number in. A number
+ * that is a mobile in one country must not be placed on a country where it
+ * merely parses as a landline, so the two sets are gathered separately.
+ */
+function mobileMatches(digits: string, pool: string[]): string[] {
+  return pool.filter((c) => {
+    const p = parse(digits, c);
+    return p && p.isValid() && isMobile(p);
+  });
+}
+
+/** Every country in the pool the number is a valid number of any type in. */
+function validMatches(digits: string, pool: string[]): string[] {
+  return pool.filter((c) => {
+    const p = parse(digits, c);
+    return p && p.isValid();
+  });
+}
+
+/**
+ * Choose one country from the matches, or "" when the field is still
+ * ambiguous. A lone match is taken as-is. Otherwise the hint (the store's own
+ * country, or the active tab) wins if it is among the matches, and failing
+ * that the store's catalog breaks a tie when exactly one of its countries
+ * matches. A number that stays valid in several countries with no such
+ * tie-break is left unresolved rather than guessed — placing a Rwandan
+ * customer's number on Afghanistan because it happens to parse there is worse
+ * than showing nothing.
+ */
+function pickCountry(matches: string[], priority: string[]): string {
+  if (matches.length === 1) return matches[0];
+  const [hint, ...catalog] = priority;
+  if (hint && matches.includes(hint)) return hint;
+  const narrowed = catalog.filter((c) => matches.includes(c));
+  if (narrowed.length === 1) return narrowed[0];
+  return "";
 }
 
 /**
@@ -160,15 +202,16 @@ export function detectCountry(
     if (byDial) return byDial;
   }
 
-  // 3. A bare local number: hint, then the store's countries, then everywhere.
-  const order = localOrder(hint, preferred);
-  for (const country of order) {
-    const p = parse(digits, country);
-    if (p && p.isValid() && isMobile(p)) return result(country, p.number, true);
-  }
-  for (const country of order) {
-    const p = parse(digits, country);
-    if (p && p.isValid()) return result(country, p.number, isMobile(p));
-  }
-  return UNKNOWN;
+  // 3. A bare local number. Try it as a mobile against the store's own
+  // countries first, then against the platform's catalog; fall back to any
+  // valid number. An answer that stays ambiguous across several countries is
+  // left unresolved rather than guessed.
+  const priority = priorityCountries(hint, preferred);
+  const pool = [...priority, ...SERVED.filter((c) => !priority.includes(c))];
+  const mobile = pickCountry(mobileMatches(digits, pool), priority);
+  const chosen = mobile || pickCountry(validMatches(digits, pool), priority);
+  if (!chosen) return UNKNOWN;
+
+  const p = parse(digits, chosen);
+  return result(chosen, p!.number, mobile === chosen);
 }

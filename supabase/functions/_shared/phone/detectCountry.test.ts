@@ -63,3 +63,20 @@ Deno.test("detectCountry: an unplaceable number is unknown, never a guess", () =
   assert.equal(detectCountry("").country, "");
   assert.equal(detectCountry("abc").country, "");
 });
+
+Deno.test("detectCountry: an ambiguous local number is never guessed", () => {
+  // "0712345678" is a valid mobile in many served countries (ke, tz, ug, za…).
+  // With no hint and no store catalog it must stay unresolved rather than land
+  // on the first alphabetically-valid country (previously: Afghanistan).
+  assert.equal(detectCountry("0712345678").country, "");
+  assert.equal(detectCountry("0788123456").country, "");
+});
+
+Deno.test("detectCountry: the store's own country wins an ambiguous local number", () => {
+  // A Rwandan store, even with an empty catalog hint, still resolves its own
+  // local form because the store country is the caller's hint.
+  assert.equal(detectCountry("0788123456", "rw").country, "rw");
+  // A store that sells several countries still resolves the number it carries.
+  assert.equal(detectCountry("0712345678", "tz").country, "tz");
+  assert.equal(detectCountry("0712345678", "ug").country, "ug");
+});
