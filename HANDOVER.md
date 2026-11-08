@@ -4693,6 +4693,119 @@ plan works. The request shape is
 typed amount to the matching airtime denomination from the catalog, since the
 global model has no free-amount airtime product.
 
+## Task 9 — First-time reseller setup guide (dashboard onboarding checklist) — OPENED 2026-11-07, NOT STARTED
+
+**Person request (verbatim intent):** add a feature that introduces a reseller
+to the dashboard — an **intro / tutorial, not a video** — that gives a
+first-time reseller a set of **tasks to complete**: getting their virtual
+account (for resellers in countries that use one), funding their wallet,
+setting the markup, publishing to the Play Store, and going to the storefront.
+When they reach the final step they are **congratulated for completing the
+store setup** and told they can make their first sale.
+
+**Status: OPENED — do not implement until the person clears it.** This section
+records the full known scope and the decomposition only; no session should start
+work on any `x` here until the person says go. Per the standing methodology the
+pointer below is a *candidate* first leaf, not an instruction to begin.
+
+### What this is (and is not)
+
+- It is an **in-dashboard guided setup checklist / tour**: a panel that lists the
+  remaining setup steps, deep-links to the right dashboard page, detects
+  completion, and advances. Not a video, not a marketing carousel.
+- It is **first-time oriented**: shown to a reseller whose setup is not yet
+  complete; once every step is done it resolves into the congratulation state
+  ("store setup complete — you can make your first sale") and then stays out of
+  the way (collapsible / dismissible / summary card).
+- It is **country-aware**: the virtual-account step is conditional. Only `ng`
+  currently has `methods: ["virtual_account", "card"]`
+  (`src/config/countries/ng.ts:38`); every other shipped country is
+  `mobile_money` / `bank_transfer` / `card` (`rw`/`ug` are mobile-money only).
+  A reseller in a country with no virtual account must **skip** that step, not
+  be blocked by it.
+
+### Where it lives (candidate surface, to confirm at build time)
+
+- Dashboard shell: `src/app/[countryCode]/dashboard/` — the natural home is the
+  **Overview** page (`dashboard/page.tsx` + `DashboardClient.tsx`, data from the
+  `get_global_reseller_dashboard_context` RPC) and/or a slim persistent
+  checklist in the sidebar (`src/components/reseller/layout/DashboardSidebar.tsx`,
+  nav items: Overview / Wallet / Customers / Orders / Plans / Store / Publishing
+  / Settings).
+- Each step deep-links to an existing page — no new step pages required:
+  - virtual account → `dashboard/wallet` (`VirtualAccount.tsx`,
+    `WalletClient.tsx` — gated today by `config.paymentGateway?.provider === "xixapay"`)
+  - fund wallet → `dashboard/wallet` (`FundWalletModal.tsx`)
+  - set markup → `dashboard/plans` (`BulkPricingModal.tsx` / `EditPlanModal.tsx`)
+  - publish to Play Store → `dashboard/publishing`
+  - visit storefront → `dashboard/store` (`StoreUrlGenerator.tsx`,
+    `StoreClient.tsx`; storefront URL is `/${countryCode}/${store_slug}`)
+
+### Completion signals (must be derived from real data, not self-reported)
+
+- Virtual account: a `global_virtual_accounts` row exists for the reseller
+  (`dashboard/wallet/page.tsx` already reads it via `.maybeSingle()`).
+- Wallet funded: `global_wallets.balance + bonus_balance > 0`, or a
+  completed funding transaction in `global_transactions`.
+- Markup set: the reseller has at least one plan with a non-zero markup
+  (plans page already models `markupType` / `markupValue`).
+- Published: a successful `global_app_builds` row (`build_status` done) — note
+  the known Task 7 pipeline defect; the checklist should not depend on a
+  pipeline that is still being fixed, so treat "published" as
+  "build succeeded **or** storefront live", whichever is available.
+- Storefront visited / live: the store has a `store_slug` and the storefront
+  route resolves (`/${countryCode}/${store_slug}`).
+- Final: all applicable steps done → congratulation state.
+
+### Open questions for the person (resolve before build)
+
+1. Persistence: do we store per-step completion in the DB (a new
+   `global_reseller_app_configs` / applications column, or a small
+   `reseller_onboarding` table) or derive everything from existing rows each
+   load? Deriving avoids a migration but cannot distinguish "did the step" from
+   "already had it".
+2. Dismissibility: can a reseller hide the guide before finishing, and does it
+   come back on next login until complete?
+3. "Visited the storefront" — is opening the store page the signal, or is the
+   step considered done once the store is live?
+4. Scope of countries: confirm the virtual-account step is skipped (not shown
+   as a greyed "not available") outside `ng`.
+5. Should the guide also appear in the **mobile** app dashboard, or web
+   dashboard only (mobile `reseller-app` has its own protected `index.tsx`)?
+
+### Decomposition (per the standing methodology — 1–5 / a–d / i–iii / zi–zo / x)
+
+```
+1  Detection & data model (what "done" means, where state lives)
+   a  Enumerate the five steps + their real completion signals from live data
+      i  wallet/plans/builds/store reads already exist (map each signal)   [i.*]
+      ii decide derive-vs-persist (open question 1)                        [ii.*]
+      iii (not yet decomposed — depends on Q1)
+   b  Country-aware applicability (skip virtual account outside ng)        [b.* not yet decomposed]
+   c  First-time predicate (who sees the guide)                            [c.* not yet decomposed]
+   d  (not yet decomposed)
+2  Guide UI (the checklist/tour surface)
+   a  Placement: Overview panel and/or sidebar checklist                   [a.* not yet decomposed]
+   b  Step row states: todo / done / current / skipped                     [b.* not yet decomposed]
+   c  Congratulation end-state + first-sale CTA                            [c.* not yet decomposed]
+   d  (not yet decomposed)
+3  Wiring & completion detection
+   a  Recompute on each dashboard load / after each action                 [a.* not yet decomposed]
+   b  Deep-links to each page (no new pages)                               [b.* not yet decomposed]
+   c  (not yet decomposed)
+4  Polish & i18n (dashboard already reads `@/messages/<lang>/dashboard.json`)
+   a  Copy for every step + congratulation, all languages                 [a.* not yet decomposed]
+   b  Empty/edge states (step done outside the guide, mid-setup reload)    [b.* not yet decomposed]
+   c  (not yet decomposed)
+5  Verification
+   a  New reseller (ng) end-to-end: all five steps → congratulation         [a.* not yet decomposed]
+   b  New reseller (rw/ug, no virtual account): four steps → congratulation[a.* not yet decomposed]
+   c  Returning completed reseller: guide hidden/summarised                [c.* not yet decomposed]
+```
+
+**Active pointer: none — task is OPENED, awaiting the person's go-ahead and
+answers to the open questions above. Do not begin any `x` until then.**
+
 ## Project-completion stage — deferred items (decided by the person)
 
 These are deliberately NOT being worked now; the person's decision
@@ -5501,6 +5614,7 @@ integrated).
 | 2026-11-08 | Phase 2 — **payment-provider names and the `fund wallet in {country}` suffix removed from all user-facing text (web + mobile)** | Person request: "where text says `fund wallet in {country}` → change to `fund wallet`; where text says `... via {payment provider}` → remove the provider text; where it mentions `... zendit` → remove that text. Resellers/customers should not see provider/Zendit names." **Scope — the ask was phrased for the mobile fund-wallet flow, but the same provider names appear across both apps, so both were swept.** WEB (`Edges_LandingPage`): storefront `StoreFundWalletModal.tsx` ("…mobile money via Flutterwave" → "…mobile money"), dashboard `wallet/FundWalletModal.tsx` (same), `plans/GlobalPlansPanel.tsx` + `plans/PlansClient.tsx` fallback + `src/messages/en/plans.json` (`globalPlansSubtitle`: "Enable and price any destination Zendit covers…" → "Enable and price plans for any destination…"), `components/WalletClient.tsx` (dropped the "9Payment Service Bank & PalmPay" partner list), `app/actions/wallet.ts` (virtual-account notification "…via PalmPay." → "…by bank transfer."; success message "…via XixaPay!" → "Virtual account created successfully!"; 3× "XixaPay configuration missing" → "Payment service is not configured"), stored transaction descriptions `actions/reseller/wallet/fundWallet.ts` + `actions/reseller/customers/fundGlobalCustomerWallet.ts` + `supabase/functions/global-store-fund-wallet/index.ts` + `src/app/api/webhooks/xixapay/route.ts` (`Wallet funding via <provider>` → `Wallet funding`), and the payment-gateway error strings the user actually sees (`src/lib/payments/{flutterwave,korapay,xixapay}.ts` and `supabase/functions/_shared/paymentGateway.ts`: "Korapay cannot charge in USD… use Flutterwave", "…required for Flutterwave payments", "No checkout URL returned from Flutterwave", `"<Provider> payment failed"` fallbacks → neutral wording; `_shared/providers.ts` 3× "`<provider>` is not configured" → "Payment provider is not configured"). MOBILE (`reseller-app`): `app/(app)/(protected)/wallet.tsx` ("Fund your wallet in {country.name}" → "Fund your wallet"; the mobile-money info sentence no longer names Flutterwave/Korapay; virtual-account copy no longer "partner with PalmPay"; security note no longer "(PalmPay)") and `app/(app)/(protected)/index.tsx` ("Fund your wallet by mobile money in {country.name}" → "…by mobile money"). **Deliberately left as-is:** provider identifiers in logic (`provider === "flutterwave"`), API/`provider:` fields, `console.*` logs, Deno tests, and `description: Wallet funding via ${sender.bank}` in the xixa-account webhook (that is the *payer's own bank*, legitimate transaction info, not our provider). Dead-code copies (`*-withxixicopy.ts`, `(store)/old-storeName/`) were left untouched — they are not imported anywhere. **Verified, not assumed:** web `npx tsc --noEmit` = 0 errors; mobile `npx tsc --noEmit` = 0 errors; final sweep finds no live user-facing provider string remaining (only logic/logs/comments/tests). Commits: web **`cd03475`** (+ docs `1a00bea`), mobile **`29742db`** — **pushed** (person instruction: "Push"): web `main` + `handover/supabase-dump` `f5add93 → 1a00bea`, mobile `main` + `handover/supabase-dump` `17c89e5 → 29742db`, both repos' refs identical per the standing merge policy. **Credential note (operational, applies to future sessions):** the `GITHUB_TOKEN` secret authenticates as `Phoenix-Boss` but is **denied push** on both repos ("Permission to … denied to Phoenix-Boss", 403); the repo remotes also carried a stale `x-access-token:ghu_…` in `.git/config` that fails with "Invalid username or token". Pushes succeed with the **`P_TOKEN`** secret (same user, full scope — `push` on both `Edges-Enterprise/Edges_LandingPage` and `Erudite885/reseller-app`). So: set the remote to `https://x-access-token:${P_TOKEN}@github.com/<owner>/<repo>.git` when pushing. **Person step (remaining):** the simi APK would need a rebuild from mobile `29742db` to show the new wording on-device; not dispatched (only "Push" was asked). |
 | 2026-11-08 | Phase 2 — **provider-name cleanup completed on the legal pages, and the simi APK rebuilt and byte-verified from `6e3ca61`** | Continuation of the provider-name removal. A bundle-string audit of the first rebuilt APK surfaced user-facing misses the initial sweep had not caught, so they were fixed and the artifact rebuilt. MOBILE (`reseller-app`): `constants/legalTextGenerator.ts` — the privacy policy and terms shown to **signed-out users** still named `PalmPay` ("processed securely through PalmPay", 2× "• PalmPay - Payment processing", "processed via PalmPay") → neutral ("by our banking partners" / "• Payment providers - Payment processing"); commit `ad735e7`. Also neutralised the dead, never-imported `mockTransactions` array + `privacyPolicy`/`termsAndConditions` templates in `constants/helpers.ts` (they named `PalmPay`/`9Payment Service Bank`/`Paystack`) so the shipped bundle carries no provider string at all; commit `6e3ca61`. WEB (`Edges_LandingPage`): the **live** `/privacy` and `/terms` pages (`src/constants/index.tsx`, rendered by `src/app/privacy/page.tsx` + `src/app/terms/page.tsx`) still named `Paystack` in 8 places → neutral wording; commit `4700bf0`. **Verified, not assumed:** `npx tsc --noEmit` = 0 errors both repos; rebuilt simi (`build-global-reseller-apk.yml`, run **`42477822082`**, `head_sha 6e3ca61`, all green) → release `rw-simi-1b08a647-20261108_121435`, `simi.apk` **82,838,996 bytes**, SHA-256 `6d73f58617a2463b649638fad312dce94cec1f43590c5e932a00dafa7a845886`. **Byte-level proof in the shipped APK** (`assets/index.android.bundle`): `Flutterwave` 0, `Korapay` 0, `XixaPay` 0, `PalmPay` 0, `Paystack` 0, `9Payment Service Bank` 0, `Fund your wallet in` 0; new wording present — `Fund your wallet` 1, `with our banking partners to create your virtual account` 1, `by our banking partners` 2, `Payment providers - Payment processing` 2. (Note: an earlier "PalmPay 1×" hit was a false positive from binary concatenation `Palm`+`Payment methods & limits`, not provider text.) **Pushed** both repos (`main` + `handover/supabase-dump`, refs identical): web `ebae234 → 4700bf0`, mobile `29742db → ad735e7 → 6e3ca61`. **Also dispatched a superseded build** `42474996397` (on `ad735e7`, release `…114002`) — the `6e3ca61` build above is the final artifact to install. Two earlier dispatches (`42474784775`) failed on a transient `services.gradle.org` Gradle-distribution download timeout, re-run succeeded. **Person step (remaining):** install the `…121435` APK and confirm on-device. |
 | 2026-11-07 | Phase 2 — **phone detection no longer guesses an ambiguous bare-local number, and the country-code-free requirement is verified end to end (web `Edges_LandingPage` + mobile `reseller-app` + live edge function)** | Person request: "Confirm the phone detection no longer requires the country code, also the right country is detected — it should be able to detect the country even when the store did not enable the country; also the Data tab should be selected by default." **Both already shipped and confirmed:** (1) no country code needed — `detectCountry` reads the number itself (international form, dial-code form, or bare local trunk form), and the *number's own country* wins over the store's; a store can sell a destination it never enabled because the lookup is the shared `global-network-lookup` edge function, not the store's own prefix table; (2) Data tab default — web `StoreDestinationFlow.tsx` `useState<Category>("data")` (commit `e8f6c71`) and mobile `index.tsx` `useState<"data"|"airtime">("data")` both pre-select Data; the customer switches to Airtime. **Found and fixed a real bug while verifying (2):** an ambiguous bare-local number that is a valid mobile in several *served* countries (e.g. `0712345678`, a Tanzanian/Ugandan/Kenyan form) resolved to the alphabetically-first match — **Afghanistan** — because the old code took the first `SERVED` country that parsed. Rewrote `supabase/functions/_shared/phone/detectCountry.ts` to gather *all* matches, let the hint (store country / active tab) win, else break the tie only when exactly one of the store's catalog countries matches, and otherwise leave the number **unresolved** rather than guess. The store's own country still wins for its local form (a Rwandan store + `0788123456` → `rw`); a genuinely cross-border form still resolves on its own country (`+256701234567` at an `rw` store → `ug`). **Verified, not assumed:** `deno test` on `detectCountry.test.ts` (11 pass, incl. 2 new cases pinning the fix) and the whole `_shared/` suite (**143 pass, 0 fail**); live `global-network-lookup` re-deployed (v7) and re-probed — Rwandan store: `0788123456`→`rw`, `08036076543`→`ng` (a store country it never enabled), `0712345678`→unknown (honest) instead of `af`; web `npx tsc --noEmit` = 0. **Credential note:** `SUPABASE_OPEN_HANDS` authenticates the Supabase CLI for deploy (`export SUPABASE_ACCESS_TOKEN=$SUPABASE_OPEN_HANDS`). **Person step (remaining):** none required for the two asks — both behave as requested; the detection fix is live on the web storefront immediately and reaches mobile on its next app build. |
+| 2026-11-07 | Phase 2 — **Task 9 opened (not started): first-time reseller setup guide / onboarding checklist** | Person request: add an intro/tutorial (not a video) that gives a first-time reseller tasks to complete — virtual account (only for countries that use one), fund wallet, set markup, publish to Play Store, visit the storefront — then a congratulation for completing store setup and a first-sale prompt. **Person instruction: do NOT implement — add it to the task board only, until everything is cleared.** Recorded as a new `## Task 9` section in this file with the full known scope, the candidate surface (dashboard Overview + sidebar; each step deep-links to an existing page), the real-data completion signals, five open questions for the person, and the `1–5 / a–d / i–iii / zi–zo / x` decomposition. Active pointer set to **none** — task is OPENED and must not be started until the person clears it and answers the open questions. No code changed. |
 
 
 
