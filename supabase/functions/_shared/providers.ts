@@ -74,7 +74,7 @@ async function purchaseLizzysub(
     return {
       ok: false,
       final: true,
-      message: "Lizzysub is not configured",
+      message: "Payment provider is not configured",
       raw: null,
     };
   }
@@ -147,7 +147,7 @@ async function purchaseAccragh(
     return {
       ok: false,
       final: true,
-      message: "AccraGH is not configured",
+      message: "Payment provider is not configured",
       raw: null,
     };
   }
@@ -221,7 +221,7 @@ async function purchaseZendit(
     return {
       ok: false,
       final: true,
-      message: "Zendit is not configured",
+      message: "Payment provider is not configured",
       raw: null,
     };
   }

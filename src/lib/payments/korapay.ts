@@ -122,8 +122,8 @@ export const korapay: PaymentGateway = {
           success: false,
           reference,
           error:
-            "Korapay cannot charge in USD (no USD channel on this account). " +
-            "Use a USD-capable provider such as Flutterwave.",
+            "This currency is not supported for this payment method. " +
+            "Please try another currency.",
         };
       }
 
@@ -211,7 +211,7 @@ export const korapay: PaymentGateway = {
         return {
           success: false,
           reference,
-          error: data.message || "Korapay payment failed",
+          error: data.message || "Payment failed",
         };
       }
 
@@ -228,7 +228,7 @@ export const korapay: PaymentGateway = {
         success: false,
         reference: generateReference("KPY"),
         error:
-          error instanceof Error ? error.message : "Korapay payment failed",
+          error instanceof Error ? error.message : "Payment failed",
       };
     }
   },

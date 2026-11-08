@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
             reference,
             status: "completed",
             payment_gateway: "xixapay",
-            description: "Wallet funding via xixapay",
+            description: "Wallet funding",
             metadata: {
               gross_amount: customerGrossAmount,
               platform_fee: customerPlatformFee,

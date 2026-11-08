@@ -130,7 +130,7 @@ export async function fundWallet({
         reseller_id: application.id,
         type: "credit",
         amount,
-        description: `Wallet funding via ${gatewayProvider}`,
+        description: "Wallet funding",
         status: "pending",
         reference: paymentResult.reference,
         payment_gateway: gatewayProvider,

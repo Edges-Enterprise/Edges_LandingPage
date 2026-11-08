@@ -207,21 +207,21 @@ export async function createVirtualAccountAction(formData: {
     if (!process.env.NEXT_PUBLIC_XIXAPAY_API_KEY) {
       console.error("XIXAPAY_API_KEY not set");
       return {
-        error: "XixaPay configuration missing. Please contact support.",
+        error: "Payment service is not configured. Please contact support.",
       };
     }
 
     if (!process.env.NEXT_PUBLIC_XIXAPAY_SECRET_KEY) {
       console.error("XIXAPAY_SECRET_KEY not set");
       return {
-        error: "XixaPay configuration missing. Please contact support.",
+        error: "Payment service is not configured. Please contact support.",
       };
     }
 
     if (!process.env.NEXT_PUBLIC_XIXAPAY_BUSINESS_ID) {
       console.error("XIXAPAY_BUSINESS_ID not set");
       return {
-        error: "XixaPay configuration missing. Please contact support.",
+        error: "Payment service is not configured. Please contact support.",
       };
     }
 
@@ -327,7 +327,7 @@ export async function createVirtualAccountAction(formData: {
     await supabase.from("notifications").insert({
       user_id: user.id,
       notification_type: "deposit",
-      message: `Virtual account created successfully! You can now fund your wallet via PalmPay.`,
+      message: "Virtual account created successfully! You can now fund your wallet by bank transfer.",
       is_read: false,
       metadata: {
         accounts_count: bankAccounts.length,
@@ -346,7 +346,7 @@ export async function createVirtualAccountAction(formData: {
         accountNumber: bank.accountNumber,
         accountName: bank.accountName,
       })),
-      message: `${bankAccounts.length} virtual account created successfully via XixaPay!`,
+      message: "Virtual account created successfully!",
     };
   } catch (error) {
     console.error("Create virtual account error:", error);

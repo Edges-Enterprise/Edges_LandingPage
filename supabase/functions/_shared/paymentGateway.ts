@@ -202,8 +202,8 @@ async function initiateKorapay(params: InitiateParams): Promise<InitiateResult> 
       success: false,
       reference,
       error:
-        "Korapay cannot charge in USD (no USD channel on this account). " +
-        "Use a USD-capable provider such as Flutterwave.",
+        "This currency is not supported for this payment method. " +
+        "Please try another currency.",
     };
   }
 
@@ -259,7 +259,7 @@ async function initiateKorapay(params: InitiateParams): Promise<InitiateResult> 
       return {
         success: false,
         reference,
-        error: data.message || "Korapay payment failed",
+        error: data.message || "Payment failed",
       };
     }
 
@@ -275,7 +275,7 @@ async function initiateKorapay(params: InitiateParams): Promise<InitiateResult> 
     return {
       success: false,
       reference,
-      error: error instanceof Error ? error.message : "Korapay payment failed",
+      error: error instanceof Error ? error.message : "Payment failed",
     };
   }
 }
@@ -304,7 +304,7 @@ async function initiateFlutterwave(
     return {
       success: false,
       reference,
-      error: `Mobile money not supported for ${upperCountry} on Flutterwave.`,
+      error: `Mobile money is not supported for ${upperCountry}.`,
     };
   }
 
@@ -320,7 +320,7 @@ async function initiateFlutterwave(
     return {
       success: false,
       reference,
-      error: "Mobile money number is required for Flutterwave payments",
+      error: "A mobile money number is required.",
     };
   }
 
@@ -386,7 +386,7 @@ async function initiateFlutterwave(
       return {
         success: false,
         reference,
-        error: data.message || "Flutterwave mobile money payment failed",
+        error: data.message || "Mobile money payment failed",
       };
     }
 
@@ -395,7 +395,7 @@ async function initiateFlutterwave(
       return {
         success: false,
         reference,
-        error: "No checkout URL returned from Flutterwave",
+        error: "No checkout URL was returned",
       };
     }
 
@@ -412,7 +412,7 @@ async function initiateFlutterwave(
       success: false,
       reference,
       error:
-        error instanceof Error ? error.message : "Flutterwave payment failed",
+        error instanceof Error ? error.message : "Payment failed",
     };
   }
 }

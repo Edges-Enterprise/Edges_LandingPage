@@ -488,7 +488,7 @@ export default function PlansClient({
       >
         {showGlobal
           ? t?.globalPlansSubtitle ||
-            "Enable and price any destination Zendit covers — sold in your store currency"
+            "Enable and price plans for any destination — sold in your store currency"
           : t?.subtitle ||
             "Toggle plans on/off and set your markup for each network"}
       </p>

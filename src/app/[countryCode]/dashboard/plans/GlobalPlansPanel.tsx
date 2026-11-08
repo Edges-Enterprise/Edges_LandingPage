@@ -295,7 +295,7 @@ export default function GlobalPlansPanel({
           </h2>
           <p style={{ color: "var(--muted)", fontSize: "0.82rem" }}>
             {t?.globalPlansSubtitle ||
-              "Enable and price any destination Zendit covers — sold in your store currency"}
+              "Enable and price plans for any destination — sold in your store currency"}
           </p>
         </div>
         <span

@@ -445,11 +445,7 @@ export function WalletClient({
                     <span className="text-yellow-500 mr-1">⚠️</span>
                     Edges Network does not store your information, We use it
                     only to create your virtual account with our banking
-                    partners (
-                    <span className="text-blue-500">
-                      9Payment Service Bank
-                    </span>{" "}
-                    & <span className="text-purple-500">PalmPay</span>).
+                    partners.
                   </p>
                 </div>
               </form>

@@ -115,7 +115,7 @@ export const flutterwave: PaymentGateway = {
         return {
           success: false,
           reference,
-          error: `Mobile money not supported for ${countryCode.toUpperCase()} on Flutterwave. Use Korapay for other countries.`,
+          error: `Mobile money is not supported for ${countryCode.toUpperCase()}.`,
         };
       }
 
@@ -124,7 +124,7 @@ export const flutterwave: PaymentGateway = {
         return {
           success: false,
           reference,
-          error: "Mobile money number is required for Flutterwave payments",
+          error: "A mobile money number is required.",
         };
       }
 
@@ -237,7 +237,7 @@ export const flutterwave: PaymentGateway = {
         return {
           success: false,
           reference,
-          error: data.message || "Flutterwave mobile money payment failed",
+          error: data.message || "Mobile money payment failed",
         };
       }
 
@@ -248,7 +248,7 @@ export const flutterwave: PaymentGateway = {
         return {
           success: false,
           reference,
-          error: "No checkout URL returned from Flutterwave",
+          error: "No checkout URL was returned",
         };
       }
 
@@ -265,7 +265,7 @@ export const flutterwave: PaymentGateway = {
         success: false,
         reference: generateReference("FLW"),
         error:
-          error instanceof Error ? error.message : "Flutterwave payment failed",
+          error instanceof Error ? error.message : "Payment failed",
       };
     }
   },

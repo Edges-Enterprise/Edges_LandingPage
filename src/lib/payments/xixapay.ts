@@ -50,7 +50,7 @@ export const xixapay: PaymentGateway = {
         return {
           success: false,
           reference: "",
-          error: "Xixapay only supports NGN currency",
+          error: "This currency is not supported for this payment method.",
         };
       }
 
@@ -272,7 +272,7 @@ export const xixapay: PaymentGateway = {
         success: false,
         reference: generateReference("XIXA"),
         error:
-          error instanceof Error ? error.message : "Xixapay payment failed",
+          error instanceof Error ? error.message : "Payment failed",
       };
     }
   },

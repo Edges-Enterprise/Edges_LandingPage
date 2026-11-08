@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
           reseller_id: identity.resellerId,
           type: "credit",
           amount: parsedAmount,
-          description: `Wallet funding via ${provider}`,
+          description: "Wallet funding",
           status: "pending",
           reference: result.reference,
           payment_gateway: provider,
@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
           previous_balance: currentBalance,
           // Real balance change happens on webhook completion, not here.
           new_balance: currentBalance,
-          description: `Wallet funding via ${provider}`,
+          description: "Wallet funding",
           status: "pending",
           reference: result.reference,
           payment_gateway: provider,

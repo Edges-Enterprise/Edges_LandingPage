@@ -180,7 +180,7 @@ export async function fundGlobalCustomerWallet({
         net_amount: amount,
         previous_balance: currentBalance,
         new_balance: currentBalance, // updated for real on completion, not here
-        description: `Wallet funding via ${gatewayProvider}`,
+        description: "Wallet funding",
         status: "pending",
         reference: paymentResult.reference,
         payment_gateway: gatewayProvider,

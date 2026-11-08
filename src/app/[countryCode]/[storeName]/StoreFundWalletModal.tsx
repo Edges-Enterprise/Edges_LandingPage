@@ -399,7 +399,7 @@ export default function StoreFundWalletModal({
                 : isUsd
                   ? "Fund your wallet by card or bank transfer (USD)"
                   : isFlutterwave
-                    ? "Fund your wallet using mobile money via Flutterwave"
+                    ? "Fund your wallet using mobile money"
                     : "Fund your wallet using mobile money. You will be redirected to complete your payment securely."}
             </p>
 

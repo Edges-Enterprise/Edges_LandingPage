@@ -243,7 +243,7 @@ export default function FundWalletModal({
           {isUsd
             ? "Fund your wallet by card or bank transfer (USD)"
             : isFlutterwave
-              ? "Fund your wallet using mobile money via Flutterwave"
+              ? "Fund your wallet using mobile money"
               : isRedirectFlow
                 ? "You will be redirected to complete your payment via mobile money"
                 : t?.fundWalletDescription ||
