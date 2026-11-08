@@ -167,7 +167,7 @@ a. Personal Information
 • Email Address
 b. Account and Transaction Information
 • Data plan selections and purchase history
-• Payment confirmation and status (via Paystack)
+• Payment confirmation and status (via our payment partners)
 • Wallet or top-up activity (if applicable)
 c. Device and Usage Information
 • Device model and operating system
@@ -180,14 +180,14 @@ d. Support and Communication
 4. How We Use Your Information
 Your information is used to:
 • Operate and maintain the Edges Network app
-• Process and verify mobile data purchases via Paystack
+• Process and verify mobile data purchases
 • Improve app performance and user experience
 • Prevent fraud and ensure platform security
 • Communicate with you about purchases, updates, or service changes
 • Provide responsive customer support
 
 5. Payments and Financial Security
-All payments are processed securely through Paystack, a PCI-DSS-compliant payment provider.
+All payments are processed securely by a PCI-DSS-compliant payment provider.
 Edges Network does not store any card or bank details.
 
 6. Log Files and Technical Data
@@ -205,7 +205,7 @@ While we do not use traditional web cookies, the app may utilize local storage o
 
 8. Third-Party Services
 We collaborate with trusted third-party providers, including:
-• Paystack (payment processing)
+• Payment providers (payment processing)
 • API providers (data delivery)
 • Analytics providers (for future performance optimization)
 Each provider operates under its own privacy policy, and we encourage users to review those separately.
@@ -266,7 +266,7 @@ By using our platform, you confirm that:
 3. Description of Services
 Edges Network provides users with a seamless way to purchase mobile data bundles via our app.
 • Services are currently accessible through a downloadable APK (Google Drive) and will be available on the Google Play Store.
-• All payments are processed securely via Paystack.
+• All payments are processed securely by our payment partners.
 • A 10% processing fee applies to every deposit to cover operational and transaction costs.
 
 4. Account Registration and Use
@@ -279,7 +279,7 @@ By registering an account, you agree to:
 • A 10% fee is automatically deducted from deposits.
 • We do not store your card or bank details.
 • All completed transactions are final and non-refundable.
-• Payments are made securely through Paystack.
+• Payments are made securely through our payment partners.
 
 6. Delivery of Services
 • Data bundles are delivered instantly or within a short processing window.
@@ -296,12 +296,12 @@ You agree not to:
 
 8. Data Privacy and Security
 • We collect only essential data for service delivery (e.g., contact and transaction information).
-• All payment data is handled by Paystack, a PCI-DSS-compliant provider.
+• All payment data is handled by a PCI-DSS-compliant provider.
 • Technical and usage data may be collected to improve platform performance.
 
 9. Third-Party Services
 We may integrate with third-party providers including:
-• Paystack – for secure payment processing
+• Payment providers – for secure payment processing
 • Telecom APIs – for data delivery
 • Analytics tools (future use) – for app monitoring
 Each third-party operates under its own terms and privacy policies. We are not liable for their service disruptions but will assist in resolving major issues.
