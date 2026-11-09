@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict qCQfRFAfKdo0KWPViobYKCWxarhOZ4RlqAelXheswj7VhW7UbOPXsynwcyp7DRc
+\restrict TIruhEzXVeAJIE7yI1ubjdwUJohAIcBiK2Xo9fC2BHafcjnSywyCxjgduLunrvk
 
 -- Dumped from database version 15.8
--- Dumped by pg_dump version 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
+-- Dumped by pg_dump version 18.6 (Debian 18.6-1.pgdg13+2)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -238,6 +238,58 @@ COMMENT ON FUNCTION auth.uid() IS 'Deprecated. Use auth.jwt() -> ''sub'' instead
 
 
 --
+-- Name: app_bonus_amount_local(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.app_bonus_amount_local(p_currency text) RETURNS numeric
+    LANGUAGE plpgsql STABLE
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_currency text := upper(coalesce(p_currency, 'USD'));
+  v_rate numeric;
+  v_decimals integer;
+BEGIN
+  IF v_currency = 'USD' THEN
+    RETURN 10.00;
+  END IF;
+
+  SELECT r.rate INTO v_rate
+  FROM public.global_fx_rates r
+  WHERE r.base_currency = 'USD'
+    AND r.quote_currency = v_currency
+    AND r.expires_at > now()
+  ORDER BY
+    CASE r.source
+      WHEN 'collection_provider' THEN 0
+      WHEN 'zendit' THEN 1
+      WHEN 'manual' THEN 2
+      ELSE 3
+    END,
+    r.fetched_at DESC
+  LIMIT 1;
+
+  IF v_rate IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  SELECT c.decimals INTO v_decimals
+  FROM public.global_currencies c
+  WHERE c.code = v_currency;
+
+  RETURN round(10 * v_rate, coalesce(v_decimals, 2));
+END;
+$$;
+
+
+--
+-- Name: FUNCTION app_bonus_amount_local(p_currency text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.app_bonus_amount_local(p_currency text) IS 'USD 10 expressed in the given currency at the live FX rate, rounded to that currency''s decimals. NULL when no fresh rate exists.';
+
+
+--
 -- Name: auto_credit_wallet(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -251,6 +303,83 @@ CREATE FUNCTION public.auto_credit_wallet() RETURNS trigger
   end if;
   return NEW;
 end;$$;
+
+
+--
+-- Name: award_app_first_deposit_bonus(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.award_app_first_deposit_bonus(p_reseller_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_wallet RECORD;
+  v_amount numeric;
+  v_currency text;
+BEGIN
+  SELECT id, currency, app_bonus_claimed
+  INTO v_wallet
+  FROM public.global_wallets
+  WHERE reseller_id = p_reseller_id
+  FOR UPDATE;
+
+  IF v_wallet.id IS NULL THEN
+    RETURN jsonb_build_object('awarded', false, 'reason', 'wallet_not_found');
+  END IF;
+
+  IF v_wallet.app_bonus_claimed THEN
+    RETURN jsonb_build_object('awarded', false, 'reason', 'already_claimed');
+  END IF;
+
+  v_currency := upper(coalesce(v_wallet.currency, 'USD'));
+  v_amount := public.app_bonus_amount_local(v_currency);
+
+  IF v_amount IS NULL THEN
+    RETURN jsonb_build_object('awarded', false, 'reason', 'no_rate');
+  END IF;
+
+  UPDATE public.global_wallets
+  SET
+    bonus_balance = bonus_balance + v_amount,
+    app_bonus_claimed = true,
+    app_bonus_claimed_at = now(),
+    updated_at = now()
+  WHERE id = v_wallet.id;
+
+  INSERT INTO public.global_transactions (
+    reseller_id, wallet_id, type, amount, description, status, reference,
+    metadata
+  ) VALUES (
+    p_reseller_id,
+    v_wallet.id,
+    'credit',
+    v_amount,
+    'App first deposit bonus',
+    'completed',
+    'BONUS-APP-' || replace(p_reseller_id::text, '-', '') || '-'
+      || extract(epoch from now())::bigint,
+    jsonb_build_object(
+      'bonus_type', 'app_first_deposit',
+      'usd_value', 10,
+      'currency', v_currency
+    )
+  );
+
+  RETURN jsonb_build_object(
+    'awarded', true,
+    'amount', v_amount,
+    'currency', v_currency
+  );
+END;
+$$;
+
+
+--
+-- Name: FUNCTION award_app_first_deposit_bonus(p_reseller_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.award_app_first_deposit_bonus(p_reseller_id uuid) IS 'One-time, non-withdrawable USD 10 app first-deposit bonus (in the wallet currency). Idempotent per reseller.';
 
 
 --
@@ -320,6 +449,45 @@ BEGIN
   ELSE
     RETURN json_build_object('available', false, 'stock_left', v_stock_left, 'message', 'Insufficient stock');
   END IF;
+END;
+$$;
+
+
+--
+-- Name: complete_onboarding(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.complete_onboarding() RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_app_id uuid;
+  v_completed_at timestamp with time zone;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
+  END IF;
+
+  SELECT id INTO v_app_id
+  FROM global_reseller_applications
+  WHERE auth_user_id = v_user_id
+  LIMIT 1;
+
+  IF v_app_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Reseller not found');
+  END IF;
+
+  INSERT INTO global_reseller_onboarding (reseller_id, completed_at)
+  VALUES (v_app_id, now())
+  ON CONFLICT (reseller_id)
+  DO UPDATE SET
+    completed_at = COALESCE(global_reseller_onboarding.completed_at, now()),
+    updated_at = now()
+  RETURNING completed_at INTO v_completed_at;
+
+  RETURN jsonb_build_object('success', true, 'completed_at', v_completed_at);
 END;
 $$;
 
@@ -457,6 +625,27 @@ $$;
 
 
 --
+-- Name: current_session_id(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.current_session_id() RETURNS uuid
+    LANGUAGE sql STABLE
+    AS $$
+  SELECT NULLIF(
+      current_setting('request.jwt.claims', true)::jsonb ->> 'session_id',
+      ''
+  )::uuid;
+$$;
+
+
+--
+-- Name: FUNCTION current_session_id(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.current_session_id() IS 'The session id in the caller''s own JWT, or NULL outside a request.';
+
+
+--
 -- Name: deduct_global_reseller_cost(uuid, numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -466,36 +655,41 @@ CREATE FUNCTION public.deduct_global_reseller_cost(p_reseller_id uuid, p_cost_pr
     AS $$
 DECLARE
   v_balance DECIMAL;
-  v_new_balance DECIMAL;
+  v_bonus DECIMAL;
+  v_from_bonus DECIMAL;
+  v_from_balance DECIMAL;
 BEGIN
-  -- 1. Lock the reseller wallet row
-  SELECT balance INTO v_balance
+  SELECT balance, bonus_balance INTO v_balance, v_bonus
   FROM global_wallets
   WHERE reseller_id = p_reseller_id
   FOR UPDATE;
 
-  -- 2. Check if reseller has enough balance
   IF v_balance IS NULL THEN
     RETURN jsonb_build_object('success', false, 'error', 'Reseller wallet not found');
   END IF;
 
-  IF v_balance < p_cost_price THEN
+  IF v_balance + v_bonus < p_cost_price THEN
     RAISE EXCEPTION 'Insufficient balance. Available: %, Required: %',
-      v_balance, p_cost_price;
+      v_balance + v_bonus, p_cost_price;
   END IF;
 
-  -- 3. Just deduct the cost price (no selling price added) — same as legacy
+  v_from_bonus := LEAST(v_bonus, p_cost_price);
+  v_from_balance := p_cost_price - v_from_bonus;
+
   UPDATE global_wallets
   SET
-    balance = balance - p_cost_price,
+    bonus_balance = bonus_balance - v_from_bonus,
+    balance = balance - v_from_balance,
     updated_at = NOW()
-  WHERE reseller_id = p_reseller_id
-  RETURNING balance INTO v_new_balance;
+  WHERE reseller_id = p_reseller_id;
 
   RETURN jsonb_build_object(
     'success', true,
-    'new_balance', v_new_balance,
-    'amount_deducted', p_cost_price
+    'new_balance', (SELECT balance FROM global_wallets WHERE reseller_id = p_reseller_id),
+    'new_bonus_balance', (SELECT bonus_balance FROM global_wallets WHERE reseller_id = p_reseller_id),
+    'amount_deducted', p_cost_price,
+    'amount_from_bonus', v_from_bonus,
+    'amount_from_balance', v_from_balance
   );
 END;
 $$;
@@ -543,6 +737,41 @@ $$;
 
 
 --
+-- Name: dismiss_onboarding(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.dismiss_onboarding() RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_app_id uuid;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
+  END IF;
+
+  SELECT id INTO v_app_id
+  FROM global_reseller_applications
+  WHERE auth_user_id = v_user_id
+  LIMIT 1;
+
+  IF v_app_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Reseller not found');
+  END IF;
+
+  INSERT INTO global_reseller_onboarding (reseller_id, dismissed_at)
+  VALUES (v_app_id, now())
+  ON CONFLICT (reseller_id)
+  DO UPDATE SET dismissed_at = now(), updated_at = now();
+
+  RETURN jsonb_build_object('success', true);
+END;
+$$;
+
+
+--
 -- Name: get_global_reseller_balance(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -551,13 +780,13 @@ CREATE FUNCTION public.get_global_reseller_balance(p_reseller_id uuid) RETURNS n
     SET search_path TO 'public'
     AS $$
 DECLARE
-  v_balance DECIMAL;
+  v_total numeric;
 BEGIN
-  SELECT balance INTO v_balance
-  FROM global_wallets
+  SELECT balance + bonus_balance INTO v_total
+  FROM public.global_wallets
   WHERE reseller_id = p_reseller_id;
 
-  RETURN COALESCE(v_balance, 0);
+  RETURN COALESCE(v_total, 0);
 END;
 $$;
 
@@ -656,6 +885,7 @@ $$;
 
 CREATE FUNCTION public.get_global_reseller_dashboard_context(p_user_id uuid) RETURNS json
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
 DECLARE
   v_application_id UUID;
@@ -671,6 +901,7 @@ DECLARE
   v_app_config JSON;
   v_application_record RECORD;
   v_wallet_record RECORD;
+  v_wallet_currency TEXT;
 BEGIN
   -- Get the reseller's application
   SELECT 
@@ -693,9 +924,16 @@ BEGIN
   
   v_application_id := v_application_record.id;
   
-  -- Get or create wallet
+  -- Get or create wallet. The wallet is denominated in the store's own
+  -- country currency (USD when the country has no local currency rail), so
+  -- the balance, the shelf prices and the funding charge are all one
+  -- currency. Was a hardcoded 'USD' (Blocker 13).
+  v_wallet_currency := public.wallet_currency_for_country(
+    v_application_record.country_code
+  );
+
   INSERT INTO global_wallets (reseller_id, balance, currency, status)
-  VALUES (v_application_id, 0, 'USD', 'active')
+  VALUES (v_application_id, 0, v_wallet_currency, 'active')
   ON CONFLICT (reseller_id) DO NOTHING
   RETURNING id, balance, currency, status INTO v_wallet_record;
   
@@ -1140,6 +1378,47 @@ $$;
 
 
 --
+-- Name: get_my_active_sessions(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_my_active_sessions() RETURNS TABLE(id uuid, created_at timestamp with time zone, last_active timestamp with time zone, ip text, user_agent text, aal text, is_current boolean)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+  SELECT
+      s.id,
+      s.created_at,
+      -- refreshed_at is the last token refresh; updated_at is written on
+      -- every rotation. Fall back to creation so the column is never null.
+      COALESCE(
+          s.refreshed_at AT TIME ZONE 'UTC',
+          s.updated_at,
+          s.created_at
+      ) AS last_active,
+      host(s.ip) AS ip,
+      s.user_agent,
+      s.aal::text,
+      s.id = public.current_session_id() AS is_current
+  FROM auth.sessions s
+  WHERE s.user_id = auth.uid()
+    AND COALESCE(s.not_after, 'infinity'::timestamp with time zone) > now()
+    -- A session row without a live refresh token cannot be resumed.
+    AND EXISTS (
+        SELECT 1 FROM auth.refresh_tokens t
+        WHERE t.session_id = s.id AND t.revoked IS NOT TRUE
+    )
+  ORDER BY is_current DESC, last_active DESC;
+$$;
+
+
+--
+-- Name: FUNCTION get_my_active_sessions(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_my_active_sessions() IS 'Live sessions for the caller only, newest first, current session first.';
+
+
+--
 -- Name: get_reseller_balance(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1207,6 +1486,95 @@ SELECT json_build_object(
     ) o
   )
 );
+$$;
+
+
+--
+-- Name: get_reseller_onboarding(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_reseller_onboarding() RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_app_id uuid;
+  v_store_slug text;
+  v_country_code text;
+  v_row public.global_reseller_onboarding%ROWTYPE;
+  v_has_virtual_account boolean;
+  v_wallet_funded boolean;
+  v_markup_set boolean;
+  v_published boolean;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('error', 'Not authenticated');
+  END IF;
+
+  SELECT id, store_slug, country_code
+    INTO v_app_id, v_store_slug, v_country_code
+  FROM global_reseller_applications
+  WHERE auth_user_id = v_user_id
+  LIMIT 1;
+
+  IF v_app_id IS NULL THEN
+    RETURN jsonb_build_object('error', 'Reseller not found');
+  END IF;
+
+  SELECT * INTO v_row
+  FROM global_reseller_onboarding
+  WHERE reseller_id = v_app_id;
+
+  -- A virtual account exists for the reseller.
+  SELECT EXISTS (
+    SELECT 1 FROM global_virtual_accounts WHERE reseller_id = v_app_id
+  ) INTO v_has_virtual_account;
+
+  -- The wallet has been funded: a positive balance (incl. bonus), or a
+  -- completed credit that has since been spent down to zero.
+  SELECT EXISTS (
+    SELECT 1 FROM global_wallets
+    WHERE reseller_id = v_app_id
+      AND (COALESCE(balance, 0) > 0 OR COALESCE(bonus_balance, 0) > 0)
+  ) OR EXISTS (
+    SELECT 1 FROM global_transactions
+    WHERE reseller_id = v_app_id
+      AND type = 'credit'
+      AND status = 'completed'
+  ) INTO v_wallet_funded;
+
+  -- At least one plan carries a non-zero markup.
+  SELECT EXISTS (
+    SELECT 1 FROM global_reseller_plan_configs
+    WHERE reseller_id = v_app_id
+      AND COALESCE(markup_value, 0) > 0
+  ) INTO v_markup_set;
+
+  -- A build finished successfully.
+  SELECT EXISTS (
+    SELECT 1 FROM global_app_builds
+    WHERE application_id = v_app_id
+      AND build_status = 'completed'
+  ) INTO v_published;
+
+  RETURN jsonb_build_object(
+    'reseller_id', v_app_id,
+    'country_code', v_country_code,
+    'store_slug', v_store_slug,
+    'dismissed_at', v_row.dismissed_at,
+    'visited_storefront', COALESCE(v_row.visited_storefront, false),
+    'completed_at', v_row.completed_at,
+    'signals', jsonb_build_object(
+      'has_virtual_account', v_has_virtual_account,
+      'wallet_funded', v_wallet_funded,
+      'markup_set', v_markup_set,
+      'published', v_published,
+      'store_live', (v_store_slug IS NOT NULL AND length(v_store_slug) > 0),
+      'storefront_visited', COALESCE(v_row.visited_storefront, false)
+    )
+  );
+END;
 $$;
 
 
@@ -1393,6 +1761,84 @@ BEGIN
     claim_window_start = NOW(),
     claim_window_end = NOW() + INTERVAL '30 seconds'
   WHERE welcome_offer_usage.used_count < 3;
+END;
+$$;
+
+
+--
+-- Name: log_global_order_status_change(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.log_global_order_status_change() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+    actor uuid := auth.uid();
+    actor_email text;
+BEGIN
+    -- Fire on every insert, but on update only when the status actually moves.
+    IF TG_OP = 'UPDATE' AND NEW.status IS NOT DISTINCT FROM OLD.status THEN
+        RETURN NEW;
+    END IF;
+
+    IF actor IS NOT NULL THEN
+        SELECT email INTO actor_email FROM auth.users WHERE id = actor;
+    END IF;
+
+    INSERT INTO public.global_order_status_history (
+        order_id,
+        reseller_id,
+        from_status,
+        to_status,
+        changed_by,
+        changed_by_email
+    )
+    VALUES (
+        NEW.id,
+        NEW.reseller_id,
+        CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.status END,
+        NEW.status,
+        actor,
+        actor_email
+    );
+
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: mark_storefront_visited(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.mark_storefront_visited() RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_app_id uuid;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
+  END IF;
+
+  SELECT id INTO v_app_id
+  FROM global_reseller_applications
+  WHERE auth_user_id = v_user_id
+  LIMIT 1;
+
+  IF v_app_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Reseller not found');
+  END IF;
+
+  INSERT INTO global_reseller_onboarding (reseller_id, visited_storefront)
+  VALUES (v_app_id, true)
+  ON CONFLICT (reseller_id)
+  DO UPDATE SET visited_storefront = true, updated_at = now();
+
+  RETURN jsonb_build_object('success', true);
 END;
 $$;
 
@@ -2005,6 +2451,9 @@ CREATE FUNCTION public.process_global_purchase_deductions(p_customer_wallet_id u
 DECLARE
   v_customer_balance NUMERIC;
   v_reseller_balance NUMERIC;
+  v_reseller_bonus NUMERIC;
+  v_from_bonus NUMERIC;
+  v_from_balance NUMERIC;
 BEGIN
   -- 1. Lock and check customer wallet
   SELECT balance INTO v_customer_balance
@@ -2021,7 +2470,7 @@ BEGIN
   END IF;
 
   -- 2. Lock and check reseller wallet
-  SELECT balance INTO v_reseller_balance
+  SELECT balance, bonus_balance INTO v_reseller_balance, v_reseller_bonus
   FROM global_wallets
   WHERE reseller_id = p_reseller_id
   FOR UPDATE;
@@ -2030,15 +2479,15 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Reseller wallet not found');
   END IF;
 
-  -- 3. Reseller must be able to cover the cost price
-  IF v_reseller_balance < p_cost_price THEN
+  -- 3. Reseller must be able to cover the cost price (bonus is spendable)
+  IF v_reseller_balance + v_reseller_bonus < p_cost_price THEN
     RETURN jsonb_build_object(
       'success', false,
       'error', 'Store has insufficient balance to cover the cost of this order'
     );
   END IF;
 
-  -- 4. Deduct selling price from customer wallet (total_spent exists here, same as legacy)
+  -- 4. Deduct selling price from customer wallet
   UPDATE global_customer_wallets
   SET
     balance = balance - p_customer_deduct,
@@ -2046,14 +2495,14 @@ BEGIN
     updated_at = NOW()
   WHERE id = p_customer_wallet_id;
 
-  -- 5. Add selling price to reseller, subtract cost price.
-  --    NOTE: unlike legacy's reseller_wallets, global_wallets has no
-  --    total_sales/total_profit columns — those figures are computed live
-  --    from global_orders elsewhere (get_global_reseller_dashboard_stats),
-  --    so only balance is touched here.
+  -- 5. Credit the selling price, debit the cost from bonus first.
+  v_from_bonus := LEAST(v_reseller_bonus, p_cost_price);
+  v_from_balance := p_cost_price - v_from_bonus;
+
   UPDATE global_wallets
   SET
-    balance = balance + p_selling_price - p_cost_price,
+    balance = balance + p_selling_price - v_from_balance,
+    bonus_balance = bonus_balance - v_from_bonus,
     updated_at = NOW()
   WHERE reseller_id = p_reseller_id;
 
@@ -2061,6 +2510,9 @@ BEGIN
     'success', true,
     'customer_new_balance', (SELECT balance FROM global_customer_wallets WHERE id = p_customer_wallet_id),
     'reseller_new_balance', (SELECT balance FROM global_wallets WHERE reseller_id = p_reseller_id),
+    'reseller_new_bonus_balance', (SELECT bonus_balance FROM global_wallets WHERE reseller_id = p_reseller_id),
+    'amount_from_bonus', v_from_bonus,
+    'amount_from_balance', v_from_balance,
     'profit_earned', p_profit
   );
 END;
@@ -2312,6 +2764,63 @@ BEGIN
         'refund';
 END;
 $$;
+
+
+--
+-- Name: revoke_my_session(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.revoke_my_session(p_session_id uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+    v_user uuid := auth.uid();
+BEGIN
+    IF v_user IS NULL OR p_session_id IS NULL THEN
+        RETURN false;
+    END IF;
+
+    -- Never revoke the caller's own session; the dashboard signs out normally.
+    IF p_session_id = public.current_session_id() THEN
+        RETURN false;
+    END IF;
+
+    DELETE FROM auth.refresh_tokens
+    WHERE session_id = p_session_id AND user_id = v_user::text;
+
+    DELETE FROM auth.sessions
+    WHERE id = p_session_id AND user_id = v_user;
+
+    RETURN FOUND;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION revoke_my_session(p_session_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.revoke_my_session(p_session_id uuid) IS 'Signs out one of the caller''s own sessions. Returns false for the current session or an id the caller does not own.';
+
+
+--
+-- Name: run_scheduled_edge(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.run_scheduled_edge(p_fn text, p_secret_name text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'vault', 'net'
+    AS $$
+    DECLARE v_secret text;
+    BEGIN
+      SELECT decrypted_secret INTO v_secret FROM vault.decrypted_secrets WHERE name = p_secret_name;
+      IF v_secret IS NULL THEN RAISE EXCEPTION 'vault secret % not found', p_secret_name; END IF;
+      PERFORM net.http_post(
+        url := 'https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/' || p_fn,
+        headers := jsonb_build_object('Content-Type','application/json','x-sync-secret',v_secret),
+        body := '{}'::jsonb);
+    END; $$;
 
 
 --
@@ -2991,6 +3500,29 @@ $$;
 
 
 --
+-- Name: wallet_currency_for_country(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.wallet_currency_for_country(p_country_code text) RETURNS text
+    LANGUAGE sql STABLE
+    AS $$
+  SELECT COALESCE(
+    (SELECT currency_code
+       FROM public.global_country_currencies
+      WHERE country_code = lower(coalesce(p_country_code, ''))),
+    'USD'
+  );
+$$;
+
+
+--
+-- Name: FUNCTION wallet_currency_for_country(p_country_code text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.wallet_currency_for_country(p_country_code text) IS 'The currency a store''s wallets are denominated in: its country''s mapped currency, or USD when the country has no local currency rail.';
+
+
+--
 -- Name: allow_any_operation(text[]); Type: FUNCTION; Schema: storage; Owner: -
 --
 
@@ -3069,6 +3601,70 @@ $$;
 
 
 --
+-- Name: delete_lifecycle_objects(uuid[]); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.delete_lifecycle_objects(object_ids uuid[]) RETURNS TABLE(id uuid, is_delete_marker boolean, metadata jsonb)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    object_id uuid;
+    deleted_row storage.objects%ROWTYPE;
+    deleted_ids uuid[];
+    deleted_markers boolean[];
+    deleted_metadata jsonb[];
+    bulk_deleted boolean := false;
+BEGIN
+    -- Surface pre-existing deferred violations instead of treating them as blocked rows.
+    SET CONSTRAINTS ALL IMMEDIATE;
+    PERFORM set_config('storage.allow_delete_query', 'true', true);
+
+    -- One subxact keeps the subxid cache from overflowing; rows return only once it commits.
+    BEGIN
+        WITH deleted AS (
+            DELETE FROM storage.objects AS object_row
+              WHERE object_row.id = ANY(object_ids) AND object_row.archived_at IS NOT NULL
+              RETURNING object_row.id, object_row.is_delete_marker, object_row.metadata
+        )
+        SELECT array_agg(deleted.id), array_agg(deleted.is_delete_marker), array_agg(deleted.metadata)
+          INTO deleted_ids, deleted_markers, deleted_metadata
+          FROM deleted;
+        bulk_deleted := true;
+    EXCEPTION
+        WHEN OTHERS THEN
+            -- User triggers may use insufficient_privilege to block a row.
+            IF SQLSTATE <> '42501' AND left(SQLSTATE, 2) IN ('08', '40', '42', '53', '55', '57', '58', 'XX') THEN
+                RAISE;
+            END IF;
+    END;
+    IF bulk_deleted THEN
+        RETURN QUERY SELECT * FROM unnest(deleted_ids, deleted_markers, deleted_metadata);
+        RETURN;
+    END IF;
+
+    FOREACH object_id IN ARRAY object_ids LOOP
+        BEGIN
+            DELETE FROM storage.objects AS object_row
+              WHERE object_row.id = object_id AND object_row.archived_at IS NOT NULL
+              RETURNING object_row.* INTO deleted_row;
+            IF FOUND THEN
+                id := deleted_row.id;
+                is_delete_marker := deleted_row.is_delete_marker;
+                metadata := deleted_row.metadata;
+                RETURN NEXT;
+            END IF;
+        EXCEPTION
+            WHEN OTHERS THEN
+                IF SQLSTATE <> '42501' AND left(SQLSTATE, 2) IN ('08', '40', '42', '53', '55', '57', '58', 'XX') THEN
+                    RAISE;
+                END IF;
+        END;
+    END LOOP;
+END;
+$$;
+
+
+--
 -- Name: enforce_bucket_lifecycle_service_role(); Type: FUNCTION; Schema: storage; Owner: -
 --
 
@@ -3077,14 +3673,9 @@ CREATE FUNCTION storage.enforce_bucket_lifecycle_service_role() RETURNS trigger
     SET search_path TO 'pg_catalog'
     AS $$
 BEGIN
-  IF current_user::text IS DISTINCT FROM TG_ARGV[0]
-     AND (
-       OLD.lifecycle_configuration IS DISTINCT FROM NEW.lifecycle_configuration
-       OR OLD.lifecycle_configuration_generation IS DISTINCT FROM NEW.lifecycle_configuration_generation
-     ) THEN
-    -- AFTER runs only after caller RLS has accepted the proposed row. The API
-    -- recognizes this specific error after rolling back its permission probe;
-    -- direct non-service writes still fail and cannot persist the change.
+  IF current_user::text IS DISTINCT FROM TG_ARGV[0] THEN
+    -- Keep this check AFTER caller RLS accepts the proposed row. The API
+    -- recognizes this exact signal after rolling back its permission probe.
     RAISE EXCEPTION 'bucket control columns may only be changed by the configured storage service role'
       USING ERRCODE = 'PST01',
             SCHEMA = TG_TABLE_SCHEMA,
@@ -3110,6 +3701,29 @@ begin
     end if;
     return new;
 end;
+$$;
+
+
+--
+-- Name: enforce_versioning_status_transition(); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.enforce_versioning_status_transition() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.versioning_status = OLD.versioning_status THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.versioning_status = 'DISABLED' OR
+       (OLD.versioning_status = 'DISABLED' AND NEW.versioning_status = 'SUSPENDED') THEN
+        RAISE EXCEPTION 'Cannot transition bucket versioning status from % to %',
+            OLD.versioning_status, NEW.versioning_status;
+    END IF;
+
+    RETURN NEW;
+END;
 $$;
 
 
@@ -3928,6 +4542,35 @@ $$;
 
 
 --
+-- Name: protect_active_lifecycle_states(); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.protect_active_lifecycle_states() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog'
+    AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM storage.bucket_lifecycle_states
+        WHERE bucket_id = OLD.id
+          AND NOT (
+              continuation IS NULL
+              OR (continuation @> '{"continuationVersion": 1}' AND continuation #> '{batch,inFlight}' IS NULL)
+          )
+    ) THEN
+        RAISE EXCEPTION 'update or delete on table "buckets" violates foreign key constraint "bucket_lifecycle_states_bucket_id_fkey" on table "bucket_lifecycle_states"'
+            USING ERRCODE = 'foreign_key_violation',
+                  DETAIL = format('Key (id)=(%s) is still referenced from table "bucket_lifecycle_states".', OLD.id),
+                  SCHEMA = 'storage',
+                  TABLE = 'bucket_lifecycle_states',
+                  CONSTRAINT = 'bucket_lifecycle_states_bucket_id_fkey';
+    END IF;
+    RETURN OLD;
+END;
+$$;
+
+
+--
 -- Name: protect_bucket_control_columns(); Type: FUNCTION; Schema: storage; Owner: -
 --
 
@@ -4000,6 +4643,80 @@ BEGIN
                   ERRCODE = '42501';
     END IF;
     RETURN NULL;
+END;
+$$;
+
+
+--
+-- Name: reconcile_lifecycle_state(text, boolean); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.reconcile_lifecycle_state(target_bucket_id text, policy_changed boolean) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog'
+    AS $$
+DECLARE
+    bucket storage.buckets%ROWTYPE;
+    active boolean;
+    idle boolean;
+    state_generation uuid;
+BEGIN
+    SELECT * INTO bucket FROM storage.buckets WHERE id = target_bucket_id FOR NO KEY UPDATE;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+
+    SELECT continuation IS NULL OR (
+               continuation @> '{"continuationVersion": 1}'
+               AND continuation #> '{batch,inFlight}' IS NULL
+           ), generation
+    INTO idle, state_generation
+    FROM storage.bucket_lifecycle_states
+    WHERE bucket_id = target_bucket_id
+    FOR UPDATE;
+
+    IF bucket.lifecycle_configuration IS NULL THEN
+        DELETE FROM storage.bucket_lifecycle_states
+        WHERE bucket_id = target_bucket_id
+          AND idle IS TRUE;
+
+        UPDATE storage.bucket_lifecycle_states
+        SET next_run_at = clock_timestamp(), updated_at = clock_timestamp()
+        WHERE bucket_id = target_bucket_id
+          AND idle IS NOT TRUE;
+        RETURN;
+    END IF;
+
+    active := bucket.versioning_status <> 'DISABLED'
+        AND bucket.lifecycle_configuration @> '{"rules":[{"status":"Enabled"}]}'::jsonb;
+
+    -- The state row records the generation it was reconciled with so callers need not detect
+    -- policy changes. Rows without a recorded generation keep their work.
+    policy_changed := policy_changed OR (
+        state_generation IS NOT NULL AND state_generation <> bucket.lifecycle_configuration_generation
+    );
+
+    INSERT INTO storage.bucket_lifecycle_states AS state (bucket_id, generation, next_run_at)
+    VALUES (bucket.id, bucket.lifecycle_configuration_generation, CASE WHEN active THEN clock_timestamp() END)
+    ON CONFLICT (bucket_id) DO UPDATE
+    SET next_run_at = CASE
+            WHEN policy_changed THEN
+                CASE WHEN active OR idle IS NOT TRUE THEN clock_timestamp() END
+            ELSE EXCLUDED.next_run_at
+        END,
+        generation = EXCLUDED.generation,
+        claim_id = CASE WHEN policy_changed AND idle IS TRUE
+                        THEN NULL ELSE state.claim_id END,
+        claim_until = CASE WHEN policy_changed AND idle IS TRUE
+                           THEN NULL ELSE state.claim_until END,
+        continuation = CASE WHEN policy_changed AND idle IS TRUE
+                            THEN NULL ELSE state.continuation END,
+        failure_count = CASE WHEN policy_changed AND idle IS TRUE
+                             THEN 0 ELSE state.failure_count END,
+        last_error = CASE WHEN policy_changed AND idle IS TRUE
+                          THEN NULL ELSE state.last_error END,
+        updated_at = clock_timestamp()
+    WHERE policy_changed OR (state.next_run_at IS NULL AND EXCLUDED.next_run_at IS NOT NULL);
 END;
 $$;
 
@@ -4811,6 +5528,25 @@ CREATE FUNCTION storage.update_updated_at_column() RETURNS trigger
 BEGIN
     NEW.updated_at = now();
     RETURN NEW; 
+END;
+$$;
+
+
+--
+-- Name: wake_lifecycle_state(); Type: FUNCTION; Schema: storage; Owner: -
+--
+
+CREATE FUNCTION storage.wake_lifecycle_state() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog'
+    AS $$
+BEGIN
+    IF TG_OP = 'INSERT' AND NEW.lifecycle_configuration IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    PERFORM storage.reconcile_lifecycle_state(NEW.id, false);
+    RETURN NEW;
 END;
 $$;
 
@@ -5889,7 +6625,82 @@ CREATE TABLE public.global_base_plans (
     metadata jsonb,
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    price_type text DEFAULT 'FIXED'::text NOT NULL,
+    range_min numeric,
+    range_max numeric,
+    range_increment numeric,
+    zendit_fx numeric,
+    last_seen_at timestamp with time zone DEFAULT now(),
+    synced_at timestamp with time zone,
+    CONSTRAINT global_base_plans_price_type_check CHECK ((price_type = ANY (ARRAY['FIXED'::text, 'RANGE'::text]))),
+    CONSTRAINT global_base_plans_range_check CHECK (((price_type = 'FIXED'::text) OR ((price_type = 'RANGE'::text) AND (range_min IS NOT NULL) AND (range_max IS NOT NULL) AND (range_min >= (0)::numeric) AND (range_max >= range_min) AND ((range_increment IS NULL) OR (range_increment > (0)::numeric)))))
+);
+
+
+--
+-- Name: global_catalog_syncs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_catalog_syncs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    provider text NOT NULL,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    finished_at timestamp with time zone,
+    status text DEFAULT 'running'::text NOT NULL,
+    offers_seen integer DEFAULT 0 NOT NULL,
+    plans_upserted integer DEFAULT 0 NOT NULL,
+    plans_deactivated integer DEFAULT 0 NOT NULL,
+    offers_rejected integer DEFAULT 0 NOT NULL,
+    countries_found text[] DEFAULT '{}'::text[],
+    errors jsonb DEFAULT '[]'::jsonb,
+    CONSTRAINT global_catalog_syncs_status_check CHECK ((status = ANY (ARRAY['running'::text, 'ok'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: global_country_currencies; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_country_currencies (
+    country_code text NOT NULL,
+    currency_code text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: global_currencies; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_currencies (
+    code text NOT NULL,
+    name text NOT NULL,
+    symbol text NOT NULL,
+    decimals integer DEFAULT 2 NOT NULL,
+    fundable boolean DEFAULT false NOT NULL,
+    buffer_fraction numeric DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT global_currencies_buffer_check CHECK ((buffer_fraction >= (0)::numeric)),
+    CONSTRAINT global_currencies_decimals_check CHECK (((decimals >= 0) AND (decimals <= 3)))
+);
+
+
+--
+-- Name: global_customer_notifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_customer_notifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reseller_id uuid NOT NULL,
+    customer_id uuid NOT NULL,
+    notification_type text NOT NULL,
+    message text NOT NULL,
+    is_read boolean DEFAULT false NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -5950,9 +6761,9 @@ CREATE TABLE public.global_customer_wallets (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     reseller_id uuid NOT NULL,
     customer_id uuid NOT NULL,
-    balance numeric(10,2) DEFAULT 0,
-    currency text DEFAULT 'USD'::text,
-    total_spent numeric(10,2) DEFAULT 0,
+    balance numeric(18,2) DEFAULT 0,
+    currency text DEFAULT 'USD'::text NOT NULL,
+    total_spent numeric(18,2) DEFAULT 0,
     status text DEFAULT 'active'::text,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
@@ -5981,6 +6792,9 @@ CREATE TABLE public.global_customers (
     auth_user_id uuid,
     auth_email text,
     transaction_pin text,
+    push_token text,
+    fcm_token text,
+    notifications_enabled boolean DEFAULT false NOT NULL,
     CONSTRAINT global_customers_status_check CHECK ((status = ANY (ARRAY['active'::text, 'inactive'::text])))
 );
 
@@ -5996,6 +6810,55 @@ CREATE TABLE public.global_email_logs (
     subject text NOT NULL,
     sent_at timestamp with time zone DEFAULT now(),
     created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: global_fx_rates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_fx_rates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    base_currency text NOT NULL,
+    quote_currency text NOT NULL,
+    rate numeric NOT NULL,
+    source text NOT NULL,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT global_fx_rates_rate_check CHECK ((rate > (0)::numeric)),
+    CONSTRAINT global_fx_rates_source_check CHECK ((source = ANY (ARRAY['collection_provider'::text, 'zendit'::text, 'manual'::text])))
+);
+
+
+--
+-- Name: global_notifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_notifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reseller_id uuid NOT NULL,
+    notification_type text NOT NULL,
+    message text NOT NULL,
+    is_read boolean DEFAULT false NOT NULL,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: global_order_status_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_order_status_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    order_id uuid NOT NULL,
+    reseller_id uuid NOT NULL,
+    from_status text,
+    to_status text NOT NULL,
+    changed_by uuid,
+    changed_by_email text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -6046,6 +6909,24 @@ CREATE TABLE public.global_plans (
 
 
 --
+-- Name: global_platform_markups; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_platform_markups (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    scope text NOT NULL,
+    scope_key text DEFAULT '*'::text NOT NULL,
+    markup_type text DEFAULT 'percentage'::text NOT NULL,
+    markup_value numeric DEFAULT 0 NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT global_platform_markups_scope_check CHECK ((scope = ANY (ARRAY['default'::text, 'country'::text, 'plan'::text]))),
+    CONSTRAINT global_platform_markups_type_check CHECK ((markup_type = ANY (ARRAY['percentage'::text, 'fixed'::text])))
+);
+
+
+--
 -- Name: global_reseller_app_configs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6090,8 +6971,49 @@ CREATE TABLE public.global_reseller_applications (
     auth_email text,
     notification_icon_url text,
     bvn text,
-    transaction_pin text
+    transaction_pin text,
+    push_token text,
+    fcm_token text,
+    notifications_enabled boolean DEFAULT false NOT NULL,
+    branding_updated_at timestamp with time zone,
+    password_changed_at timestamp with time zone
 );
+
+
+--
+-- Name: COLUMN global_reseller_applications.branding_updated_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.global_reseller_applications.branding_updated_at IS 'Last accepted brand colour / logo / notification icon change. Drives the 90-day rebuild cooldown.';
+
+
+--
+-- Name: COLUMN global_reseller_applications.password_changed_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.global_reseller_applications.password_changed_at IS 'When the reseller last changed their password through the dashboard.';
+
+
+--
+-- Name: global_reseller_onboarding; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_reseller_onboarding (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reseller_id uuid NOT NULL,
+    dismissed_at timestamp with time zone,
+    visited_storefront boolean DEFAULT false NOT NULL,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE global_reseller_onboarding; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.global_reseller_onboarding IS 'Task 9: per-reseller state for the first-time setup guide. Only non-derivable state is stored; step completion is otherwise derived from global_virtual_accounts / global_wallets / global_reseller_plan_configs / global_app_builds.';
 
 
 --
@@ -6112,6 +7034,22 @@ CREATE TABLE public.global_reseller_plan_configs (
 
 
 --
+-- Name: global_reseller_publishing; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_reseller_publishing (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    application_id uuid NOT NULL,
+    publishing_plan text,
+    amount_usd numeric,
+    amount_local numeric,
+    local_currency text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: global_reseller_settings; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6122,6 +7060,29 @@ CREATE TABLE public.global_reseller_settings (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: global_reseller_store_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_reseller_store_settings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    application_id uuid NOT NULL,
+    welcome_message text,
+    store_status text DEFAULT 'active'::text,
+    contact_phone text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    store_subtext text
+);
+
+
+--
+-- Name: COLUMN global_reseller_store_settings.store_subtext; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.global_reseller_store_settings.store_subtext IS 'Second hero line on the storefront, shown under welcome_message.';
 
 
 --
@@ -6220,15 +7181,32 @@ CREATE TABLE public.global_virtual_accounts (
 CREATE TABLE public.global_wallets (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     reseller_id uuid NOT NULL,
-    balance numeric(10,2) DEFAULT 0,
-    currency text DEFAULT 'USD'::text,
+    balance numeric(18,2) DEFAULT 0,
+    currency text DEFAULT 'USD'::text NOT NULL,
     status text DEFAULT 'active'::text,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     first_deposit_bonus_claimed boolean DEFAULT false,
     first_deposit_bonus_amount numeric(10,2) DEFAULT 0,
+    bonus_balance numeric(18,2) DEFAULT 0 NOT NULL,
+    app_bonus_claimed boolean DEFAULT false NOT NULL,
+    app_bonus_claimed_at timestamp with time zone,
     CONSTRAINT global_wallets_status_check CHECK ((status = ANY (ARRAY['active'::text, 'inactive'::text, 'suspended'::text])))
 );
+
+
+--
+-- Name: COLUMN global_wallets.bonus_balance; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.global_wallets.bonus_balance IS 'Non-withdrawable, spendable app first-deposit bonus. Debited before balance when covering a purchase cost.';
+
+
+--
+-- Name: COLUMN global_wallets.app_bonus_claimed; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.global_wallets.app_bonus_claimed IS 'True once the app first-deposit bonus has been awarded (one-time).';
 
 
 --
@@ -7089,6 +8067,31 @@ CREATE VIEW public.xixapay_wallet_balance AS
 
 
 --
+-- Name: bucket_lifecycle_states; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.bucket_lifecycle_states (
+    bucket_id text NOT NULL,
+    generation uuid,
+    next_run_at timestamp with time zone,
+    claim_id uuid,
+    claim_until timestamp with time zone,
+    continuation jsonb,
+    last_started_at timestamp with time zone,
+    last_completed_at timestamp with time zone,
+    last_success_at timestamp with time zone,
+    last_result jsonb,
+    failure_count integer DEFAULT 0 NOT NULL,
+    last_error jsonb,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bucket_lifecycle_continuation_object_check CHECK (((continuation IS NULL) OR (jsonb_typeof(continuation) = 'object'::text))),
+    CONSTRAINT bucket_lifecycle_failure_count_check CHECK ((failure_count >= 0)),
+    CONSTRAINT bucket_lifecycle_last_result_object_check CHECK (((last_result IS NULL) OR (jsonb_typeof(last_result) = 'object'::text))),
+    CONSTRAINT bucket_lifecycle_recovery_due_check CHECK (((next_run_at IS NOT NULL) OR (NOT jsonb_path_exists(COALESCE(continuation, '{}'::jsonb), '$."batch"."inFlight"'::jsonpath))))
+);
+
+
+--
 -- Name: buckets; Type: TABLE; Schema: storage; Owner: -
 --
 
@@ -7114,7 +8117,6 @@ CASE
     ELSE false
 END))),
     CONSTRAINT buckets_lifecycle_configuration_standard_only_check CHECK (((type = 'STANDARD'::storage.buckettype) OR ((lifecycle_configuration IS NULL) AND (lifecycle_configuration_generation IS NULL)))),
-    CONSTRAINT buckets_versioning_dark_check CHECK ((versioning_status = 'DISABLED'::text)),
     CONSTRAINT buckets_versioning_standard_only_check CHECK (((type = 'STANDARD'::storage.buckettype) OR (versioning_status = 'DISABLED'::text))),
     CONSTRAINT buckets_versioning_status_check CHECK ((versioning_status = ANY (ARRAY['DISABLED'::text, 'ENABLED'::text, 'SUSPENDED'::text])))
 );
@@ -7151,6 +8153,19 @@ CREATE TABLE storage.buckets_vectors (
     type storage.buckettype DEFAULT 'VECTOR'::storage.buckettype NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: lifecycle_abandoned_artifacts; Type: TABLE; Schema: storage; Owner: -
+--
+
+CREATE TABLE storage.lifecycle_abandoned_artifacts (
+    bucket_id text NOT NULL,
+    key text NOT NULL,
+    name text NOT NULL,
+    version text,
+    attempted_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -7791,6 +8806,38 @@ ALTER TABLE ONLY public.global_base_plans
 
 
 --
+-- Name: global_catalog_syncs global_catalog_syncs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_catalog_syncs
+    ADD CONSTRAINT global_catalog_syncs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: global_country_currencies global_country_currencies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_country_currencies
+    ADD CONSTRAINT global_country_currencies_pkey PRIMARY KEY (country_code);
+
+
+--
+-- Name: global_currencies global_currencies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_currencies
+    ADD CONSTRAINT global_currencies_pkey PRIMARY KEY (code);
+
+
+--
+-- Name: global_customer_notifications global_customer_notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_notifications
+    ADD CONSTRAINT global_customer_notifications_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: global_customer_transactions global_customer_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7855,6 +8902,30 @@ ALTER TABLE ONLY public.global_email_logs
 
 
 --
+-- Name: global_fx_rates global_fx_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_fx_rates
+    ADD CONSTRAINT global_fx_rates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: global_notifications global_notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_notifications
+    ADD CONSTRAINT global_notifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: global_order_status_history global_order_status_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_order_status_history
+    ADD CONSTRAINT global_order_status_history_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: global_orders global_orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7868,6 +8939,14 @@ ALTER TABLE ONLY public.global_orders
 
 ALTER TABLE ONLY public.global_plans
     ADD CONSTRAINT global_plans_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: global_platform_markups global_platform_markups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_platform_markups
+    ADD CONSTRAINT global_platform_markups_pkey PRIMARY KEY (id);
 
 
 --
@@ -7911,6 +8990,22 @@ ALTER TABLE ONLY public.global_reseller_applications
 
 
 --
+-- Name: global_reseller_onboarding global_reseller_onboarding_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_reseller_onboarding
+    ADD CONSTRAINT global_reseller_onboarding_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: global_reseller_onboarding global_reseller_onboarding_reseller_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_reseller_onboarding
+    ADD CONSTRAINT global_reseller_onboarding_reseller_id_key UNIQUE (reseller_id);
+
+
+--
 -- Name: global_reseller_plan_configs global_reseller_plan_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7927,11 +9022,43 @@ ALTER TABLE ONLY public.global_reseller_plan_configs
 
 
 --
+-- Name: global_reseller_publishing global_reseller_publishing_application_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_reseller_publishing
+    ADD CONSTRAINT global_reseller_publishing_application_id_key UNIQUE (application_id);
+
+
+--
+-- Name: global_reseller_publishing global_reseller_publishing_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_reseller_publishing
+    ADD CONSTRAINT global_reseller_publishing_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: global_reseller_settings global_reseller_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.global_reseller_settings
     ADD CONSTRAINT global_reseller_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: global_reseller_store_settings global_reseller_store_settings_application_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_reseller_store_settings
+    ADD CONSTRAINT global_reseller_store_settings_application_id_key UNIQUE (application_id);
+
+
+--
+-- Name: global_reseller_store_settings global_reseller_store_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_reseller_store_settings
+    ADD CONSTRAINT global_reseller_store_settings_pkey PRIMARY KEY (id);
 
 
 --
@@ -8511,6 +9638,14 @@ ALTER TABLE ONLY public.xixapay_wallet_ledger
 
 
 --
+-- Name: bucket_lifecycle_states bucket_lifecycle_states_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.bucket_lifecycle_states
+    ADD CONSTRAINT bucket_lifecycle_states_pkey PRIMARY KEY (bucket_id);
+
+
+--
 -- Name: buckets_analytics buckets_analytics_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
 --
 
@@ -8532,6 +9667,14 @@ ALTER TABLE ONLY storage.buckets
 
 ALTER TABLE ONLY storage.buckets_vectors
     ADD CONSTRAINT buckets_vectors_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: lifecycle_abandoned_artifacts lifecycle_abandoned_artifacts_pkey; Type: CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.lifecycle_abandoned_artifacts
+    ADD CONSTRAINT lifecycle_abandoned_artifacts_pkey PRIMARY KEY (bucket_id, key);
 
 
 --
@@ -9073,6 +10216,69 @@ CREATE INDEX webauthn_credentials_user_id_idx ON auth.webauthn_credentials USING
 
 
 --
+-- Name: global_base_plans_country_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX global_base_plans_country_active_idx ON public.global_base_plans USING btree (country_code, is_active);
+
+
+--
+-- Name: global_base_plans_provider_plan_uidx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX global_base_plans_provider_plan_uidx ON public.global_base_plans USING btree (provider, provider_plan_id);
+
+
+--
+-- Name: global_customer_notifications_customer_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX global_customer_notifications_customer_created_idx ON public.global_customer_notifications USING btree (customer_id, created_at DESC);
+
+
+--
+-- Name: global_customer_notifications_reseller_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX global_customer_notifications_reseller_created_idx ON public.global_customer_notifications USING btree (reseller_id, created_at DESC);
+
+
+--
+-- Name: global_fx_rates_pair_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX global_fx_rates_pair_idx ON public.global_fx_rates USING btree (base_currency, quote_currency, fetched_at DESC);
+
+
+--
+-- Name: global_notifications_reseller_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX global_notifications_reseller_created_idx ON public.global_notifications USING btree (reseller_id, created_at DESC);
+
+
+--
+-- Name: global_order_status_history_order_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX global_order_status_history_order_id_idx ON public.global_order_status_history USING btree (order_id, created_at DESC);
+
+
+--
+-- Name: global_order_status_history_reseller_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX global_order_status_history_reseller_id_idx ON public.global_order_status_history USING btree (reseller_id, created_at DESC);
+
+
+--
+-- Name: global_platform_markups_scope_uidx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX global_platform_markups_scope_uidx ON public.global_platform_markups USING btree (scope, scope_key);
+
+
+--
 -- Name: idx_base_plans_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9413,6 +10619,13 @@ CREATE INDEX idx_global_orders_transaction_reference ON public.global_orders USI
 --
 
 CREATE INDEX idx_global_plans_reseller_id ON public.global_plans USING btree (reseller_id);
+
+
+--
+-- Name: idx_global_reseller_onboarding_reseller_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_global_reseller_onboarding_reseller_id ON public.global_reseller_onboarding USING btree (reseller_id);
 
 
 --
@@ -9794,6 +11007,13 @@ CREATE UNIQUE INDEX bname ON storage.buckets USING btree (name);
 
 
 --
+-- Name: bucket_lifecycle_states_due_idx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX bucket_lifecycle_states_due_idx ON storage.bucket_lifecycle_states USING btree (next_run_at, bucket_id) WHERE (next_run_at IS NOT NULL);
+
+
+--
 -- Name: buckets_analytics_unique_name_idx; Type: INDEX; Schema: storage; Owner: -
 --
 
@@ -9843,10 +11063,31 @@ CREATE UNIQUE INDEX idx_objects_null_version ON storage.objects USING btree (buc
 
 
 --
+-- Name: lifecycle_abandoned_artifacts_attempted_at_idx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX lifecycle_abandoned_artifacts_attempted_at_idx ON storage.lifecycle_abandoned_artifacts USING btree (attempted_at);
+
+
+--
 -- Name: name_prefix_search; Type: INDEX; Schema: storage; Owner: -
 --
 
 CREATE INDEX name_prefix_search ON storage.objects USING btree (name text_pattern_ops);
+
+
+--
+-- Name: objects_archived_due_idx; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE INDEX objects_archived_due_idx ON storage.objects USING btree (bucket_id, archived_at, name COLLATE "C") INCLUDE (id, version, is_delete_marker) WHERE (archived_at IS NOT NULL);
+
+
+--
+-- Name: objects_archived_order_uq; Type: INDEX; Schema: storage; Owner: -
+--
+
+CREATE UNIQUE INDEX objects_archived_order_uq ON storage.objects USING btree (bucket_id, name COLLATE "C", archived_at) WHERE (archived_at IS NOT NULL);
 
 
 --
@@ -9954,6 +11195,13 @@ CREATE TRIGGER deposit_trigger AFTER INSERT ON public.deposits FOR EACH ROW EXEC
 --
 
 CREATE TRIGGER failed_transaction_trigger AFTER UPDATE OF status ON public.transactions FOR EACH ROW EXECUTE FUNCTION public.handle_failed_transaction();
+
+
+--
+-- Name: global_orders global_orders_status_history_trg; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER global_orders_status_history_trg AFTER INSERT OR UPDATE OF status ON public.global_orders FOR EACH ROW EXECUTE FUNCTION public.log_global_order_status_change();
 
 
 --
@@ -10125,6 +11373,20 @@ CREATE TRIGGER enforce_bucket_name_length_trigger BEFORE INSERT OR UPDATE OF nam
 
 
 --
+-- Name: buckets enforce_versioning_status_transition; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER enforce_versioning_status_transition BEFORE UPDATE OF versioning_status ON storage.buckets FOR EACH ROW EXECUTE FUNCTION storage.enforce_versioning_status_transition();
+
+
+--
+-- Name: buckets protect_active_lifecycle_states; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER protect_active_lifecycle_states BEFORE DELETE ON storage.buckets FOR EACH ROW EXECUTE FUNCTION storage.protect_active_lifecycle_states();
+
+
+--
 -- Name: buckets protect_bucket_control_insert; Type: TRIGGER; Schema: storage; Owner: -
 --
 
@@ -10164,6 +11426,20 @@ CREATE TRIGGER protect_objects_delete BEFORE DELETE ON storage.objects FOR EACH 
 --
 
 CREATE TRIGGER update_objects_updated_at BEFORE UPDATE ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.update_updated_at_column();
+
+
+--
+-- Name: buckets wake_lifecycle_on_policy_write; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER wake_lifecycle_on_policy_write AFTER INSERT OR UPDATE OF lifecycle_configuration_generation ON storage.buckets FOR EACH ROW EXECUTE FUNCTION storage.wake_lifecycle_state();
+
+
+--
+-- Name: buckets wake_lifecycle_on_versioning_enable; Type: TRIGGER; Schema: storage; Owner: -
+--
+
+CREATE TRIGGER wake_lifecycle_on_versioning_enable AFTER UPDATE OF versioning_status ON storage.buckets FOR EACH ROW WHEN ((new.lifecycle_configuration IS NOT NULL)) EXECUTE FUNCTION storage.wake_lifecycle_state();
 
 
 --
@@ -10463,6 +11739,30 @@ ALTER TABLE ONLY public.global_app_builds
 
 
 --
+-- Name: global_country_currencies global_country_currencies_currency_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_country_currencies
+    ADD CONSTRAINT global_country_currencies_currency_code_fkey FOREIGN KEY (currency_code) REFERENCES public.global_currencies(code);
+
+
+--
+-- Name: global_customer_notifications global_customer_notifications_customer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_notifications
+    ADD CONSTRAINT global_customer_notifications_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.global_customers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_customer_notifications global_customer_notifications_reseller_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_notifications
+    ADD CONSTRAINT global_customer_notifications_reseller_id_fkey FOREIGN KEY (reseller_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
+
+
+--
 -- Name: global_customer_transactions global_customer_transactions_customer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10492,6 +11792,14 @@ ALTER TABLE ONLY public.global_customer_virtual_accounts
 
 ALTER TABLE ONLY public.global_customer_virtual_accounts
     ADD CONSTRAINT global_customer_virtual_accounts_reseller_id_fkey FOREIGN KEY (reseller_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_customer_wallets global_customer_wallets_currency_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_customer_wallets
+    ADD CONSTRAINT global_customer_wallets_currency_fkey FOREIGN KEY (currency) REFERENCES public.global_currencies(code);
 
 
 --
@@ -10527,6 +11835,30 @@ ALTER TABLE ONLY public.global_email_logs
 
 
 --
+-- Name: global_notifications global_notifications_reseller_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_notifications
+    ADD CONSTRAINT global_notifications_reseller_id_fkey FOREIGN KEY (reseller_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_order_status_history global_order_status_history_order_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_order_status_history
+    ADD CONSTRAINT global_order_status_history_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.global_orders(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_order_status_history global_order_status_history_reseller_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_order_status_history
+    ADD CONSTRAINT global_order_status_history_reseller_id_fkey FOREIGN KEY (reseller_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
+
+
+--
 -- Name: global_orders global_orders_customer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10559,6 +11891,14 @@ ALTER TABLE ONLY public.global_reseller_app_configs
 
 
 --
+-- Name: global_reseller_onboarding global_reseller_onboarding_reseller_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_reseller_onboarding
+    ADD CONSTRAINT global_reseller_onboarding_reseller_id_fkey FOREIGN KEY (reseller_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
+
+
+--
 -- Name: global_reseller_plan_configs global_reseller_plan_configs_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10572,6 +11912,22 @@ ALTER TABLE ONLY public.global_reseller_plan_configs
 
 ALTER TABLE ONLY public.global_reseller_plan_configs
     ADD CONSTRAINT global_reseller_plan_configs_reseller_id_fkey FOREIGN KEY (reseller_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_reseller_publishing global_reseller_publishing_application_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_reseller_publishing
+    ADD CONSTRAINT global_reseller_publishing_application_id_fkey FOREIGN KEY (application_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_reseller_store_settings global_reseller_store_settings_application_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_reseller_store_settings
+    ADD CONSTRAINT global_reseller_store_settings_application_id_fkey FOREIGN KEY (application_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
 
 
 --
@@ -10612,6 +11968,14 @@ ALTER TABLE ONLY public.global_transactions
 
 ALTER TABLE ONLY public.global_virtual_accounts
     ADD CONSTRAINT global_virtual_accounts_reseller_id_fkey FOREIGN KEY (reseller_id) REFERENCES public.global_reseller_applications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: global_wallets global_wallets_currency_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_wallets
+    ADD CONSTRAINT global_wallets_currency_fkey FOREIGN KEY (currency) REFERENCES public.global_currencies(code);
 
 
 --
@@ -10876,6 +12240,14 @@ ALTER TABLE ONLY public.wallet_audit
 
 ALTER TABLE ONLY public.web_push_tokens
     ADD CONSTRAINT web_push_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: bucket_lifecycle_states bucket_lifecycle_states_bucket_id_fkey; Type: FK CONSTRAINT; Schema: storage; Owner: -
+--
+
+ALTER TABLE ONLY storage.bucket_lifecycle_states
+    ADD CONSTRAINT bucket_lifecycle_states_bucket_id_fkey FOREIGN KEY (bucket_id) REFERENCES storage.buckets(id) ON DELETE CASCADE;
 
 
 --
@@ -11506,6 +12878,15 @@ CREATE POLICY "Resellers can insert their own configs" ON public.global_reseller
 
 
 --
+-- Name: global_reseller_onboarding Resellers can insert their own onboarding; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Resellers can insert their own onboarding" ON public.global_reseller_onboarding FOR INSERT TO authenticated WITH CHECK ((auth.uid() IN ( SELECT global_reseller_applications.auth_user_id
+   FROM public.global_reseller_applications
+  WHERE (global_reseller_applications.id = global_reseller_onboarding.reseller_id))));
+
+
+--
 -- Name: reseller_customer_transactions Resellers can insert transactions for their customers; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -11582,6 +12963,28 @@ CREATE POLICY "Resellers can update their own configs" ON public.global_reseller
    FROM public.global_reseller_applications
   WHERE (global_reseller_applications.auth_user_id = auth.uid())
  LIMIT 1)));
+
+
+--
+-- Name: global_reseller_onboarding Resellers can update their own onboarding; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Resellers can update their own onboarding" ON public.global_reseller_onboarding FOR UPDATE TO authenticated USING ((auth.uid() IN ( SELECT global_reseller_applications.auth_user_id
+   FROM public.global_reseller_applications
+  WHERE (global_reseller_applications.id = global_reseller_onboarding.reseller_id)))) WITH CHECK ((auth.uid() IN ( SELECT global_reseller_applications.auth_user_id
+   FROM public.global_reseller_applications
+  WHERE (global_reseller_applications.id = global_reseller_onboarding.reseller_id))));
+
+
+--
+-- Name: global_orders Resellers can update their own orders; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Resellers can update their own orders" ON public.global_orders FOR UPDATE TO authenticated USING ((auth.uid() IN ( SELECT global_reseller_applications.auth_user_id
+   FROM public.global_reseller_applications
+  WHERE (global_reseller_applications.id = global_orders.reseller_id)))) WITH CHECK ((auth.uid() IN ( SELECT global_reseller_applications.auth_user_id
+   FROM public.global_reseller_applications
+  WHERE (global_reseller_applications.id = global_orders.reseller_id))));
 
 
 --
@@ -11690,6 +13093,33 @@ CREATE POLICY "Resellers can view their customer wallets" ON public.reseller_cus
 CREATE POLICY "Resellers can view their customers' transactions" ON public.reseller_customer_transactions FOR SELECT USING ((auth.uid() = ( SELECT resellers.auth_user_id
    FROM public.resellers
   WHERE (resellers.id = reseller_customer_transactions.reseller_id))));
+
+
+--
+-- Name: global_reseller_onboarding Resellers can view their own onboarding; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Resellers can view their own onboarding" ON public.global_reseller_onboarding FOR SELECT TO authenticated USING ((auth.uid() IN ( SELECT global_reseller_applications.auth_user_id
+   FROM public.global_reseller_applications
+  WHERE (global_reseller_applications.id = global_reseller_onboarding.reseller_id))));
+
+
+--
+-- Name: global_order_status_history Resellers can view their own order status history; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Resellers can view their own order status history" ON public.global_order_status_history FOR SELECT TO authenticated USING ((auth.uid() IN ( SELECT global_reseller_applications.auth_user_id
+   FROM public.global_reseller_applications
+  WHERE (global_reseller_applications.id = global_order_status_history.reseller_id))));
+
+
+--
+-- Name: global_orders Resellers can view their own orders; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Resellers can view their own orders" ON public.global_orders FOR SELECT TO authenticated USING ((auth.uid() IN ( SELECT global_reseller_applications.auth_user_id
+   FROM public.global_reseller_applications
+  WHERE (global_reseller_applications.id = global_orders.reseller_id))));
 
 
 --
@@ -11961,10 +13391,66 @@ ALTER TABLE public.flashsale_purchases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.global_base_plans ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: global_catalog_syncs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_catalog_syncs ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: global_country_currencies; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_country_currencies ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: global_country_currencies global_country_currencies_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY global_country_currencies_public_read ON public.global_country_currencies FOR SELECT USING (true);
+
+
+--
+-- Name: global_currencies; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_currencies ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: global_currencies global_currencies_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY global_currencies_public_read ON public.global_currencies FOR SELECT USING (true);
+
+
+--
+-- Name: global_customer_notifications; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_customer_notifications ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: global_customers; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.global_customers ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: global_fx_rates; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_fx_rates ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: global_notifications; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_notifications ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: global_order_status_history; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_order_status_history ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: global_orders; Type: ROW SECURITY; Schema: public; Owner: -
@@ -11979,16 +13465,40 @@ ALTER TABLE public.global_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.global_plans ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: global_platform_markups; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_platform_markups ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: global_reseller_onboarding; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_reseller_onboarding ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: global_reseller_plan_configs; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.global_reseller_plan_configs ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: global_reseller_publishing; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_reseller_publishing ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: global_reseller_settings; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.global_reseller_settings ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: global_reseller_store_settings; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_reseller_store_settings ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: global_transactions; Type: ROW SECURITY; Schema: public; Owner: -
@@ -12211,6 +13721,12 @@ CREATE POLICY "Public can view reseller assets" ON storage.objects FOR SELECT US
 
 
 --
+-- Name: bucket_lifecycle_states; Type: ROW SECURITY; Schema: storage; Owner: -
+--
+
+ALTER TABLE storage.bucket_lifecycle_states ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: buckets; Type: ROW SECURITY; Schema: storage; Owner: -
 --
 
@@ -12227,6 +13743,12 @@ ALTER TABLE storage.buckets_analytics ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE storage.buckets_vectors ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: lifecycle_abandoned_artifacts; Type: ROW SECURITY; Schema: storage; Owner: -
+--
+
+ALTER TABLE storage.lifecycle_abandoned_artifacts ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: migrations; Type: ROW SECURITY; Schema: storage; Owner: -
@@ -12262,5 +13784,5 @@ ALTER TABLE storage.vector_indexes ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict qCQfRFAfKdo0KWPViobYKCWxarhOZ4RlqAelXheswj7VhW7UbOPXsynwcyp7DRc
+\unrestrict TIruhEzXVeAJIE7yI1ubjdwUJohAIcBiK2Xo9fC2BHafcjnSywyCxjgduLunrvk
 
