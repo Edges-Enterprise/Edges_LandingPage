@@ -95,9 +95,8 @@ export default function TourOverlay({
           initial={reduce ? false : { scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           style={{
-            background: "var(--card, #1a1512)",
+            ...glassSurface(14),
             border: "1px solid rgba(16,185,129,0.5)",
-            borderRadius: 14,
             padding: "1.5rem 2rem",
             display: "flex",
             flexDirection: "column",
@@ -223,9 +222,8 @@ export default function TourOverlay({
             ? undefined
             : "translate(-50%, -50%)",
           pointerEvents: "auto",
-          background: "var(--card, #1a1512)",
+          ...glassSurface(12),
           border: "1px solid var(--border, rgba(201,138,84,0.25))",
-          borderRadius: 12,
           padding: "1rem 1.1rem",
           boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
         }}
@@ -335,6 +333,22 @@ function dimRegion(r: {
     ...r,
     background: DIM,
     pointerEvents: "auto",
+  };
+}
+
+/**
+ * Frosted-glass surface for the tour cards: a translucent tint that lets the
+ * dimmed page read through, plus a backdrop blur. Uses the dashboard theme's
+ * `--card` variable so it tracks light/dark, wrapped in a translucent tint
+ * (color-mix is supported everywhere the rest of the theme relies on it).
+ */
+function glassSurface(radius: number): React.CSSProperties {
+  return {
+    background:
+      "color-mix(in srgb, var(--card, #1a1512) 60%, transparent)",
+    backdropFilter: "blur(16px) saturate(1.5)",
+    WebkitBackdropFilter: "blur(16px) saturate(1.5)",
+    borderRadius: radius,
   };
 }
 
