@@ -8,7 +8,9 @@ supports every country the web does.**
 This board is the execution checklist. `HANDOVER.md`'s Task 8 sections remain
 the authoritative narrative; where they disagree, HANDOVER wins.
 
-Last updated: 2026-10-31 (thirty-fourth check) - **the publishing page's
+Last updated: 2026-11-09 - **Flutterwave mobile-money wallet funding fixed: the web gateway and the mobile edge function (`_shared/paymentGateway.ts`) sent `payment_options: "mobilemoney"`, which Flutterwave rejects with a 400, so every RW/UG mobile-money fund attempt failed at the provider; they now send the country-specific `mobilemoneyrwanda`/`mobilemoneyuganda`. Commit `19cf44c`, deployed (web prod + `global-store-fund-wallet` v10) and verified live (see HANDOVER, 2026-11-09).**
+
+Previous update: 2026-10-31 (thirty-fourth check) - **the publishing page's
 mobile build-status row now has a real gap between the checkmark and its status
 label and pins the Download button to the card's right edge (with a wrap that
 keeps a long fr/ar label from overflowing), and the storefront install banner
