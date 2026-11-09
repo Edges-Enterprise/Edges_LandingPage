@@ -7,7 +7,6 @@ import RevenueChart from "./RevenueChart";
 import ActivityFeed from "./ActivityFeed";
 import ActivityDetailsModal, { ActivityItem } from "./ActivityDetailsModal";
 import QuickActions from "./QuickActions";
-import OnboardingChecklist, { OnboardingStatus } from "./OnboardingChecklist";
 import { CountryConfig } from "@/config/countries";
 
 interface DashboardClientProps {
@@ -21,8 +20,6 @@ interface DashboardClientProps {
     customers: any;
     publishing: any;
   };
-  /** Task 9 — first-time setup guide status, or null when unavailable. */
-  onboardingStatus: OnboardingStatus | null;
 }
 
 export default function DashboardClient({
@@ -31,7 +28,6 @@ export default function DashboardClient({
   translations,
   dashboardData,
   detailTranslations,
-  onboardingStatus,
 }: DashboardClientProps) {
   const [data] = useState(dashboardData);
   const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(
@@ -85,14 +81,6 @@ export default function DashboardClient({
 
   return (
     <div>
-      {/* Task 9 — first-time setup guide (Overview, above Quick Actions) */}
-      <OnboardingChecklist
-        countryCode={countryCode}
-        config={config}
-        status={onboardingStatus}
-        translations={t}
-      />
-
       {/* Quick Actions */}
       <QuickActions
         countryCode={countryCode}

@@ -37,38 +37,5 @@
   "logout": "Cerrar Sesión",
   "overview": "Resumen",
   "loadingDetails": "Cargando detalles…",
-  "noDetails": "Los detalles no están disponibles para este artículo.",
-  "onboarding": {
-    "title": "Termina de configurar tu tienda",
-    "progress": "{done} de {total} pasos completados",
-    "dismiss": "Descartar",
-    "complete": {
-      "title": "Configuración de la tienda completa",
-      "body": "Todo listo: comparte tu tienda y haz tu primera venta.",
-      "viewStore": "Ver tu tienda",
-      "viewOrders": "Ver tus pedidos"
-    },
-    "steps": {
-      "virtual_account": {
-        "title": "Obtén tu cuenta virtual",
-        "blurb": "Recibe los pagos de tus clientes en tu cuenta dedicada."
-      },
-      "fund_wallet": {
-        "title": "Recarga tu monedero",
-        "blurb": "Añade fondos para poder atender los pedidos."
-      },
-      "set_markup": {
-        "title": "Define tu margen",
-        "blurb": "Elige cuánto ganas en cada plan."
-      },
-      "publish": {
-        "title": "Publica tu tienda",
-        "blurb": "Compila y publica la app de tu tienda."
-      },
-      "visit_storefront": {
-        "title": "Visita tu tienda",
-        "blurb": "Abre tu tienda activa para ver lo que ven tus clientes."
-      }
-    }
-  }
+  "noDetails": "Los detalles no están disponibles para este artículo."
 }

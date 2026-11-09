@@ -16,6 +16,41 @@ interface OnboardingActionResult {
   error?: string;
 }
 
+/** The payload get_reseller_onboarding() returns, or an error. */
+export interface OnboardingStatus {
+  reseller_id: string;
+  country_code: string | null;
+  store_slug: string | null;
+  dismissed_at: string | null;
+  visited_storefront: boolean;
+  completed_at: string | null;
+  signals: {
+    has_virtual_account: boolean;
+    wallet_funded: boolean;
+    markup_set: boolean;
+    published: boolean;
+    store_live: boolean;
+    storefront_visited: boolean;
+  };
+  error?: string;
+}
+
+/**
+ * Read the caller's onboarding status. The tour calls this on mount and again
+ * on each navigation so its step signals stay fresh; the RPC resolves the
+ * reseller from auth.uid().
+ */
+export async function getOnboardingStatus(): Promise<OnboardingStatus | null> {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase.rpc("get_reseller_onboarding");
+
+  if (error) {
+    console.error("get_reseller_onboarding error:", error);
+    return null;
+  }
+  return data as OnboardingStatus;
+}
+
 /** Hide the guide (decision 2: it returns on the next load while incomplete). */
 export async function dismissOnboarding(): Promise<OnboardingActionResult> {
   const supabase = await createServerClient();

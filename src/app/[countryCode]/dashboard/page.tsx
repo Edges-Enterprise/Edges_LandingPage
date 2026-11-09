@@ -45,26 +45,6 @@ const getDashboardData = cache(async (userId: string) => {
   }
 });
 
-// Task 9 — first-time setup guide status (stored flags + derived signals).
-// The RPC resolves the caller from the session, so no id is passed.
-const getOnboardingStatus = cache(async () => {
-  const supabase = await createServerClient();
-
-  try {
-    const { data, error } = await supabase.rpc("get_reseller_onboarding");
-
-    if (error) {
-      console.error("Onboarding RPC error:", error);
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error("Onboarding data error:", error);
-    return null;
-  }
-});
-
 async function getTranslations(language: string) {
   try {
     // Try to load the specific language
@@ -206,7 +186,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   const translations = await getTranslations(language);
   const detailTranslations = await getDetailTranslations(language);
   const dashboardData = await getDashboardData(user.id);
-  const onboardingStatus = await getOnboardingStatus();
 
   return (
     <CountryProvider config={config}>
@@ -216,7 +195,6 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
         translations={translations}
         dashboardData={dashboardData}
         detailTranslations={detailTranslations}
-        onboardingStatus={onboardingStatus}
       />
     </CountryProvider>
   );

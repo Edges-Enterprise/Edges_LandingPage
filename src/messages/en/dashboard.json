@@ -37,38 +37,5 @@
   "logout": "Logout",
   "overview": "Overview",
   "loadingDetails": "Loading details…",
-  "noDetails": "Details are not available for this item.",
-  "onboarding": {
-    "title": "Finish setting up your store",
-    "progress": "{done} of {total} steps complete",
-    "dismiss": "Dismiss",
-    "complete": {
-      "title": "Store setup complete",
-      "body": "You're all set — share your store and make your first sale.",
-      "viewStore": "View your store",
-      "viewOrders": "See your orders"
-    },
-    "steps": {
-      "virtual_account": {
-        "title": "Get your virtual account",
-        "blurb": "Receive customer payments into your dedicated account."
-      },
-      "fund_wallet": {
-        "title": "Fund your wallet",
-        "blurb": "Add funds so you can fulfil orders."
-      },
-      "set_markup": {
-        "title": "Set your markup",
-        "blurb": "Choose how much you earn on each plan."
-      },
-      "publish": {
-        "title": "Publish your store",
-        "blurb": "Build and release your storefront app."
-      },
-      "visit_storefront": {
-        "title": "Visit your storefront",
-        "blurb": "Open your live store to see what customers see."
-      }
-    }
-  }
+  "noDetails": "Details are not available for this item."
 }

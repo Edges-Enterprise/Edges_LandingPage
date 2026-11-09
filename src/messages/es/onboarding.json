@@ -1,0 +1,36 @@
+{
+  "tour": {
+    "progress": "Paso {current} de {total}",
+    "hint": "Haz clic en el botón resaltado para continuar",
+    "noTarget": "Este paso no está disponible ahora mismo",
+    "continue": "Continuar",
+    "skipStep": "Omitir",
+    "exit": "Omitir el recorrido",
+    "celebrate": "¡Listo — hecho!",
+    "replayTitle": "Recorrido de configuración guiado",
+    "replayBody": "Vuelve a hacer el recorrido paso a paso para ver dónde está todo.",
+    "replay": "Muéstrame el panel",
+    "steps": {
+      "virtual_account": {
+        "title": "Obtén tu cuenta virtual",
+        "blurb": "Crea tu cuenta dedicada para recibir los pagos de tus clientes."
+      },
+      "fund_wallet": {
+        "title": "Recarga tu billetera",
+        "blurb": "Haz clic en Recargar billetera para añadir fondos y poder cumplir pedidos."
+      },
+      "set_markup": {
+        "title": "Define tu margen",
+        "blurb": "Introduce tu margen y aplícalo para elegir cuánto ganas."
+      },
+      "publish": {
+        "title": "Publica tu tienda",
+        "blurb": "Elige un plan y publica la app de tu tienda."
+      },
+      "visit_storefront": {
+        "title": "Visita tu tienda",
+        "blurb": "Abre tu tienda publicada para ver lo que ven tus clientes."
+      }
+    }
+  }
+}

@@ -35,6 +35,10 @@ export interface OnboardingStep {
   href: string;
   /** Opens in a new tab (the storefront is a public page, not the dashboard). */
   external?: boolean;
+  /** The `data-tour` anchor id of the element the tour spotlights. */
+  anchor: OnboardingStepKey;
+  /** Dashboard route the tour navigates to before spotlighting the anchor. */
+  path: string;
 }
 
 /**
@@ -68,6 +72,8 @@ export function buildOnboardingSteps(
       key: "virtual_account",
       done: signals.has_virtual_account,
       href: `/${countryCode}/dashboard/wallet`,
+      anchor: "virtual_account",
+      path: `/${countryCode}/dashboard/wallet`,
     });
   }
 
@@ -76,16 +82,22 @@ export function buildOnboardingSteps(
       key: "fund_wallet",
       done: signals.wallet_funded,
       href: `/${countryCode}/dashboard/wallet`,
+      anchor: "fund_wallet",
+      path: `/${countryCode}/dashboard/wallet`,
     },
     {
       key: "set_markup",
       done: signals.markup_set,
       href: `/${countryCode}/dashboard/plans`,
+      anchor: "set_markup",
+      path: `/${countryCode}/dashboard/plans`,
     },
     {
       key: "publish",
       done: signals.published || signals.store_live,
       href: `/${countryCode}/dashboard/publishing`,
+      anchor: "publish",
+      path: `/${countryCode}/dashboard/publishing`,
     },
     {
       key: "visit_storefront",
@@ -95,6 +107,10 @@ export function buildOnboardingSteps(
       href: storeSlug
         ? `/${countryCode}/${storeSlug}`
         : `/${countryCode}/dashboard/store`,
+      anchor: "visit_storefront",
+      // The tour stays in the dashboard: it spotlights the "View Store"
+      // control on the store page rather than opening the public storefront.
+      path: `/${countryCode}/dashboard/store`,
       external: Boolean(storeSlug),
     },
   );

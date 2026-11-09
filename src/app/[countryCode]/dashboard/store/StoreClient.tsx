@@ -135,6 +135,7 @@ export default function StoreClient({
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
           <a
             className="store-view-link"
+            data-tour="visit_storefront"
             href={storeUrl}
             target="_blank"
             rel="noopener noreferrer"

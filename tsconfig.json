@@ -39,6 +39,7 @@
   "exclude": [
     "node_modules",
     "supabase/functions",
-    "src/lib/onboarding/steps.test.ts"
+    "src/lib/onboarding/steps.test.ts",
+    "src/lib/onboarding/tour.test.ts"
   ]
 }

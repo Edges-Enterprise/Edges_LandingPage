@@ -9,6 +9,7 @@ import DashboardHeader from "@/components/reseller/layout/DashboardHeader";
 import ThemeToggle from "@/components/reseller/layout/ThemeToggle";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { CountryProvider } from "@/providers/CountryProvider";
+import OnboardingProvider from "@/providers/OnboardingProvider";
 import { getCountryConfig } from "@/config/countries";
 import StoreLoader, {
   storeLabel,
@@ -123,13 +124,14 @@ export default function DashboardLayout({
   return (
     <ThemeProvider brandColor={brandColor}>
       <CountryProvider config={countryConfig}>
-        <div
-          style={{
-            display: "flex",
-            minHeight: "100vh",
-            background: "var(--bg, #0D0A08)",
-          }}
-        >
+        <OnboardingProvider countryCode={countryCode} config={countryConfig}>
+          <div
+            style={{
+              display: "flex",
+              minHeight: "100vh",
+              background: "var(--bg, #0D0A08)",
+            }}
+          >
           <DashboardSidebar
             countryCode={countryCode}
             storeName={storeName}
@@ -193,6 +195,7 @@ export default function DashboardLayout({
             }
           }
         `}</style>
+        </OnboardingProvider>
       </CountryProvider>
     </ThemeProvider>
   );

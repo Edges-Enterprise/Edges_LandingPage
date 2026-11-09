@@ -2,12 +2,13 @@
 "use client";
 
 import { useState } from "react";
-import { User, Shield, Bell, Check } from "lucide-react";
+import { User, Shield, Bell, Check, Compass } from "lucide-react";
 import ProfileSettings from "./ProfileSettings";
 import SecuritySettings from "./SecuritySettings";
 import NotificationSettings from "./NotificationSettings";
 import { CountryConfig } from "@/config/countries";
 import { SettingsData } from "@/types/reseller/settings";
+import { useOnboarding } from "@/providers/OnboardingProvider";
 
 interface SettingsClientProps {
   countryCode: string;
@@ -27,6 +28,7 @@ export default function SettingsClient({
   const t = translations;
   const [activeTab, setActiveTab] = useState<TabType>("profile");
   const [showSaved, setShowSaved] = useState(false);
+  const { replay } = useOnboarding();
 
   const tabs = [
     { id: "profile" as TabType, label: t?.profile || "Profile", icon: User },
@@ -192,6 +194,65 @@ export default function SettingsClient({
 
       {/* Tab Content */}
       <div>{renderTabContent()}</div>
+
+      {/* Task 9 — replay the guided dashboard tour. */}
+      <div
+        style={{
+          marginTop: "2rem",
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: "1.25rem 1.5rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "1rem",
+        }}
+      >
+        <div>
+          <h3
+            style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "1rem",
+              fontWeight: 700,
+              margin: 0,
+            }}
+          >
+            {t?.tour?.replayTitle || "Guided setup tour"}
+          </h3>
+          <p
+            style={{
+              color: "var(--muted)",
+              fontSize: "0.85rem",
+              margin: "0.25rem 0 0",
+            }}
+          >
+            {t?.tour?.replayBody ||
+              "Take the step-by-step tour again to see where everything is."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={replay}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.6rem 1.25rem",
+            borderRadius: 8,
+            border: "1px solid var(--brand-color)",
+            background: "transparent",
+            color: "var(--brand-color)",
+            fontSize: "0.9rem",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          <Compass size={16} />
+          {t?.tour?.replay || "Show me around"}
+        </button>
+      </div>
     </div>
   );
 }

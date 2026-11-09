@@ -1,0 +1,36 @@
+{
+  "tour": {
+    "progress": "Step {current} of {total}",
+    "hint": "Click the highlighted button to continue",
+    "noTarget": "This step isn't available right now",
+    "continue": "Continue",
+    "skipStep": "Skip",
+    "exit": "Skip tour",
+    "celebrate": "Nice — that's done!",
+    "replayTitle": "Guided setup tour",
+    "replayBody": "Take the step-by-step tour again to see where everything is.",
+    "replay": "Show me around",
+    "steps": {
+      "virtual_account": {
+        "title": "Get your virtual account",
+        "blurb": "Create your dedicated account to receive customer payments."
+      },
+      "fund_wallet": {
+        "title": "Fund your wallet",
+        "blurb": "Click Fund Wallet to add funds so you can fulfil orders."
+      },
+      "set_markup": {
+        "title": "Set your markup",
+        "blurb": "Enter your markup and apply it to choose how much you earn."
+      },
+      "publish": {
+        "title": "Publish your store",
+        "blurb": "Pick a plan and publish your storefront app."
+      },
+      "visit_storefront": {
+        "title": "Visit your storefront",
+        "blurb": "Open your live store to see what customers see."
+      }
+    }
+  }
+}

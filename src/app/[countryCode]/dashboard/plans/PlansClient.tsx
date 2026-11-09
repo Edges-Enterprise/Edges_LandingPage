@@ -736,6 +736,7 @@ export default function PlansClient({
           <button
             onClick={handleBulkUpdate}
             disabled={bulkSaving}
+            data-tour="set_markup"
             style={btnPrimaryStyle}
             className="bulk-apply"
             aria-label={t?.apply || "Apply"}

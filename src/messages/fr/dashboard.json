@@ -37,38 +37,5 @@
   "logout": "Déconnexion",
   "overview": "Aperçu",
   "loadingDetails": "Chargement des détails…",
-  "noDetails": "Les détails ne sont pas disponibles pour cet élément.",
-  "onboarding": {
-    "title": "Terminez la configuration de votre boutique",
-    "progress": "{done} sur {total} étapes terminées",
-    "dismiss": "Ignorer",
-    "complete": {
-      "title": "Configuration de la boutique terminée",
-      "body": "Tout est prêt — partagez votre boutique et faites votre première vente.",
-      "viewStore": "Voir votre boutique",
-      "viewOrders": "Voir vos commandes"
-    },
-    "steps": {
-      "virtual_account": {
-        "title": "Obtenez votre compte virtuel",
-        "blurb": "Recevez les paiements des clients sur votre compte dédié."
-      },
-      "fund_wallet": {
-        "title": "Approvisionnez votre portefeuille",
-        "blurb": "Ajoutez des fonds pour traiter les commandes."
-      },
-      "set_markup": {
-        "title": "Définissez votre marge",
-        "blurb": "Choisissez ce que vous gagnez sur chaque offre."
-      },
-      "publish": {
-        "title": "Publiez votre boutique",
-        "blurb": "Compilez et publiez l'application de votre boutique."
-      },
-      "visit_storefront": {
-        "title": "Visitez votre boutique",
-        "blurb": "Ouvrez votre boutique en ligne pour voir ce que voient vos clients."
-      }
-    }
-  }
+  "noDetails": "Les détails ne sont pas disponibles pour cet élément."
 }

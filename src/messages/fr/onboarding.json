@@ -1,0 +1,36 @@
+{
+  "tour": {
+    "progress": "Étape {current} sur {total}",
+    "hint": "Cliquez sur le bouton en surbrillance pour continuer",
+    "noTarget": "Cette étape n'est pas disponible pour le moment",
+    "continue": "Continuer",
+    "skipStep": "Passer",
+    "exit": "Passer la visite",
+    "celebrate": "Parfait — c'est fait !",
+    "replayTitle": "Visite guidée de configuration",
+    "replayBody": "Refaites la visite étape par étape pour voir où tout se trouve.",
+    "replay": "Faites-moi visiter",
+    "steps": {
+      "virtual_account": {
+        "title": "Obtenez votre compte virtuel",
+        "blurb": "Créez votre compte dédié pour recevoir les paiements de vos clients."
+      },
+      "fund_wallet": {
+        "title": "Approvisionnez votre portefeuille",
+        "blurb": "Cliquez sur Approvisionner pour ajouter des fonds et traiter les commandes."
+      },
+      "set_markup": {
+        "title": "Définissez votre marge",
+        "blurb": "Saisissez votre marge et appliquez-la pour choisir ce que vous gagnez."
+      },
+      "publish": {
+        "title": "Publiez votre boutique",
+        "blurb": "Choisissez une offre et publiez l'application de votre boutique."
+      },
+      "visit_storefront": {
+        "title": "Visitez votre boutique",
+        "blurb": "Ouvrez votre boutique en ligne pour voir ce que voient vos clients."
+      }
+    }
+  }
+}

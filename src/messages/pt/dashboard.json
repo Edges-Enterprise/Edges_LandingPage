@@ -37,38 +37,5 @@
   "logout": "Sair",
   "overview": "Visão Geral",
   "loadingDetails": "A carregar detalhes…",
-  "noDetails": "Os detalhes não estão disponíveis para este item.",
-  "onboarding": {
-    "title": "Termine de configurar a sua loja",
-    "progress": "{done} de {total} passos concluídos",
-    "dismiss": "Dispensar",
-    "complete": {
-      "title": "Configuração da loja concluída",
-      "body": "Tudo pronto — compartilhe sua loja e faça sua primeira venda.",
-      "viewStore": "Ver sua loja",
-      "viewOrders": "Ver seus pedidos"
-    },
-    "steps": {
-      "virtual_account": {
-        "title": "Obtenha sua conta virtual",
-        "blurb": "Receba os pagamentos dos clientes na sua conta dedicada."
-      },
-      "fund_wallet": {
-        "title": "Recarregue sua carteira",
-        "blurb": "Adicione fundos para poder atender aos pedidos."
-      },
-      "set_markup": {
-        "title": "Defina sua margem",
-        "blurb": "Escolha quanto você ganha em cada plano."
-      },
-      "publish": {
-        "title": "Publique sua loja",
-        "blurb": "Compile e publique o app da sua loja."
-      },
-      "visit_storefront": {
-        "title": "Visite sua loja",
-        "blurb": "Abra sua loja ativa para ver o que os clientes veem."
-      }
-    }
-  }
+  "noDetails": "Os detalhes não estão disponíveis para este item."
 }

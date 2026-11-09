@@ -202,6 +202,7 @@ export default function WalletClient({
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           {isXixapay ? (
             <button
+              data-tour="fund_wallet"
               onClick={() => {
                 const virtualAccountElement = document.querySelector(
                   '[data-virtual-account="true"]',
@@ -234,6 +235,7 @@ export default function WalletClient({
             </button>
           ) : (
             <button
+              data-tour="fund_wallet"
               onClick={() => setShowFundModal(true)}
               style={{
                 padding: "0.6rem 1.5rem",
@@ -325,7 +327,7 @@ export default function WalletClient({
 
       {/* ✅ Virtual Account - Only for Xixapay (Nigeria) */}
       {isXixapay && (
-        <div data-virtual-account="true">
+        <div data-virtual-account="true" data-tour="virtual_account">
           <VirtualAccount
             key={virtualAccount?.id || "no-account"}
             virtualAccount={virtualAccount}

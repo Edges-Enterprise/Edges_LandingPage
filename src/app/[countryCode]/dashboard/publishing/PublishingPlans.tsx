@@ -588,6 +588,7 @@ export default function PublishingPlans({
         <button
           onClick={handlePublishClick}
           disabled={!canPublish}
+          data-tour="publish"
           style={{
             padding: "0.6rem 1.75rem",
             background: canPublish ? "var(--brand-color)" : "var(--bg3)",
