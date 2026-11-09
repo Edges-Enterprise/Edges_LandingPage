@@ -57,7 +57,7 @@ async function getPublishingData(userId: string, localCurrency: string) {
 
     const { data: wallet } = await supabase
       .from("global_wallets")
-      .select("balance, currency")
+      .select("balance, bonus_balance, currency")
       .eq("reseller_id", application.id)
       .maybeSingle();
 
@@ -72,6 +72,7 @@ async function getPublishingData(userId: string, localCurrency: string) {
       currentBuild: currentBuild || null,
       publishingPlan: publishingRow?.publishing_plan || null,
       walletBalance: Number(wallet?.balance || 0),
+      walletBonusBalance: Number(wallet?.bonus_balance || 0),
       walletCurrency: wallet?.currency || "USD",
       usdToLocalRate,
     };

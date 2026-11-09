@@ -22,6 +22,8 @@ interface PublishingPlansProps {
   };
   currentPlan: string | null;
   walletBalance?: number;
+  /** Non-withdrawable, spendable app first-deposit bonus. */
+  walletBonusBalance?: number;
   /** Currency the wallet (and its balance) is denominated in. */
   walletCurrency?: string;
   /** USD -> local currency rate, so a card can show the local amount too. */
@@ -45,6 +47,7 @@ export default function PublishingPlans({
   application,
   currentPlan,
   walletBalance = 0,
+  walletBonusBalance = 0,
   walletCurrency = "USD",
   usdToLocalRate = null,
   config,
@@ -126,9 +129,12 @@ export default function PublishingPlans({
   const selectedPlanDetails = plans.find((p) => p.id === selectedPlan);
   const activePlanDetails = plans.find((p) => p.id === currentPlan);
 
+  // The bonus is spendable, so it counts toward what can cover the charge.
+  const spendableBalance = walletBalance + walletBonusBalance;
+
   const insufficientFunds =
     !!selectedPlanDetails &&
-    (chargeFor(selectedPlanDetails.price) ?? Infinity) > walletBalance;
+    (chargeFor(selectedPlanDetails.price) ?? Infinity) > spendableBalance;
 
   const canPublish =
     !!selectedPlan &&
@@ -283,6 +289,13 @@ export default function PublishingPlans({
             {currencySymbol}
             {walletBalance.toFixed(2)}
           </strong>
+          {walletBonusBalance > 0 && (
+            <span style={{ color: "var(--muted)" }}>
+              {" "}
+              + {currencySymbol}
+              {walletBonusBalance.toFixed(2)} {t?.bonusBalance || "bonus"}
+            </span>
+          )}
         </div>
       </div>
 

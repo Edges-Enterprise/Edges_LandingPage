@@ -73,13 +73,11 @@ export async function POST(
 
       if (walletError) throw walletError;
 
-      // Check for first deposit bonus (only if source is 'app')
+      // One-time, non-withdrawable app first-deposit bonus (only if
+      // source is 'app'). Idempotent inside the RPC.
       const source = transaction.metadata?.source || "web";
       if (source === "app") {
-        await checkAndAwardFirstDepositBonus(
-          transaction.reseller_id,
-          transaction.amount,
-        );
+        await checkAndAwardFirstDepositBonus(transaction.reseller_id);
       }
     }
 

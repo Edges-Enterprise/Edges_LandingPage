@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     if (identity.userType === "reseller") {
       const { data: wallet } = await admin
         .from("global_wallets")
-        .select("id, balance, currency, status")
+        .select("id, balance, bonus_balance, currency, status")
         .eq("reseller_id", identity.resellerId)
         .maybeSingle();
 
@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
         wallet: {
           id: wallet?.id ?? "",
           balance: Number(wallet?.balance ?? 0),
+          bonus_balance: Number(wallet?.bonus_balance ?? 0),
           currency: wallet?.currency ?? null,
         },
         virtual_accounts: accounts ?? [],

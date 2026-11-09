@@ -1,11 +1,12 @@
 // src/app/[countryCode]/dashboard/wallet/WalletSummary.tsx
 "use client";
 
-import { Wallet, TrendingUp, TrendingDown, CreditCard } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, CreditCard, Gift } from "lucide-react";
 
 interface WalletSummaryProps {
   wallet: {
     balance: number;
+    bonus_balance?: number;
     currency: string;
     status: string;
   };
@@ -59,6 +60,12 @@ export default function WalletSummary({
       value: formatCurrency(stats.total_spent),
       color: "#F59E0B",
     },
+    {
+      icon: Gift,
+      label: t?.bonusBalance || "Bonus Balance",
+      value: formatCurrency(wallet.bonus_balance || 0),
+      color: "#8B5CF6",
+    },
   ];
 
   return (
@@ -66,7 +73,7 @@ export default function WalletSummary({
       <style>{`
         .wallet-summary-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
           gap: 1rem;
           margin-bottom: 1.5rem;
         }

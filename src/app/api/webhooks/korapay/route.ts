@@ -174,6 +174,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+
+    // One-time, non-withdrawable app first-deposit bonus. Only for a
+    // deposit the reseller started in the app, and only ever once (the RPC
+    // is idempotent). A no-op on the web-initiated path.
+    if ((transaction.metadata?.source || "web") === "app") {
+      const { error: bonusError } = await adminClient.rpc(
+        "award_app_first_deposit_bonus",
+        { p_reseller_id: transaction.reseller_id },
+      );
+      if (bonusError) {
+        console.error("❌ App first-deposit bonus failed:", bonusError);
+      }
+    }
     // ✅ Update transaction with fee details
     const { error: txUpdateError } = await adminClient
       .from("global_transactions")

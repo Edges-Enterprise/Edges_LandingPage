@@ -290,51 +290,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for first deposit bonus (Xixapay specific). Reseller-only
-    // (never applies to the customer branch above, which returns
-    // early before reaching here) and, per explicit product decision,
-    // only when the reseller initiated the deposit from the app -
-    // matches the same source-gating already used for this bonus in
-    // src/app/api/webhooks/[countryCode]/payment/route.ts's version of
-    // this check (`if (source === "app")`), which this file was
-    // missing entirely until now.
-    const depositSource = transaction.metadata?.source || "web";
-
-    const { data: walletWithBonus } = await adminClient
-      .from("global_wallets")
-      .select("first_deposit_bonus_claimed, first_deposit_bonus_amount")
-      .eq("reseller_id", transaction.reseller_id)
-      .single();
-
-    if (
-      depositSource === "app" &&
-      walletWithBonus &&
-      !walletWithBonus.first_deposit_bonus_claimed &&
-      grossAmount >= 5000
-    ) {
-      // Award first deposit bonus (e.g., 5% bonus)
-      const bonusAmount = grossAmount * 0.05;
-
-      await adminClient
-        .from("global_wallets")
-        .update({
-          first_deposit_bonus_claimed: true,
-          first_deposit_bonus_amount: bonusAmount,
-          balance: (wallet.balance || 0) + netAmount + bonusAmount,
-        })
-        .eq("reseller_id", transaction.reseller_id);
-
-      // Log bonus transaction
-      await adminClient.from("global_transactions").insert({
-        reseller_id: transaction.reseller_id,
-        wallet_id: wallet.id,
-        type: "credit",
-        amount: bonusAmount,
-        description: "First deposit bonus",
-        status: "completed",
-        reference: `BONUS-${Date.now()}`,
-        payment_gateway: "xixapay",
-      });
+    // One-time, non-withdrawable app first-deposit bonus. Reseller-only
+    // (the customer branch above returns before reaching here) and only
+    // when the reseller initiated the deposit from the app. The RPC is
+    // idempotent, so a retried webhook cannot double-award it.
+    if ((transaction.metadata?.source || "web") === "app") {
+      const { error: bonusError } = await adminClient.rpc(
+        "award_app_first_deposit_bonus",
+        { p_reseller_id: transaction.reseller_id },
+      );
+      if (bonusError) {
+        console.error("Xixapay webhook: app first-deposit bonus failed:", bonusError);
+      }
     }
 
     console.log(

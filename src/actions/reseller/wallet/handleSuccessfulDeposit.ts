@@ -82,10 +82,7 @@ export async function handleSuccessfulDeposit({
       .eq("id", transaction.id);
 
     // ✅ Check and award first deposit bonus
-    const bonusResult = await checkAndAwardFirstDepositBonus(
-      resellerId,
-      amount,
-    );
+    const bonusResult = await checkAndAwardFirstDepositBonus(resellerId);
 
     if (!bonusResult.success) {
       console.warn("Bonus award failed:", bonusResult.error);

@@ -58,6 +58,7 @@ async function getWalletData(userId: string) {
       application,
       wallet: wallet || {
         balance: 0,
+        bonus_balance: 0,
         currency: getCountryConfig(application.country_code).currency,
         status: "active",
       },
