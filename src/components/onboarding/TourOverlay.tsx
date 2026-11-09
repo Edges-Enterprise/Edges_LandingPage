@@ -14,11 +14,13 @@ interface TourOverlayProps {
   waiting?: boolean;
   step: OnboardingStep | null;
   rect: AnchorRect | null;
-  /** The sidebar's rect, spotlighted behind the welcome card on desktop. */
+  /** The sidebar's rect, spotlighted behind the banner on desktop. */
   welcomeRect?: AnchorRect | null;
   /** 1-based position of the current step within the applicable steps. */
   stepIndex: number;
   stepCount: number;
+  /** How long each step stays up before auto-advancing, in ms. */
+  autoAdvanceMs?: number;
   /** The `tour` slice of the onboarding translations. */
   t: any;
   onStart: () => void;
@@ -43,10 +45,16 @@ const STEP_CARD_H = 190;
  * highlight ring, and a card the reseller drives with Next/Back/Skip. Nothing
  * on the page is click-gated — the tour never waits on an action.
  *
- * The welcome card spotlights the sidebar (desktop only); the congrats card
- * dims the whole page. Neither captures clicks: the dim is decorative and the
- * page behind stays usable. Both cards are width- and height-capped to the
- * viewport so they stay usable on phones and in landscape.
+ * It opens on a bottom BANNER (a small prompt, not a blocking modal) so the
+ * dashboard is visible behind it before the tour starts. The banner spotlights
+ * the sidebar (desktop only); the congrats card dims the whole page. Neither
+ * captures clicks: the dim is decorative and the page behind stays usable.
+ * Every card is width- and height-capped to the viewport so it stays usable on
+ * phones and in landscape.
+ *
+ * The auto-advance timer lives here (not in the provider) so the ticking
+ * re-renders only this overlay, never the dashboard behind it. Pressing Next
+ * jumps the step immediately; Back resets the timer.
  */
 export default function TourOverlay({
   phase,
@@ -56,6 +64,7 @@ export default function TourOverlay({
   welcomeRect = null,
   stepIndex,
   stepCount,
+  autoAdvanceMs = 7000,
   t,
   onStart,
   onNext,
@@ -77,7 +86,7 @@ export default function TourOverlay({
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Esc closes the tour; never trap the reseller.
+  // Esc ends the tour; never trap the reseller.
   useEffect(() => {
     if (phase === "idle" || phase === "done") return;
     const onKey = (e: KeyboardEvent) => {
@@ -86,6 +95,27 @@ export default function TourOverlay({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [phase, onExit]);
+
+  // Auto-advance: only while a step card is actually on screen (not while a
+  // navigation is in flight), and reset whenever the step changes.
+  const [ratio, setRatio] = useState(0);
+  const running = phase === "running" && !waiting;
+  useEffect(() => {
+    if (!running) {
+      setRatio(0);
+      return;
+    }
+    const startedAt = Date.now();
+    const id = setInterval(() => {
+      const r = Math.min(1, (Date.now() - startedAt) / autoAdvanceMs);
+      setRatio(r);
+      if (r >= 1) {
+        clearInterval(id);
+        onNext();
+      }
+    }, 100);
+    return () => clearInterval(id);
+  }, [running, stepIndex, autoAdvanceMs, onNext]);
 
   if (phase === "idle" || phase === "done") return null;
 
@@ -97,12 +127,12 @@ export default function TourOverlay({
     .replace("{current}", String(stepIndex))
     .replace("{total}", String(stepCount));
 
-  const isFraming = phase === "welcome" || phase === "congrats";
-  // What the cutout focuses on: the sidebar on the welcome card (desktop
-  // only — it is off-canvas on phones), the current step's anchor while
-  // running, nothing (full dim) on the congrats card.
+  const isFraming = phase === "banner" || phase === "congrats";
+  // What the cutout focuses on: the sidebar on the banner (desktop only — it
+  // is off-canvas on phones), the current step's anchor while running, nothing
+  // (full dim) on the congrats card.
   const activeRect =
-    phase === "welcome"
+    phase === "banner"
       ? vw >= DESKTOP_MIN
         ? welcomeRect
         : null
@@ -127,7 +157,7 @@ export default function TourOverlay({
 
       {isFraming ? (
         <FramingCard
-          welcome={phase === "welcome"}
+          welcome={phase === "banner"}
           rect={activeRect}
           vw={vw}
           vh={vh}
@@ -147,6 +177,7 @@ export default function TourOverlay({
           title={title}
           blurb={blurb}
           progress={progress}
+          progressRatio={ratio}
           t={t}
           onNext={onNext}
           onBack={onBack}
@@ -201,7 +232,12 @@ function HighlightRing({ rect, reduce }: { rect: AnchorRect; reduce: boolean }) 
   );
 }
 
-/** The welcome / congrats card, centred — nudged beside a spotlight if there is one. */
+/**
+ * The banner (before the tour) and the congrats card (after it). The banner is
+ * a small prompt pinned to the bottom of the viewport, so the dashboard is
+ * visible behind it; the congrats card is centred. Both are capped to the
+ * viewport and scroll if their content is taller than the screen.
+ */
 function FramingCard({
   welcome,
   rect,
@@ -223,78 +259,109 @@ function FramingCard({
   onExit: () => void;
   onDone: () => void;
 }) {
-  // When a spotlight sits on the left (the sidebar), centre the card in the
-  // remaining space so it does not cover what it is pointing at. Otherwise it
-  // sits dead centre.
-  const left =
+  const banner = welcome;
+  // The congrats card centres; when a spotlight sits on the left (the sidebar
+  // during the banner on desktop) the card centres in the remaining space.
+  const centeredLeft =
     rect && vw >= DESKTOP_MIN && rect.right < vw / 2
       ? rect.right + (vw - rect.right) / 2
       : "50%";
 
   return (
     <motion.div
-      initial={reduce ? false : { scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
+      initial={reduce ? false : { y: banner ? 24 : 0, scale: banner ? 1 : 0.9, opacity: 0 }}
+      animate={{ y: 0, scale: 1, opacity: 1 }}
       style={{
         position: "fixed",
-        top: "50%",
-        left,
-        // framer-motion owns `transform` (for the scale-in), so centre via its
-        // x/y motion values instead of an inline transform, which it would drop.
-        x: "-50%",
-        y: "-50%",
-        pointerEvents: "auto",
-        ...glassSurface(16),
         boxSizing: "border-box",
-        // Never wider than the viewport minus a margin, nor taller.
-        width: `min(380px, calc(100% - ${MARGIN * 2}px))`,
+        pointerEvents: "auto",
+        ...glassSurface(banner ? 14 : 16),
+        width: `min(${banner ? 460 : 380}px, calc(100% - ${MARGIN * 2}px))`,
         maxHeight: `calc(100% - ${MARGIN * 2}px)`,
         overflowY: "auto",
-        border: welcome
+        border: banner
           ? "1px solid var(--border, rgba(201,138,84,0.25))"
           : "1px solid rgba(16,185,129,0.5)",
-        padding: "clamp(1.1rem, 4vw, 1.75rem) clamp(1.1rem, 5vw, 2rem)",
+        boxShadow: banner
+          ? "0 18px 50px rgba(0,0,0,0.5)"
+          : "0 12px 40px rgba(0,0,0,0.45)",
+        padding: "clamp(1.1rem, 4vw, 1.5rem) clamp(1.1rem, 5vw, 1.75rem)",
+        ...(banner
+          ? {
+              // Banner: pinned low, centred horizontally.
+              left: "50%",
+              bottom: MARGIN,
+              x: "-50%",
+            }
+          : {
+              // Congrats: centred (beside the sidebar if one is spotlighted).
+              top: "50%",
+              left: centeredLeft,
+              x: "-50%",
+              y: "-50%",
+            }),
         display: "flex",
-        flexDirection: "column",
+        flexDirection: "row",
         alignItems: "center",
-        gap: "0.7rem",
-        textAlign: "center",
+        gap: banner ? "1rem" : "0.7rem",
+        textAlign: banner ? "left" : "center",
+        flexWrap: "wrap",
       }}
     >
-      <span style={{ color: "var(--brand-color, #C98A54)", lineHeight: 0 }}>
-        {welcome ? <Compass size={38} /> : <BadgeCheck size={40} />}
-      </span>
-      <strong
+      <span
         style={{
-          fontFamily: "'Playfair Display', serif",
-          fontSize: "clamp(1.05rem, 4vw, 1.15rem)",
-          fontWeight: 700,
+          color: "var(--brand-color, #C98A54)",
+          lineHeight: 0,
+          flexShrink: 0,
         }}
       >
-        {welcome
-          ? t?.welcomeTitle || "Welcome to your dashboard"
-          : t?.congratsTitle || "You're all set!"}
-      </strong>
-      <span style={{ color: "var(--muted, #999)", fontSize: "0.88rem", lineHeight: 1.5 }}>
-        {welcome
-          ? t?.welcomeBody ||
-            "Let's take a quick look around so you know where everything lives."
-          : t?.congratsBody ||
-            "That's the whole tour. You can replay it any time from Settings."}
+        {banner ? <Compass size={34} /> : <BadgeCheck size={40} />}
       </span>
+
+      <div style={{ flex: banner ? "1 1 200px" : "1 1 100%", minWidth: 0 }}>
+        <strong
+          style={{
+            display: "block",
+            fontFamily: "'Playfair Display', serif",
+            fontSize: banner ? "1.05rem" : "clamp(1.05rem, 4vw, 1.15rem)",
+            fontWeight: 700,
+          }}
+        >
+          {banner
+            ? t?.bannerTitle || "Take a quick tour?"
+            : t?.congratsTitle || "You're all set!"}
+        </strong>
+        <span
+          style={{
+            display: "block",
+            marginTop: 2,
+            color: "var(--muted, #999)",
+            fontSize: "0.86rem",
+            lineHeight: 1.5,
+          }}
+        >
+          {banner
+            ? t?.bannerBody ||
+              "We'll show you around your whole dashboard — every page and every tool."
+            : t?.congratsBody ||
+              "You've now seen the whole platform. Replay this tour any time from Settings."}
+        </span>
+      </div>
+
       <div
         style={{
           display: "flex",
           gap: "0.6rem",
-          marginTop: "0.4rem",
+          marginTop: banner ? 0 : "0.4rem",
           flexWrap: "wrap",
           justifyContent: "center",
+          flexShrink: 0,
         }}
       >
-        {welcome ? (
+        {banner ? (
           <>
             <button type="button" onClick={onExit} style={btnStyle(false)}>
-              {t?.later || "Later"}
+              {t?.skip || "Skip"}
             </button>
             <button type="button" onClick={onStart} style={btnStyle(true)}>
               {t?.start || "Start tour"}
@@ -320,6 +387,7 @@ function StepCard({
   title,
   blurb,
   progress,
+  progressRatio,
   t,
   onNext,
   onBack,
@@ -334,6 +402,7 @@ function StepCard({
   title: string;
   blurb: string;
   progress: string;
+  progressRatio: number;
   t: any;
   onNext: () => void;
   onBack: () => void;
@@ -344,27 +413,40 @@ function StepCard({
   // Shrink to fit a phone; never exceed the viewport minus a margin.
   const cardW = Math.min(320, vw - MARGIN * 2);
 
-  // Place the card beside the anchor, clamped to the viewport. Prefer below;
-  // fall back to above, then to centred if neither side has room.
+  // Place the card beside the anchor when there is room — to the right for a
+  // left-column anchor (the sidebar), to the left for a right-column one (the
+  // header tools) — so it never covers what it is pointing at. Otherwise fall
+  // below, then above, then centred.
+  let left: number | string = "50%";
   let top: number | string | undefined;
   let bottom: number | undefined;
   let maxHeight = `calc(100% - ${MARGIN * 2}px)`;
   let centered = false;
+  const besideTop = rect
+    ? Math.max(MARGIN, Math.min(rect.top + rect.height / 2 - 110, vh - MARGIN - 220))
+    : MARGIN;
+
   if (!rect) {
     centered = true;
+  } else if (rect.right + GAP + cardW <= vw - MARGIN) {
+    // Beside, on the right.
+    left = rect.right + GAP;
+    top = besideTop;
+  } else if (rect.left - GAP - cardW >= MARGIN) {
+    // Beside, on the left.
+    left = rect.left - GAP - cardW;
+    top = besideTop;
   } else if (vh - rect.bottom >= STEP_CARD_H + GAP) {
     top = rect.bottom + GAP;
     maxHeight = `${vh - (rect.bottom + GAP) - MARGIN}px`;
+    left = Math.min(Math.max(rect.left + rect.width / 2 - cardW / 2, MARGIN), vw - cardW - MARGIN);
   } else if (rect.top >= STEP_CARD_H + GAP) {
     bottom = vh - rect.top + GAP;
     maxHeight = `${rect.top - GAP - MARGIN}px`;
+    left = Math.min(Math.max(rect.left + rect.width / 2 - cardW / 2, MARGIN), vw - cardW - MARGIN);
   } else {
     centered = true;
   }
-
-  const left = rect
-    ? Math.min(Math.max(rect.left + rect.width / 2 - cardW / 2, MARGIN), vw - cardW - MARGIN)
-    : "50%";
 
   return (
     <div
@@ -407,8 +489,8 @@ function StepCard({
         <button
           type="button"
           onClick={onExit}
-          aria-label={t?.exit || "Close tour"}
-          title={t?.exit || "Close tour"}
+          aria-label={t?.exit || "Skip the tour"}
+          title={t?.exit || "Skip the tour"}
           style={{
             background: "transparent",
             border: "none",
@@ -422,12 +504,33 @@ function StepCard({
         </button>
       </div>
 
+      {/* Auto-advance progress: fills as the timer runs down. */}
+      <div
+        style={{
+          height: 3,
+          borderRadius: 999,
+          background: "var(--border, rgba(201,138,84,0.18))",
+          margin: "0.5rem 0 0.6rem",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${Math.min(100, Math.max(0, progressRatio * 100))}%`,
+            background: "var(--brand-color, #C98A54)",
+            borderRadius: 999,
+            transition: "width 0.2s linear",
+          }}
+        />
+      </div>
+
       <h4
         style={{
           fontFamily: "'Playfair Display', serif",
           fontSize: "1rem",
           fontWeight: 700,
-          margin: "0.5rem 0 0.25rem",
+          margin: "0 0 0.25rem",
         }}
       >
         {title}
@@ -459,7 +562,7 @@ function StepCard({
             </button>
           )}
           <button type="button" onClick={onSkip} style={btnStyle(false)}>
-            {t?.skipStep || "Skip"}
+            {t?.skip || "Skip"}
           </button>
           <button type="button" onClick={onNext} style={btnStyle(true)}>
             {stepIndex >= stepCount ? t?.finish || "Finish" : t?.next || "Next"}

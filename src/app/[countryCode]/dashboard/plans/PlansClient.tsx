@@ -811,7 +811,10 @@ export default function PlansClient({
       )}
 
       {/* Plans List */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+      <div
+        data-tour="plans_list"
+        style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+      >
         {isLoading ? (
           <div
             style={{

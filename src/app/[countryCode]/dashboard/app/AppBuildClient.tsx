@@ -131,7 +131,7 @@ export function AppBuildClient({ countryCode }: AppBuildClientProps) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div data-tour="app_build" className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

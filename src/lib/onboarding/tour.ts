@@ -3,9 +3,9 @@
 // The dashboard walkthrough's pure state machine. It is a plain, linear
 // slideshow — no action gating, no waiting on real-data signals:
 //
-//   * it opens on a WELCOME card the reseller opts into (or dismisses);
-//   * each step spotlights a real dashboard element and advances only when
-//     the reseller presses Next (or Back);
+//   * it opens on a BANNER the reseller opts into (or skips);
+//   * each step spotlights a real dashboard element and advances on its own
+//     timer, or early when the reseller presses Next (or Back);
 //   * it ends on a CONGRATS card, or immediately when the reseller skips.
 //
 // Kept out of the provider/overlay so the transitions are testable without a
@@ -13,7 +13,7 @@
 
 import type { OnboardingStep } from "./steps";
 
-export type TourPhase = "idle" | "welcome" | "running" | "congrats" | "done";
+export type TourPhase = "idle" | "banner" | "running" | "congrats" | "done";
 
 export interface TourState {
   phase: TourPhase;
@@ -23,24 +23,24 @@ export interface TourState {
 
 export const IDLE_TOUR: TourState = { phase: "idle", index: 0 };
 
-/** Whether the tour is on screen (welcome, spotlighting, or congratulating). */
+/** Whether the tour is on screen (banner, spotlighting, or congratulating). */
 export function isTourActive(state: TourState): boolean {
   return (
-    state.phase === "welcome" ||
+    state.phase === "banner" ||
     state.phase === "running" ||
     state.phase === "congrats"
   );
 }
 
-/** Open on the welcome card; finish immediately if there is nothing to show. */
-export function startWelcome(stepCount: number): TourState {
+/** Open on the banner; finish immediately if there is nothing to show. */
+export function startBanner(stepCount: number): TourState {
   if (stepCount <= 0) return { phase: "done", index: 0 };
-  return { phase: "welcome", index: 0 };
+  return { phase: "banner", index: 0 };
 }
 
-/** Leave the welcome card and begin the first step. */
+/** Leave the banner and begin the first step. */
 export function beginTour(state: TourState): TourState {
-  if (state.phase !== "welcome") return state;
+  if (state.phase !== "banner") return state;
   return { phase: "running", index: 0 };
 }
 

@@ -90,5 +90,10 @@
   "twoFactorEnabledNotice": "Two-factor authentication is on. Other devices have been signed out — you may be asked to sign in again.",
   "twoFactorDisabledNotice": "Two-factor authentication is off.",
   "disableTwoFactorPrompt": "Enter the 6-digit code from your authenticator app to turn off two-factor authentication.",
-  "confirmDisable2FA": "Turn off 2FA"
+  "confirmDisable2FA": "Turn off 2FA",
+  "tour": {
+    "replayTitle": "Guided setup tour",
+    "replayBody": "Take the step-by-step tour again to see where everything is.",
+    "replay": "Show me around"
+  }
 }

@@ -148,6 +148,7 @@ export default function CustomersClient({
         </div>
         <button
           className="add-customer-btn"
+          data-tour="customers_add"
           onClick={() => setShowAddModal(true)}
           aria-label={t?.addCustomer || "Add Customer"}
           title={t?.addCustomer || "Add Customer"}
@@ -445,18 +446,20 @@ export default function CustomersClient({
       </div>
 
       {/* Customer Table */}
-      <CustomerTable
-        customers={filteredCustomers}
-        config={config}
-        translations={t}
-        onView={(customer: Customer) => {
-          setSelectedCustomer(customer);
-          setShowDetailsModal(true);
-        }}
-        onUpdate={handleCustomerUpdated}
-        onDelete={handleCustomerDeleted}
-        getStatusColor={getStatusColor}
-      />
+      <div data-tour="customers_table">
+        <CustomerTable
+          customers={filteredCustomers}
+          config={config}
+          translations={t}
+          onView={(customer: Customer) => {
+            setSelectedCustomer(customer);
+            setShowDetailsModal(true);
+          }}
+          onUpdate={handleCustomerUpdated}
+          onDelete={handleCustomerDeleted}
+          getStatusColor={getStatusColor}
+        />
+      </div>
 
       {/* Modals */}
       {showAddModal && (

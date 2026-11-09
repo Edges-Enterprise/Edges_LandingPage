@@ -319,11 +319,13 @@ export default function WalletClient({
         </div>
       </div>
 
-      <WalletSummary
-        wallet={wallet}
-        currencySymbol={currencySymbol}
-        translations={t}
-      />
+      <div data-tour="wallet_summary">
+        <WalletSummary
+          wallet={wallet}
+          currencySymbol={currencySymbol}
+          translations={t}
+        />
+      </div>
 
       {/* ✅ Virtual Account - Only for Xixapay (Nigeria) */}
       {isXixapay && (
@@ -339,11 +341,13 @@ export default function WalletClient({
         </div>
       )}
 
-      <TransactionHistory
-        transactions={transactions}
-        currencySymbol={currencySymbol}
-        translations={t}
-      />
+      <div data-tour="wallet_history">
+        <TransactionHistory
+          transactions={transactions}
+          currencySymbol={currencySymbol}
+          translations={t}
+        />
+      </div>
 
       {showFundModal && !isXixapay && (
         <FundWalletModal

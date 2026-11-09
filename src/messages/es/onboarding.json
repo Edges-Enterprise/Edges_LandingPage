@@ -3,40 +3,136 @@
     "progress": "Paso {current} de {total}",
     "hint": "Aquí es donde lo encontrarás",
     "noTarget": "Esto está en otra página",
-    "exit": "Cerrar recorrido",
-    "welcomeTitle": "Bienvenido a tu panel",
-    "welcomeBody": "Echemos un vistazo rápido para que sepas dónde está todo.",
+    "exit": "Omitir el recorrido",
+    "bannerTitle": "¿Hacemos un recorrido rápido?",
+    "bannerBody": "Te mostraremos todo tu panel — cada página y cada herramienta — en unos tres minutos.",
     "start": "Iniciar recorrido",
-    "later": "Más tarde",
+    "skip": "Omitir",
     "next": "Siguiente",
     "back": "Atrás",
     "finish": "Finalizar",
     "done": "Listo",
     "congratsTitle": "¡Todo listo!",
-    "congratsBody": "Ese es todo el recorrido. Puedes repetirlo cuando quieras desde Ajustes.",
+    "congratsBody": "Ya has visto toda la plataforma. Puedes repetir este recorrido cuando quieras desde Ajustes.",
     "replayTitle": "Recorrido de configuración guiado",
     "replayBody": "Vuelve a hacer el recorrido paso a paso para ver dónde está todo.",
     "replay": "Muéstrame el panel",
     "steps": {
+      "overview_actions": {
+        "title": "Acciones rápidas",
+        "blurb": "Tus cuatro tareas más comunes empiezan aquí: recargar tu billetera, añadir un cliente, compartir tu tienda y publicar tu app."
+      },
+      "overview_stats": {
+        "title": "Tus cifras de un vistazo",
+        "blurb": "Clientes, pedidos, ingresos y ganancias: cada tarjeta muestra el total y cómo cambió en los últimos 30 días."
+      },
+      "overview_revenue": {
+        "title": "Tendencia de ingresos",
+        "blurb": "Un gráfico de cuánto has vendido con el tiempo, para que veas el impulso de tu tienda."
+      },
+      "overview_activity": {
+        "title": "Actividad reciente",
+        "blurb": "Un flujo en vivo de pedidos, clientes, transacciones y compilaciones de la app. Haz clic en cualquier fila para ver los detalles."
+      },
+      "nav_wallet": {
+        "title": "Billetera",
+        "blurb": "Tu dinero está aquí: recárgala, consulta tu saldo y revisa cada transacción."
+      },
+      "nav_customers": {
+        "title": "Clientes",
+        "blurb": "Todos los que compran en tu tienda. Añádelos, búscalos y mantén sus datos al día."
+      },
+      "nav_orders": {
+        "title": "Pedidos",
+        "blurb": "Cada venta hecha en tu tienda, con su estado, importe y la ganancia que obtuviste."
+      },
+      "nav_plans": {
+        "title": "Planes",
+        "blurb": "Los productos que vendes y el precio al que los vendes. Activa planes y define tu margen."
+      },
+      "nav_store": {
+        "title": "Tienda",
+        "blurb": "El nombre, el logo, los colores y el tema de tu tienda: todo lo que ven tus clientes."
+      },
+      "nav_publishing": {
+        "title": "Publicación",
+        "blurb": "Pon tu tienda en Play Store como una app Android que tus clientes puedan instalar."
+      },
+      "nav_settings": {
+        "title": "Ajustes",
+        "blurb": "Tu perfil, seguridad y notificaciones, además de la opción de repetir este recorrido."
+      },
+      "wallet_summary": {
+        "title": "Saldo de la billetera",
+        "blurb": "Tu saldo disponible y lo que has ganado. Es el dinero que usas para cumplir pedidos."
+      },
       "virtual_account": {
-        "title": "Obtén tu cuenta virtual",
-        "blurb": "Crea tu cuenta dedicada para recibir los pagos de tus clientes."
+        "title": "Tu cuenta virtual",
+        "blurb": "Un número de cuenta dedicado para recibir los pagos de los clientes directamente en tu billetera."
       },
       "fund_wallet": {
         "title": "Recarga tu billetera",
-        "blurb": "Haz clic en Recargar billetera para añadir fondos y poder cumplir pedidos."
+        "blurb": "Añade dinero a tu billetera para tener siempre fondos con los que cumplir pedidos."
       },
-      "set_markup": {
+      "wallet_history": {
+        "title": "Historial de transacciones",
+        "blurb": "Cada crédito y débito, con la fecha, el importe y la referencia: tu registro financiero."
+      },
+      "customers_add": {
+        "title": "Añadir un cliente",
+        "blurb": "Crea un registro de cliente para poder venderle y conservar su historial de compras."
+      },
+      "customers_table": {
+        "title": "Lista de clientes",
+        "blurb": "Busca por nombre, filtra por estado y edita o elimina cualquier cliente desde las acciones de la fila."
+      },
+      "orders_table": {
+        "title": "Pedidos",
+        "blurb": "Sigue el estado, el importe y la ganancia de cada pedido. Abre una fila para ver la cronología completa."
+      },
+      "orders_filters": {
+        "title": "Búsqueda y filtros",
+        "blurb": "Filtra los pedidos por estado o método de pago, o busca un cliente, plan o referencia."
+      },
+      "plans_bulk": {
         "title": "Define tu margen",
-        "blurb": "Introduce tu margen y aplícalo para elegir cuánto ganas."
+        "blurb": "Elige un margen porcentual o fijo y aplícalo a todos tus planes de una sola vez."
       },
-      "publish": {
-        "title": "Publica tu tienda",
-        "blurb": "Elige un plan y publica la app de tu tienda."
+      "plans_list": {
+        "title": "Tu catálogo de planes",
+        "blurb": "Cada plan que ofrece tu tienda, agrupado por red, con su precio y el margen que definiste."
+      },
+      "store_tabs": {
+        "title": "Ajustes de la tienda",
+        "blurb": "Define aquí el nombre, el estado y el mensaje de bienvenida de tu tienda; la marca y el tema están en las otras pestañas."
       },
       "visit_storefront": {
-        "title": "Visita tu tienda",
-        "blurb": "Abre tu tienda publicada para ver lo que ven tus clientes."
+        "title": "Ve tu tienda",
+        "blurb": "Abre tu tienda publicada para ver exactamente lo que ven tus clientes."
+      },
+      "publishing_plans": {
+        "title": "Publica tu app",
+        "blurb": "Elige un plan de publicación (local, regional o mundial) y pon tu tienda en Play Store."
+      },
+      "publishing_builds": {
+        "title": "Compilaciones e historial",
+        "blurb": "Sigue la compilación de tu app de la cola a completada, descarga el APK y consulta compilaciones anteriores."
+      },
+      "settings_tabs": {
+        "title": "Ajustes de la cuenta",
+        "blurb": "Actualiza tu perfil y tus preferencias de notificaciones, y controla la seguridad de tu cuenta."
+      },
+      "settings_security": {
+        "title": "Seguridad",
+        "blurb": "Cambia tu contraseña y gestiona los dispositivos y sesiones con sesión iniciada en tu cuenta."
+      },
+      "header_tools": {
+        "title": "Herramientas del encabezado",
+        "blurb": "La campana muestra tus notificaciones y el interruptor alterna entre modo claro y oscuro."
+      },
+      "congrats": {
+        "title": "¡Todo listo!",
+        "blurb": "Ya has visto todo lo que puede hacer tu tienda. Puedes repetir este recorrido cuando quieras desde Ajustes."
       }
     }
   }

@@ -404,6 +404,7 @@ export default function OrdersClient({
 
       {/* Search and Filters */}
       <div
+        data-tour="orders_filters"
         style={{
           display: "flex",
           gap: "1rem",
@@ -486,23 +487,25 @@ export default function OrdersClient({
       </div>
 
       {/* Orders Table */}
-      <OrdersTable
-        orders={filteredOrders}
-        config={config}
-        translations={t}
-        statusHistory={statusHistory}
-        onView={(order: Order) => {
-          setSelectedOrder(order);
-          setShowDetailsModal(true);
-        }}
-        onUpdateStatus={(order: Order) => {
-          setSelectedOrder(order);
-          setShowStatusModal(true);
-        }}
-        onUpdate={handleOrderUpdated}
-        getStatusColor={getStatusColor}
-        getStatusIcon={getStatusIcon}
-      />
+      <div data-tour="orders_table">
+        <OrdersTable
+          orders={filteredOrders}
+          config={config}
+          translations={t}
+          statusHistory={statusHistory}
+          onView={(order: Order) => {
+            setSelectedOrder(order);
+            setShowDetailsModal(true);
+          }}
+          onUpdateStatus={(order: Order) => {
+            setSelectedOrder(order);
+            setShowStatusModal(true);
+          }}
+          onUpdate={handleOrderUpdated}
+          getStatusColor={getStatusColor}
+          getStatusIcon={getStatusIcon}
+        />
+      </div>
 
       {/* Modals */}
       {showDetailsModal && selectedOrder && (

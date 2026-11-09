@@ -184,13 +184,15 @@ export default function PublishingClient({
       />
 
       {/* Build History */}
-      <BuildHistory
-        builds={data.builds}
-        config={config}
-        translations={t}
-        getStatusColor={getStatusColor}
-        getStatusLabel={getStatusLabel}
-      />
+      <div data-tour="publishing_builds">
+        <BuildHistory
+          builds={data.builds}
+          config={config}
+          translations={t}
+          getStatusColor={getStatusColor}
+          getStatusLabel={getStatusLabel}
+        />
+      </div>
       <style>{`
         /* Mobile: the subtitle shortens and the header's refresh control is
            gone. */

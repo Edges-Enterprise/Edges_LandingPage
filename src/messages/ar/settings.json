@@ -90,5 +90,10 @@
   "twoFactorEnabledNotice": "Two-factor authentication is on. Other devices have been signed out — you may be asked to sign in again.",
   "twoFactorDisabledNotice": "Two-factor authentication is off.",
   "disableTwoFactorPrompt": "أدخل الرمز المكوّن من 6 أرقام من تطبيق المصادقة لإيقاف المصادقة الثنائية.",
-  "confirmDisable2FA": "إيقاف المصادقة الثنائية"
+  "confirmDisable2FA": "إيقاف المصادقة الثنائية",
+  "tour": {
+    "replayTitle": "جولة الإعداد الموجّهة",
+    "replayBody": "أعد الجولة خطوة بخطوة لمعرفة مكان كل شيء.",
+    "replay": "أرني الجولة"
+  }
 }
