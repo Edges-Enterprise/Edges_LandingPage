@@ -2,6 +2,7 @@
   "tour": {
     "progress": "Paso {current} de {total}",
     "hint": "Aquí es donde lo encontrarás",
+    "pausedHint": "En pausa — aleja el cursor para continuar",
     "noTarget": "Esto está en otra página",
     "exit": "Omitir el recorrido",
     "bannerTitle": "¿Hacemos un recorrido rápido?",
@@ -9,6 +10,8 @@
     "start": "Iniciar recorrido",
     "skip": "Omitir",
     "next": "Siguiente",
+    "pause": "Pausar",
+    "resume": "Reproducir",
     "back": "Atrás",
     "finish": "Finalizar",
     "done": "Listo",

@@ -48,8 +48,10 @@ const TOUR_ENABLED = process.env.NEXT_PUBLIC_ONBOARDING_TOUR !== "false";
  *  banner does not flash over a half-painted dashboard. */
 const START_DELAY_MS = 900;
 
-/** How long each step stays up before the tour moves on by itself. */
-const AUTO_ADVANCE_MS = 7000;
+/** How long each step stays up before the tour moves on by itself. The
+ *  overlay pauses this while the reseller reads, so it is a ceiling, not a
+ *  countdown they must beat. */
+const AUTO_ADVANCE_MS = 14000;
 
 interface OnboardingContextValue {
   active: boolean;

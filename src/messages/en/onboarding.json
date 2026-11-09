@@ -2,6 +2,7 @@
   "tour": {
     "progress": "Step {current} of {total}",
     "hint": "Here's where you'll find it",
+    "pausedHint": "Paused — move away to continue",
     "noTarget": "This lives on another page",
     "exit": "Skip the tour",
     "bannerTitle": "Take a quick tour?",
@@ -9,6 +10,8 @@
     "start": "Start tour",
     "skip": "Skip",
     "next": "Next",
+    "pause": "Pause",
+    "resume": "Play",
     "back": "Back",
     "finish": "Finish",
     "done": "Done",
