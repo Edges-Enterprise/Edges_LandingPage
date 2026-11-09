@@ -1,7 +1,7 @@
 // src/components/onboarding/TourOverlay.tsx
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { BadgeCheck, Compass, X } from "lucide-react";
 import type { AnchorRect } from "./useTourAnchor";
@@ -14,7 +14,7 @@ interface TourOverlayProps {
   waiting?: boolean;
   step: OnboardingStep | null;
   rect: AnchorRect | null;
-  /** The sidebar's rect, spotlighted behind the welcome card. */
+  /** The sidebar's rect, spotlighted behind the welcome card on desktop. */
   welcomeRect?: AnchorRect | null;
   /** 1-based position of the current step within the applicable steps. */
   stepIndex: number;
@@ -30,6 +30,12 @@ interface TourOverlayProps {
 }
 
 const DIM = "rgba(0, 0, 0, 0.62)";
+/** Below this the dashboard collapses the sidebar, so there is nothing to spotlight. */
+const DESKTOP_MIN = 768;
+const MARGIN = 12;
+const GAP = 16;
+/** Rough height of a step card, used to decide whether it fits below the anchor. */
+const STEP_CARD_H = 190;
 
 /**
  * The dashboard walkthrough's visual layer. It is purely informational: a
@@ -37,9 +43,10 @@ const DIM = "rgba(0, 0, 0, 0.62)";
  * highlight ring, and a card the reseller drives with Next/Back/Skip. Nothing
  * on the page is click-gated — the tour never waits on an action.
  *
- * The welcome card spotlights the sidebar; the congrats card dims the whole
- * page. Neither captures clicks: the dim is decorative and the page behind
- * stays usable.
+ * The welcome card spotlights the sidebar (desktop only); the congrats card
+ * dims the whole page. Neither captures clicks: the dim is decorative and the
+ * page behind stays usable. Both cards are width- and height-capped to the
+ * viewport so they stay usable on phones and in landscape.
  */
 export default function TourOverlay({
   phase,
@@ -59,6 +66,17 @@ export default function TourOverlay({
 }: TourOverlayProps) {
   const reduce = useReducedMotion();
 
+  // Track the viewport so the cards re-place on rotate/resize, in every phase.
+  const [vp, setVp] = useState(() => ({
+    w: typeof window !== "undefined" ? window.innerWidth : 1200,
+    h: typeof window !== "undefined" ? window.innerHeight : 800,
+  }));
+  useEffect(() => {
+    const onResize = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   // Esc closes the tour; never trap the reseller.
   useEffect(() => {
     if (phase === "idle" || phase === "done") return;
@@ -71,8 +89,7 @@ export default function TourOverlay({
 
   if (phase === "idle" || phase === "done") return null;
 
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  const { w: vw, h: vh } = vp;
 
   const title = step ? t?.steps?.[step.key]?.title || step.key : "";
   const blurb = step ? t?.steps?.[step.key]?.blurb || "" : "";
@@ -81,10 +98,17 @@ export default function TourOverlay({
     .replace("{total}", String(stepCount));
 
   const isFraming = phase === "welcome" || phase === "congrats";
-  // What the cutout focuses on: the sidebar on the welcome card, the current
-  // step's anchor while running, nothing (full dim) on the congrats card.
+  // What the cutout focuses on: the sidebar on the welcome card (desktop
+  // only — it is off-canvas on phones), the current step's anchor while
+  // running, nothing (full dim) on the congrats card.
   const activeRect =
-    phase === "welcome" ? welcomeRect : phase === "running" ? rect : null;
+    phase === "welcome"
+      ? vw >= DESKTOP_MIN
+        ? welcomeRect
+        : null
+      : phase === "running"
+        ? rect
+        : null;
 
   return (
     <div
@@ -106,6 +130,7 @@ export default function TourOverlay({
           welcome={phase === "welcome"}
           rect={activeRect}
           vw={vw}
+          vh={vh}
           t={t}
           reduce={Boolean(reduce)}
           onStart={onStart}
@@ -181,6 +206,7 @@ function FramingCard({
   welcome,
   rect,
   vw,
+  vh,
   t,
   reduce,
   onStart,
@@ -190,6 +216,7 @@ function FramingCard({
   welcome: boolean;
   rect: AnchorRect | null;
   vw: number;
+  vh: number;
   t: any;
   reduce: boolean;
   onStart: () => void;
@@ -197,9 +224,10 @@ function FramingCard({
   onDone: () => void;
 }) {
   // When a spotlight sits on the left (the sidebar), centre the card in the
-  // remaining space so it does not cover what it is pointing at.
+  // remaining space so it does not cover what it is pointing at. Otherwise it
+  // sits dead centre.
   const left =
-    rect && vw >= 768 && rect.right < vw / 2
+    rect && vw >= DESKTOP_MIN && rect.right < vw / 2
       ? rect.right + (vw - rect.right) / 2
       : "50%";
 
@@ -211,26 +239,38 @@ function FramingCard({
         position: "fixed",
         top: "50%",
         left,
-        transform: "translate(-50%, -50%)",
+        // framer-motion owns `transform` (for the scale-in), so centre via its
+        // x/y motion values instead of an inline transform, which it would drop.
+        x: "-50%",
+        y: "-50%",
         pointerEvents: "auto",
         ...glassSurface(16),
+        boxSizing: "border-box",
+        // Never wider than the viewport minus a margin, nor taller.
+        width: `min(380px, calc(100% - ${MARGIN * 2}px))`,
+        maxHeight: `calc(100% - ${MARGIN * 2}px)`,
+        overflowY: "auto",
         border: welcome
           ? "1px solid var(--border, rgba(201,138,84,0.25))"
           : "1px solid rgba(16,185,129,0.5)",
-        padding: "1.75rem 2rem",
+        padding: "clamp(1.1rem, 4vw, 1.75rem) clamp(1.1rem, 5vw, 2rem)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         gap: "0.7rem",
         textAlign: "center",
-        maxWidth: 380,
-        width: "calc(100% - 2rem)",
       }}
     >
       <span style={{ color: "var(--brand-color, #C98A54)", lineHeight: 0 }}>
         {welcome ? <Compass size={38} /> : <BadgeCheck size={40} />}
       </span>
-      <strong style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.15rem", fontWeight: 700 }}>
+      <strong
+        style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: "clamp(1.05rem, 4vw, 1.15rem)",
+          fontWeight: 700,
+        }}
+      >
         {welcome
           ? t?.welcomeTitle || "Welcome to your dashboard"
           : t?.congratsTitle || "You're all set!"}
@@ -242,7 +282,15 @@ function FramingCard({
           : t?.congratsBody ||
             "That's the whole tour. You can replay it any time from Settings."}
       </span>
-      <div style={{ display: "flex", gap: "0.6rem", marginTop: "0.4rem" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "0.6rem",
+          marginTop: "0.4rem",
+          flexWrap: "wrap",
+          justifyContent: "center",
+        }}
+      >
         {welcome ? (
           <>
             <button type="button" onClick={onExit} style={btnStyle(false)}>
@@ -293,21 +341,43 @@ function StepCard({
   onExit: () => void;
 }) {
   const hasAnchor = Boolean(rect);
-  const tipWidth = 320;
-  const placeBelow = !rect || rect.bottom + 16 + 200 < vh;
-  const clampedLeft = rect
-    ? Math.min(Math.max(rect.left + rect.width / 2 - tipWidth / 2, 12), vw - tipWidth - 12)
-    : 0;
+  // Shrink to fit a phone; never exceed the viewport minus a margin.
+  const cardW = Math.min(320, vw - MARGIN * 2);
+
+  // Place the card beside the anchor, clamped to the viewport. Prefer below;
+  // fall back to above, then to centred if neither side has room.
+  let top: number | string | undefined;
+  let bottom: number | undefined;
+  let maxHeight = `calc(100% - ${MARGIN * 2}px)`;
+  let centered = false;
+  if (!rect) {
+    centered = true;
+  } else if (vh - rect.bottom >= STEP_CARD_H + GAP) {
+    top = rect.bottom + GAP;
+    maxHeight = `${vh - (rect.bottom + GAP) - MARGIN}px`;
+  } else if (rect.top >= STEP_CARD_H + GAP) {
+    bottom = vh - rect.top + GAP;
+    maxHeight = `${rect.top - GAP - MARGIN}px`;
+  } else {
+    centered = true;
+  }
+
+  const left = rect
+    ? Math.min(Math.max(rect.left + rect.width / 2 - cardW / 2, MARGIN), vw - cardW - MARGIN)
+    : "50%";
 
   return (
     <div
       style={{
         position: "fixed",
-        width: tipWidth,
-        left: rect ? clampedLeft : "50%",
-        top: rect ? (placeBelow ? rect.bottom + 16 : undefined) : "50%",
-        bottom: rect && !placeBelow ? vh - rect.top + 16 : undefined,
-        transform: rect ? undefined : "translate(-50%, -50%)",
+        boxSizing: "border-box",
+        width: cardW,
+        left,
+        top: centered ? "50%" : top,
+        bottom: centered ? undefined : bottom,
+        transform: centered ? "translate(-50%, -50%)" : undefined,
+        maxHeight,
+        overflowY: "auto",
         pointerEvents: "auto",
         ...glassSurface(12),
         border: "1px solid var(--border, rgba(201,138,84,0.25))",
@@ -372,16 +442,17 @@ function StepCard({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "0.75rem",
+          gap: "0.6rem",
           justifyContent: "space-between",
+          flexWrap: "wrap",
         }}
       >
-        <span style={{ fontSize: "0.76rem", color: "var(--muted, #999)" }}>
+        <span style={{ fontSize: "0.76rem", color: "var(--muted, #999)", flex: "1 1 auto", minWidth: 0 }}>
           {hasAnchor
             ? t?.hint || "Here's where you'll find it"
             : t?.noTarget || "This lives on another page"}
         </span>
-        <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0, marginLeft: "auto" }}>
           {stepIndex > 1 && (
             <button type="button" onClick={onBack} style={btnStyle(false)}>
               {t?.back || "Back"}
@@ -439,6 +510,7 @@ function btnStyle(primary: boolean): React.CSSProperties {
     fontSize: "0.8rem",
     fontWeight: 600,
     cursor: "pointer",
+    whiteSpace: "nowrap",
     background: primary ? "var(--brand-color, #C98A54)" : "transparent",
     color: primary ? "#FDF8F3" : "var(--text, #eee)",
     border: primary ? "none" : "1px solid var(--border, rgba(201,138,84,0.3))",
