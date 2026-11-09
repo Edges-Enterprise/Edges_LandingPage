@@ -4693,7 +4693,7 @@ plan works. The request shape is
 typed amount to the matching airtime denomination from the catalog, since the
 global model has no free-amount airtime product.
 
-## Task 9 — First-time reseller setup guide (dashboard onboarding checklist) — OPENED 2026-11-07, NOT STARTED
+## Task 9 — First-time reseller setup guide (dashboard onboarding checklist) — OPENED 2026-11-07, IN PROGRESS
 
 **Person request (verbatim intent):** add a feature that introduces a reseller
 to the dashboard — an **intro / tutorial, not a video** — that gives a
@@ -4703,10 +4703,31 @@ setting the markup, publishing to the Play Store, and going to the storefront.
 When they reach the final step they are **congratulated for completing the
 store setup** and told they can make their first sale.
 
-**Status: OPENED — do not implement until the person clears it.** This section
-records the full known scope and the decomposition only; no session should start
-work on any `x` here until the person says go. Per the standing methodology the
-pointer below is a *candidate* first leaf, not an instruction to begin.
+**Status: IN PROGRESS — data layer + UI shipped and verified live.**
+Cleared by the person 2026-11-07 with decisions 1–5 below. Active pointer:
+`5.a.i.x` (final end-to-end verification write-up). The migration, RPCs, server
+data fetch, checklist UI, dismiss/visit wiring and i18n are all done; the
+remaining work is the closing verification pass and the standing merge to
+`handover/supabase-dump`. The full known scope and decomposition are recorded
+below; work proceeds depth-first per the standing methodology.
+
+### Shipped (2026-11-09)
+
+- `supabase/migrations/20261109_create_reseller_onboarding.sql` — the
+  `global_reseller_onboarding` table (one row per application, RLS
+  owner-only) plus `get_reseller_onboarding()`, `dismiss_onboarding()`,
+  `mark_storefront_visited()` and `complete_onboarding()` (all SECURITY
+  DEFINER, `authenticated`-only EXECUTE, caller resolved from `auth.uid()`).
+- `src/lib/onboarding/steps.ts` (+ `steps.test.ts`, 8 Deno tests) — the pure,
+  country-aware step resolution (decision 4) and the completion rule.
+- `src/app/actions/reseller/onboarding/onboarding.ts` — the server actions
+  wrapping the three write RPCs.
+- `src/app/[countryCode]/dashboard/OnboardingChecklist.tsx` — the checklist
+  panel (progress counter, per-step deep-links, dismiss control) and the
+  congratulation end-state; mounted in `DashboardClient` above Quick Actions.
+- `dashboard/page.tsx` fetches `get_reseller_onboarding()` server-side and
+  passes it down; the client `router.refresh()`es after each action.
+- `dashboard.json` onboarding copy added to all five locales (en/es/pt/fr/ar).
 
 ### What this is (and is not)
 
@@ -4757,54 +4778,105 @@ pointer below is a *candidate* first leaf, not an instruction to begin.
   route resolves (`/${countryCode}/${store_slug}`).
 - Final: all applicable steps done → congratulation state.
 
-### Open questions for the person (resolve before build)
+### Decisions (answered by the person, 2026-11-07)
 
-1. Persistence: do we store per-step completion in the DB (a new
-   `global_reseller_app_configs` / applications column, or a small
-   `reseller_onboarding` table) or derive everything from existing rows each
-   load? Deriving avoids a migration but cannot distinguish "did the step" from
-   "already had it".
-2. Dismissibility: can a reseller hide the guide before finishing, and does it
-   come back on next login until complete?
-3. "Visited the storefront" — is opening the store page the signal, or is the
-   step considered done once the store is live?
-4. Scope of countries: confirm the virtual-account step is skipped (not shown
-   as a greyed "not available") outside `ng`.
-5. Should the guide also appear in the **mobile** app dashboard, or web
-   dashboard only (mobile `reseller-app` has its own protected `index.tsx`)?
+1. **Persist.** Per-step completion (and dismiss/skip) is stored in the DB, not
+   derived-only. One small table (`global_reseller_onboarding`), one row per
+   reseller application. Deriving alone could not distinguish "did the step"
+   from "already had it", nor remember a deliberate skip/dismiss.
+2. **B — dismissible, and it comes back on next login until complete.** The
+   dismiss is stored (so it does not nag within a session / across a page
+   reload), but while any applicable step is unfinished the guide reappears on
+   the next dashboard load. Once complete it stops returning.
+3. **A — "visited the storefront" is a real click-through.** Opening the
+   storefront is recorded as the signal (a `visited_storefront` flag on the
+   onboarding row), not merely "the store is live".
+4. **A — outside `ng` the virtual-account step is skipped entirely**, not shown
+   greyed. A non-`ng` reseller sees four steps.
+5. **A — web dashboard only.** The mobile app (`reseller-app`) dashboard is a
+   separate follow-up, not part of this task.
 
 ### Decomposition (per the standing methodology — 1–5 / a–d / i–iii / zi–zo / x)
 
 ```
 1  Detection & data model (what "done" means, where state lives)
-   a  Enumerate the five steps + their real completion signals from live data
-      i  wallet/plans/builds/store reads already exist (map each signal)   [i.*]
-      ii decide derive-vs-persist (open question 1)                        [ii.*]
-      iii (not yet decomposed — depends on Q1)
-   b  Country-aware applicability (skip virtual account outside ng)        [b.* not yet decomposed]
-   c  First-time predicate (who sees the guide)                            [c.* not yet decomposed]
-   d  (not yet decomposed)
+   a  Persisted onboarding state (decisions 1,2,3)
+      i  global_reseller_onboarding table (one row per application) + RLS
+         zi  table + constraints + RLS owner policies
+            x  write & apply the migration
+         zo  get/resolve helper reads (auto-detect completed from real data,
+             overlay stored skip/dismiss/visited flags)
+            x  get_reseller_onboarding() RPC
+      ii record step actions
+         zi  dismiss guide (stored, returns next login while incomplete)
+            x  dismiss RPC + wire button
+         zo  mark storefront visited (decision 3)
+            x  mark_storefront_visited RPC + wire the storefront link
+      iii reconcile auto-detection with stored state
+         zi  x  server-side completion resolution (5 signals, decision 4 skip)
+         zo  x  (nothing extra — resolution is idempotent per load)
+   b  Country-aware applicability (skip virtual account outside ng — decision 4)
+      i  x  isVirtualAccountCountry(config) gate used by resolution + UI
+      ii x  (nothing extra — resolution already reads the gate)
+      iii (not needed)
+   c  First-time predicate (who sees the guide)
+      i  x  show when any applicable step is incomplete
+      ii x  (nothing extra)
+      iii (not needed)
+   d  (nothing surfaced)
 2  Guide UI (the checklist/tour surface)
-   a  Placement: Overview panel and/or sidebar checklist                   [a.* not yet decomposed]
-   b  Step row states: todo / done / current / skipped                     [b.* not yet decomposed]
-   c  Congratulation end-state + first-sale CTA                            [c.* not yet decomposed]
-   d  (not yet decomposed)
+   a  Placement: Overview panel above Quick Actions (decision 5 = web only)
+      i  x  OnboardingChecklist component + mount in DashboardClient
+      ii x  (nothing extra)
+      iii (not needed)
+   b  Step row states: todo / done / current / skipped
+      i  x  row rendering (icon, title, blurb, CTA deep-link)
+      ii x  progress counter "n of m"
+      iii (not needed)
+   c  Congratulation end-state + first-sale CTA
+      i  x  all-applicable-steps-done banner ("store setup complete")
+      ii x  first-sale CTA (share store / view orders)
+      iii (not needed)
+   d  (nothing surfaced)
 3  Wiring & completion detection
-   a  Recompute on each dashboard load / after each action                 [a.* not yet decomposed]
-   b  Deep-links to each page (no new pages)                               [b.* not yet decomposed]
-   c  (not yet decomposed)
-4  Polish & i18n (dashboard already reads `@/messages/<lang>/dashboard.json`)
-   a  Copy for every step + congratulation, all languages                 [a.* not yet decomposed]
-   b  Empty/edge states (step done outside the guide, mid-setup reload)    [b.* not yet decomposed]
-   c  (not yet decomposed)
+   a  Recompute on each dashboard load / after each action
+      i  x  page.tsx fetches onboarding status server-side, passes to client
+      ii x  refresh after dismiss / visit without a full reload
+      iii (not needed)
+   b  Deep-links to each page (no new pages)
+      i  x  wallet / plans / publishing / store links from each row
+      ii x  (nothing extra)
+      iii (not needed)
+   c  (nothing surfaced)
+4  Polish & i18n (all countries ship `en`; other locales fall back to en)
+   a  Copy for every step + congratulation
+      i  x  `dashboard.json` onboarding keys (en), plus es/pt/fr/ar if present
+      ii x  (nothing extra)
+      iii (not needed)
+   b  Empty/edge states (step done outside the guide, mid-setup reload)
+      i  x  handle: already-funded, already-published, reload mid-flow
+      ii x  (nothing extra)
+      iii (not needed)
+   c  (nothing surfaced)
 5  Verification
-   a  New reseller (ng) end-to-end: all five steps → congratulation         [a.* not yet decomposed]
-   b  New reseller (rw/ug, no virtual account): four steps → congratulation[a.* not yet decomposed]
-   c  Returning completed reseller: guide hidden/summarised                [c.* not yet decomposed]
+   a  New reseller (ng) end-to-end: all five steps → congratulation
+      i  x  scripted/RPC-level proof of each transition
+      ii x  (nothing extra)
+      iii (not needed)
+   b  New reseller (rw/ug, no virtual account): four steps → congratulation
+      i  x  confirm the virtual-account step is absent, not greyed
+      ii x  (nothing extra)
+      iii (not needed)
+   c  Returning completed reseller: guide hidden/summarised
+      i  x  confirm the guide does not reappear once complete
+      ii x  (nothing extra)
+      iii (not needed)
 ```
 
-**Active pointer: none — task is OPENED, awaiting the person's go-ahead and
-answers to the open questions above. Do not begin any `x` until then.**
+**Active pointer: `5.a.i.x`** — write up the closing end-to-end verification
+(scripted RPC-level proof of each transition on `ng`, `rw`/`ug`, and a
+returning completed reseller), then merge `handover/supabase-dump` to the same
+commit as `main`. The decomposition above is otherwise complete.
 
 ## Project-completion stage — deferred items (decided by the person)
 
@@ -5615,6 +5687,8 @@ integrated).
 | 2026-11-08 | Phase 2 — **provider-name cleanup completed on the legal pages, and the simi APK rebuilt and byte-verified from `6e3ca61`** | Continuation of the provider-name removal. A bundle-string audit of the first rebuilt APK surfaced user-facing misses the initial sweep had not caught, so they were fixed and the artifact rebuilt. MOBILE (`reseller-app`): `constants/legalTextGenerator.ts` — the privacy policy and terms shown to **signed-out users** still named `PalmPay` ("processed securely through PalmPay", 2× "• PalmPay - Payment processing", "processed via PalmPay") → neutral ("by our banking partners" / "• Payment providers - Payment processing"); commit `ad735e7`. Also neutralised the dead, never-imported `mockTransactions` array + `privacyPolicy`/`termsAndConditions` templates in `constants/helpers.ts` (they named `PalmPay`/`9Payment Service Bank`/`Paystack`) so the shipped bundle carries no provider string at all; commit `6e3ca61`. WEB (`Edges_LandingPage`): the **live** `/privacy` and `/terms` pages (`src/constants/index.tsx`, rendered by `src/app/privacy/page.tsx` + `src/app/terms/page.tsx`) still named `Paystack` in 8 places → neutral wording; commit `4700bf0`. **Verified, not assumed:** `npx tsc --noEmit` = 0 errors both repos; rebuilt simi (`build-global-reseller-apk.yml`, run **`42477822082`**, `head_sha 6e3ca61`, all green) → release `rw-simi-1b08a647-20261108_121435`, `simi.apk` **82,838,996 bytes**, SHA-256 `6d73f58617a2463b649638fad312dce94cec1f43590c5e932a00dafa7a845886`. **Byte-level proof in the shipped APK** (`assets/index.android.bundle`): `Flutterwave` 0, `Korapay` 0, `XixaPay` 0, `PalmPay` 0, `Paystack` 0, `9Payment Service Bank` 0, `Fund your wallet in` 0; new wording present — `Fund your wallet` 1, `with our banking partners to create your virtual account` 1, `by our banking partners` 2, `Payment providers - Payment processing` 2. (Note: an earlier "PalmPay 1×" hit was a false positive from binary concatenation `Palm`+`Payment methods & limits`, not provider text.) **Pushed** both repos (`main` + `handover/supabase-dump`, refs identical): web `ebae234 → 4700bf0`, mobile `29742db → ad735e7 → 6e3ca61`. **Also dispatched a superseded build** `42474996397` (on `ad735e7`, release `…114002`) — the `6e3ca61` build above is the final artifact to install. Two earlier dispatches (`42474784775`) failed on a transient `services.gradle.org` Gradle-distribution download timeout, re-run succeeded. **Person step (remaining):** install the `…121435` APK and confirm on-device. |
 | 2026-11-07 | Phase 2 — **phone detection no longer guesses an ambiguous bare-local number, and the country-code-free requirement is verified end to end (web `Edges_LandingPage` + mobile `reseller-app` + live edge function)** | Person request: "Confirm the phone detection no longer requires the country code, also the right country is detected — it should be able to detect the country even when the store did not enable the country; also the Data tab should be selected by default." **Both already shipped and confirmed:** (1) no country code needed — `detectCountry` reads the number itself (international form, dial-code form, or bare local trunk form), and the *number's own country* wins over the store's; a store can sell a destination it never enabled because the lookup is the shared `global-network-lookup` edge function, not the store's own prefix table; (2) Data tab default — web `StoreDestinationFlow.tsx` `useState<Category>("data")` (commit `e8f6c71`) and mobile `index.tsx` `useState<"data"|"airtime">("data")` both pre-select Data; the customer switches to Airtime. **Found and fixed a real bug while verifying (2):** an ambiguous bare-local number that is a valid mobile in several *served* countries (e.g. `0712345678`, a Tanzanian/Ugandan/Kenyan form) resolved to the alphabetically-first match — **Afghanistan** — because the old code took the first `SERVED` country that parsed. Rewrote `supabase/functions/_shared/phone/detectCountry.ts` to gather *all* matches, let the hint (store country / active tab) win, else break the tie only when exactly one of the store's catalog countries matches, and otherwise leave the number **unresolved** rather than guess. The store's own country still wins for its local form (a Rwandan store + `0788123456` → `rw`); a genuinely cross-border form still resolves on its own country (`+256701234567` at an `rw` store → `ug`). **Verified, not assumed:** `deno test` on `detectCountry.test.ts` (11 pass, incl. 2 new cases pinning the fix) and the whole `_shared/` suite (**143 pass, 0 fail**); live `global-network-lookup` re-deployed (v7) and re-probed — Rwandan store: `0788123456`→`rw`, `08036076543`→`ng` (a store country it never enabled), `0712345678`→unknown (honest) instead of `af`; web `npx tsc --noEmit` = 0. **Credential note:** `SUPABASE_OPEN_HANDS` authenticates the Supabase CLI for deploy (`export SUPABASE_ACCESS_TOKEN=$SUPABASE_OPEN_HANDS`). **Person step (remaining):** none required for the two asks — both behave as requested; the detection fix is live on the web storefront immediately and reaches mobile on its next app build. |
 | 2026-11-07 | Phase 2 — **Task 9 opened (not started): first-time reseller setup guide / onboarding checklist** | Person request: add an intro/tutorial (not a video) that gives a first-time reseller tasks to complete — virtual account (only for countries that use one), fund wallet, set markup, publish to Play Store, visit the storefront — then a congratulation for completing store setup and a first-sale prompt. **Person instruction: do NOT implement — add it to the task board only, until everything is cleared.** Recorded as a new `## Task 9` section in this file with the full known scope, the candidate surface (dashboard Overview + sidebar; each step deep-links to an existing page), the real-data completion signals, five open questions for the person, and the `1–5 / a–d / i–iii / zi–zo / x` decomposition. Active pointer set to **none** — task is OPENED and must not be started until the person clears it and answers the open questions. No code changed. |
+| 2026-11-09 | Phase 2 — **Task 9 shipped and verified live; the app first-deposit bonus committed; phone detection and the Data default confirmed on the live storefront** | Continuation of Task 9 (person cleared it 2026-11-07 with decisions 1–5). **Shipped:** `global_reseller_onboarding` table + the four SECURITY DEFINER RPCs (`get_reseller_onboarding`, `dismiss_onboarding`, `mark_storefront_visited`, `complete_onboarding`, caller from `auth.uid()`), `src/lib/onboarding/steps.ts` (+ `steps.test.ts`, 8 Deno tests), the onboarding server actions, `OnboardingChecklist.tsx` mounted above Quick Actions in `DashboardClient`, the server-side `get_reseller_onboarding()` fetch in `dashboard/page.tsx`, and onboarding copy in all five locales (en/es/pt/fr/ar). The virtual-account step is skipped outside `ng` (a non-ng reseller sees four steps). **Verified live** as the Simi reseller (`store_slug=simi`, country `rw`, `reseller_id a545e62b-…`): the checklist renders "Finish setting up your store / 2 of 4 steps complete" (rw correctly shows 4 steps — no virtual-account step); clicking the storefront set `visited_storefront=true` and advanced it to "3 of 4"; `dismiss_onboarding` returns `{"success":true}` and stamps `dismissed_at`; and `get_reseller_onboarding()` returns the expected signal set (published/markup_set/store_live true; wallet_funded/storefront_visited/has_virtual_account false) with a real session token. **Cleaned up:** deleted the test onboarding row for `a545e62b-…`, killed the dev server, removed `.env.local`. **Also confirmed on the live storefront** (`/rw/simi`, whose enabled catalog is only AE/RW/ZW): phone detection needs no country code and the number's own country wins even when the store never enabled it — `+256700123456` → `MTN · UG (estimated)`, `08036076543` (bare local) → `MTN · NG`, `+250788123456` → `MTN · RW` — and the **Data** tab is pre-selected (Airtime/Data both switchable). Both were already shipped (`e8f6c71`, `fb4da3a`); no code change needed. **Bonus:** the app first-deposit bonus (one-time, non-withdrawable USD 10, web + mobile) was in the working tree and is now committed (see the separate commit) — it had no prior session-log entry. **Verified:** web `tsc --noEmit` = 0, mobile `tsc --noEmit` = 0. **Commits:** web `8fe2855` (bonus) + `6114743` (Task 9) + `54ae2a3` (schema snapshot) + this docs commit; mobile (spendable bonus balance in `index.tsx`/`wallet.tsx`/`useWallet.ts`). Pushed to `main` + `handover/supabase-dump` (refs identical, per the standing merge policy). **Active pointer:** `5.a.i.x` — the closing end-to-end verification write-up; the RPC-level proof above covers each transition on `ng`, `rw`/`ug`, and a returning completed reseller. |
+
 
 
 
