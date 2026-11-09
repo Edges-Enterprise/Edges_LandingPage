@@ -37,6 +37,15 @@ const COUNTRY_CURRENCY: Record<string, string> = {
 // Countries that support mobile money on Flutterwave
 const MOBILE_MONEY_COUNTRIES = new Set(["RW", "UG"]);
 
+// Flutterwave's `payment_options` does not accept a generic "mobilemoney";
+// it wants the country-specific method id. Sending the generic value makes
+// /v3/payments answer 400 "payment_options[0] must be one of [...mobilemoneyrwanda,
+// mobilemoneyuganda,...]". Verified live 2026-11-09.
+const FLUTTERWAVE_MOBILE_MONEY_OPTION: Record<string, string> = {
+  RW: "mobilemoneyrwanda",
+  UG: "mobilemoneyuganda",
+};
+
 function getCurrencyForCountry(countryCode: string): string {
   return COUNTRY_CURRENCY[countryCode.toUpperCase()] || "RWF";
 }
@@ -183,7 +192,8 @@ export const flutterwave: PaymentGateway = {
       };
 
       if (!isUsd) {
-        payload.payment_options = "mobilemoney";
+        payload.payment_options =
+          FLUTTERWAVE_MOBILE_MONEY_OPTION[upperCountry] || "mobilemoney";
         payload.mobilemoney = {
           phone: mobileMoney!.number,
           network: mobileMoney!.network || getDefaultNetwork(countryCode),

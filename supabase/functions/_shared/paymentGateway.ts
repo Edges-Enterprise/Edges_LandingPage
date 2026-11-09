@@ -286,6 +286,13 @@ const FLUTTERWAVE_NETWORKS: Record<string, string[]> = {
   RW: ["MTN", "AIRTEL"],
   UG: ["MTN", "AIRTEL"],
 };
+// Flutterwave's `payment_options` wants the country-specific mobile-money
+// method id, not the generic "mobilemoney" (which 400s). Mirrors the web's
+// FLUTTERWAVE_MOBILE_MONEY_OPTION. Verified live 2026-11-09.
+const FLUTTERWAVE_MOBILE_MONEY_OPTION: Record<string, string> = {
+  RW: "mobilemoneyrwanda",
+  UG: "mobilemoneyuganda",
+};
 
 async function initiateFlutterwave(
   params: InitiateParams,
@@ -350,7 +357,8 @@ async function initiateFlutterwave(
       // Card + USD ACH. `account` is Flutterwave's bank-transfer option.
       payload.payment_options = "card,account";
     } else {
-      payload.payment_options = "mobilemoney";
+      payload.payment_options =
+        FLUTTERWAVE_MOBILE_MONEY_OPTION[upperCountry] || "mobilemoney";
       payload.mobilemoney = {
         phone: params.mobileMoney!.number,
         network:
