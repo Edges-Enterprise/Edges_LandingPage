@@ -415,3 +415,28 @@ Operational invariants worth keeping:
   store previously showed UAE (`Du`/`Etisalat`) and Zimbabwe (`Econet`) tabs
   because 11 AE and 6 ZW plans were enabled for it.
 
+
+## Pushing to GitHub from the sandbox
+
+`git push` with the default `GITHUB_TOKEN` (a GitHub App installation token)
+fails with **403 "Resource not accessible by integration"** even though
+`GET /repos/...` reports `push: true` — the installation lacks write access to
+this repo's git data, so both `git push` and the Git Data API (create blob /
+tree / commit) are refused.
+
+Use the classic PAT in `$P_TOKEN` instead (scope `repo`). Either set the remote
+once:
+
+```bash
+git remote set-url origin "https://Phoenix-Boss:${P_TOKEN}@github.com/Edges-Enterprise/Edges_LandingPage.git"
+```
+
+or push explicitly per invocation:
+
+```bash
+GIT_TERMINAL_PROMPT=0 git push \
+  "https://Phoenix-Boss:${P_TOKEN}@github.com/Edges-Enterprise/Edges_LandingPage.git" <branch>
+```
+
+The same applies to PR comments — `gh pr comment` fails with the default token;
+post via the REST API with `$P_TOKEN`.
