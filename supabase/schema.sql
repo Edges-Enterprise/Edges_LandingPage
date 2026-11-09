@@ -1563,15 +1563,13 @@ BEGIN
     'country_code', v_country_code,
     'store_slug', v_store_slug,
     'dismissed_at', v_row.dismissed_at,
-    'visited_storefront', COALESCE(v_row.visited_storefront, false),
     'completed_at', v_row.completed_at,
     'signals', jsonb_build_object(
       'has_virtual_account', v_has_virtual_account,
       'wallet_funded', v_wallet_funded,
       'markup_set', v_markup_set,
       'published', v_published,
-      'store_live', (v_store_slug IS NOT NULL AND length(v_store_slug) > 0),
-      'storefront_visited', COALESCE(v_row.visited_storefront, false)
+      'store_live', (v_store_slug IS NOT NULL AND length(v_store_slug) > 0)
     )
   );
 END;
@@ -1804,41 +1802,6 @@ BEGIN
     );
 
     RETURN NEW;
-END;
-$$;
-
-
---
--- Name: mark_storefront_visited(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.mark_storefront_visited() RETURNS jsonb
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public'
-    AS $$
-DECLARE
-  v_user_id uuid := auth.uid();
-  v_app_id uuid;
-BEGIN
-  IF v_user_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Not authenticated');
-  END IF;
-
-  SELECT id INTO v_app_id
-  FROM global_reseller_applications
-  WHERE auth_user_id = v_user_id
-  LIMIT 1;
-
-  IF v_app_id IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Reseller not found');
-  END IF;
-
-  INSERT INTO global_reseller_onboarding (reseller_id, visited_storefront)
-  VALUES (v_app_id, true)
-  ON CONFLICT (reseller_id)
-  DO UPDATE SET visited_storefront = true, updated_at = now();
-
-  RETURN jsonb_build_object('success', true);
 END;
 $$;
 
@@ -7002,7 +6965,6 @@ CREATE TABLE public.global_reseller_onboarding (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     reseller_id uuid NOT NULL,
     dismissed_at timestamp with time zone,
-    visited_storefront boolean DEFAULT false NOT NULL,
     completed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()

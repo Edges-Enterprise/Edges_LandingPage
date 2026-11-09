@@ -3,139 +3,88 @@
 
 import { useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { BadgeCheck, X } from "lucide-react";
+import { BadgeCheck, Compass, X } from "lucide-react";
 import type { AnchorRect } from "./useTourAnchor";
 import type { OnboardingStep } from "@/lib/onboarding/steps";
 import type { TourPhase } from "@/lib/onboarding/tour";
 
 interface TourOverlayProps {
   phase: TourPhase;
+  /** True while a Next/Back navigation is in flight: dim only, no card. */
+  waiting?: boolean;
   step: OnboardingStep | null;
   rect: AnchorRect | null;
+  /** The sidebar's rect, spotlighted behind the welcome card. */
+  welcomeRect?: AnchorRect | null;
   /** 1-based position of the current step within the applicable steps. */
   stepIndex: number;
   stepCount: number;
   /** The `tour` slice of the onboarding translations. */
   t: any;
-  onAnchorClick: () => void;
-  onContinue: () => void;
-  onSkipStep: () => void;
+  onStart: () => void;
+  onNext: () => void;
+  onBack: () => void;
+  onSkip: () => void;
   onExit: () => void;
+  onDone: () => void;
 }
 
 const DIM = "rgba(0, 0, 0, 0.62)";
 
 /**
- * The sequential tour's visual layer: a dimmed page with a cutout over the
- * current step's anchor, a pulsing highlight ring, a tooltip, and the
- * celebration beat. The anchor stays clickable (clicks are swallowed
- * everywhere else); the tour advances when the reseller actually clicks it.
+ * The dashboard walkthrough's visual layer. It is purely informational: a
+ * dimmed page with a cutout over whatever is being pointed at, a pulsing
+ * highlight ring, and a card the reseller drives with Next/Back/Skip. Nothing
+ * on the page is click-gated — the tour never waits on an action.
+ *
+ * The welcome card spotlights the sidebar; the congrats card dims the whole
+ * page. Neither captures clicks: the dim is decorative and the page behind
+ * stays usable.
  */
 export default function TourOverlay({
   phase,
+  waiting = false,
   step,
   rect,
+  welcomeRect = null,
   stepIndex,
   stepCount,
   t,
-  onAnchorClick,
-  onContinue,
-  onSkipStep,
+  onStart,
+  onNext,
+  onBack,
+  onSkip,
   onExit,
+  onDone,
 }: TourOverlayProps) {
   const reduce = useReducedMotion();
 
-  // Esc exits the whole tour; never trap the reseller.
+  // Esc closes the tour; never trap the reseller.
   useEffect(() => {
+    if (phase === "idle" || phase === "done") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onExit();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onExit]);
+  }, [phase, onExit]);
 
-  // The anchor click is the completion gesture. Listen in the capture phase
-  // so it fires before the button's own handler navigates/opens a modal.
-  useEffect(() => {
-    if (phase !== "running" || !step) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Element | null;
-      if (target?.closest?.(`[data-tour="${step.anchor}"]`)) {
-        onAnchorClick();
-      }
-    };
-    document.addEventListener("click", handler, true);
-    return () => document.removeEventListener("click", handler, true);
-  }, [phase, step, onAnchorClick]);
+  if (phase === "idle" || phase === "done") return null;
 
-  if (phase === "idle" || phase === "done" || !step) return null;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
 
-  const title = t?.steps?.[step.key]?.title || step.key;
-  const blurb = t?.steps?.[step.key]?.blurb || "";
+  const title = step ? t?.steps?.[step.key]?.title || step.key : "";
+  const blurb = step ? t?.steps?.[step.key]?.blurb || "" : "";
   const progress = (t?.progress || "Step {current} of {total}")
     .replace("{current}", String(stepIndex))
     .replace("{total}", String(stepCount));
 
-  if (phase === "celebrating") {
-    return (
-      <div
-        className="tour-overlay"
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 200,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(0,0,0,0.5)",
-        }}
-        aria-live="polite"
-      >
-        <motion.div
-          initial={reduce ? false : { scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          style={{
-            ...glassSurface(14),
-            border: "1px solid rgba(16,185,129,0.5)",
-            padding: "1.5rem 2rem",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "0.6rem",
-            textAlign: "center",
-            maxWidth: 320,
-          }}
-        >
-          <motion.span
-            animate={
-              reduce ? undefined : { scale: [1, 1.15, 1] }
-            }
-            transition={{ duration: 0.5 }}
-            style={{ color: "#10B981", lineHeight: 0 }}
-          >
-            <BadgeCheck size={40} />
-          </motion.span>
-          <strong style={{ fontSize: "1rem" }}>
-            {t?.celebrate || "Nice — that's done!"}
-          </strong>
-          <span style={{ color: "var(--muted, #999)", fontSize: "0.85rem" }}>
-            {title}
-          </span>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // phase === "running"
-  const hasAnchor = Boolean(rect);
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  const tipWidth = 320;
-  const tipTop = rect ? rect.bottom + 16 : 0;
-  const placeBelow = !rect || rect.bottom + 16 + 200 < vh;
-  const clampedLeft = rect
-    ? Math.min(Math.max(rect.left + rect.width / 2 - tipWidth / 2, 12), vw - tipWidth - 12)
-    : 0;
+  const isFraming = phase === "welcome" || phase === "congrats";
+  // What the cutout focuses on: the sidebar on the welcome card, the current
+  // step's anchor while running, nothing (full dim) on the congrats card.
+  const activeRect =
+    phase === "welcome" ? welcomeRect : phase === "running" ? rect : null;
 
   return (
     <div
@@ -148,172 +97,302 @@ export default function TourOverlay({
       }}
       aria-live="polite"
     >
-      {/* Dim: four rectangles around the anchor, so clicks land only on it.
-          With no anchor we dim the whole page and centre the tooltip. */}
-      {rect ? (
-        <>
-          <div
-            style={dimRegion({ top: 0, left: 0, right: 0, height: rect.top })}
-          />
-          <div
-            style={dimRegion({
-              top: rect.bottom,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            })}
-          />
-          <div
-            style={dimRegion({
-              top: rect.top,
-              left: 0,
-              width: rect.left,
-              height: rect.height,
-            })}
-          />
-          <div
-            style={dimRegion({
-              top: rect.top,
-              left: rect.right,
-              right: 0,
-              height: rect.height,
-            })}
-          />
-          {/* Pulsing highlight ring */}
-          <motion.div
-            aria-hidden
-            animate={
-              reduce
-                ? undefined
-                : {
-                    boxShadow: [
-                      "0 0 0 0 rgba(var(--brand-color-rgb, 201, 138, 84), 0.55)",
-                      "0 0 0 10px rgba(var(--brand-color-rgb, 201, 138, 84), 0)",
-                    ],
-                  }
-            }
-            transition={{ duration: 1.4, repeat: Infinity }}
-            style={{
-              position: "fixed",
-              top: rect.top - 6,
-              left: rect.left - 6,
-              width: rect.width + 12,
-              height: rect.height + 12,
-              borderRadius: 12,
-              border: "2px solid var(--brand-color, #C98A54)",
-              pointerEvents: "none",
-            }}
-          />
-        </>
-      ) : (
-        <div style={dimRegion({ top: 0, left: 0, right: 0, bottom: 0 })} />
-      )}
+      <DimLayers rect={activeRect} />
 
-      {/* Tooltip */}
+      {activeRect && <HighlightRing rect={activeRect} reduce={Boolean(reduce)} />}
+
+      {isFraming ? (
+        <FramingCard
+          welcome={phase === "welcome"}
+          rect={activeRect}
+          vw={vw}
+          t={t}
+          reduce={Boolean(reduce)}
+          onStart={onStart}
+          onExit={onExit}
+          onDone={onDone}
+        />
+      ) : waiting ? null : (
+        <StepCard
+          rect={rect}
+          vw={vw}
+          vh={vh}
+          stepIndex={stepIndex}
+          stepCount={stepCount}
+          title={title}
+          blurb={blurb}
+          progress={progress}
+          t={t}
+          onNext={onNext}
+          onBack={onBack}
+          onSkip={onSkip}
+          onExit={onExit}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The dim: four rectangles around the focus, or a full sheet when there is none. */
+function DimLayers({ rect }: { rect: AnchorRect | null }) {
+  if (!rect) return <div style={dimRegion({ top: 0, left: 0, right: 0, bottom: 0 })} />;
+  return (
+    <>
+      <div style={dimRegion({ top: 0, left: 0, right: 0, height: rect.top })} />
+      <div style={dimRegion({ top: rect.bottom, left: 0, right: 0, bottom: 0 })} />
+      <div style={dimRegion({ top: rect.top, left: 0, width: rect.left, height: rect.height })} />
+      <div style={dimRegion({ top: rect.top, left: rect.right, right: 0, height: rect.height })} />
+    </>
+  );
+}
+
+/** The pulsing brand-coloured ring around the focus. */
+function HighlightRing({ rect, reduce }: { rect: AnchorRect; reduce: boolean }) {
+  return (
+    <motion.div
+      aria-hidden
+      animate={
+        reduce
+          ? undefined
+          : {
+              boxShadow: [
+                "0 0 0 0 rgba(var(--brand-color-rgb, 201, 138, 84), 0.55)",
+                "0 0 0 10px rgba(var(--brand-color-rgb, 201, 138, 84), 0)",
+              ],
+            }
+      }
+      transition={{ duration: 1.4, repeat: Infinity }}
+      style={{
+        position: "fixed",
+        top: rect.top - 6,
+        left: rect.left - 6,
+        width: rect.width + 12,
+        height: rect.height + 12,
+        borderRadius: 12,
+        border: "2px solid var(--brand-color, #C98A54)",
+        pointerEvents: "none",
+      }}
+    />
+  );
+}
+
+/** The welcome / congrats card, centred — nudged beside a spotlight if there is one. */
+function FramingCard({
+  welcome,
+  rect,
+  vw,
+  t,
+  reduce,
+  onStart,
+  onExit,
+  onDone,
+}: {
+  welcome: boolean;
+  rect: AnchorRect | null;
+  vw: number;
+  t: any;
+  reduce: boolean;
+  onStart: () => void;
+  onExit: () => void;
+  onDone: () => void;
+}) {
+  // When a spotlight sits on the left (the sidebar), centre the card in the
+  // remaining space so it does not cover what it is pointing at.
+  const left =
+    rect && vw >= 768 && rect.right < vw / 2
+      ? rect.right + (vw - rect.right) / 2
+      : "50%";
+
+  return (
+    <motion.div
+      initial={reduce ? false : { scale: 0.9, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      style={{
+        position: "fixed",
+        top: "50%",
+        left,
+        transform: "translate(-50%, -50%)",
+        pointerEvents: "auto",
+        ...glassSurface(16),
+        border: welcome
+          ? "1px solid var(--border, rgba(201,138,84,0.25))"
+          : "1px solid rgba(16,185,129,0.5)",
+        padding: "1.75rem 2rem",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "0.7rem",
+        textAlign: "center",
+        maxWidth: 380,
+        width: "calc(100% - 2rem)",
+      }}
+    >
+      <span style={{ color: "var(--brand-color, #C98A54)", lineHeight: 0 }}>
+        {welcome ? <Compass size={38} /> : <BadgeCheck size={40} />}
+      </span>
+      <strong style={{ fontFamily: "'Playfair Display', serif", fontSize: "1.15rem", fontWeight: 700 }}>
+        {welcome
+          ? t?.welcomeTitle || "Welcome to your dashboard"
+          : t?.congratsTitle || "You're all set!"}
+      </strong>
+      <span style={{ color: "var(--muted, #999)", fontSize: "0.88rem", lineHeight: 1.5 }}>
+        {welcome
+          ? t?.welcomeBody ||
+            "Let's take a quick look around so you know where everything lives."
+          : t?.congratsBody ||
+            "That's the whole tour. You can replay it any time from Settings."}
+      </span>
+      <div style={{ display: "flex", gap: "0.6rem", marginTop: "0.4rem" }}>
+        {welcome ? (
+          <>
+            <button type="button" onClick={onExit} style={btnStyle(false)}>
+              {t?.later || "Later"}
+            </button>
+            <button type="button" onClick={onStart} style={btnStyle(true)}>
+              {t?.start || "Start tour"}
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={onDone} style={btnStyle(true)}>
+            {t?.done || "Done"}
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+/** The per-step card: the walkthrough's Next/Back/Skip control. */
+function StepCard({
+  rect,
+  vw,
+  vh,
+  stepIndex,
+  stepCount,
+  title,
+  blurb,
+  progress,
+  t,
+  onNext,
+  onBack,
+  onSkip,
+  onExit,
+}: {
+  rect: AnchorRect | null;
+  vw: number;
+  vh: number;
+  stepIndex: number;
+  stepCount: number;
+  title: string;
+  blurb: string;
+  progress: string;
+  t: any;
+  onNext: () => void;
+  onBack: () => void;
+  onSkip: () => void;
+  onExit: () => void;
+}) {
+  const hasAnchor = Boolean(rect);
+  const tipWidth = 320;
+  const placeBelow = !rect || rect.bottom + 16 + 200 < vh;
+  const clampedLeft = rect
+    ? Math.min(Math.max(rect.left + rect.width / 2 - tipWidth / 2, 12), vw - tipWidth - 12)
+    : 0;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        width: tipWidth,
+        left: rect ? clampedLeft : "50%",
+        top: rect ? (placeBelow ? rect.bottom + 16 : undefined) : "50%",
+        bottom: rect && !placeBelow ? vh - rect.top + 16 : undefined,
+        transform: rect ? undefined : "translate(-50%, -50%)",
+        pointerEvents: "auto",
+        ...glassSurface(12),
+        border: "1px solid var(--border, rgba(201,138,84,0.25))",
+        padding: "1rem 1.1rem",
+        boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
+      }}
+    >
       <div
         style={{
-          position: "fixed",
-          width: tipWidth,
-          left: rect ? clampedLeft : "50%",
-          top: rect ? (placeBelow ? tipTop : undefined) : "50%",
-          bottom:
-            rect && !placeBelow ? vh - rect.top + 16 : undefined,
-          transform: rect
-            ? undefined
-            : "translate(-50%, -50%)",
-          pointerEvents: "auto",
-          ...glassSurface(12),
-          border: "1px solid var(--border, rgba(201,138,84,0.25))",
-          padding: "1rem 1.1rem",
-          boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "0.75rem",
         }}
       >
-        <div
+        <span
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "0.75rem",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "0.72rem",
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-              color: "var(--brand-color, #C98A54)",
-              fontWeight: 700,
-            }}
-          >
-            {progress}
-          </span>
-          <button
-            type="button"
-            onClick={onExit}
-            aria-label={t?.exit || "Skip tour"}
-            title={t?.exit || "Skip tour"}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "var(--muted, #999)",
-              cursor: "pointer",
-              padding: 2,
-              lineHeight: 0,
-            }}
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        <h4
-          style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: "1rem",
+            fontSize: "0.72rem",
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            color: "var(--brand-color, #C98A54)",
             fontWeight: 700,
-            margin: "0.5rem 0 0.25rem",
           }}
         >
-          {title}
-        </h4>
-        {blurb && (
-          <p
-            style={{
-              color: "var(--muted, #999)",
-              fontSize: "0.82rem",
-              margin: "0 0 0.75rem",
-            }}
-          >
-            {blurb}
-          </p>
-        )}
-
-        <div
+          {progress}
+        </span>
+        <button
+          type="button"
+          onClick={onExit}
+          aria-label={t?.exit || "Close tour"}
+          title={t?.exit || "Close tour"}
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            justifyContent: "space-between",
+            background: "transparent",
+            border: "none",
+            color: "var(--muted, #999)",
+            cursor: "pointer",
+            padding: 2,
+            lineHeight: 0,
           }}
         >
-          <span style={{ fontSize: "0.76rem", color: "var(--muted, #999)" }}>
-            {hasAnchor
-              ? t?.hint || "Click the highlighted button to continue"
-              : t?.noTarget || "This step isn't available right now"}
-          </span>
-          <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
-            {!hasAnchor && (
-              <button
-                type="button"
-                onClick={onContinue}
-                style={btnStyle(true)}
-              >
-                {t?.continue || "Continue"}
-              </button>
-            )}
-            <button type="button" onClick={onSkipStep} style={btnStyle(false)}>
-              {t?.skipStep || "Skip"}
+          <X size={16} />
+        </button>
+      </div>
+
+      <h4
+        style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: "1rem",
+          fontWeight: 700,
+          margin: "0.5rem 0 0.25rem",
+        }}
+      >
+        {title}
+      </h4>
+      {blurb && (
+        <p style={{ color: "var(--muted, #999)", fontSize: "0.82rem", margin: "0 0 0.75rem" }}>
+          {blurb}
+        </p>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.75rem",
+          justifyContent: "space-between",
+        }}
+      >
+        <span style={{ fontSize: "0.76rem", color: "var(--muted, #999)" }}>
+          {hasAnchor
+            ? t?.hint || "Here's where you'll find it"
+            : t?.noTarget || "This lives on another page"}
+        </span>
+        <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+          {stepIndex > 1 && (
+            <button type="button" onClick={onBack} style={btnStyle(false)}>
+              {t?.back || "Back"}
             </button>
-          </div>
+          )}
+          <button type="button" onClick={onSkip} style={btnStyle(false)}>
+            {t?.skipStep || "Skip"}
+          </button>
+          <button type="button" onClick={onNext} style={btnStyle(true)}>
+            {stepIndex >= stepCount ? t?.finish || "Finish" : t?.next || "Next"}
+          </button>
         </div>
       </div>
     </div>
@@ -332,7 +411,9 @@ function dimRegion(r: {
     position: "fixed",
     ...r,
     background: DIM,
-    pointerEvents: "auto",
+    // The dim is decorative: it never intercepts clicks, so the dashboard
+    // stays usable behind the walkthrough.
+    pointerEvents: "none",
   };
 }
 
@@ -344,8 +425,7 @@ function dimRegion(r: {
  */
 function glassSurface(radius: number): React.CSSProperties {
   return {
-    background:
-      "color-mix(in srgb, var(--card, #1a1512) 60%, transparent)",
+    background: "color-mix(in srgb, var(--card, #1a1512) 60%, transparent)",
     backdropFilter: "blur(16px) saturate(1.5)",
     WebkitBackdropFilter: "blur(16px) saturate(1.5)",
     borderRadius: radius,

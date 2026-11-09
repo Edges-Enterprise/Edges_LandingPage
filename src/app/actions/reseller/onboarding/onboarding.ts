@@ -16,29 +16,19 @@ interface OnboardingActionResult {
   error?: string;
 }
 
-/** The payload get_reseller_onboarding() returns, or an error. */
+/** The fields of get_reseller_onboarding() the walkthrough still needs. */
 export interface OnboardingStatus {
   reseller_id: string;
   country_code: string | null;
   store_slug: string | null;
   dismissed_at: string | null;
-  visited_storefront: boolean;
   completed_at: string | null;
-  signals: {
-    has_virtual_account: boolean;
-    wallet_funded: boolean;
-    markup_set: boolean;
-    published: boolean;
-    store_live: boolean;
-    storefront_visited: boolean;
-  };
   error?: string;
 }
 
 /**
- * Read the caller's onboarding status. The tour calls this on mount and again
- * on each navigation so its step signals stay fresh; the RPC resolves the
- * reseller from auth.uid().
+ * Read the caller's onboarding status (whether the tour was already finished
+ * or dismissed). The RPC resolves the reseller from auth.uid().
  */
 export async function getOnboardingStatus(): Promise<OnboardingStatus | null> {
   const supabase = await createServerClient();
@@ -66,22 +56,7 @@ export async function dismissOnboarding(): Promise<OnboardingActionResult> {
   return { success: true };
 }
 
-/** Record that the reseller opened the storefront (decision 3: click-through). */
-export async function markStorefrontVisited(): Promise<OnboardingActionResult> {
-  const supabase = await createServerClient();
-  const { data, error } = await supabase.rpc("mark_storefront_visited");
-
-  if (error) {
-    console.error("mark_storefront_visited error:", error);
-    return { error: "Failed to record the storefront visit" };
-  }
-  if (data && data.error) {
-    return { error: data.error };
-  }
-  return { success: true };
-}
-
-/** Stamp completed_at once, the first time every applicable step is done. */
+/** Stamp completed_at once, when the reseller finishes or skips the tour. */
 export async function completeOnboarding(): Promise<OnboardingActionResult> {
   const supabase = await createServerClient();
   const { data, error } = await supabase.rpc("complete_onboarding");

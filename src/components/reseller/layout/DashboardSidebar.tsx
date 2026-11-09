@@ -77,6 +77,7 @@ export default function DashboardSidebar({
 
       {/* Sidebar */}
       <aside
+        data-tour="welcome"
         style={{
           width: 240,
           background: "var(--bg2)",

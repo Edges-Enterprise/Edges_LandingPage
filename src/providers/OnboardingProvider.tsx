@@ -16,25 +16,23 @@ import { useTourAnchor } from "@/components/onboarding/useTourAnchor";
 import type { CountryConfig } from "@/config/countries";
 import {
   buildOnboardingSteps,
-  isOnboardingComplete,
-  type OnboardingSignals,
   type OnboardingStep,
 } from "@/lib/onboarding/steps";
 import {
-  advance,
-  beginCelebration,
+  beginTour,
+  currentStep as stepAt,
+  finishTour,
+  goBack,
+  goNext,
   IDLE_TOUR,
   isTourActive,
-  reconcile,
-  startTour,
-  stepByKey,
+  startWelcome,
   type TourState,
 } from "@/lib/onboarding/tour";
 import {
   completeOnboarding,
   dismissOnboarding,
   getOnboardingStatus,
-  markStorefrontVisited,
 } from "@/app/actions/reseller/onboarding/onboarding";
 import en from "@/messages/en/onboarding.json";
 import es from "@/messages/es/onboarding.json";
@@ -47,8 +45,9 @@ const MESSAGES: Record<string, any> = { en, es, pt, fr, ar };
 /** The tour is on by default; set NEXT_PUBLIC_ONBOARDING_TOUR=false to disable. */
 const TOUR_ENABLED = process.env.NEXT_PUBLIC_ONBOARDING_TOUR !== "false";
 
-/** How long the "nice — done!" beat shows before moving on. */
-const CELEBRATION_MS = 1100;
+/** Settle time after the status resolves and the first anchor mounts, so the
+ *  welcome card does not flash over a half-painted dashboard. */
+const START_DELAY_MS = 600;
 
 interface OnboardingContextValue {
   active: boolean;
@@ -83,32 +82,14 @@ export default function OnboardingProvider({
 
   const [status, setStatus] = useState<{
     reseller_id: string;
-    store_slug: string | null;
     completed_at: string | null;
-    signals: OnboardingSignals;
   } | null>(null);
   const [tour, setTour] = useState<TourState>(IDLE_TOUR);
-  // Replay ("show me around") walks every applicable step even when its real
-  // signal is already set, so a finished reseller can see the whole tour again.
-  const [forced, setForced] = useState(false);
   const autoStarted = useRef(false);
-  const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const steps: OnboardingStep[] = useMemo(() => {
-    if (!status) return [];
-    return buildOnboardingSteps(
-      config,
-      countryCode,
-      status.store_slug,
-      status.signals,
-    );
-  }, [status, config, countryCode]);
-
-  // What the state machine walks. Identical to `steps` except during a forced
-  // replay, when every step is presented as pending.
-  const tourSteps: OnboardingStep[] = useMemo(
-    () => (forced ? steps.map((s) => ({ ...s, done: false })) : steps),
-    [forced, steps],
+  const steps: OnboardingStep[] = useMemo(
+    () => buildOnboardingSteps(config, countryCode),
+    [config, countryCode],
   );
 
   const sessionKey = status?.reseller_id
@@ -120,9 +101,7 @@ export default function OnboardingProvider({
     if (data && !data.error) {
       setStatus({
         reseller_id: data.reseller_id,
-        store_slug: data.store_slug,
         completed_at: data.completed_at,
-        signals: data.signals,
       });
     }
     return data;
@@ -134,109 +113,81 @@ export default function OnboardingProvider({
     void refreshStatus();
   }, [refreshStatus]);
 
-  // Auto-start once per session while the guide is unfinished and the
-  // reseller has not already exited it this session.
+  // Auto-open the welcome card once per session, after the status resolves,
+  // while the tour has not been finished or dismissed this session.
   useEffect(() => {
     if (!TOUR_ENABLED || autoStarted.current || !status || !sessionKey) return;
     if (status.completed_at) return;
     if (sessionStorage.getItem(`${sessionKey}:seen`) === "1") return;
     if (sessionStorage.getItem(`${sessionKey}:exited`) === "1") return;
-    if (isOnboardingComplete(steps)) return;
+    if (steps.length === 0) return;
 
     autoStarted.current = true;
     sessionStorage.setItem(`${sessionKey}:seen`, "1");
-    setTour(startTour(steps));
+    const timer = setTimeout(() => setTour(startWelcome(steps.length)), START_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [status, sessionKey, steps]);
 
-  // Reconcile the running tour with fresh signals on each navigation.
+  // Keep the spotlight on the page that owns the current step. Navigation is
+  // driven by the tour's own Next/Back, never by a page click.
+  const step = stepAt(steps, tour);
   useEffect(() => {
-    if (!TOUR_ENABLED || !isTourActive(tour)) return;
-    void refreshStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+    if (!TOUR_ENABLED || tour.phase !== "running" || !step) return;
+    if (step.path && pathname !== step.path) router.push(step.path);
+  }, [tour.phase, tour.index, step, pathname, router]);
 
-  useEffect(() => {
-    if (!TOUR_ENABLED) return;
-    setTour((prev) => reconcile(tourSteps, prev));
-  }, [tourSteps]);
+  const rect = useTourAnchor(tour.phase === "running" ? step?.anchor ?? null : null);
 
-  // Keep the tour on the page that owns the current step.
-  const currentStep = stepByKey(tourSteps, tour.current);
-  useEffect(() => {
-    if (!TOUR_ENABLED || tour.phase !== "running" || !currentStep) return;
-    if (currentStep.path && pathname !== currentStep.path) {
-      router.push(currentStep.path);
-    }
-  }, [tour.phase, tour.current, currentStep, pathname, router]);
+  // The welcome card spotlights the sidebar instead of a step anchor.
+  const welcomeRect = useTourAnchor(tour.phase === "welcome" ? "welcome" : null);
 
-  // Finish the tour: stamp completion, then refresh so the guide stays gone.
-  useEffect(() => {
-    if (tour.phase !== "done") return;
-    setForced(false);
-    void completeOnboarding().finally(() => router.refresh());
-  }, [tour.phase, router]);
+  // The running card waits until we are actually on the step's page, so it
+  // never flashes the "another page" copy during a Next/Back navigation.
+  const onStepPage =
+    tour.phase !== "running" || !step?.path || pathname === step.path;
 
-  const advancePast = useCallback(
-    (state: TourState): TourState => {
-      const passed = state.current;
-      const next = advance(tourSteps, state);
-      if (passed === "visit_storefront") {
-        void markStorefrontVisited();
-      }
-      return next;
-    },
-    [tourSteps],
+  const onStart = useCallback(() => setTour((s) => beginTour(s)), []);
+  const onNext = useCallback(
+    () => setTour((s) => goNext(steps.length, s)),
+    [steps.length],
   );
+  const onBack = useCallback(() => setTour((s) => goBack(s)), []);
 
-  const onAnchorClick = useCallback(() => {
-    setTour((prev) => (prev.phase === "running" ? beginCelebration(prev) : prev));
-  }, []);
-
-  // Drive the celebration beat -> advance.
-  useEffect(() => {
-    if (tour.phase !== "celebrating") return;
-    celebrateTimer.current = setTimeout(
-      () => setTour((prev) => advancePast(prev)),
-      CELEBRATION_MS,
-    );
-    return () => {
-      if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
-    };
-  }, [tour.phase, advancePast]);
-
-  const onSkipStep = useCallback(() => {
-    setTour((prev) => advancePast(prev));
-  }, [advancePast]);
+  // Skip and the X both end the tour for good (it is a tour, not a checklist:
+  // there is nothing left to come back for). Marked complete so it stays gone;
+  // still replayable from Settings.
+  const endTour = useCallback(() => {
+    setTour((s) => finishTour(s));
+    void completeOnboarding().finally(() => router.refresh());
+  }, [router]);
 
   const onExit = useCallback(() => {
+    // "Later"/X dismisses for this session only; the tour returns next visit.
     if (sessionKey) sessionStorage.setItem(`${sessionKey}:exited`, "1");
     setTour(IDLE_TOUR);
     void dismissOnboarding();
   }, [sessionKey]);
 
   const replay = useCallback(() => {
-    if (!TOUR_ENABLED || !status) return;
+    if (!TOUR_ENABLED || steps.length === 0) return;
     if (sessionKey) {
       sessionStorage.removeItem(`${sessionKey}:exited`);
       sessionStorage.removeItem(`${sessionKey}:seen`);
     }
     autoStarted.current = true;
-    setForced(true);
-    setTour(startTour(steps.map((s) => ({ ...s, done: false }))));
-  }, [status, steps, sessionKey]);
-
-  const rect = useTourAnchor(
-    tour.phase === "running" ? currentStep?.anchor ?? null : null,
-  );
-
-  const stepIndex = currentStep
-    ? tourSteps.findIndex((s) => s.key === currentStep.key) + 1
-    : 0;
+    setTour(beginTour(startWelcome(steps.length)));
+  }, [steps.length, sessionKey]);
 
   const ctxValue = useMemo<OnboardingContextValue>(
     () => ({ active: isTourActive(tour), replay }),
     [tour, replay],
   );
+
+  const stepIndex = tour.phase === "running" ? tour.index + 1 : 0;
+
+  // While a Next/Back is mid-navigation the dim stays up but the card is held
+  // back a beat, so it never flashes over the page we are leaving.
+  const waiting = tour.phase === "running" && !onStepPage;
 
   return (
     <OnboardingContext.Provider value={ctxValue}>
@@ -244,15 +195,19 @@ export default function OnboardingProvider({
       {TOUR_ENABLED && (
         <TourOverlay
           phase={tour.phase}
-          step={currentStep}
+          waiting={waiting}
+          step={step}
           rect={rect}
+          welcomeRect={welcomeRect}
           stepIndex={stepIndex}
           stepCount={steps.length}
           t={t?.tour}
-          onAnchorClick={onAnchorClick}
-          onContinue={onSkipStep}
-          onSkipStep={onSkipStep}
+          onStart={onStart}
+          onNext={onNext}
+          onBack={onBack}
+          onSkip={endTour}
           onExit={onExit}
+          onDone={endTour}
         />
       )}
     </OnboardingContext.Provider>
