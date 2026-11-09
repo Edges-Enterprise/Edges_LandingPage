@@ -87,7 +87,7 @@ body.dashboard-theme[data-theme="light"] {
    ============================================ */
 
 body.dashboard-theme,
-body.dashboard-theme div,
+body.dashboard-theme div:not(.tour-overlay):not(.tour-overlay *),
 body.dashboard-theme section,
 body.dashboard-theme main,
 body.dashboard-theme header,

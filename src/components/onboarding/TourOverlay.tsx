@@ -79,6 +79,7 @@ export default function TourOverlay({
   if (phase === "celebrating") {
     return (
       <div
+        className="tour-overlay"
         style={{
           position: "fixed",
           inset: 0,
@@ -139,6 +140,7 @@ export default function TourOverlay({
 
   return (
     <div
+      className="tour-overlay"
       style={{
         position: "fixed",
         inset: 0,
