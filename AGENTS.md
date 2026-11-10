@@ -440,3 +440,35 @@ GIT_TERMINAL_PROMPT=0 git push \
 
 The same applies to PR comments — `gh pr comment` fails with the default token;
 post via the REST API with `$P_TOKEN`.
+
+## Onboarding walkthrough (reseller dashboard)
+
+The informational tour lives in `src/lib/onboarding/` (pure step/state logic),
+`src/components/onboarding/` (overlay + anchor hook) and
+`src/providers/OnboardingProvider.tsx` (context, navigation, mobile
+coordination). Steps carry a `data-tour="<anchor>"` target and the dashboard
+page they belong to; the provider pushes to that page and the overlay spotlights
+the anchor.
+
+Mobile gotchas (fixed in PR #38 — keep them in mind before "simplifying" this):
+
+* The sidebar is a **drawer** below 768px, not always-visible. A `nav_*` step
+  points at an item inside it, so the tour sets `tourWantsSidebar` in context
+  and `DashboardShell` opens the drawer. `DashboardShell` must stay **inside**
+  `OnboardingProvider` to read that flag. The drawer's own scrim is suppressed
+  while the tour drives it (`showBackdrop={false}`) or the tour card cannot be
+  tapped.
+* The step card is a **bottom sheet** on phones (`vw < DESKTOP_MIN` in
+  `TourOverlay.tsx`) so it never covers the drawer or the anchor.
+* `useTourAnchor` takes a `rearm` argument. A CSS transform (the drawer
+  sliding open) fires no scroll/resize, so the hook cannot notice on its own;
+  the provider bumps `rearm` when the drawer opens.
+* Anchors settle with a **snap-and-verify** loop, not a single
+  `scrollIntoView`: Next restores scroll after navigation, and pages that
+  lazily expand (the plan list) shift the anchor after a scroll already ran.
+
+Test logic with `deno test src/lib/onboarding/` (install deno via
+`npm install --prefix /tmp/deno-g deno`; the binary is
+`/tmp/deno-g/node_modules/.bin/deno`). `next lint` is broken repo-wide
+(ESLint config throws `Converting circular structure to JSON`) — use
+`npx tsc --noEmit` for a fast gate.
