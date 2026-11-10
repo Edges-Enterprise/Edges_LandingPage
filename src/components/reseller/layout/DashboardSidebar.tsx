@@ -73,7 +73,10 @@ export default function DashboardSidebar({
 
   return (
     <>
-      {/* Mobile backdrop */}
+      {/* Mobile backdrop — frosted glass so the page stays visibly behind the
+          drawer. The tint is derived from --bg (near-black in the dark
+          dashboard, near-white in the light one), so it adapts to the theme
+          instead of being a fixed scrim. Tap to close. */}
       {isMobileOpen && showBackdrop && (
         <div
           onClick={() => onClose?.()}
@@ -81,8 +84,10 @@ export default function DashboardSidebar({
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.5)",
             zIndex: 45,
+            background: "color-mix(in srgb, var(--bg) 30%, transparent)",
+            backdropFilter: "blur(4px) saturate(1.3)",
+            WebkitBackdropFilter: "blur(4px) saturate(1.3)",
           }}
         />
       )}
