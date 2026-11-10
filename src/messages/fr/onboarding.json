@@ -2,41 +2,140 @@
   "tour": {
     "progress": "Étape {current} sur {total}",
     "hint": "Voici où le trouver",
+    "pausedHint": "En pause — éloignez le curseur pour continuer",
     "noTarget": "Ceci se trouve sur une autre page",
-    "exit": "Fermer la visite",
-    "welcomeTitle": "Bienvenue sur votre tableau de bord",
-    "welcomeBody": "Faisons un rapide tour pour que vous sachiez où tout se trouve.",
+    "exit": "Passer la visite",
+    "bannerTitle": "Faire une visite rapide ?",
+    "bannerBody": "Nous vous montrons tout votre tableau de bord — chaque page et chaque outil — en environ trois minutes.",
     "start": "Démarrer la visite",
-    "later": "Plus tard",
+    "skip": "Passer",
     "next": "Suivant",
+    "pause": "Pause",
+    "resume": "Lecture",
     "back": "Retour",
     "finish": "Terminer",
     "done": "Terminé",
     "congratsTitle": "Tout est prêt !",
-    "congratsBody": "C'est la fin de la visite. Vous pouvez la refaire à tout moment depuis les Paramètres.",
+    "congratsBody": "Vous avez vu toute la plateforme. Vous pouvez refaire cette visite à tout moment depuis les Paramètres.",
     "replayTitle": "Visite guidée de configuration",
     "replayBody": "Refaites la visite étape par étape pour voir où tout se trouve.",
     "replay": "Faites-moi visiter",
     "steps": {
+      "overview_actions": {
+        "title": "Actions rapides",
+        "blurb": "Vos quatre tâches les plus courantes commencent ici : approvisionner le portefeuille, ajouter un client, partager la boutique et publier l'application."
+      },
+      "overview_stats": {
+        "title": "Vos chiffres en un coup d'œil",
+        "blurb": "Clients, commandes, chiffre d'affaires et bénéfice — chaque carte montre le total et son évolution sur 30 jours."
+      },
+      "overview_revenue": {
+        "title": "Tendance du chiffre d'affaires",
+        "blurb": "Un graphique de vos ventes dans le temps, pour voir l'élan de votre boutique."
+      },
+      "overview_activity": {
+        "title": "Activité récente",
+        "blurb": "Un flux en direct des commandes, clients, transactions et compilations de l'application. Cliquez sur une ligne pour voir les détails."
+      },
+      "nav_wallet": {
+        "title": "Portefeuille",
+        "blurb": "Votre argent est ici — approvisionnez-le, suivez votre solde et consultez chaque transaction."
+      },
+      "nav_customers": {
+        "title": "Clients",
+        "blurb": "Tous ceux qui achètent dans votre boutique. Ajoutez-les, recherchez-les et tenez leurs informations à jour."
+      },
+      "nav_orders": {
+        "title": "Commandes",
+        "blurb": "Chaque vente réalisée dans votre boutique, avec son statut, son montant et le bénéfice gagné."
+      },
+      "nav_plans": {
+        "title": "Offres",
+        "blurb": "Les produits que vous vendez et leur prix. Activez des offres et définissez votre marge."
+      },
+      "nav_store": {
+        "title": "Boutique",
+        "blurb": "Le nom, le logo, les couleurs et le thème de votre boutique — tout ce que voient vos clients."
+      },
+      "nav_publishing": {
+        "title": "Publication",
+        "blurb": "Publiez votre boutique sur le Play Store sous forme d'application Android installable."
+      },
+      "nav_settings": {
+        "title": "Paramètres",
+        "blurb": "Votre profil, la sécurité, les notifications — et l'option pour refaire cette visite."
+      },
+      "wallet_summary": {
+        "title": "Solde du portefeuille",
+        "blurb": "Votre solde disponible et ce que vous avez gagné. C'est l'argent qui sert à traiter les commandes."
+      },
       "virtual_account": {
-        "title": "Obtenez votre compte virtuel",
-        "blurb": "Créez votre compte dédié pour recevoir les paiements de vos clients."
+        "title": "Votre compte virtuel",
+        "blurb": "Un numéro de compte dédié pour recevoir les paiements des clients directement dans votre portefeuille."
       },
       "fund_wallet": {
         "title": "Approvisionnez votre portefeuille",
-        "blurb": "Cliquez sur Approvisionner pour ajouter des fonds et traiter les commandes."
+        "blurb": "Ajoutez de l'argent à votre portefeuille pour toujours pouvoir traiter les commandes."
       },
-      "set_markup": {
+      "wallet_history": {
+        "title": "Historique des transactions",
+        "blurb": "Chaque crédit et débit, avec la date, le montant et la référence — votre trace financière."
+      },
+      "customers_add": {
+        "title": "Ajouter un client",
+        "blurb": "Créez une fiche client pour lui vendre et conserver son historique d'achats."
+      },
+      "customers_table": {
+        "title": "Liste des clients",
+        "blurb": "Recherchez par nom, filtrez par statut, et modifiez ou supprimez un client depuis les actions de la ligne."
+      },
+      "orders_table": {
+        "title": "Commandes",
+        "blurb": "Suivez le statut, le montant et le bénéfice de chaque commande. Ouvrez une ligne pour voir la chronologie complète."
+      },
+      "orders_filters": {
+        "title": "Recherche et filtres",
+        "blurb": "Filtrez les commandes par statut ou moyen de paiement, ou recherchez un client, une offre ou une référence."
+      },
+      "plans_bulk": {
         "title": "Définissez votre marge",
-        "blurb": "Saisissez votre marge et appliquez-la pour choisir ce que vous gagnez."
+        "blurb": "Choisissez une marge en pourcentage ou fixe et appliquez-la à toutes vos offres en une fois."
       },
-      "publish": {
-        "title": "Publiez votre boutique",
-        "blurb": "Choisissez une offre et publiez l'application de votre boutique."
+      "plans_list": {
+        "title": "Votre catalogue d'offres",
+        "blurb": "Chaque offre proposée par votre boutique, groupée par réseau, avec son prix et la marge définie."
+      },
+      "store_tabs": {
+        "title": "Paramètres de la boutique",
+        "blurb": "Définissez ici le nom, le statut et le message d'accueil de votre boutique ; la marque et le thème sont dans les autres onglets."
       },
       "visit_storefront": {
-        "title": "Visitez votre boutique",
-        "blurb": "Ouvrez votre boutique en ligne pour voir ce que voient vos clients."
+        "title": "Voir votre boutique",
+        "blurb": "Ouvrez votre boutique en ligne pour voir exactement ce que voient vos clients."
+      },
+      "publishing_plans": {
+        "title": "Publiez votre application",
+        "blurb": "Choisissez une offre de publication — locale, régionale ou mondiale — et mettez votre boutique sur le Play Store."
+      },
+      "publishing_builds": {
+        "title": "Compilations et historique",
+        "blurb": "Suivez la compilation de votre application, de la file d'attente à la fin, téléchargez l'APK et parcourez les compilations passées."
+      },
+      "settings_tabs": {
+        "title": "Paramètres du compte",
+        "blurb": "Mettez à jour votre profil et vos préférences de notification, et contrôlez la sécurité de votre compte."
+      },
+      "settings_security": {
+        "title": "Sécurité",
+        "blurb": "Changez votre mot de passe et gérez les appareils et sessions connectés à votre compte."
+      },
+      "header_tools": {
+        "title": "Outils d'en-tête",
+        "blurb": "La cloche affiche vos notifications et le bouton bascule entre les modes clair et sombre."
+      },
+      "congrats": {
+        "title": "Tout est prêt !",
+        "blurb": "Vous avez vu tout ce que votre boutique peut faire. Refaites cette visite à tout moment depuis les Paramètres."
       }
     }
   }

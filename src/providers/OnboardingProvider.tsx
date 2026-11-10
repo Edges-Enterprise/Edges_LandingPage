@@ -26,12 +26,11 @@ import {
   goNext,
   IDLE_TOUR,
   isTourActive,
-  startWelcome,
+  startBanner,
   type TourState,
 } from "@/lib/onboarding/tour";
 import {
   completeOnboarding,
-  dismissOnboarding,
   getOnboardingStatus,
 } from "@/app/actions/reseller/onboarding/onboarding";
 import en from "@/messages/en/onboarding.json";
@@ -46,8 +45,13 @@ const MESSAGES: Record<string, any> = { en, es, pt, fr, ar };
 const TOUR_ENABLED = process.env.NEXT_PUBLIC_ONBOARDING_TOUR !== "false";
 
 /** Settle time after the status resolves and the first anchor mounts, so the
- *  welcome card does not flash over a half-painted dashboard. */
-const START_DELAY_MS = 600;
+ *  banner does not flash over a half-painted dashboard. */
+const START_DELAY_MS = 900;
+
+/** How long each step stays up before the tour moves on by itself. The
+ *  overlay pauses this while the reseller reads, so it is a ceiling, not a
+ *  countdown they must beat. */
+const AUTO_ADVANCE_MS = 14000;
 
 interface OnboardingContextValue {
   active: boolean;
@@ -113,23 +117,27 @@ export default function OnboardingProvider({
     void refreshStatus();
   }, [refreshStatus]);
 
-  // Auto-open the welcome card once per session, after the status resolves,
-  // while the tour has not been finished or dismissed this session.
+  // Auto-open the banner once per session, after the status resolves, while
+  // the tour has not been finished or skipped. The dashboard is already on
+  // screen by now (this runs in an effect, after paint), so the page shows
+  // first and the banner slides in over it.
   useEffect(() => {
     if (!TOUR_ENABLED || autoStarted.current || !status || !sessionKey) return;
     if (status.completed_at) return;
     if (sessionStorage.getItem(`${sessionKey}:seen`) === "1") return;
-    if (sessionStorage.getItem(`${sessionKey}:exited`) === "1") return;
     if (steps.length === 0) return;
 
     autoStarted.current = true;
-    sessionStorage.setItem(`${sessionKey}:seen`, "1");
-    const timer = setTimeout(() => setTour(startWelcome(steps.length)), START_DELAY_MS);
+    const timer = setTimeout(() => {
+      sessionStorage.setItem(`${sessionKey}:seen`, "1");
+      setTour(startBanner(steps.length));
+    }, START_DELAY_MS);
     return () => clearTimeout(timer);
   }, [status, sessionKey, steps]);
 
   // Keep the spotlight on the page that owns the current step. Navigation is
-  // driven by the tour's own Next/Back, never by a page click.
+  // driven by the tour's own Next/Back (and its auto-advance), never by a page
+  // click.
   const step = stepAt(steps, tour);
   useEffect(() => {
     if (!TOUR_ENABLED || tour.phase !== "running" || !step) return;
@@ -138,8 +146,8 @@ export default function OnboardingProvider({
 
   const rect = useTourAnchor(tour.phase === "running" ? step?.anchor ?? null : null);
 
-  // The welcome card spotlights the sidebar instead of a step anchor.
-  const welcomeRect = useTourAnchor(tour.phase === "welcome" ? "welcome" : null);
+  // The banner spotlights the sidebar instead of a step anchor.
+  const welcomeRect = useTourAnchor(tour.phase === "banner" ? "welcome" : null);
 
   // The running card waits until we are actually on the step's page, so it
   // never flashes the "another page" copy during a Next/Back navigation.
@@ -153,29 +161,20 @@ export default function OnboardingProvider({
   );
   const onBack = useCallback(() => setTour((s) => goBack(s)), []);
 
-  // Skip and the X both end the tour for good (it is a tour, not a checklist:
-  // there is nothing left to come back for). Marked complete so it stays gone;
-  // still replayable from Settings.
+  // Skip and the X both end the tour for good: the tour is a one-time
+  // walkthrough, so once it is seen (or skipped) it never opens on its own
+  // again. It stays replayable from Settings.
   const endTour = useCallback(() => {
     setTour((s) => finishTour(s));
+    if (sessionKey) sessionStorage.setItem(`${sessionKey}:seen`, "1");
     void completeOnboarding().finally(() => router.refresh());
-  }, [router]);
-
-  const onExit = useCallback(() => {
-    // "Later"/X dismisses for this session only; the tour returns next visit.
-    if (sessionKey) sessionStorage.setItem(`${sessionKey}:exited`, "1");
-    setTour(IDLE_TOUR);
-    void dismissOnboarding();
-  }, [sessionKey]);
+  }, [router, sessionKey]);
 
   const replay = useCallback(() => {
     if (!TOUR_ENABLED || steps.length === 0) return;
-    if (sessionKey) {
-      sessionStorage.removeItem(`${sessionKey}:exited`);
-      sessionStorage.removeItem(`${sessionKey}:seen`);
-    }
+    if (sessionKey) sessionStorage.removeItem(`${sessionKey}:seen`);
     autoStarted.current = true;
-    setTour(beginTour(startWelcome(steps.length)));
+    setTour(beginTour(startBanner(steps.length)));
   }, [steps.length, sessionKey]);
 
   const ctxValue = useMemo<OnboardingContextValue>(
@@ -201,12 +200,13 @@ export default function OnboardingProvider({
           welcomeRect={welcomeRect}
           stepIndex={stepIndex}
           stepCount={steps.length}
+          autoAdvanceMs={AUTO_ADVANCE_MS}
           t={t?.tour}
           onStart={onStart}
           onNext={onNext}
           onBack={onBack}
           onSkip={endTour}
-          onExit={onExit}
+          onExit={endTour}
           onDone={endTour}
         />
       )}

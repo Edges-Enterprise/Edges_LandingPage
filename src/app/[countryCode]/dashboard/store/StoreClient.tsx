@@ -226,6 +226,7 @@ export default function StoreClient({
 
       {/* Tabs */}
       <div
+        data-tour="store_tabs"
         style={{
           display: "flex",
           flexWrap: "wrap",

@@ -140,6 +140,7 @@ export default function SettingsClient({
 
       {/* Tabs */}
       <div
+        data-tour="settings_tabs"
         style={{
           display: "flex",
           gap: "0.5rem",
@@ -156,6 +157,7 @@ export default function SettingsClient({
           return (
             <button
               key={tab.id}
+              data-tour={tab.id === "security" ? "settings_security" : undefined}
               onClick={() => setActiveTab(tab.id)}
               style={{
                 display: "flex",

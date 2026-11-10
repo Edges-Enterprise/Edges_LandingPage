@@ -82,32 +82,40 @@ export default function DashboardClient({
   return (
     <div>
       {/* Quick Actions */}
-      <QuickActions
-        countryCode={countryCode}
-        storeSlug={data.store_slug}
-        translations={t}
-      />
+      <div data-tour="overview_actions">
+        <QuickActions
+          countryCode={countryCode}
+          storeSlug={data.store_slug}
+          translations={t}
+        />
+      </div>
 
       {/* Stats Cards */}
-      <StatsCards
-        stats={stats}
-        currencySymbol={currencySymbol}
-        translations={t}
-      />
+      <div data-tour="overview_stats">
+        <StatsCards
+          stats={stats}
+          currencySymbol={currencySymbol}
+          translations={t}
+        />
+      </div>
 
       {/* Charts Row */}
       <div className="overview-charts-row">
-        <RevenueChart
-          revenue={data.revenue || []}
-          currencySymbol={currencySymbol}
-          translations={t}
-        />
-        <ActivityFeed
-          activity={data.activity || []}
-          translations={t}
-          currencySymbol={currencySymbol}
-          onSelect={setSelectedActivity}
-        />
+        <div data-tour="overview_revenue">
+          <RevenueChart
+            revenue={data.revenue || []}
+            currencySymbol={currencySymbol}
+            translations={t}
+          />
+        </div>
+        <div data-tour="overview_activity">
+          <ActivityFeed
+            activity={data.activity || []}
+            translations={t}
+            currencySymbol={currencySymbol}
+            onSelect={setSelectedActivity}
+          />
+        </div>
       </div>
       <style>{`
         .overview-charts-row {

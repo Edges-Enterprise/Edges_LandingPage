@@ -1,24 +1,26 @@
 // src/components/onboarding/TourOverlay.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { BadgeCheck, Compass, X } from "lucide-react";
+import { BadgeCheck, Compass, Pause, Play, X } from "lucide-react";
 import type { AnchorRect } from "./useTourAnchor";
 import type { OnboardingStep } from "@/lib/onboarding/steps";
 import type { TourPhase } from "@/lib/onboarding/tour";
 
 interface TourOverlayProps {
   phase: TourPhase;
-  /** True while a Next/Back navigation is in flight: dim only, no card. */
+  /** True while a Next/Back navigation is in flight: the page is left clear. */
   waiting?: boolean;
   step: OnboardingStep | null;
   rect: AnchorRect | null;
-  /** The sidebar's rect, spotlighted behind the welcome card on desktop. */
+  /** The sidebar's rect, spotlighted behind the banner on desktop. */
   welcomeRect?: AnchorRect | null;
   /** 1-based position of the current step within the applicable steps. */
   stepIndex: number;
   stepCount: number;
+  /** How long each step stays up before auto-advancing, in ms. */
+  autoAdvanceMs?: number;
   /** The `tour` slice of the onboarding translations. */
   t: any;
   onStart: () => void;
@@ -29,24 +31,52 @@ interface TourOverlayProps {
   onDone: () => void;
 }
 
-const DIM = "rgba(0, 0, 0, 0.62)";
+/**
+ * How much the backdrop is dimmed. Deliberately light (driver.js defaults to
+ * 0.5) so the page behind stays readable: this is a transparent overlay that
+ * points at real elements, never a blackout.
+ */
+const DIM = "rgba(0, 0, 0, 0.5)";
+/** Breathing room between the highlighted element and the cutout (driver.js stagePadding). */
+const PAD = 8;
+/** Cutout corner radius (driver.js stageRadius). */
+const RADIUS = 12;
 /** Below this the dashboard collapses the sidebar, so there is nothing to spotlight. */
 const DESKTOP_MIN = 768;
 const MARGIN = 12;
 const GAP = 16;
 /** Rough height of a step card, used to decide whether it fits below the anchor. */
 const STEP_CARD_H = 190;
+/**
+ * Grace period after arriving on a step's page before the spotlight appears.
+ * The anchor mounts a frame or two after navigation and a smooth scroll keeps
+ * moving it; waiting a beat avoids pointing the spotlight at a stale spot.
+ */
+const SETTLE_MS = 600;
+
+const pad = (r: AnchorRect): AnchorRect => ({
+  top: r.top - PAD,
+  left: r.left - PAD,
+  width: r.width + PAD * 2,
+  height: r.height + PAD * 2,
+  bottom: r.bottom + PAD,
+  right: r.right + PAD,
+});
 
 /**
  * The dashboard walkthrough's visual layer. It is purely informational: a
- * dimmed page with a cutout over whatever is being pointed at, a pulsing
- * highlight ring, and a card the reseller drives with Next/Back/Skip. Nothing
- * on the page is click-gated — the tour never waits on an action.
+ * lightly-dimmed page with a rounded cutout over whatever is being pointed at,
+ * a pulsing ring, a cursor that glides to the target, and a card the reseller
+ * drives with Next/Back/Skip. Nothing on the page is click-gated.
  *
- * The welcome card spotlights the sidebar (desktop only); the congrats card
- * dims the whole page. Neither captures clicks: the dim is decorative and the
- * page behind stays usable. Both cards are width- and height-capped to the
- * viewport so they stay usable on phones and in landscape.
+ * The overlay never blocks the page: the dim is decorative (pointer-events:
+ * none) so the dashboard stays visible and usable behind the tour. While a
+ * step's page is loading it draws no dim at all, so the tour never covers the
+ * page it is moving to.
+ *
+ * Auto-advance is pause-aware: it stops while the reseller hovers the card or
+ * the highlighted element, while the card holds focus, or after any key/touch,
+ * and resumes when they move away. Next jumps immediately; Back resets.
  */
 export default function TourOverlay({
   phase,
@@ -56,6 +86,7 @@ export default function TourOverlay({
   welcomeRect = null,
   stepIndex,
   stepCount,
+  autoAdvanceMs = 11000,
   t,
   onStart,
   onNext,
@@ -77,7 +108,7 @@ export default function TourOverlay({
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Esc closes the tour; never trap the reseller.
+  // Esc ends the tour; never trap the reseller.
   useEffect(() => {
     if (phase === "idle" || phase === "done") return;
     const onKey = (e: KeyboardEvent) => {
@@ -87,28 +118,133 @@ export default function TourOverlay({
     return () => window.removeEventListener("keydown", onKey);
   }, [phase, onExit]);
 
+  const running = phase === "running" && !waiting;
+
+  // Hold the spotlight until the step's page has settled, so it never points
+  // at the previous page's element.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    setSettled(false);
+    if (!running) return;
+    const id = setTimeout(() => setSettled(true), SETTLE_MS);
+    return () => clearTimeout(id);
+  }, [running, stepIndex]);
+
+  // What the cutout focuses on: the sidebar on the banner (desktop only — it
+  // is off-canvas on phones), the current step's anchor while running, nothing
+  // (full dim) on the congrats card.
+  const spotRect =
+    phase === "banner"
+      ? vp.w >= DESKTOP_MIN
+        ? welcomeRect
+        : null
+      : running && settled && rect
+        ? rect
+        : null;
+
+  // ---- Pause-aware auto-advance ------------------------------------------
+  const hoverCard = useRef(false);
+  const hoverTarget = useRef(false);
+  const focused = useRef(false);
+  const manual = useRef(false);
+  // An explicit Play/Pause choice, kept for the rest of the tour.
+  const [userPaused, setUserPaused] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
+  const userPausedRef = useRef(false);
+  const recomputePaused = () => {
+    const p =
+      userPausedRef.current ||
+      hoverCard.current ||
+      hoverTarget.current ||
+      focused.current ||
+      manual.current;
+    pausedRef.current = p;
+    setPaused(p);
+  };
+  const togglePause = () => {
+    userPausedRef.current = !userPausedRef.current;
+    setUserPaused(userPausedRef.current);
+    recomputePaused();
+  };
+
+  // A new step clears the one-off "manual" pause (touch/key), but keeps
+  // hover/focus pauses that are still physically true.
+  useEffect(() => {
+    manual.current = false;
+    recomputePaused();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepIndex, phase]);
+
+  // Pause while the pointer is over the highlighted element.
+  useEffect(() => {
+    if (!spotRect) {
+      hoverTarget.current = false;
+      recomputePaused();
+      return;
+    }
+    const onMove = (e: PointerEvent) => {
+      const inside =
+        e.clientX >= spotRect.left &&
+        e.clientX <= spotRect.right &&
+        e.clientY >= spotRect.top &&
+        e.clientY <= spotRect.bottom;
+      if (inside !== hoverTarget.current) {
+        hoverTarget.current = inside;
+        recomputePaused();
+      }
+    };
+    window.addEventListener("pointermove", onMove, true);
+    return () => window.removeEventListener("pointermove", onMove, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spotRect?.left, spotRect?.top, spotRect?.right, spotRect?.bottom]);
+
+  // Any key press pauses the current step.
+  useEffect(() => {
+    if (!running) return;
+    const onKey = () => {
+      manual.current = true;
+      recomputePaused();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, stepIndex]);
+
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    if (!running) {
+      setProgress(0);
+      return;
+    }
+    let remaining = autoAdvanceMs;
+    let last = performance.now();
+    const id = setInterval(() => {
+      const now = performance.now();
+      const dt = now - last;
+      last = now;
+      if (pausedRef.current) return;
+      remaining -= dt;
+      setProgress(Math.min(1, Math.max(0, 1 - remaining / autoAdvanceMs)));
+      if (remaining <= 0) {
+        clearInterval(id);
+        onNext();
+      }
+    }, 100);
+    return () => clearInterval(id);
+  }, [running, stepIndex, autoAdvanceMs, onNext]);
+
   if (phase === "idle" || phase === "done") return null;
 
   const { w: vw, h: vh } = vp;
 
   const title = step ? t?.steps?.[step.key]?.title || step.key : "";
   const blurb = step ? t?.steps?.[step.key]?.blurb || "" : "";
-  const progress = (t?.progress || "Step {current} of {total}")
+  const progressLabel = (t?.progress || "Step {current} of {total}")
     .replace("{current}", String(stepIndex))
     .replace("{total}", String(stepCount));
 
-  const isFraming = phase === "welcome" || phase === "congrats";
-  // What the cutout focuses on: the sidebar on the welcome card (desktop
-  // only — it is off-canvas on phones), the current step's anchor while
-  // running, nothing (full dim) on the congrats card.
-  const activeRect =
-    phase === "welcome"
-      ? vw >= DESKTOP_MIN
-        ? welcomeRect
-        : null
-      : phase === "running"
-        ? rect
-        : null;
+  const isFraming = phase === "banner" || phase === "congrats";
 
   return (
     <div
@@ -121,14 +257,24 @@ export default function TourOverlay({
       }}
       aria-live="polite"
     >
-      <DimLayers rect={activeRect} />
+      {/* The dim only appears once the current page has settled (or on the
+          framing cards): showing a full-page dim while the step's page is
+          still loading reads as the tour "covering the page". */}
+      {!waiting && (phase !== "running" || settled) && (
+        <DimLayers rect={spotRect} reduce={Boolean(reduce)} />
+      )}
 
-      {activeRect && <HighlightRing rect={activeRect} reduce={Boolean(reduce)} />}
+      {spotRect && (
+        <>
+          <SpotlightRing rect={spotRect} reduce={Boolean(reduce)} />
+          <TourCursor rect={spotRect} reduce={Boolean(reduce)} />
+        </>
+      )}
 
       {isFraming ? (
         <FramingCard
-          welcome={phase === "welcome"}
-          rect={activeRect}
+          welcome={phase === "banner"}
+          rect={spotRect}
           vw={vw}
           vh={vh}
           t={t}
@@ -137,42 +283,86 @@ export default function TourOverlay({
           onExit={onExit}
           onDone={onDone}
         />
-      ) : waiting ? null : (
+      ) : (
         <StepCard
-          rect={rect}
+          rect={spotRect}
           vw={vw}
           vh={vh}
           stepIndex={stepIndex}
           stepCount={stepCount}
           title={title}
           blurb={blurb}
-          progress={progress}
+          progressLabel={progressLabel}
+          progressRatio={progress}
+          paused={paused}
+          userPaused={userPaused}
+          onTogglePause={togglePause}
           t={t}
+          reduce={Boolean(reduce)}
           onNext={onNext}
           onBack={onBack}
           onSkip={onSkip}
           onExit={onExit}
+          onHover={(v) => {
+            hoverCard.current = v;
+            recomputePaused();
+          }}
+          onFocus={(v) => {
+            focused.current = v;
+            recomputePaused();
+          }}
+          onTouch={() => {
+            manual.current = true;
+            recomputePaused();
+          }}
         />
       )}
     </div>
   );
 }
 
-/** The dim: four rectangles around the focus, or a full sheet when there is none. */
-function DimLayers({ rect }: { rect: AnchorRect | null }) {
-  if (!rect) return <div style={dimRegion({ top: 0, left: 0, right: 0, bottom: 0 })} />;
+/**
+ * The dim: four rectangles around the padded focus (a soft cutout with rounded
+ * corners), or a full sheet when there is no focus. Decorative only — it never
+ * intercepts clicks, so the dashboard stays visible and usable behind it.
+ */
+function DimLayers({ rect, reduce }: { rect: AnchorRect | null; reduce: boolean }) {
+  if (!rect) {
+    return (
+      <motion.div
+        initial={reduce ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.35 }}
+        style={dimRegion({ top: 0, left: 0, right: 0, bottom: 0 })}
+      />
+    );
+  }
+  const r = pad(rect);
   return (
     <>
-      <div style={dimRegion({ top: 0, left: 0, right: 0, height: rect.top })} />
-      <div style={dimRegion({ top: rect.bottom, left: 0, right: 0, bottom: 0 })} />
-      <div style={dimRegion({ top: rect.top, left: 0, width: rect.left, height: rect.height })} />
-      <div style={dimRegion({ top: rect.top, left: rect.right, right: 0, height: rect.height })} />
+      <div style={dimRegion({ top: 0, left: 0, right: 0, height: Math.max(0, r.top) })} />
+      <div style={dimRegion({ top: r.bottom, left: 0, right: 0, bottom: 0 })} />
+      <div
+        style={{
+          ...dimRegion({ top: r.top, left: 0, width: Math.max(0, r.left), height: r.height }),
+          borderTopRightRadius: RADIUS,
+          borderBottomRightRadius: RADIUS,
+        }}
+      />
+      <div
+        style={{
+          ...dimRegion({ top: r.top, left: r.right, right: 0, height: r.height }),
+          borderTopLeftRadius: RADIUS,
+          borderBottomLeftRadius: RADIUS,
+        }}
+      />
     </>
   );
 }
 
-/** The pulsing brand-coloured ring around the focus. */
-function HighlightRing({ rect, reduce }: { rect: AnchorRect; reduce: boolean }) {
+/** The pulsing brand-coloured ring tracing the cutout. */
+function SpotlightRing({ rect, reduce }: { rect: AnchorRect; reduce: boolean }) {
+  const r = pad(rect);
   return (
     <motion.div
       aria-hidden
@@ -181,19 +371,19 @@ function HighlightRing({ rect, reduce }: { rect: AnchorRect; reduce: boolean }) 
           ? undefined
           : {
               boxShadow: [
-                "0 0 0 0 rgba(var(--brand-color-rgb, 201, 138, 84), 0.55)",
-                "0 0 0 10px rgba(var(--brand-color-rgb, 201, 138, 84), 0)",
+                "0 0 0 0 rgba(var(--brand-color-rgb, 201, 138, 84), 0.5)",
+                "0 0 0 12px rgba(var(--brand-color-rgb, 201, 138, 84), 0)",
               ],
             }
       }
-      transition={{ duration: 1.4, repeat: Infinity }}
+      transition={{ duration: 1.6, repeat: Infinity }}
       style={{
         position: "fixed",
-        top: rect.top - 6,
-        left: rect.left - 6,
-        width: rect.width + 12,
-        height: rect.height + 12,
-        borderRadius: 12,
+        top: r.top,
+        left: r.left,
+        width: r.width,
+        height: r.height,
+        borderRadius: RADIUS,
         border: "2px solid var(--brand-color, #C98A54)",
         pointerEvents: "none",
       }}
@@ -201,7 +391,53 @@ function HighlightRing({ rect, reduce }: { rect: AnchorRect; reduce: boolean }) 
   );
 }
 
-/** The welcome / congrats card, centred — nudged beside a spotlight if there is one. */
+/**
+ * A pointer that glides to the highlighted element, so the reseller's eye is
+ * drawn to exactly what is being described (the pattern used by Appcues,
+ * Pendo and WalkMe tours). Its tip lands on the centre of the target.
+ */
+function TourCursor({ rect, reduce }: { rect: AnchorRect; reduce: boolean }) {
+  const r = pad(rect);
+  const cx = r.left + r.width / 2;
+  const cy = r.top + r.height / 2;
+  return (
+    <motion.div
+      aria-hidden
+      initial={reduce ? false : { opacity: 0, scale: 0.5, left: cx, top: cy }}
+      animate={{ opacity: 1, scale: 1, left: cx, top: cy }}
+      transition={
+        reduce
+          ? { duration: 0 }
+          : { type: "spring", stiffness: 260, damping: 24, opacity: { duration: 0.2 } }
+      }
+      style={{
+        position: "fixed",
+        marginLeft: -3,
+        marginTop: -2,
+        pointerEvents: "none",
+        filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.45))",
+        zIndex: 2,
+      }}
+    >
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M5 3l14 7-6 1.6L9.5 20 5 3z"
+          fill="var(--brand-color, #C98A54)"
+          stroke="#FDF8F3"
+          strokeWidth="1.2"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </motion.div>
+  );
+}
+
+/**
+ * The banner (before the tour) and the congrats card (after it). The banner is
+ * a small prompt pinned to the bottom of the viewport, so the dashboard is
+ * visible behind it; the congrats card is centred. Both are capped to the
+ * viewport and scroll if their content is taller than the screen.
+ */
 function FramingCard({
   welcome,
   rect,
@@ -223,78 +459,88 @@ function FramingCard({
   onExit: () => void;
   onDone: () => void;
 }) {
-  // When a spotlight sits on the left (the sidebar), centre the card in the
-  // remaining space so it does not cover what it is pointing at. Otherwise it
-  // sits dead centre.
-  const left =
+  const banner = welcome;
+  const centeredLeft =
     rect && vw >= DESKTOP_MIN && rect.right < vw / 2
       ? rect.right + (vw - rect.right) / 2
       : "50%";
 
   return (
     <motion.div
-      initial={reduce ? false : { scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
+      initial={reduce ? false : { y: banner ? 24 : 0, scale: banner ? 1 : 0.9, opacity: 0 }}
+      animate={{ y: 0, scale: 1, opacity: 1 }}
       style={{
         position: "fixed",
-        top: "50%",
-        left,
-        // framer-motion owns `transform` (for the scale-in), so centre via its
-        // x/y motion values instead of an inline transform, which it would drop.
-        x: "-50%",
-        y: "-50%",
-        pointerEvents: "auto",
-        ...glassSurface(16),
         boxSizing: "border-box",
-        // Never wider than the viewport minus a margin, nor taller.
-        width: `min(380px, calc(100% - ${MARGIN * 2}px))`,
+        pointerEvents: "auto",
+        ...glassSurface(banner ? 14 : 16),
+        width: `min(${banner ? 460 : 380}px, calc(100% - ${MARGIN * 2}px))`,
         maxHeight: `calc(100% - ${MARGIN * 2}px)`,
         overflowY: "auto",
-        border: welcome
+        border: banner
           ? "1px solid var(--border, rgba(201,138,84,0.25))"
           : "1px solid rgba(16,185,129,0.5)",
-        padding: "clamp(1.1rem, 4vw, 1.75rem) clamp(1.1rem, 5vw, 2rem)",
+        boxShadow: banner
+          ? "0 18px 50px rgba(0,0,0,0.5)"
+          : "0 12px 40px rgba(0,0,0,0.45)",
+        padding: "clamp(1.1rem, 4vw, 1.5rem) clamp(1.1rem, 5vw, 1.75rem)",
+        ...(banner
+          ? { left: "50%", bottom: MARGIN, x: "-50%" }
+          : { top: "50%", left: centeredLeft, x: "-50%", y: "-50%" }),
         display: "flex",
-        flexDirection: "column",
+        flexDirection: "row",
         alignItems: "center",
-        gap: "0.7rem",
-        textAlign: "center",
+        gap: banner ? "1rem" : "0.7rem",
+        textAlign: banner ? "left" : "center",
+        flexWrap: "wrap",
       }}
     >
-      <span style={{ color: "var(--brand-color, #C98A54)", lineHeight: 0 }}>
-        {welcome ? <Compass size={38} /> : <BadgeCheck size={40} />}
+      <span style={{ color: "var(--brand-color, #C98A54)", lineHeight: 0, flexShrink: 0 }}>
+        {banner ? <Compass size={34} /> : <BadgeCheck size={40} />}
       </span>
-      <strong
-        style={{
-          fontFamily: "'Playfair Display', serif",
-          fontSize: "clamp(1.05rem, 4vw, 1.15rem)",
-          fontWeight: 700,
-        }}
-      >
-        {welcome
-          ? t?.welcomeTitle || "Welcome to your dashboard"
-          : t?.congratsTitle || "You're all set!"}
-      </strong>
-      <span style={{ color: "var(--muted, #999)", fontSize: "0.88rem", lineHeight: 1.5 }}>
-        {welcome
-          ? t?.welcomeBody ||
-            "Let's take a quick look around so you know where everything lives."
-          : t?.congratsBody ||
-            "That's the whole tour. You can replay it any time from Settings."}
-      </span>
+
+      <div style={{ flex: banner ? "1 1 200px" : "1 1 100%", minWidth: 0 }}>
+        <strong
+          style={{
+            display: "block",
+            fontFamily: "'Playfair Display', serif",
+            fontSize: banner ? "1.05rem" : "clamp(1.05rem, 4vw, 1.15rem)",
+            fontWeight: 700,
+          }}
+        >
+          {banner ? t?.bannerTitle || "Take a quick tour?" : t?.congratsTitle || "You're all set!"}
+        </strong>
+        <span
+          style={{
+            display: "block",
+            marginTop: 2,
+            color: "var(--muted, #999)",
+            fontSize: "0.86rem",
+            lineHeight: 1.5,
+          }}
+        >
+          {banner
+            ? t?.bannerBody ||
+              "We'll show you around your whole dashboard — every page and every tool."
+            : t?.congratsBody ||
+              "You've now seen the whole platform. Replay this tour any time from Settings."}
+        </span>
+      </div>
+
       <div
         style={{
           display: "flex",
           gap: "0.6rem",
-          marginTop: "0.4rem",
+          marginTop: banner ? 0 : "0.4rem",
           flexWrap: "wrap",
           justifyContent: "center",
+          flexShrink: 0,
         }}
       >
-        {welcome ? (
+        {banner ? (
           <>
             <button type="button" onClick={onExit} style={btnStyle(false)}>
-              {t?.later || "Later"}
+              {t?.skip || "Skip"}
             </button>
             <button type="button" onClick={onStart} style={btnStyle(true)}>
               {t?.start || "Start tour"}
@@ -319,12 +565,20 @@ function StepCard({
   stepCount,
   title,
   blurb,
-  progress,
+  progressLabel,
+  progressRatio,
+  paused,
+  userPaused,
+  onTogglePause,
   t,
+  reduce,
   onNext,
   onBack,
   onSkip,
   onExit,
+  onHover,
+  onFocus,
+  onTouch,
 }: {
   rect: AnchorRect | null;
   vw: number;
@@ -333,41 +587,67 @@ function StepCard({
   stepCount: number;
   title: string;
   blurb: string;
-  progress: string;
+  progressLabel: string;
+  progressRatio: number;
+  paused: boolean;
+  userPaused: boolean;
+  onTogglePause: () => void;
   t: any;
+  reduce: boolean;
   onNext: () => void;
   onBack: () => void;
   onSkip: () => void;
   onExit: () => void;
+  onHover: (v: boolean) => void;
+  onFocus: (v: boolean) => void;
+  onTouch: () => void;
 }) {
   const hasAnchor = Boolean(rect);
-  // Shrink to fit a phone; never exceed the viewport minus a margin.
   const cardW = Math.min(320, vw - MARGIN * 2);
 
-  // Place the card beside the anchor, clamped to the viewport. Prefer below;
-  // fall back to above, then to centred if neither side has room.
+  // Place the card beside the anchor when there is room — to the right for a
+  // left-column anchor (the sidebar), to the left for a right-column one (the
+  // header tools) — so it never covers what it is pointing at. Otherwise fall
+  // below, then above, then centred.
+  let left: number | string = "50%";
   let top: number | string | undefined;
   let bottom: number | undefined;
   let maxHeight = `calc(100% - ${MARGIN * 2}px)`;
   let centered = false;
+  const besideTop = rect
+    ? Math.max(MARGIN, Math.min(rect.top + rect.height / 2 - 110, vh - MARGIN - 220))
+    : MARGIN;
+
   if (!rect) {
     centered = true;
+  } else if (rect.right + GAP + cardW <= vw - MARGIN) {
+    left = rect.right + GAP;
+    top = besideTop;
+  } else if (rect.left - GAP - cardW >= MARGIN) {
+    left = rect.left - GAP - cardW;
+    top = besideTop;
   } else if (vh - rect.bottom >= STEP_CARD_H + GAP) {
     top = rect.bottom + GAP;
     maxHeight = `${vh - (rect.bottom + GAP) - MARGIN}px`;
+    left = Math.min(Math.max(rect.left + rect.width / 2 - cardW / 2, MARGIN), vw - cardW - MARGIN);
   } else if (rect.top >= STEP_CARD_H + GAP) {
     bottom = vh - rect.top + GAP;
     maxHeight = `${rect.top - GAP - MARGIN}px`;
+    left = Math.min(Math.max(rect.left + rect.width / 2 - cardW / 2, MARGIN), vw - cardW - MARGIN);
   } else {
     centered = true;
   }
 
-  const left = rect
-    ? Math.min(Math.max(rect.left + rect.width / 2 - cardW / 2, MARGIN), vw - cardW - MARGIN)
-    : "50%";
-
   return (
-    <div
+    <motion.div
+      initial={reduce ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+      onFocusCapture={() => onFocus(true)}
+      onBlurCapture={() => onFocus(false)}
+      onTouchStart={onTouch}
       style={{
         position: "fixed",
         boxSizing: "border-box",
@@ -379,6 +659,7 @@ function StepCard({
         maxHeight,
         overflowY: "auto",
         pointerEvents: "auto",
+        transition: "left 0.3s ease, top 0.3s ease, bottom 0.3s ease",
         ...glassSurface(12),
         border: "1px solid var(--border, rgba(201,138,84,0.25))",
         padding: "1rem 1.1rem",
@@ -402,24 +683,65 @@ function StepCard({
             fontWeight: 700,
           }}
         >
-          {progress}
+          {progressLabel}
         </span>
-        <button
-          type="button"
-          onClick={onExit}
-          aria-label={t?.exit || "Close tour"}
-          title={t?.exit || "Close tour"}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={onTogglePause}
+            aria-label={
+              userPaused ? t?.resume || "Resume" : t?.pause || "Pause"
+            }
+            title={userPaused ? t?.resume || "Resume" : t?.pause || "Pause"}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--muted, #999)",
+              cursor: "pointer",
+              padding: 2,
+              lineHeight: 0,
+            }}
+          >
+            {userPaused ? <Play size={15} /> : <Pause size={15} />}
+          </button>
+          <button
+            type="button"
+            onClick={onExit}
+            aria-label={t?.exit || "Skip the tour"}
+            title={t?.exit || "Skip the tour"}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--muted, #999)",
+              cursor: "pointer",
+              padding: 2,
+              lineHeight: 0,
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Auto-advance progress: fills as the timer runs down; holds while paused. */}
+      <div
+        style={{
+          height: 3,
+          borderRadius: 999,
+          background: "var(--border, rgba(201,138,84,0.18))",
+          margin: "0.5rem 0 0.6rem",
+          overflow: "hidden",
+        }}
+      >
+        <div
           style={{
-            background: "transparent",
-            border: "none",
-            color: "var(--muted, #999)",
-            cursor: "pointer",
-            padding: 2,
-            lineHeight: 0,
+            height: "100%",
+            width: `${Math.min(100, Math.max(0, progressRatio * 100))}%`,
+            background: "var(--brand-color, #C98A54)",
+            borderRadius: 999,
+            transition: "width 0.2s linear",
           }}
-        >
-          <X size={16} />
-        </button>
+        />
       </div>
 
       <h4
@@ -427,7 +749,7 @@ function StepCard({
           fontFamily: "'Playfair Display', serif",
           fontSize: "1rem",
           fontWeight: 700,
-          margin: "0.5rem 0 0.25rem",
+          margin: "0 0 0.25rem",
         }}
       >
         {title}
@@ -448,9 +770,11 @@ function StepCard({
         }}
       >
         <span style={{ fontSize: "0.76rem", color: "var(--muted, #999)", flex: "1 1 auto", minWidth: 0 }}>
-          {hasAnchor
-            ? t?.hint || "Here's where you'll find it"
-            : t?.noTarget || "This lives on another page"}
+          {paused && !userPaused
+            ? t?.pausedHint || "Paused — move away to continue"
+            : hasAnchor
+              ? t?.hint || "Here's where you'll find it"
+              : t?.noTarget || "This lives on another page"}
         </span>
         <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0, marginLeft: "auto" }}>
           {stepIndex > 1 && (
@@ -459,14 +783,14 @@ function StepCard({
             </button>
           )}
           <button type="button" onClick={onSkip} style={btnStyle(false)}>
-            {t?.skipStep || "Skip"}
+            {t?.skip || "Skip"}
           </button>
           <button type="button" onClick={onNext} style={btnStyle(true)}>
             {stepIndex >= stepCount ? t?.finish || "Finish" : t?.next || "Next"}
           </button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -496,7 +820,7 @@ function dimRegion(r: {
  */
 function glassSurface(radius: number): React.CSSProperties {
   return {
-    background: "color-mix(in srgb, var(--card, #1a1512) 60%, transparent)",
+    background: "color-mix(in srgb, var(--card, #1a1512) 82%, transparent)",
     backdropFilter: "blur(16px) saturate(1.5)",
     WebkitBackdropFilter: "blur(16px) saturate(1.5)",
     borderRadius: radius,

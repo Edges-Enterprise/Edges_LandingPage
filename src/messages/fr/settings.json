@@ -90,5 +90,10 @@
   "twoFactorEnabledNotice": "Two-factor authentication is on. Other devices have been signed out — you may be asked to sign in again.",
   "twoFactorDisabledNotice": "Two-factor authentication is off.",
   "disableTwoFactorPrompt": "Saisissez le code à 6 chiffres de votre application d'authentification pour désactiver la double authentification.",
-  "confirmDisable2FA": "Désactiver la 2FA"
+  "confirmDisable2FA": "Désactiver la 2FA",
+  "tour": {
+    "replayTitle": "Visite guidée de configuration",
+    "replayBody": "Refaites la visite étape par étape pour voir où se trouve chaque élément.",
+    "replay": "Faites-moi visiter"
+  }
 }

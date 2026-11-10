@@ -104,6 +104,7 @@ export default function DashboardHeader({
       </div>
 
       <div
+        data-tour="header_tools"
         style={{
           display: "flex",
           alignItems: "center",

@@ -2,41 +2,140 @@
   "tour": {
     "progress": "Step {current} of {total}",
     "hint": "Here's where you'll find it",
+    "pausedHint": "Paused — move away to continue",
     "noTarget": "This lives on another page",
-    "exit": "Close tour",
-    "welcomeTitle": "Welcome to your dashboard",
-    "welcomeBody": "Let's take a quick look around so you know where everything lives.",
+    "exit": "Skip the tour",
+    "bannerTitle": "Take a quick tour?",
+    "bannerBody": "We'll show you around your whole dashboard — every page and every tool — in about three minutes.",
     "start": "Start tour",
-    "later": "Later",
+    "skip": "Skip",
     "next": "Next",
+    "pause": "Pause",
+    "resume": "Play",
     "back": "Back",
     "finish": "Finish",
     "done": "Done",
     "congratsTitle": "You're all set!",
-    "congratsBody": "That's the whole tour. You can replay it any time from Settings.",
+    "congratsBody": "You've now seen the whole platform. Replay this tour any time from Settings.",
     "replayTitle": "Guided setup tour",
     "replayBody": "Take the step-by-step tour again to see where everything is.",
     "replay": "Show me around",
     "steps": {
+      "overview_actions": {
+        "title": "Quick actions",
+        "blurb": "Your four most common jobs start here: fund your wallet, add a customer, share your store, and publish your app."
+      },
+      "overview_stats": {
+        "title": "Your numbers at a glance",
+        "blurb": "Customers, orders, revenue and profit — each card shows the total and how it moved in the last 30 days."
+      },
+      "overview_revenue": {
+        "title": "Revenue trend",
+        "blurb": "A chart of how much you've sold over time, so you can see your store's momentum."
+      },
+      "overview_activity": {
+        "title": "Recent activity",
+        "blurb": "A live feed of orders, customers, transactions and app builds. Click any row to see the details."
+      },
+      "nav_wallet": {
+        "title": "Wallet",
+        "blurb": "Your money lives here — top it up, watch your balance, and see every transaction."
+      },
+      "nav_customers": {
+        "title": "Customers",
+        "blurb": "Everyone who buys from your store. Add them, search them, and keep their details tidy."
+      },
+      "nav_orders": {
+        "title": "Orders",
+        "blurb": "Every sale made through your store, with its status, amount and the profit you earned."
+      },
+      "nav_plans": {
+        "title": "Plans",
+        "blurb": "The products you sell and the price you sell them at. Turn plans on and set your markup."
+      },
+      "nav_store": {
+        "title": "Store",
+        "blurb": "Your storefront's name, logo, colours and theme — everything your customers see."
+      },
+      "nav_publishing": {
+        "title": "Publishing",
+        "blurb": "Put your store on the Play Store as an Android app your customers can install."
+      },
+      "nav_settings": {
+        "title": "Settings",
+        "blurb": "Your profile, security, notifications — and the option to replay this tour."
+      },
+      "wallet_summary": {
+        "title": "Wallet balance",
+        "blurb": "Your available balance and what you've earned. This is the money you use to fulfil orders."
+      },
       "virtual_account": {
-        "title": "Get your virtual account",
-        "blurb": "Create your dedicated account to receive customer payments."
+        "title": "Your virtual account",
+        "blurb": "A dedicated account number for receiving customer payments straight into your wallet."
       },
       "fund_wallet": {
         "title": "Fund your wallet",
-        "blurb": "Click Fund Wallet to add funds so you can fulfil orders."
+        "blurb": "Add money to your wallet so you always have the float to fulfil orders."
       },
-      "set_markup": {
+      "wallet_history": {
+        "title": "Transaction history",
+        "blurb": "Every credit and debit, with the date, amount and reference — your financial paper trail."
+      },
+      "customers_add": {
+        "title": "Add a customer",
+        "blurb": "Create a customer record so you can sell to them and keep their purchase history."
+      },
+      "customers_table": {
+        "title": "Customer list",
+        "blurb": "Search by name, filter by status, and edit or remove any customer from the row actions."
+      },
+      "orders_table": {
+        "title": "Orders",
+        "blurb": "Track every order's status, amount and profit. Open a row to see the full timeline."
+      },
+      "orders_filters": {
+        "title": "Search and filters",
+        "blurb": "Narrow orders by status or payment method, or search for a customer, plan or reference."
+      },
+      "plans_bulk": {
         "title": "Set your markup",
-        "blurb": "Enter your markup and apply it to choose how much you earn."
+        "blurb": "Choose a percentage or fixed markup and apply it across all your plans in one go."
       },
-      "publish": {
-        "title": "Publish your store",
-        "blurb": "Pick a plan and publish your storefront app."
+      "plans_list": {
+        "title": "Your plan catalogue",
+        "blurb": "Every plan your store offers, grouped by network, each with its price and the markup you set."
+      },
+      "store_tabs": {
+        "title": "Store settings",
+        "blurb": "Set your store's name, status and welcome message here; branding and theme live in the other tabs."
       },
       "visit_storefront": {
-        "title": "Visit your storefront",
-        "blurb": "Open your live store to see what customers see."
+        "title": "See your store",
+        "blurb": "Open your live storefront to see exactly what your customers see."
+      },
+      "publishing_plans": {
+        "title": "Publish your app",
+        "blurb": "Pick a publishing plan — local, regional or worldwide — and put your store on the Play Store."
+      },
+      "publishing_builds": {
+        "title": "Builds and history",
+        "blurb": "Track your app build from queued to completed, download the APK, and browse past builds."
+      },
+      "settings_tabs": {
+        "title": "Account settings",
+        "blurb": "Update your profile and notification preferences, and control your account security."
+      },
+      "settings_security": {
+        "title": "Security",
+        "blurb": "Change your password and manage the devices and sessions signed in to your account."
+      },
+      "header_tools": {
+        "title": "Header tools",
+        "blurb": "The bell shows your notifications and the toggle switches between light and dark mode."
+      },
+      "congrats": {
+        "title": "You're all set!",
+        "blurb": "You've seen everything your store can do. Replay this tour any time from Settings."
       }
     }
   }

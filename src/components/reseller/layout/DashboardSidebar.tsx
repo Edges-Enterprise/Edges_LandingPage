@@ -27,14 +27,19 @@ interface DashboardSidebarProps {
 }
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Overview", href: "" },
-  { icon: Wallet, label: "Wallet", href: "/wallet" },
-  { icon: Users, label: "Customers", href: "/customers" },
-  { icon: ShoppingBag, label: "Orders", href: "/orders" },
-  { icon: Package, label: "Plans", href: "/plans" },
-  { icon: Store, label: "Store", href: "/store" },
-  { icon: Smartphone, label: "Publishing", href: "/publishing" },
-  { icon: Settings, label: "Settings", href: "/settings" },
+  { icon: LayoutDashboard, label: "Overview", href: "", tour: "nav_overview" },
+  { icon: Wallet, label: "Wallet", href: "/wallet", tour: "nav_wallet" },
+  { icon: Users, label: "Customers", href: "/customers", tour: "nav_customers" },
+  { icon: ShoppingBag, label: "Orders", href: "/orders", tour: "nav_orders" },
+  { icon: Package, label: "Plans", href: "/plans", tour: "nav_plans" },
+  { icon: Store, label: "Store", href: "/store", tour: "nav_store" },
+  {
+    icon: Smartphone,
+    label: "Publishing",
+    href: "/publishing",
+    tour: "nav_publishing",
+  },
+  { icon: Settings, label: "Settings", href: "/settings", tour: "nav_settings" },
 ];
 
 export default function DashboardSidebar({
@@ -134,6 +139,7 @@ export default function DashboardSidebar({
               key={item.href}
               href={`/${countryCode}/dashboard${item.href}`}
               onClick={() => onClose?.()}
+              data-tour={item.tour}
               style={{
                 display: "flex",
                 alignItems: "center",
