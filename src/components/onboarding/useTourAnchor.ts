@@ -25,6 +25,9 @@ function measure(el: Element): AnchorRect {
   };
 }
 
+/** Breathing room kept between a settled anchor and the viewport edge. */
+const SETTLE_GAP = 24;
+
 /**
  * Track the on-screen rectangle of the element carrying
  * `data-tour="<anchor>"`. Pages just tag their real button/link; the tour
@@ -36,9 +39,18 @@ function measure(el: Element): AnchorRect {
  * catch the settle. After that we hold still and only re-measure on
  * scroll/resize and DOM resizes.
  *
+ * `rearm` is a dependency the caller flips when the anchor is about to move
+ * for a reason the hook cannot observe — on phones the mobile sidebar drawer
+ * slides open (a transform, which fires no scroll/resize) to reveal the nav
+ * item being spotlighted. Bumping it re-runs the attach/scroll/measure cycle
+ * so the spotlight tracks the drawer instead of the off-screen element.
+ *
  * Returns null while no such element exists.
  */
-export function useTourAnchor(anchor: string | null): AnchorRect | null {
+export function useTourAnchor(
+  anchor: string | null,
+  rearm: unknown = null,
+): AnchorRect | null {
   const [rect, setRect] = useState<AnchorRect | null>(null);
 
   useEffect(() => {
@@ -65,19 +77,52 @@ export function useTourAnchor(anchor: string | null): AnchorRect | null {
 
     const attach = (found: Element) => {
       el = found;
-      try {
-        found.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
-      } catch {
-        /* jsdom / older engines: ignore */
-      }
+
+      // Settle the target into view. A single scrollIntoView is not enough:
+      // Next can restore scroll to the top right after we call it, and a page
+      // that lazily expands (a plan list growing its groups) shifts the target
+      // out from under a scroll that already ran. So snap it into view, then
+      // keep watching: if it drifts out of a comfortable spot, snap again,
+      // until it holds still.
+      const fitsInView = (r: DOMRect) => r.height <= window.innerHeight - SETTLE_GAP * 2;
+      const wellPlaced = (r: DOMRect) =>
+        fitsInView(r)
+          ? r.top >= SETTLE_GAP && r.bottom <= window.innerHeight - SETTLE_GAP
+          : r.top >= -2 && r.top <= SETTLE_GAP;
+      const snap = () => {
+        if (!el || !el.isConnected) return;
+        const r = el.getBoundingClientRect();
+        try {
+          el.scrollIntoView({
+            block: fitsInView(r) ? "center" : "start",
+            inline: "nearest",
+            behavior: "auto",
+          });
+        } catch {
+          /* jsdom / older engines: ignore */
+        }
+      };
+
+      snap();
       schedule();
 
-      // A smooth scroll and any lazy layout keep moving the target for a few
-      // hundred ms; keep sampling so the spotlight lands on it, not beside it.
+      let stable = 0;
+      let lastY = NaN;
       let ticks = 0;
       burstTimer = setInterval(() => {
+        if (!el || !el.isConnected) return;
+        const placed = wellPlaced(el.getBoundingClientRect());
+        if (!placed && ticks < 30) {
+          snap();
+          stable = 0;
+        } else if (Math.abs(window.scrollY - lastY) < 1) {
+          stable += 1;
+        } else {
+          stable = 0;
+        }
+        lastY = window.scrollY;
         schedule();
-        if (++ticks >= 16) {
+        if ((placed && stable >= 2) || ++ticks >= 50) {
           if (burstTimer) clearInterval(burstTimer);
           burstTimer = null;
         }
@@ -122,7 +167,7 @@ export function useTourAnchor(anchor: string | null): AnchorRect | null {
       window.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
     };
-  }, [anchor]);
+  }, [anchor, rearm]);
 
   return rect;
 }

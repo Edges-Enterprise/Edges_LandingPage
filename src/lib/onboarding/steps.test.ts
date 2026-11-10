@@ -9,7 +9,11 @@
 //   * the tour is identical for a brand-new and a fully configured reseller.
 
 import { assertEquals } from "jsr:@std/assert@1";
-import { buildOnboardingSteps, isVirtualAccountCountry } from "./steps.ts";
+import {
+  buildOnboardingSteps,
+  isSidebarStep,
+  isVirtualAccountCountry,
+} from "./steps.ts";
 
 // Minimal config stand-ins: only paymentGateway.methods is read here.
 const NG = { paymentGateway: { methods: ["virtual_account", "card"] } } as never;
@@ -82,4 +86,22 @@ Deno.test("the same steps are returned regardless of setup progress", () => {
     buildOnboardingSteps(NG, "ng").map((s) => s.key),
     buildOnboardingSteps(NG, "ng").map((s) => s.key),
   );
+});
+
+Deno.test("only nav_* steps are flagged as sidebar steps", () => {
+  const steps = buildOnboardingSteps(NG, "ng");
+  const sidebar = steps.filter((s) => isSidebarStep(s)).map((s) => s.key);
+  assertEquals(sidebar, [
+    "nav_wallet",
+    "nav_customers",
+    "nav_orders",
+    "nav_plans",
+    "nav_store",
+    "nav_publishing",
+    "nav_settings",
+  ]);
+  // A page-content step and the framing card are not sidebar steps.
+  assertEquals(isSidebarStep(steps.find((s) => s.key === "wallet_summary")!), false);
+  assertEquals(isSidebarStep(steps.find((s) => s.key === "congrats")!), false);
+  assertEquals(isSidebarStep(null), false);
 });

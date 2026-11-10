@@ -605,6 +605,13 @@ function StepCard({
   const hasAnchor = Boolean(rect);
   const cardW = Math.min(320, vw - MARGIN * 2);
 
+  // On phones the card is a bottom sheet. The sidebar drawer the tour may have
+  // opened (to show a nav item) occupies the left edge, and the anchors are
+  // laid out for a narrow column, so the desktop "place it beside the anchor"
+  // logic would drop a 320px card right over both. A full-width sheet pinned to
+  // the bottom keeps the spotlighted element and the drawer visible above it.
+  const mobile = vw < DESKTOP_MIN;
+
   // Place the card beside the anchor when there is room — to the right for a
   // left-column anchor (the sidebar), to the left for a right-column one (the
   // header tools) — so it never covers what it is pointing at. Otherwise fall
@@ -614,11 +621,21 @@ function StepCard({
   let bottom: number | undefined;
   let maxHeight = `calc(100% - ${MARGIN * 2}px)`;
   let centered = false;
+  let width: number | string = cardW;
   const besideTop = rect
     ? Math.max(MARGIN, Math.min(rect.top + rect.height / 2 - 110, vh - MARGIN - 220))
     : MARGIN;
 
-  if (!rect) {
+  if (mobile) {
+    // Pin to the bottom, but never so tall that it climbs over the element
+    // being spotlighted — a nav item lives in the upper half of the drawer.
+    // Clamped to a readable minimum so a tall anchor cannot squeeze it away.
+    left = MARGIN;
+    bottom = MARGIN;
+    width = vw - MARGIN * 2;
+    const roomBelow = rect ? vh - rect.bottom - GAP - MARGIN : vh - MARGIN * 2;
+    maxHeight = `${Math.max(200, Math.min(Math.round(vh * 0.62), roomBelow))}px`;
+  } else if (!rect) {
     centered = true;
   } else if (rect.right + GAP + cardW <= vw - MARGIN) {
     left = rect.right + GAP;
@@ -651,7 +668,7 @@ function StepCard({
       style={{
         position: "fixed",
         boxSizing: "border-box",
-        width: cardW,
+        width,
         left,
         top: centered ? "50%" : top,
         bottom: centered ? undefined : bottom,

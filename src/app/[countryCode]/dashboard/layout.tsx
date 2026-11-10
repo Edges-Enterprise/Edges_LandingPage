@@ -9,7 +9,9 @@ import DashboardHeader from "@/components/reseller/layout/DashboardHeader";
 import ThemeToggle from "@/components/reseller/layout/ThemeToggle";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 import { CountryProvider } from "@/providers/CountryProvider";
-import OnboardingProvider from "@/providers/OnboardingProvider";
+import OnboardingProvider, {
+  useOnboarding,
+} from "@/providers/OnboardingProvider";
 import { getCountryConfig } from "@/config/countries";
 import StoreLoader, {
   storeLabel,
@@ -125,79 +127,121 @@ export default function DashboardLayout({
     <ThemeProvider brandColor={brandColor}>
       <CountryProvider config={countryConfig}>
         <OnboardingProvider countryCode={countryCode} config={countryConfig}>
-          <div
-            style={{
-              display: "flex",
-              minHeight: "100vh",
-              background: "var(--bg, #0D0A08)",
-            }}
-          >
-          <DashboardSidebar
+          <DashboardShell
             countryCode={countryCode}
             storeName={storeName}
-            isMobileOpen={isMobileMenuOpen}
-            onClose={() => setIsMobileMenuOpen(false)}
-          />
-          <div
-            className="dashboard-content"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              display: "flex",
-              flexDirection: "column",
-            }}
+            user={user}
+            isMobileMenuOpen={isMobileMenuOpen}
+            setIsMobileMenuOpen={setIsMobileMenuOpen}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                minWidth: 0,
-                padding: "0.5rem 1.5rem",
-                borderBottom: "1px solid var(--border, rgba(201,138,84,0.12))",
-                background: "var(--bg, #0D0A08)",
-              }}
-            >
-              <DashboardHeader
-                user={user}
-                countryCode={countryCode}
-                onMenuClick={() => setIsMobileMenuOpen(true)}
-              />
-              <div
-                className="desktop-only"
-                style={{ display: "flex", flexShrink: 0 }}
-              >
-                <ThemeToggle />
-              </div>
-            </div>
-            <main
-              style={{
-                flex: 1,
-                minWidth: 0,
-                padding: "1.5rem",
-                overflow: "auto",
-                background: "var(--bg, #0D0A08)",
-              }}
-            >
-              {children}
-            </main>
-          </div>
-        </div>
-        <style>{`
-          @media (min-width: 768px) {
-            .dashboard-content {
-              margin-left: 240px;
-            }
-          }
-          @media (max-width: 767px) {
-            .desktop-only {
-              display: none !important;
-            }
-          }
-        `}</style>
+            {children}
+          </DashboardShell>
         </OnboardingProvider>
       </CountryProvider>
     </ThemeProvider>
+  );
+}
+
+/**
+ * The dashboard chrome. It lives *inside* `OnboardingProvider` so it can read
+ * `tourWantsSidebar` and open the mobile sidebar drawer while the tour is
+ * pointing at a nav item (the drawer is the only place those items exist on a
+ * phone). The drawer opens for the tour but the backdrop is suppressed: the
+ * dim already sits behind the tour, and a second scrim would double-darken and
+ * swallow the tour's own clicks on the card.
+ */
+function DashboardShell({
+  countryCode,
+  storeName,
+  user,
+  isMobileMenuOpen,
+  setIsMobileMenuOpen,
+  children,
+}: {
+  countryCode: string;
+  storeName: string;
+  user: any;
+  isMobileMenuOpen: boolean;
+  setIsMobileMenuOpen: (open: boolean) => void;
+  children: React.ReactNode;
+}) {
+  const { tourWantsSidebar } = useOnboarding();
+  const sidebarOpen = isMobileMenuOpen || tourWantsSidebar;
+
+  return (
+    <>
+      <div
+        style={{
+          display: "flex",
+          minHeight: "100vh",
+          background: "var(--bg, #0D0A08)",
+        }}
+      >
+        <DashboardSidebar
+          countryCode={countryCode}
+          storeName={storeName}
+          isMobileOpen={sidebarOpen}
+          showBackdrop={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+        />
+        <div
+          className="dashboard-content"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              minWidth: 0,
+              padding: "0.5rem 1.5rem",
+              borderBottom: "1px solid var(--border, rgba(201,138,84,0.12))",
+              background: "var(--bg, #0D0A08)",
+            }}
+          >
+            <DashboardHeader
+              user={user}
+              countryCode={countryCode}
+              onMenuClick={() => setIsMobileMenuOpen(true)}
+            />
+            <div
+              className="desktop-only"
+              style={{ display: "flex", flexShrink: 0 }}
+            >
+              <ThemeToggle />
+            </div>
+          </div>
+          <main
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: "1.5rem",
+              overflow: "auto",
+              background: "var(--bg, #0D0A08)",
+            }}
+          >
+            {children}
+          </main>
+        </div>
+      </div>
+      <style>{`
+        @media (min-width: 768px) {
+          .dashboard-content {
+            margin-left: 240px;
+          }
+        }
+        @media (max-width: 767px) {
+          .desktop-only {
+            display: none !important;
+          }
+        }
+      `}</style>
+    </>
   );
 }
 
