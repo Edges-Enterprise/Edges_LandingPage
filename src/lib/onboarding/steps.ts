@@ -69,6 +69,15 @@ export function isVirtualAccountCountry(config: CountryConfig): boolean {
 }
 
 /**
+ * Whether a step points at a sidebar nav item. On phones the sidebar is an
+ * off-canvas drawer, so the tour has to open it to show these; on desktop the
+ * sidebar is always visible and this is ignored.
+ */
+export function isSidebarStep(step: OnboardingStep | null): boolean {
+  return Boolean(step?.anchor?.startsWith("nav_"));
+}
+
+/**
  * The applicable steps for a reseller, in order. The whole tour spans every
  * dashboard page: the overview, the wallet (with the virtual-account slide
  * added only where the gateway offers one), customers, orders, plans, the

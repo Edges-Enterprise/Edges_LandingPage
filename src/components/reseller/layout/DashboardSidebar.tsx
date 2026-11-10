@@ -23,6 +23,12 @@ interface DashboardSidebarProps {
   countryCode: string;
   storeName?: string;
   isMobileOpen?: boolean;
+  /**
+   * Whether to paint the tap-to-close scrim behind the drawer. Suppressed
+   * while the tour drives the drawer, so the tour's own dim is the only scrim
+   * and the tour card keeps receiving taps.
+   */
+  showBackdrop?: boolean;
   onClose?: () => void;
 }
 
@@ -46,6 +52,7 @@ export default function DashboardSidebar({
   countryCode,
   storeName = "Reseller",
   isMobileOpen = false,
+  showBackdrop = true,
   onClose,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
@@ -67,7 +74,7 @@ export default function DashboardSidebar({
   return (
     <>
       {/* Mobile backdrop */}
-      {isMobileOpen && (
+      {isMobileOpen && showBackdrop && (
         <div
           onClick={() => onClose?.()}
           className="mobile-backdrop"

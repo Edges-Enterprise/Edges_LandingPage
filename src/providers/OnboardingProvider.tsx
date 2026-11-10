@@ -13,9 +13,11 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import TourOverlay from "@/components/onboarding/TourOverlay";
 import { useTourAnchor } from "@/components/onboarding/useTourAnchor";
+import { useIsMobile } from "@/hooks/common/useIsMobile";
 import type { CountryConfig } from "@/config/countries";
 import {
   buildOnboardingSteps,
+  isSidebarStep,
   type OnboardingStep,
 } from "@/lib/onboarding/steps";
 import {
@@ -57,11 +59,19 @@ interface OnboardingContextValue {
   active: boolean;
   /** Restart the tour from the settings "Show me around" control. */
   replay: () => void;
+  /**
+   * True while the tour needs the dashboard's mobile sidebar drawer open — it
+   * is spotlighting a nav item, which only exists inside that drawer. The
+   * dashboard layout uses this to drive `isMobileMenuOpen`; it is always
+   * `false` on desktop, where the sidebar is permanently visible.
+   */
+  tourWantsSidebar: boolean;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue>({
   active: false,
   replay: () => {},
+  tourWantsSidebar: false,
 });
 
 /** Hook for the replay control; safe outside a provider (no-op). */
@@ -83,6 +93,7 @@ export default function OnboardingProvider({
   const router = useRouter();
   const pathname = usePathname();
   const t = MESSAGES[config.language?.code] ?? en;
+  const isMobile = useIsMobile();
 
   const [status, setStatus] = useState<{
     reseller_id: string;
@@ -144,7 +155,17 @@ export default function OnboardingProvider({
     if (step.path && pathname !== step.path) router.push(step.path);
   }, [tour.phase, tour.index, step, pathname, router]);
 
-  const rect = useTourAnchor(tour.phase === "running" ? step?.anchor ?? null : null);
+  // On phones the sidebar is an off-canvas drawer: a nav step points at an item
+  // inside it, so the tour has to open the drawer or the spotlight lands on an
+  // off-screen element. On desktop the sidebar is always visible, so this stays
+  // false and the layout keeps ignoring it.
+  const tourWantsSidebar =
+    isMobile && tour.phase === "running" && isSidebarStep(step);
+
+  const rect = useTourAnchor(
+    tour.phase === "running" ? step?.anchor ?? null : null,
+    tourWantsSidebar,
+  );
 
   // The banner spotlights the sidebar instead of a step anchor.
   const welcomeRect = useTourAnchor(tour.phase === "banner" ? "welcome" : null);
@@ -178,8 +199,8 @@ export default function OnboardingProvider({
   }, [steps.length, sessionKey]);
 
   const ctxValue = useMemo<OnboardingContextValue>(
-    () => ({ active: isTourActive(tour), replay }),
-    [tour, replay],
+    () => ({ active: isTourActive(tour), replay, tourWantsSidebar }),
+    [tour, replay, tourWantsSidebar],
   );
 
   const stepIndex = tour.phase === "running" ? tour.index + 1 : 0;
