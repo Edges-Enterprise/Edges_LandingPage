@@ -62,35 +62,40 @@ reseller dashboard).
   lives only in the Supabase function secrets, and Vercel carries only
   `NEXT_PUBLIC_FIREBASE_*` (client config). `FIREBASE_PROJECT_ID` is likewise
   unset on Vercel — fall back to `NEXT_PUBLIC_FIREBASE_PROJECT_ID`.
-- Never `JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!)` unguarded, and
-  never let a push failure reject a request whose DB writes already committed
-  (a wallet credit must not return 500 just because FCM was unreachable).
+- Never `JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!)` unguarded (see the
+  edge-function note below; the same trap exists on both sides).
 
 ### Edge functions: don't `JSON.parse` a secret at module scope
 
-- `reseller-send-push-notification` (Supabase project `jjyyfaxcwanrmiipzkoj`) is
-  triggered by `trigger_reseller_push` / `trigger_customer_push` on the
-  `reseller_notifications` / `reseller_customer_notifications` tables. It sent
-  push via **direct FCM** when a `fcm_token` existed and fell back to Expo
-  otherwise.
-- Its original form did `const sa = JSON.parse(Deno.env.get("FIREBASE_ADMIN_SDK_JSON")!)`
+- **Push delivery is per data model.** The app is now multi-country /
+  multi-tenant on the `global_*` tables. New work uses
+  `global-send-push-notification`; the legacy
+  `reseller-send-push-notification` reads the retired
+  `resellers` / `reseller_customers` tables and is **reference-only** — do not
+  extend it or wire anything new to it.
+- `global-send-push-notification` is triggered by
+  `global_reseller_push_trigger` / `global_customer_push_trigger` on
+  `global_notifications` / `global_customer_notifications` (migration
+  `20261110_create_global_push_notifications.sql`). It resolves tokens from
+  `global_reseller_applications` (owner) or `global_customers` (customer) and
+  sends via direct FCM when a Firebase service account is configured, else the
+  Expo push service. The trigger presents a shared secret as `x-push-secret`;
+  the function enforces it against the `PUSH_TRIGGER_SECRET` env secret (set it
+  to the same value as the vault `push_trigger_secret`).
+- Both push functions once did `JSON.parse(Deno.env.get("FIREBASE_ADMIN_SDK_JSON")!)`
   at **module scope**. `Deno.env.get` returns `undefined` when the secret is
-  missing, so `JSON.parse(undefined)` throws during isolate boot and the whole
-  function 500s — including the Expo path that never needs Firebase. It also
-  read `FIREBASE_ADMIN_SDK_JSON`, but the project also holds the same value
-  under `FIREBASE_SERVICE_ACCOUNT` (the name the web app uses). Read it lazily
-  and accept either name, and only take the direct-FCM branch when a service
-  account actually parsed; otherwise fall back to Expo.
-- This function's source was **live-only** (not in the repo, like
-  `send-push-notification`, `auto-sweep-xixapay` and the other legacy
-  functions). A copy now lives at
-  `supabase/functions/reseller-send-push-notification/index.ts` — keep it in
-  sync when deploying. Deploy with
-  `npx supabase functions deploy reseller-send-push-notification --project-ref jjyyfaxcwanrmiipzkoj --no-verify-jwt --yes`
-  (`verify_jwt: false` is required — the DB trigger calls it with a
-  service-role bearer, not a user JWT).
-- `send-push-notification` (the `notifications`-table trigger) is **Expo-only**
-  and reads no Firebase secret, so it has no env-name trap.
+  missing, so `JSON.parse(undefined)` throws during isolate boot and 500s the
+  whole function — including the Expo path that never needs Firebase. Read it
+  lazily, accept `FIREBASE_ADMIN_SDK_JSON` or `FIREBASE_SERVICE_ACCOUNT`, and
+  take the direct-FCM branch only when a service account actually parsed.
+- Never let a push failure reject a request whose DB writes already committed
+  (a wallet credit must not return 500 just because FCM was unreachable).
+- `send-push-notification` (the legacy `notifications`-table trigger) is
+  **Expo-only** and reads no Firebase secret, so it has no env-name trap.
+- Deploy either push function with `--no-verify-jwt` (the DB trigger presents no
+  JWT). Neither function's source was in the repo originally; both are now
+  versioned under `supabase/functions/` — keep them in sync when deploying.
+
 
 ## Supabase
 
