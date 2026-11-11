@@ -4,6 +4,8 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
+import { fetchAllRows } from "../../../../supabase/functions/_shared/catalog/fetchAll.ts";
+import { toStoreCatalogSettings } from "../../../../supabase/functions/_shared/catalog/catalogResolution.ts";
 import {
   loadStoreContextRows,
   pricePlan,
@@ -50,13 +52,15 @@ export async function bulkUpdatePlans(params: BulkUpdatePlansParams): Promise<{
 
     const { data: application, error: appError } = await adminClient
       .from("global_reseller_applications")
-      .select("id, country_code")
+      .select("id, country_code, catalog_mode, default_markup_type, default_markup_value")
       .eq("auth_user_id", user.id)
       .single();
 
     if (appError || !application) {
       return { success: false, error: "Reseller not found" };
     }
+
+    const settings = toStoreCatalogSettings(application);
 
     const countryCodeUpper = application.country_code.toUpperCase();
     const countryCodeLower = application.country_code.toLowerCase();
@@ -70,32 +74,61 @@ export async function bulkUpdatePlans(params: BulkUpdatePlansParams): Promise<{
     // destination. The default path is unchanged (own country + provider).
     const provider = params.global ? (params.provider || "zendit") : serviceProvider;
 
-    // Get all plans for the scope, optionally filtered by network
-    let query = adminClient
-      .from("global_base_plans")
-      .select(PLAN_PRICING_COLUMNS)
-      .eq("is_active", true)
-      .eq("provider", provider);
+    // A store in `all` mode sells the whole catalog at its default markup, so
+    // "apply to everything" is ONE field, not 11k config rows. A scoped apply
+    // (a country or a network) still writes per-plan rows, which then override
+    // the default for exactly those plans. This is what keeps "sell all 11k
+    // plans" from creating 11k rows per store.
+    if (settings.catalogMode === "all" && !params.network && !params.country) {
+      const { error: defaultError } = await adminClient
+        .from("global_reseller_applications")
+        .update({
+          default_markup_type: params.markupType,
+          default_markup_value: params.markupValue,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", application.id);
 
-    if (params.global) {
-      if (params.country) {
-        // country_code is mixed-case across the syncs, so match loosely.
-        query = query.ilike("country_code", params.country);
+      if (defaultError) {
+        console.error("BulkUpdatePlans default markup failed:", defaultError);
+        return { success: false, error: "Failed to update plans" };
       }
-    } else {
-      // See getPlans: country_code is mixed-case across the two syncs, so
-      // match case-insensitively or one provider's stores see zero plans.
-      query = query.ilike("country_code", countryCodeUpper);
+      return { success: true, count: 1 };
     }
 
-    if (params.network) {
-      query = query.eq("network", params.network);
-    }
+    // Get all plans for the scope, optionally filtered by network. Paged:
+    // a bare select returns at most PostgREST's 1,000 rows, so a global apply
+    // previously touched only the first 1,000 of 10,885 plans.
+    const buildQuery = () => {
+      let query = adminClient
+        .from("global_base_plans")
+        .select(PLAN_PRICING_COLUMNS)
+        .eq("is_active", true)
+        .eq("provider", provider);
 
-    const { data: plans, error: plansError } = await query;
+      if (params.global) {
+        if (params.country) {
+          // country_code is mixed-case across the syncs, so match loosely.
+          query = query.ilike("country_code", params.country);
+        }
+      } else {
+        // See getPlans: country_code is mixed-case across the two syncs, so
+        // match case-insensitively or one provider's stores see zero plans.
+        query = query.ilike("country_code", countryCodeUpper);
+      }
+
+      if (params.network) {
+        query = query.eq("network", params.network);
+      }
+
+      // A UNIQUE order for stable Range pagination.
+      return query.order("id", { ascending: true });
+    };
+
+    const { data: plans, error: plansError } = await fetchAllRows<any>(buildQuery);
 
     if (plansError) {
-      return { success: false, error: plansError.message };
+      return { success: false, error: plansError };
     }
 
     // The store's currency, fresh rate and platform markups, loaded once.

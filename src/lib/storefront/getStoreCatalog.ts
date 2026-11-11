@@ -2,13 +2,22 @@
 //
 // Customer-storefront plan catalog (Task 4, branch 2.b; Phase 2 rework).
 //
-// Reads ONLY the plans the reseller selected and turned on: a
-// `global_reseller_plan_configs` row for this reseller with
-// `enabled = true`, joined to its `global_base_plans` row. Strict
-// opt-in — a base plan with no config row is not returned (do NOT copy
-// the dashboard's "missing config = enabled" default in
-// dashboard/plans/PlansClient.tsx, which would leak unselected plans
-// into the store). An empty result means the store has no active plans.
+// Reads the plans the store sells, per its `catalog_mode`
+// (global_reseller_applications.catalog_mode):
+//   selected  strict opt-in - only plans with an enabled config row for this
+//             reseller (the pre-existing behaviour; a plan with no row is not
+//             returned). Do NOT copy the dashboard's "missing config =
+//             enabled" default - that would leak unselected plans.
+//   all       every active plan, priced by the store's default markup, with a
+//             per-plan config row acting as an override (enabled = false opts
+//             one plan out).
+// An empty result means the store sells nothing.
+//
+// The read is an embedded LEFT join (plans -> this reseller's configs) paged
+// through PostgREST's row cap, NOT an `.in("id", [...])` over the enabled ids.
+// The id-list form put every enabled id in the URL, which overflows past ~700
+// ids and returned HTTP 400 - the storefront's "no active plans" failure once
+// a store enabled enough plans. A join has no such limit.
 //
 // Phase 2: pricing is NOT computed here. It calls the one pipeline in
 // supabase/functions/_shared/currency/storePrice.ts — the same function the
@@ -37,6 +46,12 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { StoreProduct } from "@/types/reseller/storefront";
+import { fetchAllRows } from "../../../supabase/functions/_shared/catalog/fetchAll.ts";
+import {
+  resolveCatalogPlan,
+  toStoreCatalogSettings,
+  type CatalogPlanConfig,
+} from "../../../supabase/functions/_shared/catalog/catalogResolution.ts";
 import {
   loadStoreContext,
   pricePlan,
@@ -107,40 +122,59 @@ export async function getStoreCatalog(
 ): Promise<StoreCatalog> {
   const supabase = createAdminClient();
 
-  const { data: configs, error: configError } = await supabase
-    .from("global_reseller_plan_configs")
-    .select("plan_id, enabled, markup_type, markup_value, selling_price")
-    .eq("reseller_id", resellerId)
-    .eq("enabled", true);
+  // The store's catalog mode and default markup. A missing row (should not
+  // happen for a live store) resolves to `selected`, the safe default.
+  const { data: applicationRow } = await supabase
+    .from("global_reseller_applications")
+    .select("catalog_mode, default_markup_type, default_markup_value")
+    .eq("id", resellerId)
+    .maybeSingle();
 
-  if (configError) {
-    console.error("Store catalog config error:", configError);
-    return EMPTY;
-  }
-  if (!configs || configs.length === 0) return EMPTY;
+  const settings = toStoreCatalogSettings(applicationRow);
 
-  const planIds = configs.map((c) => c.plan_id);
-
-  let query = supabase
-    .from("global_base_plans")
-    .select(
-      "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx, is_active",
-    )
-    .in("id", planIds)
-    .eq("is_active", true)
-    .order("country_code", { ascending: true })
-    .order("category", { ascending: true })
-    .order("name", { ascending: true });
-
-  if (category) query = query.eq("category", category);
-
-  const { data: basePlans, error: plansError } = await query;
+  // Every active plan, LEFT-joined to THIS reseller's config rows. The LEFT
+  // join keeps plans with no config row (config = []), which is what
+  // catalog_mode = 'all' needs; the embedded filter scopes the config to this
+  // reseller without dropping the parent plan. Paged past PostgREST's cap.
+  const { data: rows, error: plansError } = await fetchAllRows<any>(() =>
+    supabase
+      .from("global_base_plans")
+      .select(
+        "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx, is_active, config:global_reseller_plan_configs!left(reseller_id, enabled, markup_type, markup_value, selling_price)",
+      )
+      .eq("config.reseller_id", resellerId)
+      .eq("is_active", true)
+      .order("country_code", { ascending: true })
+      .order("category", { ascending: true })
+      .order("name", { ascending: true })
+      // Range pagination needs a UNIQUE tiebreaker, or rows with equal sort
+      // keys can be skipped or repeated across pages.
+      .order("id", { ascending: true })
+  );
 
   if (plansError) {
     console.error("Store catalog plans error:", plansError);
     return EMPTY;
   }
-  if (!basePlans || basePlans.length === 0) return EMPTY;
+
+  // Apply the catalog mode. `selected` keeps only the enabled configs' plans;
+  // `all` keeps every plan, priced by the store default unless it carries its
+  // own row. The caller's `category` filter is applied after resolution.
+  const configByPlanId = new Map<string, CatalogPlanConfig>();
+  for (const row of rows) {
+    const cfg = Array.isArray(row.config) ? row.config[0] : row.config;
+    if (cfg) configByPlanId.set(row.id, cfg);
+  }
+
+  const basePlans: any[] = [];
+  for (const row of rows) {
+    if (category && row.category !== category) continue;
+    const resolved = resolveCatalogPlan(configByPlanId.get(row.id) ?? null, settings);
+    if (!resolved.include) continue;
+    basePlans.push({ ...row, __config: resolved.config });
+  }
+
+  if (basePlans.length === 0) return EMPTY;
 
   // The store's currency and rate, loaded once through the shared loader.
   // A missing rate is a hard failure (an empty catalog) rather than a guess.
@@ -156,10 +190,10 @@ export async function getStoreCatalog(
     return EMPTY;
   }
 
-  const configById = new Map(configs.map((c) => [c.plan_id, c]));
-
   const plans: StoreProduct[] = basePlans.map((p) => {
-    const cfg = configById.get(p.id);
+    // Already resolved for this store: the plan's own row, or the store
+    // default in `all` mode.
+    const cfg = p.__config as CatalogPlanConfig | null;
     const isRange = (p.price_type ?? "FIXED").toUpperCase() === "RANGE";
     // A RANGE offer shows the price of its minimum amount ("from X"); the
     // customer's chosen amount is priced at checkout through the same

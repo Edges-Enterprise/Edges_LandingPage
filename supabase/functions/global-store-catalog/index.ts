@@ -29,10 +29,27 @@
 // selling_price when set, otherwise the markup recomputed from base_price.
 // The storefront and the purchase flow must always agree on the amount.
 //
-// Strict opt-in: a base plan with no enabled config row is NOT returned.
-// An empty result means the store has no active plans.
+// What the store sells is `catalog_mode` (global_reseller_applications):
+//   selected  strict opt-in - a plan with no enabled config row is NOT
+//             returned (the pre-existing behaviour).
+//   all       every active plan is returned, priced by the store's default
+//             markup, with a per-plan config row acting as an override.
+// The resolution lives in _shared/catalog/catalogResolution.ts so the
+// storefront, the dashboard and the purchase flow agree.
+//
+// The read is an embedded LEFT join (plans -> this reseller's configs) paged
+// through PostgREST's row cap, NOT an `.in("id", [...])` over the enabled ids.
+// The id-list form put every enabled id in the URL, which overflows past ~700
+// ids and returned HTTP 400 - the "Failed to load catalog" / "no active plans"
+// failure once a store enabled enough plans. A join has no such limit.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { uniqueSorted } from "../_shared/storeCatalog.ts";
+import { fetchAllRows } from "../_shared/catalog/fetchAll.ts";
+import {
+  resolveCatalogPlan,
+  toStoreCatalogSettings,
+  type CatalogPlanConfig,
+} from "../_shared/catalog/catalogResolution.ts";
 import {
   loadStoreContext,
   pricePlan,
@@ -105,11 +122,13 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // 1. Resolve the store + its country. The country comes from the
-    //    reseller's own row, never from the caller.
+    // 1. Resolve the store + its country and catalog mode. The country comes
+    //    from the reseller's own row, never from the caller.
     const { data: reseller, error: resellerError } = await admin
       .from("global_reseller_applications")
-      .select("id, country_code, store_name, email")
+      .select(
+        "id, country_code, store_name, email, catalog_mode, default_markup_type, default_markup_value",
+      )
       .eq("id", resellerId)
       .eq("application_status", "active")
       .maybeSingle();
@@ -118,51 +137,57 @@ Deno.serve(async (req) => {
       return json(EMPTY);
     }
 
-    // 2. This reseller's enabled plan configs (strict opt-in).
-    const { data: configs, error: configError } = await admin
-      .from("global_reseller_plan_configs")
-      .select("plan_id, markup_type, markup_value, selling_price")
-      .eq("reseller_id", resellerId)
-      .eq("enabled", true);
+    const settings = toStoreCatalogSettings(reseller);
 
-    if (configError) {
-      console.error("global-store-catalog config error:", configError);
-      return json({ error: "Failed to load catalog" }, 500);
-    }
-    if (!configs || configs.length === 0) {
-      return json(EMPTY);
-    }
-
-    // 3. Base plans for those ids. Phase 2: NOT scoped to the store's own
-    //    country. A reseller sells any country Zendit covers, so the catalog
-    //    is every enabled plan; the country filter is the customer's to make.
-    //    (Was scopeToCountry(...) — that was the 24-country restriction.)
-    let query = admin
-      .from("global_base_plans")
-      .select(
-        "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, is_active, price_type, range_min, range_max, range_increment, send_value, send_currency, zendit_fx",
-      )
-      .in("id", configs.map((c) => c.plan_id))
-      .eq("is_active", true)
-      .order("country_code", { ascending: true })
-      .order("category", { ascending: true })
-      .order("name", { ascending: true });
-
-    if (category) query = query.eq("category", category);
-
-    const { data: basePlans, error: plansError } = await query;
+    // 2. Every active plan, LEFT-joined to THIS reseller's config rows. A
+    //    LEFT join keeps plans with no config row (config = []), which is
+    //    exactly what catalog_mode = 'all' needs, and the embedded filter
+    //    scopes the config to this reseller without dropping the parent plan.
+    //    Paged: the catalog is ~11k rows, well past PostgREST's 1,000 cap.
+    const { data: rows, error: plansError } = await fetchAllRows<any>(() =>
+      admin
+        .from("global_base_plans")
+        .select(
+          "id, provider, provider_plan_id, country_code, network, name, description, category, data_amount, validity, base_price, currency, is_active, price_type, range_min, range_max, range_increment, send_value, send_currency, zendit_fx, config:global_reseller_plan_configs!left(reseller_id, enabled, markup_type, markup_value, selling_price)",
+        )
+        .eq("config.reseller_id", resellerId)
+        .eq("is_active", true)
+        .order("country_code", { ascending: true })
+        .order("category", { ascending: true })
+        .order("name", { ascending: true })
+        // Range pagination needs a UNIQUE tiebreaker, or rows with equal
+        // sort keys can be skipped or repeated across pages.
+        .order("id", { ascending: true })
+    );
 
     if (plansError) {
       console.error("global-store-catalog plans error:", plansError);
       return json({ error: "Failed to load catalog" }, 500);
     }
 
-    const country = (reseller.country_code || "").toLowerCase();
-    const available = basePlans || [];
+    // 3. Apply the catalog mode: in `selected` only the enabled configs'
+    //    plans survive; in `all` every plan survives, priced by the store
+    //    default unless it carries its own row. `category` is the caller's
+    //    filter and is applied after resolution.
+    const configByPlanId = new Map<string, CatalogPlanConfig>();
+    for (const row of rows) {
+      const cfg = Array.isArray(row.config) ? row.config[0] : row.config;
+      if (cfg) configByPlanId.set(row.id, cfg);
+    }
+
+    const available: any[] = [];
+    for (const row of rows) {
+      if (category && row.category !== category) continue;
+      const resolved = resolveCatalogPlan(configByPlanId.get(row.id) ?? null, settings);
+      if (!resolved.include) continue;
+      available.push({ ...row, __config: resolved.config });
+    }
 
     if (available.length === 0) {
       return json(EMPTY);
     }
+
+    const country = (reseller.country_code || "").toLowerCase();
 
     // 4. Load the store's currency and rate once, then price every plan
     //    through the one pipeline the purchase flow also uses.
@@ -179,11 +204,12 @@ Deno.serve(async (req) => {
       throw error;
     }
 
-    const configById = new Map(configs.map((c) => [c.plan_id, c]));
-
     const plans: CatalogPlan[] = [];
     for (const p of available) {
-      const cfg = configById.get(p.id);
+      // The config is already resolved for this store: the plan's own row, or
+      // the store default in `all` mode. In `selected` mode only plans with an
+      // enabled row reached here, so cfg is never null.
+      const cfg = p.__config as CatalogPlanConfig | null;
       // A RANGE offer has no single price — the customer chooses the amount.
       // The tile shows the price of the MINIMUM amount ("from X"), priced
       // through the same pipeline as the purchase, so the number shown and

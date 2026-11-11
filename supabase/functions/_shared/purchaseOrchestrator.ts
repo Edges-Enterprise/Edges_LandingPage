@@ -20,6 +20,10 @@ import {
 } from "./currency/storePrice.ts";
 import { currencyDivisor } from "./currency/registry.ts";
 import { RangeError as RangeValidationError } from "./currency/range.ts";
+import {
+  resolveCatalogPlan,
+  toStoreCatalogSettings,
+} from "./catalog/catalogResolution.ts";
 
 export interface PurchaseRequest {
   resellerId: string; // global_reseller_applications.id for the store being bought from
@@ -102,28 +106,38 @@ export async function processPurchase(
     return { success: false, error: "Plan not available", message: "Plan not available" };
   }
 
-  // 3. Resolve this reseller's markup config for the plan.
-  const { data: planConfig, error: planConfigError } = await supabaseAdmin
+  // 3. Resolve what this store sells and the plan's markup, the same way the
+  //    storefront does. A store in `all` mode sells every active plan, priced
+  //    by its default markup when the plan has no config row; a per-plan row
+  //    is an override (enabled = false opts one plan out). In `selected` mode
+  //    the plan needs an enabled row. Resolving here - not a bare
+  //    `.eq("enabled", true)` lookup - is what lets a customer buy a plan that
+  //    has no row, and keeps the charged price equal to the displayed one.
+  const { data: rawPlanConfig } = await supabaseAdmin
     .from("global_reseller_plan_configs")
     .select("id, enabled, markup_type, markup_value, selling_price")
     .eq("reseller_id", resellerId)
     .eq("plan_id", basePlan.id)
-    .eq("enabled", true)
-    .single();
+    .maybeSingle();
 
-  if (planConfigError || !planConfig) {
-    return { success: false, error: "Plan not available", message: "Plan not available" };
-  }
-
-  // 3b. The store's country. Phase 2 prices a plan into the store's own
-  //     currency, and the currency comes from the store's country, never
-  //     from the caller or from the plan.
+  // 3b. The store's country and catalog settings. Phase 2 prices a plan into
+  //     the store's own currency, and the currency comes from the store's
+  //     country, never from the caller or from the plan.
   const { data: storeRow } = await supabaseAdmin
     .from("global_reseller_applications")
-    .select("country_code")
+    .select("country_code, catalog_mode, default_markup_type, default_markup_value")
     .eq("id", resellerId)
     .maybeSingle();
   const storeCountry = (storeRow?.country_code || "").toLowerCase();
+
+  const resolvedPlan = resolveCatalogPlan(
+    rawPlanConfig as never,
+    toStoreCatalogSettings(storeRow as never),
+  );
+  if (!resolvedPlan.include) {
+    return { success: false, error: "Plan not available", message: "Plan not available" };
+  }
+  const planConfig = resolvedPlan.config;
 
   // 4. Calculate the final price through the one pricing pipeline.
   //

@@ -22,6 +22,11 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PlanWithConfig } from "@/types/reseller/plans";
 import { getCountryConfig } from "@/config/countries";
+import { fetchAllRows } from "../../../../supabase/functions/_shared/catalog/fetchAll.ts";
+import {
+  resolveCatalogPlan,
+  toStoreCatalogSettings,
+} from "../../../../supabase/functions/_shared/catalog/catalogResolution.ts";
 import {
   loadStoreContextRows,
   pricePlan,
@@ -59,7 +64,7 @@ export async function getGlobalPlans(
 
     const { data: application, error: appError } = await adminClient
       .from("global_reseller_applications")
-      .select("id, country_code")
+      .select("id, country_code, catalog_mode, default_markup_type, default_markup_value")
       .eq("auth_user_id", user.id)
       .single();
 
@@ -67,19 +72,26 @@ export async function getGlobalPlans(
       return { success: false, error: "Reseller not found" };
     }
 
+    const settings = toStoreCatalogSettings(application);
     const countryCodeLower = (application.country_code || "").toLowerCase();
     const countryConfig = getCountryConfig(countryCodeLower);
     const localCurrency = countryConfig.currency;
-    const defaultMarkup = countryConfig.defaultMarkup || 0;
 
     // Every active Zendit plan, every country. No country/provider filter:
     // the reseller may resell any destination Zendit covers.
-    let query = adminClient
-      .from("global_base_plans")
-      .select(
-        `
+    //
+    // The config embed is a LEFT join scoped to THIS reseller, and the whole
+    // read is paged: a bare select returns at most PostgREST's 1,000 rows, so
+    // the world view previously showed 1,000 of 10,885 plans. The old embed
+    // fetched every reseller's config for each plan and filtered in memory,
+    // which also inflated the row count.
+    const buildQuery = () => {
+      let q = adminClient
+        .from("global_base_plans")
+        .select(
+          `
         *,
-        config:global_reseller_plan_configs!plan_id (
+        config:global_reseller_plan_configs!left (
           id,
           reseller_id,
           plan_id,
@@ -89,30 +101,35 @@ export async function getGlobalPlans(
           selling_price
         )
       `,
-      )
-      .eq("provider", "zendit")
-      .eq("is_active", true);
+        )
+        .eq("config.reseller_id", application.id)
+        .eq("provider", "zendit")
+        .eq("is_active", true);
 
-    if (params.country) {
-      query = query.ilike("country_code", params.country);
-    }
-    if (params.network) {
-      query = query.eq("network", params.network);
-    }
-    if (params.category) {
-      query = query.eq("category", params.category);
-    }
+      if (params.country) {
+        q = q.ilike("country_code", params.country);
+      }
+      if (params.network) {
+        q = q.eq("network", params.network);
+      }
+      if (params.category) {
+        q = q.eq("category", params.category);
+      }
 
-    query = query
-      .order("country_code", { ascending: true })
-      .order("network", { ascending: true })
-      .order("base_price", { ascending: true });
+      return q
+        .order("country_code", { ascending: true })
+        .order("network", { ascending: true })
+        .order("base_price", { ascending: true })
+        // Range pagination needs a UNIQUE tiebreaker, or rows with equal sort
+        // keys can be skipped or repeated across pages.
+        .order("id", { ascending: true });
+    };
 
-    const { data: plans, error: plansError } = await query;
+    const { data: plans, error: plansError } = await fetchAllRows<any>(buildQuery);
 
     if (plansError) {
       console.error("Get global plans error:", plansError);
-      return { success: false, error: plansError.message };
+      return { success: false, error: plansError };
     }
 
     // The store's currency, its fresh rate and the platform markups, loaded
@@ -130,10 +147,17 @@ export async function getGlobalPlans(
     }
 
     const processedPlans = (plans || []).map((plan: any) => {
-      const configs = plan.config || [];
-      const existingConfig = configs.find(
-        (c: any) => c.reseller_id === application.id,
-      );
+      // The embed is a LEFT join scoped to this reseller, so config is a
+      // 0-or-1 element array: this reseller's own row, or none.
+      const rowConfig = Array.isArray(plan.config)
+        ? plan.config[0] ?? null
+        : plan.config ?? null;
+
+      // Resolve the plan the same way the storefront does. In `all` mode a
+      // plan with no row is sold at the store default, so the dashboard shows
+      // the same enabled/markup state the customer sees.
+      const resolved = resolveCatalogPlan(rowConfig, settings);
+      const existingConfig = resolved.config;
 
       const platformMarkups = platformMarkupChain(markupRows, {
         countryCode: countryCodeLower,
@@ -164,20 +188,20 @@ export async function getGlobalPlans(
         ? (profitLocal / costLocal) * 100
         : 0;
 
-      const config = existingConfig
-        ? {
-          ...existingConfig,
-          selling_price: Math.round(sellingPriceLocal),
-        }
-        : {
-          id: null,
-          reseller_id: application.id,
-          plan_id: plan.id,
-          enabled: false,
-          markup_type: "percentage" as const,
-          markup_value: defaultMarkup,
-          selling_price: Math.round(sellingPriceLocal),
-        };
+      // A concrete config for the UI. `enabled` follows the resolution, so in
+      // `all` mode a plan with no row reads as enabled (it IS sold, at the
+      // store default) and in `selected` mode it reads as off.
+      const config = {
+        id: existingConfig?.id ?? null,
+        reseller_id: application.id,
+        plan_id: plan.id,
+        enabled: resolved.include,
+        markup_type: (existingConfig?.markup_type ?? "percentage") as
+          | "percentage"
+          | "fixed",
+        markup_value: existingConfig?.markup_value ?? 0,
+        selling_price: Math.round(sellingPriceLocal),
+      };
 
       return {
         ...plan,

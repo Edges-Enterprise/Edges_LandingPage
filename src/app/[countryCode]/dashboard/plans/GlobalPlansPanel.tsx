@@ -22,6 +22,10 @@ import {
 import { togglePlan } from "@/actions/reseller/plans/togglePlan";
 import { updatePlanConfig } from "@/actions/reseller/plans/updatePlanConfig";
 import { bulkUpdatePlans } from "@/actions/reseller/plans/bulkUpdatePlans";
+import {
+  getCatalogSettings,
+  setCatalogMode,
+} from "@/actions/reseller/plans/catalogMode";
 import { CountryConfig } from "@/config/countries";
 import { PlanWithConfig } from "@/types/reseller/plans";
 import { formatPrice } from "@/lib/currency/currency";
@@ -82,6 +86,19 @@ export default function GlobalPlansPanel({
   const [bulkValue, setBulkValue] = useState<number | "">(0);
   const [bulkSaving, setBulkSaving] = useState(false);
 
+  // The store's catalog mode: "selected" (only the plans I picked) or "all"
+  // (sell every active plan at a default markup). In `all` mode a per-plan row
+  // is an override, so the whole 11k-plan catalog needs no per-plan rows.
+  const [catalogMode, setCatalogModeState] = useState<"selected" | "all">(
+    "selected",
+  );
+  const [defaultMarkupType, setDefaultMarkupType] = useState<
+    "percentage" | "fixed"
+  >("percentage");
+  const [defaultMarkupValue, setDefaultMarkupValue] = useState<number | "">(0);
+  const [catalogSaving, setCatalogSaving] = useState(false);
+  const [overrideCount, setOverrideCount] = useState(0);
+
   const flash = useCallback(
     (type: "success" | "error", text: string) => {
       setMessage({ type, text });
@@ -113,6 +130,45 @@ export default function GlobalPlansPanel({
   useEffect(() => {
     void load();
   }, [load]);
+
+  const loadCatalogSettings = useCallback(async () => {
+    const res = await getCatalogSettings();
+    if (res.success && res.data) {
+      setCatalogModeState(res.data.catalogMode);
+      setDefaultMarkupType(res.data.defaultMarkupType);
+      setDefaultMarkupValue(res.data.defaultMarkupValue);
+      setOverrideCount(res.data.overrideCount);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadCatalogSettings();
+  }, [loadCatalogSettings]);
+
+  const handleSaveCatalogMode = async (mode: "selected" | "all") => {
+    const value = defaultMarkupValue === "" ? 0 : defaultMarkupValue;
+    setCatalogSaving(true);
+    const result = await setCatalogMode({
+      catalogMode: mode,
+      defaultMarkupType,
+      defaultMarkupValue: value,
+    });
+    if (result.success) {
+      setCatalogModeState(mode);
+      await loadCatalogSettings();
+      // The storefront catalog changed, so refresh the local view too.
+      onChanged?.();
+      flash(
+        "success",
+        mode === "all"
+          ? `Now selling every plan at ${defaultMarkupType === "percentage" ? `${value}%` : fmt(value)}`
+          : "Now selling only the plans you selected",
+      );
+    } else {
+      flash("error", result.error || "Failed to update catalog");
+    }
+    setCatalogSaving(false);
+  };
 
   const onSelectCountry = (country: string) => {
     setActiveCountry(country);
@@ -400,6 +456,155 @@ export default function GlobalPlansPanel({
           {message.text}
         </div>
       )}
+
+      {/* Catalog mode: sell everything vs only the selected plans */}
+      <div
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: "1rem 1.1rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.7rem",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <h3 style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.9rem" }}>
+            {t?.catalogMode || "Catalog"}
+          </h3>
+          <span
+            style={{
+              marginLeft: "auto",
+              fontSize: "0.72rem",
+              color: "var(--muted)",
+            }}
+          >
+            {catalogMode === "all"
+              ? t?.catalogAllHint ||
+                "Every active plan is on sale, priced by the default markup below"
+              : t?.catalogSelectedHint ||
+                "Only the plans you turn on individually are on sale"}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: "0.85rem",
+              color: "var(--text)",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="radio"
+              name="catalog-mode"
+              checked={catalogMode === "all"}
+              onChange={() => setCatalogModeState("all")}
+            />
+            {t?.catalogAll || "Sell all plans"}
+          </label>
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: "0.85rem",
+              color: "var(--text)",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="radio"
+              name="catalog-mode"
+              checked={catalogMode === "selected"}
+              onChange={() => setCatalogModeState("selected")}
+            />
+            {t?.catalogSelected || "Sell selected plans"}
+          </label>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.82rem", color: "var(--muted)" }}>
+            {t?.defaultMarkup || "Default markup"}
+          </span>
+          <ThemeSelect
+            value={defaultMarkupType}
+            onChange={(v) => setDefaultMarkupType(v as "percentage" | "fixed")}
+            ariaLabel={t?.markupType || "Markup Type"}
+            style={{
+              background: "var(--bg2)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              color: "var(--text)",
+              padding: "0.4rem 0.55rem",
+              fontSize: "0.82rem",
+              fontFamily: "inherit",
+              minWidth: 130,
+            }}
+            options={[
+              { value: "percentage", label: t?.percentage || "Percentage" },
+              { value: "fixed", label: t?.fixed || "Fixed Amount" },
+            ]}
+          />
+          <input
+            type="number"
+            value={defaultMarkupValue}
+            onBlur={() => {
+              if (defaultMarkupValue === "") setDefaultMarkupValue(0);
+            }}
+            onChange={(e) =>
+              setDefaultMarkupValue(
+                e.target.value === "" ? "" : Number(e.target.value),
+              )
+            }
+            style={{
+              width: 90,
+              background: "var(--bg2)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              color: "var(--text)",
+              padding: "0.4rem 0.55rem",
+              fontSize: "0.82rem",
+              fontFamily: "inherit",
+            }}
+          />
+          <button
+            onClick={() => handleSaveCatalogMode(catalogMode)}
+            disabled={catalogSaving}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "var(--brand-color)",
+              border: "none",
+              borderRadius: 8,
+              color: "#FDF8F3",
+              padding: "0.5rem 0.9rem",
+              fontWeight: 600,
+              fontSize: "0.82rem",
+              cursor: catalogSaving ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+              opacity: catalogSaving ? 0.5 : 1,
+            }}
+          >
+            {catalogSaving ? (
+              <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+            ) : (
+              <Check size={15} />
+            )}
+            {t?.save || "Save"}
+          </button>
+          {catalogMode === "all" && overrideCount > 0 && (
+            <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+              {overrideCount} {t?.planOverrides || "per-plan overrides"}
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* Country picker */}
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>

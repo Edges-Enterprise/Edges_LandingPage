@@ -21,6 +21,11 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PlanWithConfig } from "@/types/reseller/plans";
 import { getCountryConfig } from "@/config/countries";
+import { fetchAllRows } from "../../../../supabase/functions/_shared/catalog/fetchAll.ts";
+import {
+  resolveCatalogPlan,
+  toStoreCatalogSettings,
+} from "../../../../supabase/functions/_shared/catalog/catalogResolution.ts";
 import {
   loadStoreContextRows,
   pricePlan,
@@ -55,13 +60,17 @@ export async function getPlans(params: GetPlansParams = {}): Promise<{
     // Get the reseller's application
     const { data: application, error: appError } = await adminClient
       .from("global_reseller_applications")
-      .select("id, brand_color, store_name, store_slug, country_code")
+      .select(
+        "id, brand_color, store_name, store_slug, country_code, catalog_mode, default_markup_type, default_markup_value",
+      )
       .eq("auth_user_id", user.id)
       .single();
 
     if (appError || !application) {
       return { success: false, error: "Reseller not found" };
     }
+
+    const settings = toStoreCatalogSettings(application);
 
     const countryCodeUpper = application.country_code.toUpperCase();
     const countryCodeLower = application.country_code.toLowerCase();
@@ -71,16 +80,16 @@ export async function getPlans(params: GetPlansParams = {}): Promise<{
     const serviceProvider = countryConfig.serviceProvider;
     const localCurrency = countryConfig.currency;
 
-    // Get default markup from country config (or use 0)
-    const defaultMarkup = countryConfig.defaultMarkup || 0;
-
-    // Build the query
-    let query = adminClient
-      .from("global_base_plans")
-      .select(
-        `
+    // Build the query. The config embed is a LEFT join scoped to THIS
+    // reseller (a bare embed returned every reseller's config and filtered in
+    // memory), and the read is paged past PostgREST's 1,000-row cap.
+    const buildQuery = () => {
+      let query = adminClient
+        .from("global_base_plans")
+        .select(
+          `
         *,
-        config:global_reseller_plan_configs!plan_id (
+        config:global_reseller_plan_configs!left (
           id,
           reseller_id,
           plan_id,
@@ -90,25 +99,32 @@ export async function getPlans(params: GetPlansParams = {}): Promise<{
           selling_price
         )
       `,
-      )
-      // country_code is written lowercased by the Zendit sync and uppercased
-      // by the Accragh sync, so an exact match on one case silently returns
-      // zero rows for the other provider's stores. Match case-insensitively.
-      .ilike("country_code", countryCodeUpper)
-      .eq("is_active", true)
-      .eq("provider", serviceProvider);
+        )
+        .eq("config.reseller_id", application.id)
+        // country_code is written lowercased by the Zendit sync and
+        // uppercased by the Accragh sync, so an exact match on one case
+        // silently returns zero rows for the other provider's stores. Match
+        // case-insensitively.
+        .ilike("country_code", countryCodeUpper)
+        .eq("is_active", true)
+        .eq("provider", serviceProvider);
 
-    if (params.network) {
-      query = query.eq("network", params.network);
-    }
+      if (params.network) {
+        query = query.eq("network", params.network);
+      }
 
-    query = query.order("base_price", { ascending: true });
+      // Range pagination needs a UNIQUE tiebreaker, or rows with equal
+      // base_price can be skipped or repeated across pages.
+      return query
+        .order("base_price", { ascending: true })
+        .order("id", { ascending: true });
+    };
 
-    const { data: plans, error: plansError } = await query;
+    const { data: plans, error: plansError } = await fetchAllRows<any>(buildQuery);
 
     if (plansError) {
       console.error("Get plans error:", plansError);
-      return { success: false, error: plansError.message };
+      return { success: false, error: plansError };
     }
 
     // The store's currency, its fresh rate and the platform markup rows,
@@ -127,11 +143,14 @@ export async function getPlans(params: GetPlansParams = {}): Promise<{
 
     // Process plans
     const processedPlans = (plans || []).map((plan: any) => {
-      // Find config for this reseller
-      const configs = plan.config || [];
-      const existingConfig = configs.find(
-        (c: any) => c.reseller_id === application.id,
-      );
+      // The embed is a LEFT join scoped to this reseller, so config is a
+      // 0-or-1 element array. Resolve it the same way the storefront does, so
+      // in `all` mode a plan with no row reads as enabled at the store default.
+      const rowConfig = Array.isArray(plan.config)
+        ? plan.config[0] ?? null
+        : plan.config ?? null;
+      const resolved = resolveCatalogPlan(rowConfig, settings);
+      const existingConfig = resolved.config;
 
       const platformMarkups = platformMarkupChain(markupRows, {
         countryCode: countryCodeLower,
@@ -167,23 +186,22 @@ export async function getPlans(params: GetPlansParams = {}): Promise<{
         ? (profitLocal / costLocal) * 100
         : 0;
 
-      // No config exists yet: hand the UI a virtual, DISABLED config seeded
-      // with the country's default markup. The `selling_price` is the
-      // pipeline's real number, so a toggle writes a correct value.
-      const config = existingConfig
-        ? {
-          ...existingConfig,
-          selling_price: Math.round(sellingPriceLocal),
-        }
-        : {
-          id: null,
-          reseller_id: application.id,
-          plan_id: plan.id,
-          enabled: false,
-          markup_type: "percentage" as const,
-          markup_value: defaultMarkup,
-          selling_price: Math.round(sellingPriceLocal),
-        };
+      // A concrete config for the UI. `enabled` follows the resolution: in
+      // `all` mode a plan with no row reads as enabled (it IS sold, at the
+      // store default); in `selected` mode it reads as off until toggled. The
+      // `selling_price` is the pipeline's real number, so a toggle writes a
+      // correct value.
+      const config = {
+        id: existingConfig?.id ?? null,
+        reseller_id: application.id,
+        plan_id: plan.id,
+        enabled: resolved.include,
+        markup_type: (existingConfig?.markup_type ?? "percentage") as
+          | "percentage"
+          | "fixed",
+        markup_value: existingConfig?.markup_value ?? 0,
+        selling_price: Math.round(sellingPriceLocal),
+      };
 
       return {
         ...plan,
