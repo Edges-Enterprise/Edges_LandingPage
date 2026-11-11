@@ -25,6 +25,7 @@ import { bulkUpdatePlans } from "@/actions/reseller/plans/bulkUpdatePlans";
 import { CountryConfig } from "@/config/countries";
 import { PlanWithConfig } from "@/types/reseller/plans";
 import { formatPrice } from "@/lib/currency/currency";
+import ThemeSelect from "../ThemeSelect";
 
 interface GlobalPlansPanelProps {
   countryCode: string;
@@ -246,8 +247,65 @@ export default function GlobalPlansPanel({
   };
 
   const handleBulkUpdate = async () => {
-    setBulkSaving(true);
     const value = bulkValue === "" ? 0 : bulkValue;
+
+    // How many plans this scope will touch, for the confirmation. The scope
+    // is country + network, ignoring the search box.
+    const scopeCount = plans.filter(
+      (p) =>
+        (activeCountry === "all" ||
+          (p.country_code || "").toLowerCase() === activeCountry) &&
+        (activeNetwork === "all" || p.network === activeNetwork),
+    ).length;
+
+    if (scopeCount === 0) {
+      flash("error", t?.noPlans || "No plans available");
+      return;
+    }
+
+    const pretty =
+      bulkType === "percentage" ? `${value}%` : fmt(value);
+    const scopeLabel =
+      `${activeCountry === "all" ? (t?.allCountries || "all countries") : activeCountry.toUpperCase()}` +
+      ` / ${activeNetwork === "all" ? (t?.allNetworks || "all networks") : activeNetwork}`;
+    if (
+      !window.confirm(
+        `Apply a ${pretty} markup to ${scopeCount} plan${scopeCount === 1 ? "" : "s"} in ${scopeLabel}?`,
+      )
+    ) {
+      return;
+    }
+
+    setBulkSaving(true);
+
+    // Optimistic: reflect the new markup (and enablement) on the cards at once.
+    const previous = plans;
+    const now = new Date().toISOString();
+    setPlans((prev) =>
+      prev.map((p) => {
+        const inScope =
+          (activeCountry === "all" ||
+            (p.country_code || "").toLowerCase() === activeCountry) &&
+          (activeNetwork === "all" || p.network === activeNetwork);
+        if (!inScope) return p;
+        return {
+          ...p,
+          config: {
+            id: p.config?.id ?? `pending-${p.id}`,
+            reseller_id: p.config?.reseller_id ?? "",
+            plan_id: p.id,
+            enabled: true,
+            markup_type: bulkType,
+            markup_value: value,
+            selling_price:
+              p.config?.selling_price ?? p.selling_price_local ?? p.base_price,
+            created_at: p.config?.created_at ?? now,
+            updated_at: now,
+          },
+        };
+      }),
+    );
+
     const result = await bulkUpdatePlans({
       network: activeNetwork === "all" ? undefined : activeNetwork,
       markupType: bulkType,
@@ -256,16 +314,16 @@ export default function GlobalPlansPanel({
       provider: "zendit",
       country: activeCountry === "all" ? undefined : activeCountry,
     });
+
     if (result.success) {
       await load(activeCountry);
       flash(
         "success",
-        `${result.count || 0} plans updated to ${
-          bulkType === "percentage" ? `${value}%` : fmt(value)
-        } markup`,
+        `${result.count || 0} plans updated to ${pretty} markup`,
       );
       onChanged?.();
     } else {
+      setPlans(previous);
       flash("error", result.error || "Failed to update plans");
     }
     setBulkSaving(false);
@@ -415,9 +473,10 @@ export default function GlobalPlansPanel({
             }}
           />
         </div>
-        <select
+        <ThemeSelect
           value={activeNetwork}
-          onChange={(e) => setActiveNetwork(e.target.value)}
+          onChange={setActiveNetwork}
+          ariaLabel={t?.allNetworks || "Networks"}
           style={{
             background: "var(--card)",
             border: "1px solid var(--border)",
@@ -426,15 +485,13 @@ export default function GlobalPlansPanel({
             padding: "0.55rem 0.7rem",
             fontSize: "0.85rem",
             fontFamily: "inherit",
+            minWidth: 150,
           }}
-        >
-          <option value="all">{t?.allNetworks || "All Networks"}</option>
-          {networks.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: "all", label: t?.allNetworks || "All Networks" },
+            ...networks.map((n) => ({ value: n, label: n })),
+          ]}
+        />
       </div>
 
       {/* Bulk update (global scope) */}
@@ -453,9 +510,10 @@ export default function GlobalPlansPanel({
         <h3 style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.9rem" }}>
           {t?.bulkPricing || "Bulk Update"}
         </h3>
-        <select
+        <ThemeSelect
           value={bulkType}
-          onChange={(e) => setBulkType(e.target.value as "percentage" | "fixed")}
+          onChange={(v) => setBulkType(v as "percentage" | "fixed")}
+          ariaLabel={t?.markupType || "Markup Type"}
           style={{
             background: "var(--bg2)",
             border: "1px solid var(--border)",
@@ -464,15 +522,16 @@ export default function GlobalPlansPanel({
             padding: "0.4rem 0.55rem",
             fontSize: "0.82rem",
             fontFamily: "inherit",
+            minWidth: 130,
           }}
-        >
-          <option value="percentage">{t?.percentage || "Percentage"}</option>
-          <option value="fixed">{t?.fixed || "Fixed Amount"}</option>
-        </select>
+          options={[
+            { value: "percentage", label: t?.percentage || "Percentage" },
+            { value: "fixed", label: t?.fixed || "Fixed Amount" },
+          ]}
+        />
         <input
           type="number"
           value={bulkValue}
-          onFocus={() => setBulkValue("")}
           onBlur={() => {
             if (bulkValue === "") setBulkValue(0);
           }}
@@ -492,14 +551,7 @@ export default function GlobalPlansPanel({
         />
         <button
           onClick={handleBulkUpdate}
-          disabled={
-            bulkSaving ||
-            // A global "all countries + all networks" apply would touch the
-            // whole Zendit catalog (thousands of rows, one round-trip each),
-            // so it must be narrowed first. The local view's bulk card has
-            // the same shape but a much smaller scope.
-            (activeCountry === "all" && activeNetwork === "all")
-          }
+          disabled={bulkSaving}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -511,24 +563,10 @@ export default function GlobalPlansPanel({
             padding: "0.5rem 0.9rem",
             fontWeight: 600,
             fontSize: "0.82rem",
-            cursor:
-              bulkSaving ||
-              (activeCountry === "all" && activeNetwork === "all")
-                ? "not-allowed"
-                : "pointer",
+            cursor: bulkSaving ? "not-allowed" : "pointer",
             fontFamily: "inherit",
-            opacity:
-              bulkSaving ||
-              (activeCountry === "all" && activeNetwork === "all")
-                ? 0.5
-                : 1,
+            opacity: bulkSaving ? 0.5 : 1,
           }}
-          title={
-            activeCountry === "all" && activeNetwork === "all"
-              ? t?.pickCountryOrNetwork ||
-                "Pick a country or network to bulk-update"
-              : undefined
-          }
         >
           {bulkSaving ? (
             <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />

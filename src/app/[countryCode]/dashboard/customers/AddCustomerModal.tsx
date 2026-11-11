@@ -3,8 +3,8 @@
 
 import { useState } from "react";
 import { X, User, Mail, Phone, Building2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { CountryConfig } from "@/config/countries";
+import { addCustomerWithLogin } from "@/actions/reseller/customers/addCustomerWithLogin";
 
 interface AddCustomerModalProps {
   onClose: () => void;
@@ -22,7 +22,6 @@ export default function AddCustomerModal({
   translations,
 }: AddCustomerModalProps) {
   const t = translations;
-  const supabase = createClient();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     first_name: "",
@@ -81,22 +80,19 @@ export default function AddCustomerModal({
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("global_customers")
-        .insert({
-          reseller_id: applicationId,
-          first_name: formData.first_name.trim(),
-          last_name: formData.last_name.trim() || "",
-          email: formData.email.trim() || "",
-          phone: formData.phone.trim() || "",
-          status: formData.status,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+      const result = await addCustomerWithLogin({
+        resellerId: applicationId,
+        firstName: formData.first_name.trim(),
+        lastName: formData.last_name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        status: formData.status,
+      });
 
-      if (error) throw error;
+      if (!result.success) {
+        setErrors({ submit: result.error || t?.errorAdding || "Failed to add customer" });
+        return;
+      }
 
       onSuccess();
       onClose();

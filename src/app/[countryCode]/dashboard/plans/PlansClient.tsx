@@ -59,10 +59,10 @@ export default function PlansClient({
   const [bulkType, setBulkType] = useState<"percentage" | "fixed">(
     "percentage",
   );
-  // The field shows a resting "0" and empties on focus so the user can type
-  // straight away (a controlled number input keeps a leading 0 otherwise).
+  // The bulk field reflects the markup already applied to the selected
+  // "Apply To" network (see the effect below), so a network the reseller
+  // has bulk-updated shows its markup instead of a permanent resting 0.
   const [bulkValue, setBulkValue] = useState<number | "">(0);
-  const [bulkValueFocused, setBulkValueFocused] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
   // Which network the bulk update applies to: a specific network name, or
   // "all". Replaces the old {network|all} scope + implicit activeNetwork,
@@ -107,13 +107,59 @@ export default function PlansClient({
     [plansData, activeNetwork],
   );
 
-  const refreshPlans = async () => {
+  // The markup currently applied to the selected bulk scope, or null when the
+  // scope has no configs (nothing applied) or mixed markups (nothing uniform
+  // to show). "All Networks" only shows a value when every configured plan
+  // across the store agrees on one.
+  const bulkScopeMarkup = useMemo<{
+    type: "percentage" | "fixed";
+    value: number;
+  } | null>(() => {
+    const scoped =
+      bulkNetwork === "all"
+        ? plansData
+        : plansData.filter((p) => p.network === bulkNetwork);
+    const configs = scoped.filter((p) => p.config);
+    if (configs.length === 0) return null;
+    const first = configs[0].config!;
+    const uniform = configs.every(
+      (p) =>
+        (p.config!.markup_type || "percentage") ===
+          (first.markup_type || "percentage") &&
+        Number(p.config!.markup_value || 0) === Number(first.markup_value || 0),
+    );
+    if (!uniform) return null;
+    return {
+      type: first.markup_type === "fixed" ? "fixed" : "percentage",
+      value: Number(first.markup_value || 0),
+    };
+  }, [plansData, bulkNetwork]);
+
+  // Mirror the selected scope's applied markup into the fields. Runs when the
+  // "Apply To" scope changes and whenever the underlying configs change (e.g.
+  // a plan edit), but not while a bulk apply is in flight — that path sets the
+  // fields optimistically itself.
+  useEffect(() => {
+    if (bulkSaving) return;
+    setBulkType(bulkScopeMarkup?.type ?? "percentage");
+    setBulkValue(bulkScopeMarkup ? bulkScopeMarkup.value : 0);
+  }, [bulkScopeMarkup, bulkSaving]);
+
+  // Refresh one network (merge into the cached set) or the whole catalog when
+  // called with `null` (an "All Networks" / global change touches many).
+  const refreshPlans = async (network?: string | null) => {
+    const all = network === null;
+    const target = all ? null : network ?? activeNetwork;
     setIsLoading(true);
     try {
-      const result = await getPlans({ network: activeNetwork });
+      const result = await getPlans(target ? { network: target } : {});
       if (result.success && result.data) {
-        const otherPlans = plansData.filter((p) => p.network !== activeNetwork);
-        setPlansData([...otherPlans, ...(result.data || [])]);
+        if (target) {
+          const otherPlans = plansData.filter((p) => p.network !== target);
+          setPlansData([...otherPlans, ...(result.data || [])]);
+        } else {
+          setPlansData(result.data || []);
+        }
       }
     } catch (error) {
       console.error("Refresh error:", error);
@@ -269,15 +315,40 @@ export default function PlansClient({
 
     // An untouched (empty) field means a zero markup.
     const value = bulkValue === "" ? 0 : bulkValue;
+    const scopeNetwork = bulkNetwork === "all" ? undefined : bulkNetwork;
+
+    // Snapshot for rollback, then apply optimistically so the cards, toggles
+    // and the value field read as updated the instant the user clicks Apply.
+    const previousPlans = plansData;
+    const now = new Date().toISOString();
+    setPlansData((prev) =>
+      prev.map((p) => {
+        if (scopeNetwork && p.network !== scopeNetwork) return p;
+        const selling = p.config?.selling_price ?? p.selling_price_local ?? p.base_price;
+        return {
+          ...p,
+          config: {
+            id: p.config?.id ?? `pending-${p.id}`,
+            reseller_id: p.config?.reseller_id ?? "",
+            plan_id: p.id,
+            enabled: true,
+            markup_type: bulkType,
+            markup_value: value,
+            selling_price: selling,
+            created_at: p.config?.created_at ?? now,
+            updated_at: now,
+          },
+        };
+      }),
+    );
 
     const result = await bulkUpdatePlans({
-      network: bulkNetwork === "all" ? undefined : bulkNetwork,
+      network: scopeNetwork,
       markupType: bulkType,
       markupValue: value,
     });
 
     if (result.success) {
-      await refreshPlans();
       setMessage({
         type: "success",
         text: `${result.count || 0} plans updated to ${
@@ -285,7 +356,11 @@ export default function PlansClient({
         } markup`,
       });
       setTimeout(() => setMessage(null), 3000);
+      // Reconcile every affected network from the server (an "All Networks"
+      // apply touches more than the visible tab), without blocking the UI.
+      await refreshPlans(scopeNetwork ?? null);
     } else {
+      setPlansData(previousPlans);
       setMessage({
         type: "error",
         text: result.error || "Failed to update plans",
@@ -493,14 +568,10 @@ export default function PlansClient({
             "Toggle plans on/off and set your markup for each network"}
       </p>
 
-      {showGlobal ? (
-        <GlobalPlansPanel
-          countryCode={countryCode}
-          config={config}
-          translations={t}
-          onChanged={refreshPlans}
-        />
-      ) : (
+      {/* Both views stay mounted. Toggling the globe then costs nothing, and
+          the global catalog preloads on first render instead of refetching
+          every time the reseller opens it. */}
+      <div style={{ display: showGlobal ? "none" : "contents" }}>
         <>
       {/* Stats */}
       <style>{`
@@ -715,17 +786,11 @@ export default function PlansClient({
             <label style={labelStyle}>{t?.markupValue || "Value"}</label>
             <input
               type="number"
-              value={bulkValueFocused ? bulkValue : bulkValue === "" ? 0 : bulkValue}
+              value={bulkValue}
               onChange={(e) =>
                 setBulkValue(e.target.value === "" ? "" : Number(e.target.value))
               }
-              onFocus={() => {
-                // Empty the resting "0" so the first keystroke replaces it.
-                setBulkValueFocused(true);
-                if (bulkValue === 0) setBulkValue("");
-              }}
               onBlur={() => {
-                setBulkValueFocused(false);
                 if (bulkValue === "") setBulkValue(0);
               }}
               style={inputStyle}
@@ -1247,7 +1312,16 @@ export default function PlansClient({
         )}
       </div>
         </>
-      )}
+      </div>
+
+      <div style={{ display: showGlobal ? "contents" : "none" }}>
+        <GlobalPlansPanel
+          countryCode={countryCode}
+          config={config}
+          translations={t}
+          onChanged={() => refreshPlans(null)}
+        />
+      </div>
 
       <style jsx>{`
         @keyframes spin {
