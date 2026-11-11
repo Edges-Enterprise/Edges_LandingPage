@@ -96,6 +96,38 @@ reseller dashboard).
   JWT). Neither function's source was in the repo originally; both are now
   versioned under `supabase/functions/` — keep them in sync when deploying.
 
+### Scheduled promotions
+
+- `global-scheduled-promotions` sends the recurring promotional notifications
+  (daily / weekly / monthly / holiday / one-off events) to every active store on
+  the `global_*` model. It inserts into `global_notifications` /
+  `global_customer_notifications`; the push triggers above deliver them. The
+  legacy `reseller-scheduled-promotions` / `web-scheduled-promotions` are
+  **reference-only** (retired `reseller_*` tables, and their weekly cron could
+  never fire a time/day rule).
+- Content lives in `config.ts` (`SCHEDULED_NOTIFICATIONS`), **all times UTC**
+  (Deno's clock is UTC). The config is deliberately country-neutral because one
+  schedule fans out to every country.
+- The cron runs **every 5 minutes**; `shouldSendNow()` matches the exact and the
+  5-minute-rounded minute. `global_promotion_sends` is the dedupe ledger — the
+  function claims a `(scheduled_id, sent_for)` row before inserting, and the
+  unique constraint makes a second run in the same window a no-op.
+- Scheduled by `cron.schedule` → `public.run_scheduled_edge(...)`, which
+  presents the vault secret `scheduled_promotions_secret` as `x-sync-secret`;
+  the function enforces it against `SCHEDULED_PROMOTIONS_SECRET`.
+
+### Testing against the live project: back up **every** column you touch
+
+When a live check needs to neutralise data (e.g. nulling push tokens so a probe
+does not ring real phones), the backup must capture **every column the test
+writes**, and restoring must be verified. A backup that captured a row's id and
+flag but not its `fcm_token`/`push_token` meant those tokens were
+**unrecoverable** — the project has no PITR (`pitr_enabled: false`) and no
+physical backups (`backups: []`), so there is nothing to restore from. Prefer a
+narrower test that never writes to shared tables, or snapshot the full rows
+(`create table ... as select *`). This is a real incident, not a hypothetical:
+it nulled six customers' tokens.
+
 
 ## Supabase
 
