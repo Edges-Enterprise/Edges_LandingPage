@@ -416,6 +416,40 @@ Operational invariants worth keeping:
   because 11 AE and 6 ZW plans were enabled for it.
 
 
+## Bulk plan updates (dashboard)
+
+- The bulk upsert in `src/actions/reseller/plans/bulkUpdatePlans.ts` writes
+  **one batched `upsert(..., { onConflict: "reseller_id,plan_id" })` per 500-row
+  chunk**, not a per-plan `SELECT` + write. The `(reseller_id, plan_id)` unique
+  constraint is what makes this safe; if it ever disappears, the upsert silently
+  duplicates instead of updating.
+- Bulk writes set **`enabled: true`** on both the insert and update paths — a
+  plan a reseller bulk-priced is a plan they intend to sell.
+- The "Value" field beside "Apply To" reflects the markup of the **selected
+  scope network**, derived in `PlansClient` (`bulkScopeMarkup`), not a stored
+  value. Do not reintroduce the old empty-on-focus input trick; a derived value
+  is the correct resting state.
+- Both plan views (local + global) stay mounted (`display:none` / `display:contents`),
+  so the global catalog preloads once and toggling the globe never remounts or
+  refetches the local list.
+- `refreshPlans(network)` refreshes one network; `refreshPlans(null)` refreshes
+  the whole catalog. A global-panel change calls the latter (`onChanged`).
+
+
+## Adding a customer from the dashboard
+
+`src/actions/reseller/customers/addCustomerWithLogin.ts` is the only correct
+path for the dashboard "Add customer" modal. It must create the Supabase Auth
+user as well as the customer row: `global_customers.auth_user_id` /
+`auth_email` are what the storefront sign-in resolves against
+(`getGlobalCustomerAuthEmail`), so a row written without them is a customer who
+can never log in. The action creates the auth user with the same per-store
+alias-email scheme as self-signup (`<local>+<storeSlug><n>@<domain>`), retrying
+the suffix on a duplicate; it rolls the auth user back if the customer insert
+fails, creates the wallet, and emails the generated credentials. Do not revert
+the modal to a direct `global_customers` insert.
+
+
 ## Pushing to GitHub from the sandbox
 
 `git push` with the default `GITHUB_TOKEN` (a GitHub App installation token)
