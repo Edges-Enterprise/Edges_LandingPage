@@ -405,22 +405,32 @@ export async function processPurchase(
     deductionOk = !deductionError && !!result?.success;
 
     if (!deductionOk) {
-      await supabaseAdmin.from("global_transactions").insert({
-        reseller_id: resellerId,
-        amount: finalPrice,
-        type: "purchase",
-        status: "failed",
-        reference: requestId,
-        payment_gateway: basePlan.provider,
-        metadata: {
-          plan_id: basePlan.id,
-          plan_name: basePlan.name,
-          customer_email: customerEmail,
-          phone_number: phoneNumber,
-          error: "Deduction failed after delivery (unexpected)",
-          requires_manual_reconciliation: true,
-        },
-      });
+      const { error: failedLedgerError } = await supabaseAdmin
+        .from("global_transactions")
+        .insert({
+          reseller_id: resellerId,
+          amount: finalPrice,
+          type: "purchase",
+          status: "failed",
+          reference: requestId,
+          payment_gateway: basePlan.provider,
+          description: `Failed purchase ${basePlan.name} (${basePlan.network || basePlan.provider}) - deduction failed after delivery`,
+          metadata: {
+            plan_id: basePlan.id,
+            plan_name: basePlan.name,
+            customer_email: customerEmail,
+            phone_number: phoneNumber,
+            error: "Deduction failed after delivery (unexpected)",
+            requires_manual_reconciliation: true,
+          },
+        });
+
+      if (failedLedgerError) {
+        console.error(
+          "failed-purchase ledger insert failed:",
+          failedLedgerError.message,
+        );
+      }
 
       return {
         success: false,
@@ -492,22 +502,31 @@ export async function processPurchase(
   }
 
   // 15. Record the reseller-side ledger entry (always - both self-purchase and customer sales).
-  await supabaseAdmin.from("global_transactions").insert({
-    reseller_id: resellerId,
-    amount: userType === "reseller" ? costPrice : finalPrice,
-    type: "purchase",
-    status: "completed",
-    reference: orderId || requestId,
-    payment_gateway: basePlan.provider,
-    metadata: {
-      order_id: orderId,
-      plan_id: basePlan.id,
-      plan_name: basePlan.name,
-      customer_email: customerEmail,
-      phone_number: phoneNumber,
-      provider_ref: requestId,
-    },
-  });
+  const { error: ledgerError } = await supabaseAdmin
+    .from("global_transactions")
+    .insert({
+      reseller_id: resellerId,
+      amount: userType === "reseller" ? costPrice : finalPrice,
+      type: "purchase",
+      status: "completed",
+      reference: orderId || requestId,
+      payment_gateway: basePlan.provider,
+      description: `Purchased ${basePlan.name} (${basePlan.network || basePlan.provider})`,
+      metadata: {
+        order_id: orderId,
+        plan_id: basePlan.id,
+        plan_name: basePlan.name,
+        customer_email: customerEmail,
+        phone_number: phoneNumber,
+        provider_ref: requestId,
+      },
+    });
+
+  // The order and wallet movements are already committed; a ledger-row failure
+  // must not fail the purchase, but it must not be swallowed either.
+  if (ledgerError) {
+    console.error("reseller ledger insert failed:", ledgerError.message);
+  }
 
   // Notify the buyer's own inbox. global_notifications is the owner's inbox,
   // global_customer_notifications a customer's - same split the mobile
