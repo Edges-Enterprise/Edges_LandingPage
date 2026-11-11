@@ -160,6 +160,32 @@ it nulled six customers' tokens.
   `sha256(sandbox_value)` against the digest — never treat the digest as the
   value.
 
+### Money RPCs must not be anon-callable
+
+Every `public` function is reachable at `POST /rest/v1/rpc/<name>` with the
+**public** anon key (it ships in the web bundle and the mobile app), and
+Supabase's default privileges grant `EXECUTE` to `PUBLIC`/`anon`/`authenticated`.
+A `SECURITY DEFINER` function therefore runs as its owner and **bypasses RLS**
+for any caller. Four wallet-moving functions were exposed this way and were
+locked down in `supabase/migrations/20261111_revoke_global_money_rpcs.sql`
+(`REVOKE ALL ... FROM PUBLIC, anon, authenticated; GRANT EXECUTE ... TO
+service_role`):
+
+`create_global_purchase_order`, `deduct_global_reseller_cost`,
+`get_global_reseller_balance`, `process_global_purchase_deductions`.
+
+They are called only by the service-role layer
+(`_shared/purchaseOrchestrator.ts`, `src/actions/reseller/publishing/purchasePublishingPlan.ts`),
+so `service_role` keeps `EXECUTE`. When you add a `SECURITY DEFINER` function
+that touches money, revoke `anon`/`authenticated` in the same migration.
+
+**Known remaining exposure (not yet fixed, tracked in `HANDOVER.md`):** the
+legacy twins are still anon-callable `SECURITY DEFINER` —
+`create_purchase_order`, `deduct_reseller_cost`, `get_reseller_balance`,
+`process_purchase_deductions`, `update_wallet_after_sale`, plus
+`award_app_first_deposit_bonus`. Treat them the same way once it is decided to
+touch the legacy path.
+
 ## Payments
 
 - `src/lib/payments/{korapay,flutterwave,xixapay}.ts` read their secret at module
