@@ -29,12 +29,12 @@ export async function POST(req: Request) {
 
     // Get or create virtual account using edge function
     const response = await fetch(
-      `${process.env.SUPABASE_URL}/functions/v1/create-api-user-virtual-account`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-api-user-virtual-account`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({
           userId: auth.user.id,

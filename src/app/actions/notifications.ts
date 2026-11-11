@@ -166,8 +166,12 @@ export async function saveFCMTokenAction(userId: string, token: string) {
 }
 
 async function getFCMAccessToken(): Promise<string> {
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (!serviceAccount) {
+    throw new Error("FIREBASE_SERVICE_ACCOUNT is not configured");
+  }
   const auth = new GoogleAuth({
-    credentials: JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!),
+    credentials: JSON.parse(serviceAccount),
     scopes: ["https://www.googleapis.com/auth/firebase.messaging"],
   });
   const client = await auth.getClient();
@@ -190,10 +194,24 @@ export async function sendWebPushAction(
 
   if (!tokenRow?.fcm_token) return { error: "No web push token" };
 
-  const accessToken = await getFCMAccessToken();
+  // Only the NEXT_PUBLIC_ project id is set on Vercel; the non-prefixed name
+  // belongs to the Supabase function secrets, which this runtime never sees.
+  const projectId =
+    process.env.FIREBASE_PROJECT_ID ||
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  if (!projectId) return { error: "FIREBASE_PROJECT_ID is not configured" };
+
+  let accessToken: string;
+  try {
+    accessToken = await getFCMAccessToken();
+  } catch (error) {
+    // An unconfigured service account must not throw into callers that run
+    // after a wallet has already been credited.
+    return { error: (error as Error).message };
+  }
 
   const response = await fetch(
-    `https://fcm.googleapis.com/v1/projects/${process.env.FIREBASE_PROJECT_ID}/messages:send`,
+    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
     {
       method: "POST",
       headers: {

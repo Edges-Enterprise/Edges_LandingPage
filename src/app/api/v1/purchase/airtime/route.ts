@@ -48,12 +48,12 @@ export async function POST(req: Request) {
     const requestId = `API_AIR_${Date.now()}_${Math.random().toString(36).substring(7).toUpperCase()}`;
 
     const response = await fetch(
-      `${process.env.SUPABASE_URL}/functions/v1/purchase-airtime`,
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/purchase-airtime`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY}`,
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({
           userId: auth.user.id,

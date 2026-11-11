@@ -45,6 +45,27 @@ reseller dashboard).
   `PATCH /v9/projects/{id}/env/{envId}` preserves the stored value (verified for
   `sensitive` vars); the CLI has no target-only update.
 
+### Env var names: use the `NEXT_PUBLIC_` Supabase vars on Vercel
+
+- The web app runs on Vercel, which defines only `NEXT_PUBLIC_SUPABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+  The **non-prefixed** `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` /
+  `SUPABASE_ANON_KEY` exist only as **Supabase edge-function secrets** — a
+  Vercel runtime never sees them. They hold the same values (proved by
+  comparing `sha256(NEXT_PUBLIC_*)` against the Management API digests).
+- Server code that needs the service-role client must use
+  `createAdminClient()` from `@/lib/supabase/admin`, not
+  `createClient(process.env.SUPABASE_URL, ...)`: with the var unset,
+  `createClient` throws `supabaseUrl is required.` A route that swallowed that
+  in a `try/catch` (the XixaPay webhook ledger) silently dropped every write.
+- The **Firebase admin** vars are the same trap: `FIREBASE_SERVICE_ACCOUNT`
+  lives only in the Supabase function secrets, and Vercel carries only
+  `NEXT_PUBLIC_FIREBASE_*` (client config). `FIREBASE_PROJECT_ID` is likewise
+  unset on Vercel — fall back to `NEXT_PUBLIC_FIREBASE_PROJECT_ID`.
+- Never `JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!)` unguarded, and
+  never let a push failure reject a request whose DB writes already committed
+  (a wallet credit must not return 500 just because FCM was unreachable).
+
 ## Supabase
 
 - Project ref `jjyyfaxcwanrmiipzkoj` (web app uses the same project).

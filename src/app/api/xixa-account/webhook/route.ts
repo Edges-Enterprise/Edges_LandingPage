@@ -1,6 +1,7 @@
 // src/app/api/xixa-account/webhook/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { sendWebPushAction } from "@/app/actions/notifications";
@@ -652,10 +653,11 @@ export async function POST(req: NextRequest) {
     // NOT captured by auto-sweep. Handle that fee revenue via a separate,
     // manual withdrawal if needed.
     try {
-      const ledgerAdmin = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      );
+      // Was createClient(process.env.SUPABASE_URL, ..._SERVICE_ROLE_KEY) — those
+      // non-prefixed names are not set on Vercel, so createClient threw
+      // "supabaseUrl is required" and every successful payment silently skipped
+      // the ledger write. createAdminClient() reads the NEXT_PUBLIC_ names.
+      const ledgerAdmin = createAdminClient();
 
       const ledgerGrossAmount = parseFloat(payload.amount_paid);
       const ledgerNetAmount = calculateNetAmount(ledgerGrossAmount);
@@ -805,11 +807,18 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      await sendWebPushAction(
-        virtualAccount.user_id,
-        "💰 Wallet Funded",
-        `₦${finalNetAmount.toLocaleString("en-NG", { minimumFractionDigits: 2 })} added to your wallet`,
-      );
+      // The wallet, transaction and notification rows are already committed, so
+      // a push failure must not fail the webhook — otherwise Xixapay sees a 500
+      // for a payment that was in fact credited.
+      try {
+        await sendWebPushAction(
+          virtualAccount.user_id,
+          "💰 Wallet Funded",
+          `₦${finalNetAmount.toLocaleString("en-NG", { minimumFractionDigits: 2 })} added to your wallet`,
+        );
+      } catch (pushError) {
+        console.error("Web push failed after wallet funding:", pushError);
+      }
 
       console.log("App 1 wallet funded:", {
         user: profile.email,
