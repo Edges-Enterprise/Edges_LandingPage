@@ -71,7 +71,7 @@ export default function PlansClient({
     initialData.networks.length > 0 ? initialData.networks[0] : "all",
   );
   const [message, setMessage] = useState<{
-    type: "success" | "error";
+    type: "success" | "error" | "info";
     text: string;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -144,6 +144,16 @@ export default function PlansClient({
     setBulkType(bulkScopeMarkup?.type ?? "percentage");
     setBulkValue(bulkScopeMarkup ? bulkScopeMarkup.value : 0);
   }, [bulkScopeMarkup, bulkSaving]);
+
+  // True when the current field values already match the markup applied to
+  // the selected scope. Re-applying that exact markup would be a no-op write,
+  // so a click on Apply is answered with an informational message instead of
+  // re-running the update, and the button's label/tooltip says so up front.
+  const bulkValueNumber = bulkValue === "" ? 0 : bulkValue;
+  const bulkAlreadyApplied =
+    bulkScopeMarkup !== null &&
+    bulkScopeMarkup.type === bulkType &&
+    bulkScopeMarkup.value === bulkValueNumber;
 
   // Refresh one network (merge into the cached set) or the whole catalog when
   // called with `null` (an "All Networks" / global change touches many).
@@ -310,11 +320,22 @@ export default function PlansClient({
   };
 
   const handleBulkUpdate = async () => {
-    setBulkSaving(true);
     setMessage(null);
 
-    // An untouched (empty) field means a zero markup.
-    const value = bulkValue === "" ? 0 : bulkValue;
+    // The exact markup is already applied to this scope — re-applying would
+    // only rewrite the same rows. Tell the user instead of running it again.
+    if (bulkAlreadyApplied) {
+      setMessage({
+        type: "info",
+        text: t?.bulkAlreadyApplied || "This markup has already been applied",
+      });
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
+    setBulkSaving(true);
+
+    const value = bulkValueNumber;
     const scopeNetwork = bulkNetwork === "all" ? undefined : bulkNetwork;
 
     // Snapshot for rollback, then apply optimistically so the cards, toggles
@@ -694,12 +715,21 @@ export default function PlansClient({
             background:
               message.type === "success"
                 ? "rgba(110,189,138,0.1)"
-                : "rgba(239,68,68,0.1)",
+                : message.type === "info"
+                  ? "rgba(245,158,11,0.1)"
+                  : "rgba(239,68,68,0.1)",
             border:
               message.type === "success"
                 ? "1px solid rgba(110,189,138,0.25)"
-                : "1px solid rgba(239,68,68,0.25)",
-            color: message.type === "success" ? "#6EBD8A" : "#F87171",
+                : message.type === "info"
+                  ? "1px solid rgba(245,158,11,0.25)"
+                  : "1px solid rgba(239,68,68,0.25)",
+            color:
+              message.type === "success"
+                ? "#6EBD8A"
+                : message.type === "info"
+                  ? "#F59E0B"
+                  : "#F87171",
             fontSize: "0.88rem",
             display: "flex",
             alignItems: "center",
@@ -804,8 +834,16 @@ export default function PlansClient({
             data-tour="set_markup"
             style={btnPrimaryStyle}
             className="bulk-apply"
-            aria-label={t?.apply || "Apply"}
-            title={t?.apply || "Apply"}
+            aria-label={
+              bulkAlreadyApplied
+                ? t?.bulkAlreadyApplied || "This markup has already been applied"
+                : t?.apply || "Apply"
+            }
+            title={
+              bulkAlreadyApplied
+                ? t?.bulkAlreadyApplied || "This markup has already been applied"
+                : t?.apply || "Apply"
+            }
           >
             {bulkSaving ? (
               <Loader2

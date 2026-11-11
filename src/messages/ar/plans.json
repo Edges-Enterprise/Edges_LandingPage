@@ -29,5 +29,6 @@
   "cost": "التكلفة",
   "hidden": "مخفي",
   "sell": "بيع",
-  "editMarkup": "تعديل الهامش"
+  "editMarkup": "تعديل الهامش",
+  "bulkAlreadyApplied": "تم تطبيق هذا الهامش بالفعل"
 }

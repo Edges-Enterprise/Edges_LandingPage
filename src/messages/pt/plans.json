@@ -63,5 +63,6 @@
   "noPlansSelected": "No plans selected",
   "applyTo": "Apply To",
   "onlyNetwork": "Somente {network}",
-  "apply": "Aplicar"
+  "apply": "Aplicar",
+  "bulkAlreadyApplied": "Este markup já foi aplicado"
 }

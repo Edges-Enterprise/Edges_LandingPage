@@ -37,5 +37,6 @@
   "localPlans": "Your store plans",
   "allCountries": "All Countries",
   "searchPlans": "Search plans",
-  "enabled": "enabled"
+  "enabled": "enabled",
+  "bulkAlreadyApplied": "This markup has already been applied"
 }

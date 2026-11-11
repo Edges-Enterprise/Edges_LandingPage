@@ -29,5 +29,6 @@
   "cost": "Costo",
   "hidden": "Oculto",
   "sell": "Vender",
-  "editMarkup": "Editar margen"
+  "editMarkup": "Editar margen",
+  "bulkAlreadyApplied": "Este margen ya se ha aplicado"
 }

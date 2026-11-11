@@ -29,5 +29,6 @@
   "cost": "Coût",
   "hidden": "Masqué",
   "sell": "Vendre",
-  "editMarkup": "Modifier la marge"
+  "editMarkup": "Modifier la marge",
+  "bulkAlreadyApplied": "Cette majoration a déjà été appliquée"
 }
