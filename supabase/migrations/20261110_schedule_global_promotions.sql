@@ -17,14 +17,35 @@
 
 BEGIN;
 
--- 1. Dedupe ledger: one row per scheduled promotion per day.
+-- 1. Dedupe ledger: one row per scheduled promotion per day, per country. The
+--    country dimension exists because a local-time rule ("evening") fires at a
+--    different UTC instant in each market, so each country claims its own slot.
 CREATE TABLE IF NOT EXISTS public.global_promotion_sends (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     scheduled_id text NOT NULL,
     sent_for date NOT NULL,
-    created_at timestamp with time zone NOT NULL DEFAULT now(),
-    CONSTRAINT global_promotion_sends_unique UNIQUE (scheduled_id, sent_for)
+    country_code text NOT NULL DEFAULT 'ALL',
+    created_at timestamp with time zone NOT NULL DEFAULT now()
 );
+
+-- The table was first shipped without country_code; add it for existing installs.
+ALTER TABLE public.global_promotion_sends
+    ADD COLUMN IF NOT EXISTS country_code text NOT NULL DEFAULT 'ALL';
+
+-- Replace the (scheduled_id, sent_for) uniqueness with the country-aware key.
+ALTER TABLE public.global_promotion_sends
+    DROP CONSTRAINT IF EXISTS global_promotion_sends_unique;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'global_promotion_sends_unique'
+    ) THEN
+        ALTER TABLE public.global_promotion_sends
+            ADD CONSTRAINT global_promotion_sends_unique
+            UNIQUE (scheduled_id, sent_for, country_code);
+    END IF;
+END $$;
 
 ALTER TABLE public.global_promotion_sends ENABLE ROW LEVEL SECURITY;
 

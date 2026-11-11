@@ -99,19 +99,32 @@ reseller dashboard).
 ### Scheduled promotions
 
 - `global-scheduled-promotions` sends the recurring promotional notifications
-  (daily / weekly / monthly / holiday / one-off events) to every active store on
-  the `global_*` model. It inserts into `global_notifications` /
-  `global_customer_notifications`; the push triggers above deliver them. The
-  legacy `reseller-scheduled-promotions` / `web-scheduled-promotions` are
-  **reference-only** (retired `reseller_*` tables, and their weekly cron could
-  never fire a time/day rule).
-- Content lives in `config.ts` (`SCHEDULED_NOTIFICATIONS`), **all times UTC**
-  (Deno's clock is UTC). The config is deliberately country-neutral because one
-  schedule fans out to every country.
+  to every active store on the `global_*` model. It inserts into
+  `global_notifications` / `global_customer_notifications`; the push triggers
+  above deliver them. The legacy `reseller-scheduled-promotions` /
+  `web-scheduled-promotions` are **reference-only** (retired `reseller_*`
+  tables, and their weekly cron could never fire a time/day rule). The legacy
+  content was **movie promos** (Omotala Jalade / "Village Girl"); the current
+  content is **data-bundle + airtime** offers only.
+- Content lives in `config.ts` (`SCHEDULED_NOTIFICATIONS`). There is currently
+  **one** entry, `daily-evening-deals`, so a promotion is sent **once a day**.
+- The evening send is **local time, not UTC**: `dailyLocalWindow`
+  (`{start:"19:00", end:"21:00"}`) is matched per country against
+  `COUNTRY_UTC_OFFSETS` (every `SUPPORTED_COUNTRIES` entry; none observes DST),
+  because the markets span UTC+0 to UTC+3 and one UTC instant cannot be evening
+  everywhere. Any other schedule type (`time`/`days`/`monthly`/`holiday`/
+  `event`) is UTC and offset-independent.
+- `index.ts` groups recipients by `country_code` (customers inherit their
+  store's country through `global_reseller_applications`) and evaluates the
+  window per country.
 - The cron runs **every 5 minutes**; `shouldSendNow()` matches the exact and the
-  5-minute-rounded minute. `global_promotion_sends` is the dedupe ledger — the
-  function claims a `(scheduled_id, sent_for)` row before inserting, and the
-  unique constraint makes a second run in the same window a no-op.
+  5-minute-rounded minute. `global_promotion_sends` is the dedupe ledger, keyed
+  on `(scheduled_id, sent_for, country_code)` — the function claims a row before
+  inserting, and the unique constraint makes a second run in the same window a
+  no-op. `sent_for` is the recipient's **local** date.
+- A **`dry_run=1&at=<iso>`** query mode reports what a real run would do without
+  writing anything (`at` is ignored on real runs). Use it to verify timing
+  changes without sending a push or touching the ledger.
 - Scheduled by `cron.schedule` → `public.run_scheduled_edge(...)`, which
   presents the vault secret `scheduled_promotions_secret` as `x-sync-secret`;
   the function enforces it against `SCHEDULED_PROMOTIONS_SECRET`.
