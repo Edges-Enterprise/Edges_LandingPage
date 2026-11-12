@@ -1621,10 +1621,12 @@ export default function PlansClient({
           .bulk-field--value input {
             width: 56px;
           }
-          /* Icon-only apply button; the label is desktop-only. */
+          /* Icon-only apply button; the label is desktop-only. Padding and gap
+             are set inline on the button, so the compact overrides need
+             !important to win. */
           .bulk-apply {
-            padding: 0.55rem 0.7rem;
-            gap: 0;
+            padding: 0.55rem 0.7rem !important;
+            gap: 0 !important;
           }
           .bulk-apply-label {
             display: none;

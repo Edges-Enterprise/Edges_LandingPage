@@ -851,7 +851,10 @@ export default function GlobalPlansPanel({
                 }`}
           </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+        <div
+          className="global-bulk-row"
+          style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}
+        >
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label style={labelStyle}>{t?.applyTo || "Apply To"}</label>
             <ThemeSelect
@@ -884,6 +887,10 @@ export default function GlobalPlansPanel({
               ]}
             />
           </div>
+          <div
+            className="global-bulk-group"
+            style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}
+          >
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label style={labelStyle}>{t?.markupType || "Markup Type"}</label>
             <ThemeSelect
@@ -961,6 +968,7 @@ export default function GlobalPlansPanel({
             )}
             <span className="global-bulk-apply-label">{t?.apply || "Apply"}</span>
           </button>
+          </div>
         </div>
       </div>
 
@@ -1371,7 +1379,10 @@ export default function GlobalPlansPanel({
           -moz-appearance: textfield;
           appearance: textfield;
         }
-        /* In-app confirm dialog for a bulk apply. */
+        /* In-app confirm dialog for a bulk apply. The overlay only dims and
+           blurs; the card itself is translucent glass, so the page behind it
+           stays visible through the panel rather than being covered by a solid
+           fill. */
         .global-confirm-overlay {
           position: fixed;
           inset: 0;
@@ -1380,17 +1391,22 @@ export default function GlobalPlansPanel({
           align-items: center;
           justify-content: center;
           padding: 1rem;
-          background: rgba(0, 0, 0, 0.55);
-          backdrop-filter: blur(2px);
+          background: rgba(0, 0, 0, 0.22);
+          -webkit-backdrop-filter: blur(4px) saturate(130%);
+          backdrop-filter: blur(4px) saturate(130%);
         }
         .global-confirm-card {
           width: 100%;
           max-width: 26rem;
-          background: var(--bg2);
-          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--bg2) 46%, transparent);
+          border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
           border-radius: 14px;
           padding: 1.4rem;
-          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+          box-shadow:
+            0 24px 60px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.14);
+          -webkit-backdrop-filter: blur(12px) saturate(150%);
+          backdrop-filter: blur(12px) saturate(150%);
           text-align: center;
         }
         .global-confirm-icon {
@@ -1438,8 +1454,8 @@ export default function GlobalPlansPanel({
           cursor: not-allowed;
         }
         .global-confirm-cancel {
-          background: var(--bg);
-          border: 1px solid var(--border);
+          background: color-mix(in srgb, var(--bg) 55%, transparent);
+          border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
           color: var(--text);
         }
         .global-confirm-ok {
@@ -1506,10 +1522,35 @@ export default function GlobalPlansPanel({
             flex-wrap: wrap;
             row-gap: 0.6rem;
           }
+          /* Bulk row: country + network on the first line, then Markup Type +
+             Value + Apply kept together on the next. The icon-only Apply sits
+             inline with Markup Type and Value instead of wrapping onto a line
+             of its own. The scope selects stay full width so they fill the row. */
+          .global-bulk-row {
+            row-gap: 0.6rem;
+          }
+          .global-bulk-row > div:not(.global-bulk-group) {
+            flex: 1 1 100%;
+          }
+          .global-bulk-row > div:not(.global-bulk-group) > :last-child {
+            width: 100% !important;
+          }
+          .global-bulk-group {
+            flex: 1 1 100%;
+          }
+          .global-bulk-group > div {
+            flex: 1 1 0;
+            min-width: 0;
+          }
+          .global-bulk-group > div > :last-child {
+            width: 100% !important;
+          }
           /* Icon-only apply button; the label is desktop-only. The padding and
              gap are set inline on the button, so the compact overrides here
              need !important to win. */
           .global-bulk-apply {
+            flex: 0 0 auto;
+            align-self: center !important;
             padding: 0.55rem 0.7rem !important;
             gap: 0 !important;
           }
