@@ -64,5 +64,9 @@
   "applyTo": "Apply To",
   "onlyNetwork": "Somente {network}",
   "apply": "Aplicar",
-  "bulkAlreadyApplied": "Este markup já foi aplicado"
+  "bulkAlreadyApplied": "Este markup já foi aplicado",
+  "countries": "Countries",
+  "previous": "Previous",
+  "next": "Next",
+  "storeWideHint": "All countries + all networks sets your store-wide default markup"
 }

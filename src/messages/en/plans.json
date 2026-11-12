@@ -38,5 +38,10 @@
   "allCountries": "All Countries",
   "searchPlans": "Search plans",
   "enabled": "enabled",
-  "bulkAlreadyApplied": "This markup has already been applied"
+  "bulkAlreadyApplied": "This markup has already been applied",
+  "countries": "Countries",
+  "networks": "Network",
+  "previous": "Previous",
+  "next": "Next",
+  "storeWideHint": "All countries + all networks sets your store-wide default markup"
 }

@@ -30,5 +30,10 @@
   "hidden": "Oculto",
   "sell": "Vender",
   "editMarkup": "Editar margen",
-  "bulkAlreadyApplied": "Este margen ya se ha aplicado"
+  "bulkAlreadyApplied": "Este margen ya se ha aplicado",
+  "countries": "Países",
+  "networks": "Red",
+  "previous": "Anterior",
+  "next": "Siguiente",
+  "storeWideHint": "Todos los países + todas las redes establece tu margen predeterminado para toda la tienda"
 }

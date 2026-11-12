@@ -26,6 +26,14 @@ interface BulkUpdatePlansParams {
   global?: boolean;
   provider?: string;
   country?: string;
+  /**
+   * The scope is every country and every network. This is the store-wide
+   * default markup: the store switches to `all` mode (sell the whole catalog)
+   * and the markup is written once, on global_reseller_applications, instead
+   * of as one row per plan. This is the path the dashboard's Bulk Update card
+   * uses for "All Countries + All Networks".
+   */
+  storeWide?: boolean;
 }
 
 const PLAN_PRICING_COLUMNS =
@@ -74,15 +82,16 @@ export async function bulkUpdatePlans(params: BulkUpdatePlansParams): Promise<{
     // destination. The default path is unchanged (own country + provider).
     const provider = params.global ? (params.provider || "zendit") : serviceProvider;
 
-    // A store in `all` mode sells the whole catalog at its default markup, so
-    // "apply to everything" is ONE field, not 11k config rows. A scoped apply
-    // (a country or a network) still writes per-plan rows, which then override
-    // the default for exactly those plans. This is what keeps "sell all 11k
-    // plans" from creating 11k rows per store.
-    if (settings.catalogMode === "all" && !params.network && !params.country) {
+    // Store-wide apply ("All Countries + All Networks"): the whole catalog at
+    // one markup. This is the store default — ONE field, not 11k config rows —
+    // and it implies `all` mode, since selling every plan is what the scope
+    // means. Scoped applies (a country or a network) still write per-plan rows,
+    // which then override the default for exactly those plans.
+    if (params.storeWide || (settings.catalogMode === "all" && !params.network && !params.country)) {
       const { error: defaultError } = await adminClient
         .from("global_reseller_applications")
         .update({
+          catalog_mode: "all",
           default_markup_type: params.markupType,
           default_markup_value: params.markupValue,
           updated_at: new Date().toISOString(),

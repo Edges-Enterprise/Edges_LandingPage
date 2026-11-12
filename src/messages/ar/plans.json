@@ -30,5 +30,10 @@
   "hidden": "مخفي",
   "sell": "بيع",
   "editMarkup": "تعديل الهامش",
-  "bulkAlreadyApplied": "تم تطبيق هذا الهامش بالفعل"
+  "bulkAlreadyApplied": "تم تطبيق هذا الهامش بالفعل",
+  "countries": "الدول",
+  "networks": "الشبكة",
+  "previous": "السابق",
+  "next": "التالي",
+  "storeWideHint": "جميع الدول + جميع الشبكات يعيّن هامش الربح الافتراضي لمتجرك بالكامل"
 }

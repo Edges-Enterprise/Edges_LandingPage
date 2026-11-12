@@ -30,5 +30,10 @@
   "hidden": "Masqué",
   "sell": "Vendre",
   "editMarkup": "Modifier la marge",
-  "bulkAlreadyApplied": "Cette majoration a déjà été appliquée"
+  "bulkAlreadyApplied": "Cette majoration a déjà été appliquée",
+  "countries": "Pays",
+  "networks": "Réseau",
+  "previous": "Précédent",
+  "next": "Suivant",
+  "storeWideHint": "Tous les pays + tous les réseaux définit votre marge par défaut pour toute la boutique"
 }
