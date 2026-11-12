@@ -153,13 +153,31 @@ export default function PlansClient({
     setBulkValue(bulkScopeMarkup ? bulkScopeMarkup.value : 0);
   }, [bulkScopeMarkup, bulkSaving]);
 
-  // True when the current field values already match the markup applied to
-  // the selected scope. Re-applying that exact markup would be a no-op write,
-  // so a click on Apply is answered with an informational message instead of
-  // re-running the update, and the button's label/tooltip says so up front.
+  // True only when the whole scope is already exactly what an apply would
+  // write: every plan carries a config, every config is enabled, and they all
+  // share one markup. A bulk apply also ENABLES the plans it touches, so a
+  // scope with a disabled plan is not "already applied" — clicking Apply would
+  // still change something. This keeps the message from blocking real work.
+  const bulkScopeFullyApplied = useMemo(() => {
+    const scoped =
+      bulkNetwork === "all"
+        ? plansData
+        : plansData.filter((p) => p.network === bulkNetwork);
+    return (
+      scoped.length > 0 &&
+      scoped.every((p) => !!p.config && p.config.enabled === true)
+    );
+  }, [plansData, bulkNetwork]);
+
+  // True when the current field values already match the markup applied to the
+  // selected scope, across the whole scope. Re-applying that exact markup would
+  // be a no-op write, so a click on Apply is answered with an informational
+  // message instead of re-running the update, and the button's label/tooltip
+  // says so up front.
   const bulkValueNumber = bulkValue === "" ? 0 : bulkValue;
   const bulkAlreadyApplied =
     bulkScopeMarkup !== null &&
+    bulkScopeFullyApplied &&
     bulkScopeMarkup.type === bulkType &&
     bulkScopeMarkup.value === bulkValueNumber;
 
