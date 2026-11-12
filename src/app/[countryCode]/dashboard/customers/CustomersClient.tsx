@@ -111,15 +111,14 @@ export default function CustomersClient({
     emailSent: boolean;
     email: string;
   }): void => {
+    // On success the reseller only needs to know the customer was added — the
+    // credential email is an internal delivery detail they don't manage. It is
+    // surfaced only when it fails, because then only the reseller can resend it.
     setNotice(
       emailSent
         ? {
             type: "success",
-            text:
-              (t?.customerAdded || "Customer added successfully") +
-              (t?.loginDetailsEmailed
-                ? ` ${t.loginDetailsEmailed.replace("{email}", email)}`
-                : ` Login details were emailed to ${email}.`),
+            text: t?.customerAdded || "Customer added successfully",
           }
         : {
             type: "info",

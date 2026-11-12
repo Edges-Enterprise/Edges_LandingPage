@@ -49,7 +49,6 @@
   "deleting": "جاري الحذف...",
   "customerDeleted": "تم حذف العميل بنجاح",
   "customerAdded": "تم إضافة العميل بنجاح",
-  "loginDetailsEmailed": "تم إرسال بيانات تسجيل الدخول إلى {email}.",
   "loginDetailsEmailFailed": "تعذّر إرسال بريد تسجيل الدخول — يُرجى إعادة إرساله من تفاصيل العميل.",
   "customerUpdated": "تم تحديث العميل بنجاح",
   "errorAdding": "فشل في إضافة العميل",

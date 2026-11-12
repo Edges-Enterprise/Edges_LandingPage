@@ -49,7 +49,6 @@
   "deleting": "Deleting...",
   "customerDeleted": "Customer deleted successfully",
   "customerAdded": "Customer added successfully",
-  "loginDetailsEmailed": "Login details were emailed to {email}.",
   "loginDetailsEmailFailed": "The login email could not be sent — please resend it from the customer's details.",
   "customerUpdated": "Customer updated successfully",
   "errorAdding": "Failed to add customer",
