@@ -35,5 +35,7 @@
   "networks": "Réseau",
   "previous": "Précédent",
   "next": "Suivant",
-  "storeWideHint": "Tous les pays + tous les réseaux définit votre marge par défaut pour toute la boutique"
+  "storeWideHint": "Tous les pays + tous les réseaux définit votre marge par défaut pour toute la boutique",
+  "plansCount": "forfaits",
+  "allPlansShown": "Tous les forfaits affichés"
 }

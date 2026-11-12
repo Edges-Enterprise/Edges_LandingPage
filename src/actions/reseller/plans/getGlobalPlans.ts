@@ -4,25 +4,30 @@
 // country Zendit covers, not just the reseller's own country. This is the
 // "world" view behind the globe icon on the plans page.
 //
-// Same contract as getPlans: every price comes from the ONE pipeline
-// (supabase/functions/_shared/currency/storePrice.ts), priced into the
-// STORE's currency, so the dashboard, the storefront and the purchase
-// cannot disagree. The destination country determines which plans exist;
-// the store determines what they cost and in which currency.
+// PAGED ON PURPOSE. The world catalog is ~10,885 plans. Fetching and pricing
+// all of them on open is a slow round-trip the user stares at ("Loading
+// plans...") before the globe shows anything. Instead this returns ONE page of
+// rows plus the true total, so the first page can be server-rendered and later
+// pages stream in as the user scrolls. The total comes from a PostgREST
+// `count=exact` count, so "over 10k plans" is shown without sending 10k rows.
+//
+// Same pricing contract as getPlans: every price comes from the ONE pipeline
+// (supabase/functions/_shared/currency/storePrice.ts), priced into the STORE's
+// currency, so the dashboard, the storefront and the purchase cannot disagree.
+// The destination country determines which plans exist; the store determines
+// what they cost and in which currency.
 //
 // Writes are unchanged: a plan is enabled/marked-up by its
 // `global_base_plans.id`, which is unique across countries, so
-// togglePlan / updatePlanConfig / bulkUpdatePlans already accept a plan
-// from any country. Only the READ had been scoped to the reseller's
-// country.
+// togglePlan / updatePlanConfig / bulkUpdatePlans already accept a plan from
+// any country. Only the READ was scoped to the reseller's country.
 
 "use server";
 
+import { unstable_cache } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PlanWithConfig } from "@/types/reseller/plans";
 import { getCountryConfig } from "@/config/countries";
-import { fetchAllRows } from "../../../../supabase/functions/_shared/catalog/fetchAll.ts";
 import {
   resolveCatalogPlan,
   toStoreCatalogSettings,
@@ -33,19 +38,37 @@ import {
   priceRangePlan,
 } from "../../../../supabase/functions/_shared/currency/storePrice.ts";
 import { platformMarkupChain } from "../../../../supabase/functions/_shared/currency/markup.ts";
+import {
+  GLOBAL_PLANS_PAGE_SIZE,
+  type GetGlobalPlansParams,
+  type GetGlobalPlansResult,
+} from "./globalPlansTypes";
 
-export interface GetGlobalPlansParams {
-  /** Destination country (lowercase), optional. */
-  country?: string;
-  network?: string;
-  category?: string;
-}
+/** Hard ceiling so a hand-crafted `limit` cannot ask for the whole catalog. */
+const MAX_PAGE_SIZE = 100;
+
+/**
+ * The store's currency, fresh rate and the platform markup rows.
+ *
+ * Global, not per-reseller: the same store country always prices the same way,
+ * so this is cached and shared across requests and resellers. A page of 32
+ * plans otherwise re-reads the currency, the rate and the markup chain on every
+ * scroll tick.
+ */
+const getStoreContextCached = unstable_cache(
+  async (countryCode: string) => {
+    const adminClient = createAdminClient();
+    return await loadStoreContextRows(adminClient, { countryCode });
+  },
+  ["global-store-context"],
+  { revalidate: 600, tags: ["global-plans"] },
+);
 
 export async function getGlobalPlans(
   params: GetGlobalPlansParams = {},
 ): Promise<{
   success: boolean;
-  data?: PlanWithConfig[];
+  data?: GetGlobalPlansResult;
   error?: string;
 }> {
   try {
@@ -77,15 +100,21 @@ export async function getGlobalPlans(
     const countryConfig = getCountryConfig(countryCodeLower);
     const localCurrency = countryConfig.currency;
 
-    // Every active Zendit plan, every country. No country/provider filter:
-    // the reseller may resell any destination Zendit covers.
-    //
-    // The config embed is a LEFT join scoped to THIS reseller, and the whole
-    // read is paged: a bare select returns at most PostgREST's 1,000 rows, so
-    // the world view previously showed 1,000 of 10,885 plans. The old embed
-    // fetched every reseller's config for each plan and filtered in memory,
-    // which also inflated the row count.
+    const limit = Math.min(
+      Math.max(Math.floor(params.limit ?? GLOBAL_PLANS_PAGE_SIZE), 1),
+      MAX_PAGE_SIZE,
+    );
+    const offset = Math.max(Math.floor(params.offset ?? 0), 0);
+
+    // A search term becomes a PostgREST `or` over the searchable columns. The
+    // term is stripped of the characters that are syntax in that filter, so a
+    // stray comma or parenthesis cannot break the query.
+    const searchTerm = (params.search || "").replace(/[%,()*\\]/g, " ").trim();
+
     const buildQuery = () => {
+      // The config embed is a LEFT join scoped to THIS reseller, so a plan with
+      // no row still appears (that is what `all` catalog mode sells). The count
+      // is exact so the UI can show the true total behind the page.
       let q = adminClient
         .from("global_base_plans")
         .select(
@@ -101,44 +130,49 @@ export async function getGlobalPlans(
           selling_price
         )
       `,
+          { count: "exact" },
         )
         .eq("config.reseller_id", application.id)
         .eq("provider", "zendit")
         .eq("is_active", true);
 
-      if (params.country) {
+      if (params.country && params.country !== "all") {
+        // country_code is mixed-case across the syncs, so match loosely.
         q = q.ilike("country_code", params.country);
       }
-      if (params.network) {
+      if (params.network && params.network !== "all") {
         q = q.eq("network", params.network);
       }
       if (params.category) {
         q = q.eq("category", params.category);
+      }
+      if (searchTerm) {
+        q = q.or(
+          `name.ilike.*${searchTerm}*,network.ilike.*${searchTerm}*,provider_plan_id.ilike.*${searchTerm}*,country_code.ilike.*${searchTerm}*`,
+        );
       }
 
       return q
         .order("country_code", { ascending: true })
         .order("network", { ascending: true })
         .order("base_price", { ascending: true })
-        // Range pagination needs a UNIQUE tiebreaker, or rows with equal sort
-        // keys can be skipped or repeated across pages.
+        // A UNIQUE tiebreaker, so Range pages never skip or repeat a row.
         .order("id", { ascending: true });
     };
 
-    const { data: plans, error: plansError } = await fetchAllRows<any>(buildQuery);
+    const { data: plans, count, error: plansError } = await buildQuery().range(
+      offset,
+      offset + limit - 1,
+    );
 
     if (plansError) {
       console.error("Get global plans error:", plansError);
-      return { success: false, error: plansError };
+      return { success: false, error: plansError.message };
     }
 
-    // The store's currency, its fresh rate and the platform markups, loaded
-    // once for the whole page.
     let storeContext, markupRows;
     try {
-      const loaded = await loadStoreContextRows(adminClient, {
-        countryCode: countryCodeLower,
-      });
+      const loaded = await getStoreContextCached(countryCodeLower);
       storeContext = loaded.context;
       markupRows = loaded.markupRows;
     } catch (error) {
@@ -228,7 +262,10 @@ export async function getGlobalPlans(
 
     return {
       success: true,
-      data: processedPlans as PlanWithConfig[],
+      data: {
+        plans: processedPlans as GetGlobalPlansResult["plans"],
+        total: count ?? processedPlans.length,
+      },
     };
   } catch (error) {
     console.error("GetGlobalPlans Error:", error);

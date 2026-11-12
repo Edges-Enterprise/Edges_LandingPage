@@ -5,6 +5,10 @@ import { CountryProvider } from "@/providers/CountryProvider";
 import PlansClient from "./PlansClient";
 import "@/app/reseller.css";
 import { getPlans } from "@/actions/reseller/plans/getPlans";
+import { getGlobalPlans } from "@/actions/reseller/plans/getGlobalPlans";
+import { getGlobalPlanFacetsCached } from "@/actions/reseller/plans/globalPlanFacets";
+import type { PlanWithConfig } from "@/types/reseller/plans";
+import type { GlobalPlanFacets } from "@/actions/reseller/plans/globalPlansTypes";
 
 interface PlansPageProps {
   params: Promise<{ countryCode: string }>;
@@ -33,6 +37,32 @@ async function getInitialData(countryCode: string) {
     plans,
     networks: uniqueNetworks,
   };
+}
+
+/**
+ * The world view's first page and the country/network pickers, read on the
+ * server so the globe opens with content already in the HTML. The facets come
+ * from a cached catalog scan; the page is one page of rows plus the true total.
+ * A failure here must not blank the page — the client falls back to fetching.
+ */
+async function getInitialGlobal(): Promise<{
+  plans: PlanWithConfig[];
+  total: number;
+  facets: GlobalPlanFacets | null;
+}> {
+  try {
+    const [plansRes, facets] = await Promise.all([
+      getGlobalPlans({}),
+      getGlobalPlanFacetsCached(),
+    ]);
+    return {
+      plans: plansRes.success && plansRes.data ? plansRes.data.plans : [],
+      total: plansRes.success && plansRes.data ? plansRes.data.total : 0,
+      facets,
+    };
+  } catch {
+    return { plans: [], total: 0, facets: null };
+  }
 }
 
 async function getTranslations(language: string) {
@@ -89,7 +119,10 @@ export default async function PlansPage({ params }: PlansPageProps) {
   const config = getCountryConfig(countryCode);
   const language = config.language.code || "en";
   const translations = await getTranslations(language);
-  const initialData = await getInitialData(countryCode);
+  const [initialData, initialGlobal] = await Promise.all([
+    getInitialData(countryCode),
+    getInitialGlobal(),
+  ]);
 
   return (
     <CountryProvider config={config}>
@@ -98,6 +131,9 @@ export default async function PlansPage({ params }: PlansPageProps) {
         config={config}
         translations={translations}
         initialData={initialData}
+        initialGlobalPlans={initialGlobal.plans}
+        initialGlobalTotal={initialGlobal.total}
+        initialGlobalFacets={initialGlobal.facets}
       />
     </CountryProvider>
   );

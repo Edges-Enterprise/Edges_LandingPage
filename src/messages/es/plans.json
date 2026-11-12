@@ -35,5 +35,7 @@
   "networks": "Red",
   "previous": "Anterior",
   "next": "Siguiente",
-  "storeWideHint": "Todos los países + todas las redes establece tu margen predeterminado para toda la tienda"
+  "storeWideHint": "Todos los países + todas las redes establece tu margen predeterminado para toda la tienda",
+  "plansCount": "planes",
+  "allPlansShown": "Todos los planes mostrados"
 }

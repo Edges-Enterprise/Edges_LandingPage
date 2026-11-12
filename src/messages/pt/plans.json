@@ -68,5 +68,7 @@
   "countries": "Countries",
   "previous": "Previous",
   "next": "Next",
-  "storeWideHint": "All countries + all networks sets your store-wide default markup"
+  "storeWideHint": "All countries + all networks sets your store-wide default markup",
+  "plansCount": "planos",
+  "allPlansShown": "Todos os planos exibidos"
 }

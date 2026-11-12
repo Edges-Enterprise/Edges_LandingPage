@@ -21,6 +21,7 @@ import { PlanWithConfig } from "@/types/reseller/plans";
 import { formatPrice } from "@/lib/currency/currency";
 import ThemeSelect from "../ThemeSelect";
 import GlobalPlansPanel from "./GlobalPlansPanel";
+import type { GlobalPlanFacets } from "@/actions/reseller/plans/globalPlansTypes";
 
 interface PlansClientProps {
   countryCode: string;
@@ -30,6 +31,10 @@ interface PlansClientProps {
     plans: PlanWithConfig[];
     networks: string[];
   };
+  /** World view's first page, server-rendered so the globe opens instantly. */
+  initialGlobalPlans?: PlanWithConfig[];
+  initialGlobalTotal?: number;
+  initialGlobalFacets?: GlobalPlanFacets | null;
 }
 
 export default function PlansClient({
@@ -37,6 +42,9 @@ export default function PlansClient({
   config,
   translations,
   initialData,
+  initialGlobalPlans,
+  initialGlobalTotal,
+  initialGlobalFacets,
 }: PlansClientProps) {
   const t = translations;
   const [plansData, setPlansData] = useState<PlanWithConfig[]>(
@@ -1357,6 +1365,9 @@ export default function PlansClient({
           countryCode={countryCode}
           config={config}
           translations={t}
+          initialPlans={initialGlobalPlans}
+          initialTotal={initialGlobalTotal}
+          initialFacets={initialGlobalFacets}
           onChanged={() => refreshPlans(null)}
         />
       </div>

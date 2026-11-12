@@ -25,10 +25,10 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { getGlobalPlans } from "@/actions/reseller/plans/getGlobalPlans";
-import {
-  getGlobalPlanCountries,
-  type GlobalPlanCountry,
-} from "@/actions/reseller/plans/getGlobalPlanCountries";
+import type {
+  GlobalPlanCountry,
+  GlobalPlanFacets,
+} from "@/actions/reseller/plans/globalPlansTypes";
 import { togglePlan } from "@/actions/reseller/plans/togglePlan";
 import { updatePlanConfig } from "@/actions/reseller/plans/updatePlanConfig";
 import { bulkUpdatePlans } from "@/actions/reseller/plans/bulkUpdatePlans";
@@ -38,10 +38,19 @@ import { PlanWithConfig } from "@/types/reseller/plans";
 import { formatPrice } from "@/lib/currency/currency";
 import ThemeSelect from "../ThemeSelect";
 
+/** Rows per page — must match the action's page size. */
+const PAGE_SIZE = 32;
+
 interface GlobalPlansPanelProps {
   countryCode: string;
   config: CountryConfig;
   translations: any;
+  /** First page, server-rendered so the globe opens with no spinner. */
+  initialPlans?: PlanWithConfig[];
+  /** True total behind the first page (the "over 10k" figure). */
+  initialTotal?: number;
+  /** Country list + network list, from one cached catalog scan. */
+  initialFacets?: GlobalPlanFacets | null;
   /** Called after any change that alters what the local view should show. */
   onChanged?: () => void;
 }
@@ -64,24 +73,37 @@ export default function GlobalPlansPanel({
   countryCode,
   config,
   translations,
+  initialPlans,
+  initialTotal,
+  initialFacets,
   onChanged,
 }: GlobalPlansPanelProps) {
   const t = translations;
   const currencySymbol = config.currencySymbol || "";
   const localCurrency = config.currency;
 
-  const [plans, setPlans] = useState<PlanWithConfig[]>([]);
-  const [countries, setCountries] = useState<GlobalPlanCountry[]>([]);
-  const [loading, setLoading] = useState(true);
+  // The first page and the facets are server-rendered, so the globe opens with
+  // content already there — no "Loading plans..." on the happy path.
+  const seeded = (initialPlans?.length ?? 0) > 0;
+
+  const [plans, setPlans] = useState<PlanWithConfig[]>(initialPlans ?? []);
+  const [total, setTotal] = useState<number>(
+    initialTotal ?? initialPlans?.length ?? 0,
+  );
+  const [countries] = useState<GlobalPlanCountry[]>(
+    initialFacets?.countries ?? [],
+  );
+  const [facets] = useState<GlobalPlanFacets | null>(initialFacets ?? null);
+  const [loading, setLoading] = useState(!seeded);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [activeCountry, setActiveCountry] = useState<string>("all");
   const [activeNetwork, setActiveNetwork] = useState<string>("all");
+  // The search box updates immediately; the query behind it is debounced.
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  // Countries are shown 20 at a time behind Back/Next, so the picker does not
-  // render ~120 buttons at once.
+  // Countries are shown 20 at a time behind Back/Next. The whole (small) list is
+  // already in memory, so paging is instant — no fetch, no spinner.
   const [countryPage, setCountryPage] = useState(0);
-  // The plan list reveals 16 at a time and appends the next 16 as the sentinel
-  // nears the viewport.
-  const [visibleCount, setVisibleCount] = useState(16);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   // Mobile collapses a plan to name + toggle; the rest opens in a panel.
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
@@ -123,31 +145,125 @@ export default function GlobalPlansPanel({
     [],
   );
 
-  const load = useCallback(
-    async () => {
-      setLoading(true);
-      const [plansRes, countriesRes] = await Promise.all([
-        // The whole world catalog once; country/network/search are filters over
-        // the loaded set, so scrolling and switching countries never refetch.
-        getGlobalPlans({}),
-        getGlobalPlanCountries(),
-      ]);
-      if (plansRes.success && plansRes.data) {
-        setPlans(plansRes.data);
+  // One in-flight page request at a time; a scroll tick that fires while a page
+  // is loading is dropped rather than queued (the sentinel re-fires).
+  const inFlight = useRef(false);
+  const reqSeq = useRef(0);
+
+  /**
+   * Fetch one page of plans. `replace` resets the list (a scope change or a
+   * refresh); otherwise the page is appended (infinite scroll).
+   *
+   * A `replace` is never dropped: switching country while a fetch is in flight
+   * must not leave the previous country's rows on screen. Each call takes a
+   * sequence number and only the newest applies its result, so a slow response
+   * cannot overwrite a newer scope.
+   */
+  const fetchPage = useCallback(
+    async (opts: {
+      offset: number;
+      replace: boolean;
+      country: string;
+      network: string;
+      term: string;
+    }) => {
+      if (!opts.replace) {
+        if (inFlight.current) return;
+        inFlight.current = true;
+      }
+      const seq = ++reqSeq.current;
+      if (opts.replace) setLoading(true);
+      else setLoadingMore(true);
+
+      const res = await getGlobalPlans({
+        country: opts.country,
+        network: opts.network,
+        search: opts.term,
+        offset: opts.offset,
+        limit: PAGE_SIZE,
+      });
+
+      if (seq === reqSeq.current) {
+        if (res.success && res.data) {
+          const page = res.data;
+          setTotal(page.total);
+          setPlans((prev) =>
+            opts.replace ? page.plans : [...prev, ...page.plans],
+          );
+        } else {
+          flash("error", res.error || "Unable to load global plans");
+        }
+      }
+
+      if (opts.replace) {
+        setLoading(false);
       } else {
-        flash("error", plansRes.error || "Unable to load global plans");
+        setLoadingMore(false);
+        inFlight.current = false;
       }
-      if (countriesRes.success && countriesRes.data) {
-        setCountries(countriesRes.data);
-      }
-      setLoading(false);
     },
     [flash],
   );
 
+  // Debounce the search box so each keystroke does not hit the server.
   useEffect(() => {
-    void load();
-  }, [load]);
+    const id = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
+  // A scope change (country / network / search) reloads from the first page.
+  // The very first run is skipped when the default scope was already seeded
+  // server-side, so the globe does not refetch page 1 on open.
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      if (seeded && activeCountry === "all" && activeNetwork === "all" && search === "") {
+        return;
+      }
+    }
+    setCountryPage(0);
+    void fetchPage({
+      offset: 0,
+      replace: true,
+      country: activeCountry,
+      network: activeNetwork,
+      term: search,
+    });
+  }, [activeCountry, activeNetwork, search, seeded, fetchPage]);
+
+  // Infinite scroll: pull the next page as the sentinel nears the viewport, so
+  // it is already loaded by the time the user reaches the bottom.
+  const hasMore = plans.length < total;
+  useEffect(() => {
+    if (!hasMore || loading) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          void fetchPage({
+            offset: plans.length,
+            replace: false,
+            country: activeCountry,
+            network: activeNetwork,
+            term: search,
+          });
+        }
+      },
+      { rootMargin: "600px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [
+    hasMore,
+    loading,
+    plans.length,
+    activeCountry,
+    activeNetwork,
+    search,
+    fetchPage,
+  ]);
 
   const loadCatalogSettings = useCallback(async () => {
     const res = await getCatalogSettings();
@@ -175,52 +291,28 @@ export default function GlobalPlansPanel({
     setEditingPlan(null);
     setExpandedPlanId(null);
     setActiveNetwork("all");
-    setVisibleCount(16);
   };
 
-  const networks = useMemo(
-    () =>
-      [
-        ...new Set(
-          plans
-            .filter((p) => activeCountry === "all" || (p.country_code || "").toLowerCase() === activeCountry)
-            .map((p) => p.network)
-            .filter((n): n is string => !!n),
-        ),
-      ].sort(),
-    [plans, activeCountry],
-  );
+  // Networks offered by the filter: for one country, that country's own
+  // networks; for "all countries", every network in the catalog. Both come from
+  // the cached facets, so the picker never waits on the plan list.
+  const networks = useMemo(() => {
+    if (!facets) return [];
+    if (activeCountry === "all") return facets.networks;
+    return facets.countryNetworks[activeCountry] ?? [];
+  }, [facets, activeCountry]);
 
-  const visiblePlans = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return plans.filter((p) => {
-      if (
-        activeCountry !== "all" &&
-        (p.country_code || "").toLowerCase() !== activeCountry
-      ) {
-        return false;
-      }
-      if (activeNetwork !== "all" && p.network !== activeNetwork) return false;
-      if (q) {
-        const hay = `${p.name} ${p.network ?? ""} ${p.country_code ?? ""} ${p.provider_plan_id}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [plans, activeCountry, activeNetwork, search]);
-
-  const enabledCount = useMemo(
-    () => plans.filter((p) => p.config?.enabled === true).length,
-    [plans],
-  );
+  // The server already filtered and paged `plans`, so it IS the visible list —
+  // no client-side country/network/search filtering over a partial set.
+  const visiblePlans = plans;
 
   const costBasis = (plan: PlanWithConfig) => plan.cost_local ?? plan.base_price;
   const fmt = (amount: number, currency?: string) =>
     formatPrice(amount, currency || localCurrency);
 
   // ---- Countries: 20 per page behind Back / Next --------------------------
-  // "All Countries" is the first option, then the countries, so pagination is
-  // a plain slice over one combined list.
+  // The full (small) country list is in memory from the facets, so paging is a
+  // plain slice — no fetch, no spinner.
   const COUNTRY_PAGE_SIZE = 20;
   const countryOptions = useMemo(
     () => ["all", ...countries.map((c) => c.country)],
@@ -235,50 +327,16 @@ export default function GlobalPlansPanel({
     countryPage * COUNTRY_PAGE_SIZE + COUNTRY_PAGE_SIZE,
   );
 
-  // ---- Plans: reveal 16 at a time, appending as the sentinel nears ---------
-  const revealed = visiblePlans.slice(0, visibleCount);
-  const hasMore = visibleCount < visiblePlans.length;
-
-  useEffect(() => {
-    setVisibleCount(16);
-  }, [activeCountry, activeNetwork, search]);
-
-  useEffect(() => {
-    if (!hasMore) return;
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setVisibleCount((c) => c + 16);
-        }
-      },
-      { rootMargin: "400px 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasMore, revealed.length]);
-
   // ---- Bulk scope: the markup already applied to the card's own scope ------
   // Mirrors the local card. "All Countries + All Networks" reads the store
-  // default (one field); any narrower scope reads the per-plan configs.
+  // default (one field); any narrower scope reads the per-plan configs of the
+  // plans currently loaded for that scope.
   const bulkIsStoreWide = bulkCountry === "all" && bulkNetwork === "all";
-  const bulkNetworks = useMemo(
-    () =>
-      [
-        ...new Set(
-          plans
-            .filter(
-              (p) =>
-                bulkCountry === "all" ||
-                (p.country_code || "").toLowerCase() === bulkCountry,
-            )
-            .map((p) => p.network)
-            .filter((n): n is string => !!n),
-        ),
-      ].sort(),
-    [plans, bulkCountry],
-  );
+  const bulkNetworks = useMemo(() => {
+    if (!facets) return [];
+    if (bulkCountry === "all") return facets.networks;
+    return facets.countryNetworks[bulkCountry] ?? [];
+  }, [facets, bulkCountry]);
   const bulkScopeMarkup = useMemo<{
     type: "percentage" | "fixed";
     value: number;
@@ -431,13 +489,19 @@ export default function GlobalPlansPanel({
     }
 
     // How many plans this scope will touch, for the confirmation. The scope is
-    // the card's own country + network, ignoring the search box.
-    const scopeCount = plans.filter(
-      (p) =>
-        (bulkCountry === "all" ||
-          (p.country_code || "").toLowerCase() === bulkCountry) &&
-        (bulkNetwork === "all" || p.network === bulkNetwork),
-    ).length;
+    // the card's own country + network, ignoring the search box. It is a server
+    // count: the loaded list is only a page or two, so counting it would report
+    // 32 for a scope that is really thousands.
+    let scopeCount = total;
+    if (!bulkIsStoreWide) {
+      const countRes = await getGlobalPlans({
+        country: bulkCountry,
+        network: bulkNetwork,
+        offset: 0,
+        limit: 1,
+      });
+      scopeCount = countRes.success && countRes.data ? countRes.data.total : 0;
+    }
 
     if (scopeCount === 0 && !bulkIsStoreWide) {
       flash("error", t?.noPlans || "No plans available");
@@ -504,7 +568,16 @@ export default function GlobalPlansPanel({
         setDefaultMarkupType(bulkType);
         setDefaultMarkupValue(value);
       }
-      await load();
+      // Re-read the first page of the current scope so the cards reflect the
+      // new markup. The write itself was server-side; only the loaded page is
+      // refreshed, not the whole catalog.
+      await fetchPage({
+        offset: 0,
+        replace: true,
+        country: activeCountry,
+        network: activeNetwork,
+        term: search,
+      });
       flash("success", `${result.count || 0} plans updated to ${pretty} markup`);
       onChanged?.();
     } else {
@@ -553,7 +626,7 @@ export default function GlobalPlansPanel({
             whiteSpace: "nowrap",
           }}
         >
-          {enabledCount} {t?.enabled || "enabled"}
+          {total.toLocaleString()} {t?.plansCount || "plans"}
         </span>
       </div>
 
@@ -698,8 +771,8 @@ export default function GlobalPlansPanel({
         >
           <Search size={15} style={{ color: "var(--muted)" }} />
           <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             placeholder={t?.searchPlans || "Search plans"}
             style={{
               border: "none",
@@ -893,7 +966,7 @@ export default function GlobalPlansPanel({
             <p>{t?.noPlans || "No plans available"}</p>
           </div>
         ) : (
-          revealed.map((plan) => {
+          visiblePlans.map((plan) => {
             const isEnabled = plan.config?.enabled === true;
             const isEditing = editingPlan === plan.id;
             const isExpanded = expandedPlanId === plan.id;
@@ -1163,6 +1236,18 @@ export default function GlobalPlansPanel({
           >
             <Loader2 size={18} style={{ animation: "spin 1s linear infinite", color: "var(--dim)" }} />
           </div>
+        )}
+        {!loading && !hasMore && visiblePlans.length > 0 && (
+          <p
+            style={{
+              textAlign: "center",
+              color: "var(--dim)",
+              fontSize: "0.78rem",
+              padding: "0.5rem",
+            }}
+          >
+            {t?.allPlansShown || "All plans shown"}
+          </p>
         )}
       </div>
 
