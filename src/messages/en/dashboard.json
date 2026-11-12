@@ -37,5 +37,9 @@
   "logout": "Logout",
   "overview": "Overview",
   "loadingDetails": "Loading details…",
-  "noDetails": "Details are not available for this item."
+  "noDetails": "Details are not available for this item.",
+  "shareStoreTitle": "Share your store",
+  "shareStoreText": "Check out my store on {store} — order data, airtime and more!",
+  "copyLink": "Copy link",
+  "copied": "Copied to clipboard"
 }

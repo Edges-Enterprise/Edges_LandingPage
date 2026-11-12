@@ -37,5 +37,9 @@
   "logout": "Cerrar Sesión",
   "overview": "Resumen",
   "loadingDetails": "Cargando detalles…",
-  "noDetails": "Los detalles no están disponibles para este artículo."
+  "noDetails": "Los detalles no están disponibles para este artículo.",
+  "shareStoreTitle": "Comparte tu tienda",
+  "shareStoreText": "Mira mi tienda {store}: datos, saldo y más.",
+  "copyLink": "Copiar enlace",
+  "copied": "Copiado al portapapeles"
 }

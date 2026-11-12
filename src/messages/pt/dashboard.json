@@ -37,5 +37,9 @@
   "logout": "Sair",
   "overview": "Visão Geral",
   "loadingDetails": "A carregar detalhes…",
-  "noDetails": "Os detalhes não estão disponíveis para este item."
+  "noDetails": "Os detalhes não estão disponíveis para este item.",
+  "shareStoreTitle": "Compartilhe sua loja",
+  "shareStoreText": "Confira minha loja {store} — dados, crédito e mais!",
+  "copyLink": "Copiar link",
+  "copied": "Copiado para a área de transferência"
 }

@@ -86,6 +86,7 @@ export default function DashboardClient({
         <QuickActions
           countryCode={countryCode}
           storeSlug={data.store_slug}
+          storeName={data.store_name}
           translations={t}
         />
       </div>
