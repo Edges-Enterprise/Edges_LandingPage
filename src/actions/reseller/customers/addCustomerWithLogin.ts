@@ -3,12 +3,14 @@
 // A reseller adding a customer by hand from the dashboard used to write only
 // a `global_customers` row: no Supabase Auth account, so the customer could
 // never sign in to the storefront. This action mirrors what self-signup does
-// (auth user + customer row + wallet) and emails the generated credentials.
+// (auth user + customer row + wallet) and asks the
+// `send-global-customer-credentials` edge function to email the generated
+// credentials. The password is delivered to the customer only — never returned
+// to the reseller.
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
-import { sendAdminEmail } from "@/lib/email/email";
 
 export interface AddCustomerWithLoginInput {
   resellerId: string;
@@ -25,6 +27,12 @@ export interface AddCustomerWithLoginResult {
   emailSent?: boolean;
   error?: string;
 }
+
+// The edge function connects to SMTP itself, so it is not subject to the
+// serverless runtime's SMTP restrictions. Bound the wait so a slow send can
+// never hang the modal: the customer is already created by then, and the email
+// is best-effort.
+const EMAIL_TIMEOUT_MS = 15_000;
 
 function generatePassword(): string {
   // Human-typable but not guessable: avoids 0/O/1/l confusion.
@@ -153,32 +161,66 @@ export async function addCustomerWithLogin(
     });
   }
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL || "https://edges-landing-page.vercel.app";
-  const signInUrl = `${appUrl}/${reseller.country_code}/${reseller.store_slug}`;
-
-  let emailSent = false;
-  try {
-    const result = await sendAdminEmail({
-      to: email,
-      subject: `Your ${reseller.store_name} account is ready`,
-      recipientName: firstName,
-      fromName: reseller.store_name,
-      message: `
-        <p>An account has been created for you at <strong>${reseller.store_name}</strong>.</p>
-        <p>Sign in with the details below:</p>
-        <table style="border-collapse:collapse;margin:16px 0;font-size:14px;">
-          <tr><td style="padding:4px 12px 4px 0;color:#666;">Email</td><td style="font-family:monospace;">${email}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;color:#666;">Password</td><td style="font-family:monospace;">${password}</td></tr>
-        </table>
-        <p>For your security, change this password after your first sign-in.</p>
-        <p><a href="${signInUrl}" style="color:#C98A54;">Go to ${reseller.store_name}</a></p>
-      `,
-    });
-    emailSent = result.success;
-  } catch (error) {
-    console.error("[addCustomerWithLogin] Credential email failed:", error);
-  }
+  const emailSent = await sendCredentialsEmail({
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey: process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!,
+    resellerId: reseller.id,
+    customerId: customer.id,
+    firstName,
+    email,
+    password,
+  });
 
   return { success: true, customerId: customer.id, emailSent };
+}
+
+async function sendCredentialsEmail({
+  supabaseUrl,
+  serviceRoleKey,
+  resellerId,
+  customerId,
+  firstName,
+  email,
+  password,
+}: {
+  supabaseUrl: string;
+  serviceRoleKey: string;
+  resellerId: string;
+  customerId: string;
+  firstName: string;
+  email: string;
+  password: string;
+}): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/functions/v1/send-global-customer-credentials`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+        body: JSON.stringify({
+          resellerId,
+          customerId,
+          firstName,
+          email,
+          password,
+        }),
+        signal: AbortSignal.timeout(EMAIL_TIMEOUT_MS),
+      },
+    );
+    if (!res.ok) {
+      console.error(
+        "[addCustomerWithLogin] Credential email failed:",
+        res.status,
+        await res.text().catch(() => ""),
+      );
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("[addCustomerWithLogin] Credential email failed:", error);
+    return false;
+  }
 }

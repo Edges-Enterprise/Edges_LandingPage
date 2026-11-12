@@ -49,6 +49,8 @@
   "deleting": "Suppression...",
   "customerDeleted": "Client supprimé avec succès",
   "customerAdded": "Client ajouté avec succès",
+  "loginDetailsEmailed": "Les identifiants de connexion ont été envoyés à {email}.",
+  "loginDetailsEmailFailed": "L'e-mail de connexion n'a pas pu être envoyé — veuillez le renvoyer depuis la fiche du client.",
   "customerUpdated": "Client mis à jour avec succès",
   "errorAdding": "Échec de l'ajout du client",
   "firstNameRequired": "Le prénom est requis",

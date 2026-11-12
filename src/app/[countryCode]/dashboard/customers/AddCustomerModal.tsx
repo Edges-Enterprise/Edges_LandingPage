@@ -8,7 +8,7 @@ import { addCustomerWithLogin } from "@/actions/reseller/customers/addCustomerWi
 
 interface AddCustomerModalProps {
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (result: { emailSent: boolean; email: string }) => void;
   applicationId: string;
   config: CountryConfig;
   translations: any;
@@ -94,7 +94,10 @@ export default function AddCustomerModal({
         return;
       }
 
-      onSuccess();
+      onSuccess({
+        emailSent: result.emailSent !== false,
+        email: formData.email.trim(),
+      });
       onClose();
     } catch (error) {
       console.error("Add customer error:", error);

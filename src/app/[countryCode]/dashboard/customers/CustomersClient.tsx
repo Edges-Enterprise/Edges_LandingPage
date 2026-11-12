@@ -10,6 +10,8 @@ import {
   UserCheck,
   UserX,
   TrendingUp,
+  Check,
+  AlertTriangle,
 } from "lucide-react";
 import CustomerTable from "./CustomerTable";
 import CustomerDetailsModal from "./CustomerDetailsModal";
@@ -47,6 +49,10 @@ export default function CustomersClient({
   );
   const [showDetailsModal, setShowDetailsModal] = useState<boolean>(false);
   const [stats, setStats] = useState(customersData.stats);
+  const [notice, setNotice] = useState<{
+    type: "success" | "info";
+    text: string;
+  } | null>(null);
 
   // Filter customers
   useEffect(() => {
@@ -98,7 +104,33 @@ export default function CustomersClient({
     }
   };
 
-  const handleCustomerAdded = (): void => {
+  const handleCustomerAdded = ({
+    emailSent,
+    email,
+  }: {
+    emailSent: boolean;
+    email: string;
+  }): void => {
+    setNotice(
+      emailSent
+        ? {
+            type: "success",
+            text:
+              (t?.customerAdded || "Customer added successfully") +
+              (t?.loginDetailsEmailed
+                ? ` ${t.loginDetailsEmailed.replace("{email}", email)}`
+                : ` Login details were emailed to ${email}.`),
+          }
+        : {
+            type: "info",
+            text:
+              (t?.customerAdded || "Customer added successfully") +
+              (t?.loginDetailsEmailFailed
+                ? ` ${t.loginDetailsEmailFailed}`
+                : ` The login email to ${email} could not be sent — please resend it from the customer's details.`),
+          },
+    );
+    setTimeout(() => setNotice(null), 6000);
     refreshCustomers();
   };
 
@@ -181,6 +213,37 @@ export default function CustomersClient({
           </span>
         </button>
       </div>
+
+      {notice && (
+        <div
+          role="status"
+          style={{
+            padding: "0.9rem 1.2rem",
+            borderRadius: 10,
+            marginBottom: "1rem",
+            background:
+              notice.type === "success"
+                ? "rgba(110,189,138,0.1)"
+                : "rgba(245,158,11,0.1)",
+            border:
+              notice.type === "success"
+                ? "1px solid rgba(110,189,138,0.25)"
+                : "1px solid rgba(245,158,11,0.25)",
+            color: notice.type === "success" ? "#6EBD8A" : "#F59E0B",
+            fontSize: "0.88rem",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          {notice.type === "success" ? (
+            <Check size={16} />
+          ) : (
+            <AlertTriangle size={16} />
+          )}
+          {notice.text}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <style>{`
