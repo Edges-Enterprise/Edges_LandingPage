@@ -18,7 +18,11 @@ import {
   type PricingResult,
 } from "./pricing.ts";
 import { BASE_CURRENCY } from "./registry.ts";
-import { findFreshRate, type RateStore } from "./rates.ts";
+import {
+  findFreshRate,
+  loadFreshUsdRates,
+  type RateStore,
+} from "./rates.ts";
 import { platformMarkupChain, type PlatformMarkupRow } from "./markup.ts";
 import { priceRangeOffer } from "./range.ts";
 
@@ -119,6 +123,16 @@ export interface StoreContext {
   rateIsFallback: boolean;
   bufferFraction: number;
   /**
+   * Every fresh USD->currency rate, keyed by the (uppercased) currency.
+   *
+   * A store in `all` mode sells plans from every provider, so one catalog can
+   * carry costs in more than one currency at once (Zendit in USD, Lizzysub in
+   * NGN, Accragh in GHS). Normalising each cost to USD needs that currency's
+   * own rate, and loading them all once is cheaper than a read per cost
+   * currency. USD is present as 1.
+   */
+  usdRates: Record<string, number>;
+  /**
    * True when the store is pricing in USD as a fallback rather than because
    * USD is its mapped currency: either the country has no mapping, or it has
    * one whose currency had no fresh rate. The flag exists so the USD default
@@ -215,6 +229,13 @@ export async function loadStoreContextRows(
     );
   }
 
+  // Every fresh USD rate, so a catalog in `all` mode can normalise a cost in
+  // any provider's currency (Zendit USD, Lizzysub NGN, Accragh GHS) to USD.
+  const usdRates = await loadFreshUsdRates(client as unknown as RateStore);
+  // The store's own currency rate is what `findFreshRate` already resolved,
+  // including the USD fallback when its row was missing or stale.
+  usdRates[currency] = resolvedRate.rate;
+
   const markupRows = rowsOf(
     await client
       .from("global_platform_markups")
@@ -231,6 +252,7 @@ export async function loadStoreContextRows(
       rateExpiresAt: resolvedRate.expiresAt,
       rateIsFallback: resolvedRate.fallback,
       bufferFraction,
+      usdRates,
       // True when USD was used because the country has no mapping OR because
       // its mapped currency had no fresh rate. Either way the store is
       // pricing in USD, and that must be visible in logs.
@@ -267,6 +289,13 @@ export function pricePlan(
     // through is what stops a local-currency cost being multiplied by the
     // USD->store rate a second time.
     costCurrency: plan.currency ?? BASE_CURRENCY,
+    // That currency's own USD rate, so a plan whose cost is neither USD nor
+    // the store's currency still normalises correctly (a GHS plan in an NGN
+    // store, which `all` mode makes reachable). Absent for an unknown
+    // currency, which `computePrice` treats as a configuration fault.
+    costCurrencyUsdRate: ctx.usdRates[
+      (plan.currency ?? BASE_CURRENCY).toUpperCase()
+    ],
     storeCurrency: ctx.currency,
     usdToStoreRate: ctx.usdToStoreRate,
     platformMarkups,

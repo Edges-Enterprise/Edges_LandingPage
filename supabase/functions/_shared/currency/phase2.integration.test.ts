@@ -99,6 +99,7 @@ maybeTest("integration: an RW store sells a UG plan, priced in RWF", async () =>
       rateIsFallback: false,
       currencyIsFallback: false,
       bufferFraction: Number(mapping.buffer_fraction),
+      usdRates: { USD: 1, [mapping.currency_code]: Number(rateRow.rate) },
     };
 
     const resellerConfig = {
@@ -251,6 +252,7 @@ function stubClient(opts: {
   countryCurrency?: { currency_code: string } | null;
   currencyRow?: { buffer_fraction: number } | null;
   rate?: Record<string, unknown> | null;
+  rates?: Record<string, unknown>[];
   markups?: Record<string, unknown>[];
 }) {
   function table(name: string) {
@@ -261,13 +263,21 @@ function stubClient(opts: {
         : name === "global_currencies"
         ? opts.currencyRow ? [opts.currencyRow] : []
         : name === "global_fx_rates"
-        ? opts.rate ? [opts.rate] : []
+        ? (opts.rates ?? (opts.rate ? [opts.rate] : []))
         : name === "global_platform_markups"
         ? opts.markups ?? []
         : [];
     const self = () => builder;
     for (
-      const m of ["select", "eq", "order", "limit", "insert", "update"] as const
+      const m of [
+        "select",
+        "eq",
+        "gt",
+        "order",
+        "limit",
+        "insert",
+        "update",
+      ] as const
     ) {
       builder[m] = self;
     }
@@ -360,4 +370,82 @@ Deno.test("storePrice: an expired rate falls back to USD, not an error", async (
   assert.equal(context.currency, "USD");
   assert.equal(context.currencyIsFallback, true);
   assert.equal(context.usdToStoreRate, 1);
+});
+
+Deno.test("storePrice: loadStoreContext carries every fresh USD rate", async () => {
+  // A store in `all` mode sells plans from every provider, so the context
+  // must carry each provider currency's own USD rate, not just the store's.
+  const client = stubClient({
+    countryCurrency: { currency_code: "NGN" },
+    currencyRow: { buffer_fraction: 0.02 },
+    rate: {
+      base_currency: "USD",
+      quote_currency: "NGN",
+      rate: 1600,
+      source: "zendit",
+      fetched_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 3600_000).toISOString(),
+    },
+    rates: [
+      {
+        base_currency: "USD",
+        quote_currency: "NGN",
+        rate: 1600,
+        source: "zendit",
+        fetched_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 3600_000).toISOString(),
+      },
+      {
+        base_currency: "USD",
+        quote_currency: "GHS",
+        rate: 11.36,
+        source: "zendit",
+        fetched_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 3600_000).toISOString(),
+      },
+    ],
+  });
+  const { context } = await loadStoreContext(client, {
+    countryCode: "ng",
+    planId: null,
+  });
+  assert.equal(context.currency, "NGN");
+  assert.equal(context.usdRates.USD, 1);
+  assert.equal(context.usdRates.NGN, 1600);
+  assert.equal(context.usdRates.GHS, 11.36);
+});
+
+Deno.test("storePrice: a GHS plan prices in an NGN store (all mode)", () => {
+  // The live storefront failure: `all` mode put an Accragh GHS cost in an
+  // NGN store, and nothing supplied the cost currency's rate, so the whole
+  // storefront rendered "Store not found". It must convert once and price.
+  const ctx: StoreContext = {
+    countryCode: "ng",
+    currency: "NGN",
+    usdToStoreRate: 1600,
+    rateSource: "zendit",
+    rateExpiresAt: new Date(Date.now() + 3600_000).toISOString(),
+    rateIsFallback: false,
+    bufferFraction: 0,
+    currencyIsFallback: false,
+    usdRates: { USD: 1, NGN: 1600, GHS: 11.36363636 },
+  };
+  const priced = pricePlan(
+    {
+      id: "accragh-1",
+      provider_plan_id: "accragh_100mb",
+      country_code: "gh",
+      name: "MTN Ghana 100MB",
+      category: "data",
+      base_price: 100, // GHS 100
+      currency: "GHS",
+      price_type: "FIXED",
+    },
+    null,
+    ctx,
+    [],
+  );
+  assert.equal(priced.costCurrency, "GHS");
+  // GHS 100 / 11.36363636 = $8.80 USD -> * 1600 = 14,080 NGN.
+  assert.equal(priced.customerPriceDecimal, 14080);
 });

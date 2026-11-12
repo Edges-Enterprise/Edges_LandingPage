@@ -23,6 +23,17 @@ import { BASE_CURRENCY } from "./registry.ts";
 
 export type RateSource = "collection_provider" | "zendit" | "manual";
 
+/**
+ * Source precedence, most authoritative first. Shared by `findFreshRate`
+ * (which iterates them in order) and `loadFreshUsdRates` (which ranks the
+ * rows it reads in one pass), so both pick the same rate for a currency.
+ */
+export const RATE_SOURCE_ORDER: RateSource[] = [
+  "collection_provider",
+  "zendit",
+  "manual",
+];
+
 export interface RateLookupResult {
   rate: number;
   source: RateSource;
@@ -56,16 +67,67 @@ export interface RateStore {
 
 interface RateQuery {
   eq(column: string, value: unknown): RateQuery;
+  gt(column: string, value: unknown): RateQuery;
   order(
     column: string,
     opts: { ascending: boolean },
-  ): {
-    limit(n: number): {
-      maybeSingle(): Promise<
-        { data: RateRow | null; error: { message: string } | null }
-      >;
-    };
-  };
+  ): RateQuery;
+  limit(n: number): RateQuery;
+  maybeSingle(): Promise<
+    { data: RateRow | null; error: { message: string } | null }
+  >;
+  then<TResult>(
+    onfulfilled: (
+      value: { data: RateRow[] | null; error: { message: string } | null },
+    ) => TResult,
+  ): Promise<TResult>;
+}
+
+/**
+ * Every fresh USD->quote rate, keyed by the uppercased quote currency, for
+ * pricing a catalog whose costs are spread across currencies.
+ *
+ * A store in `all` mode sells plans from every provider, so one page of the
+ * catalog can carry USD (Zendit), NGN (Lizzysub) and GHS (Accragh) costs at
+ * once. `findFreshRate` reads one pair at a time; this reads them all in a
+ * single pass so a catalog does not do a query per cost currency.
+ *
+ * One rate per currency, chosen the same way `findFreshRate` chooses: the
+ * most authoritative source first (collection_provider > zendit > manual),
+ * then the newest. USD is always present as 1.
+ */
+export async function loadFreshUsdRates(
+  store: RateStore,
+  now: Date = new Date(),
+): Promise<Record<string, number>> {
+  const rates: Record<string, number> = { [BASE_CURRENCY]: 1 };
+
+  const { data, error } = await store
+    .from("global_fx_rates")
+    .select("base_currency, quote_currency, rate, source, fetched_at, expires_at")
+    .eq("base_currency", BASE_CURRENCY)
+    .gt("expires_at", now.toISOString())
+    .order("fetched_at", { ascending: false });
+
+  if (error || !data) return rates;
+
+  const sourceRank = (source: string) =>
+    RATE_SOURCE_ORDER.indexOf(source as RateSource);
+
+  // `fetched_at` desc means the first row seen per quote is the newest; only
+  // replace it for a strictly more authoritative source.
+  const rankByQuote: Record<string, number> = {};
+  for (const row of data as RateRow[]) {
+    const quote = row.quote_currency?.toUpperCase();
+    if (!quote || !(row.rate > 0)) continue;
+    const rank = sourceRank(row.source);
+    if (rank === -1) continue;
+    if (rankByQuote[quote] === undefined || rank < rankByQuote[quote]) {
+      rates[quote] = row.rate;
+      rankByQuote[quote] = rank;
+    }
+  }
+  return rates;
 }
 
 /**
@@ -76,7 +138,7 @@ interface RateQuery {
 export async function findFreshRate(
   store: RateStore,
   quoteCurrency: string,
-  sources: RateSource[] = ["collection_provider", "zendit", "manual"],
+  sources: RateSource[] = RATE_SOURCE_ORDER,
 ): Promise<RateLookupResult | null> {
   const quote = quoteCurrency.toUpperCase();
   if (quote === BASE_CURRENCY) {

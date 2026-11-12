@@ -190,7 +190,8 @@ export async function getStoreCatalog(
     return EMPTY;
   }
 
-  const plans: StoreProduct[] = basePlans.map((p) => {
+  const plans: StoreProduct[] = [];
+  for (const p of basePlans) {
     // Already resolved for this store: the plan's own row, or the store
     // default in `all` mode.
     const cfg = p.__config as CatalogPlanConfig | null;
@@ -198,26 +199,40 @@ export async function getStoreCatalog(
     // A RANGE offer shows the price of its minimum amount ("from X"); the
     // customer's chosen amount is priced at checkout through the same
     // pipeline. A FIXED offer prices from its stored cost.
-    const priced = isRange && p.range_min != null
-      ? priceRangePlan(
-        p as never,
-        (cfg ?? null) as never,
-        storeContext,
-        platformMarkups,
-        Number(p.range_min),
-      )
-      : pricePlan(
-        p as never,
-        (cfg ?? null) as never,
-        storeContext,
-        platformMarkups,
+    let priced;
+    try {
+      priced = isRange && p.range_min != null
+        ? priceRangePlan(
+          p as never,
+          (cfg ?? null) as never,
+          storeContext,
+          platformMarkups,
+          Number(p.range_min),
+        )
+        : pricePlan(
+          p as never,
+          (cfg ?? null) as never,
+          storeContext,
+          platformMarkups,
+        );
+    } catch (error) {
+      // One unpriced plan (a cost currency with no rate, bad RANGE bounds)
+      // must not blank the whole store. Skip it and keep the rest; the log
+      // names it. In `all` mode a store carries every provider's plans, so a
+      // single unpriceable currency is reachable and must not take the
+      // storefront down.
+      console.error(
+        `Store catalog: skipping plan ${p.provider_plan_id}:`,
+        error instanceof Error ? error.message : error,
       );
+      continue;
+    }
 
     const sellingPrice = priced.customerPriceDecimal;
     // The reseller's cost basis is the platform price, not the raw cost.
     const costLocal = priced.platformLocalDecimal;
 
-    return {
+    plans.push({
       id: p.id,
       plan_id: p.provider_plan_id,
       name: p.name,
@@ -242,8 +257,10 @@ export async function getStoreCatalog(
         : undefined,
       send_value: p.send_value != null ? Number(p.send_value) : undefined,
       send_currency: p.send_currency ?? undefined,
-    };
-  });
+    });
+  }
+
+  if (plans.length === 0) return EMPTY;
 
   return {
     plans,
