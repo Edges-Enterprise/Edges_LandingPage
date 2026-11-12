@@ -1,7 +1,6 @@
 // src/app/api/reseller/[countryCode]/webhooks/build/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import { sendAdminEmail } from "@/lib/email/email";
 
 export async function POST(
   req: NextRequest,
@@ -88,46 +87,35 @@ export async function POST(
       );
     }
 
-    // Build-complete email. Sent from the app's own mailer rather than an edge
-    // function: the legacy flow used the same mailer (notifyBuildComplete.ts),
-    // the global rewrite replaced it with an `invoke("send-app-build-complete")`
-    // to a function that was never created, and this app already owns the
-    // transport + credentials. Best-effort: the APK is published and the status
-    // row is written, so a mail failure must not fail the webhook.
-    if (status === "completed" && build?.application_id) {
+    // Build-complete email. Sent by the `send-global-app-ready` edge function
+    // over the Telcos SMTP account (store name as the From display name), so
+    // the countryCode/global flow owns its own mail sender and does not share
+    // the legacy Edges Network mailer. Best-effort: the APK is published and
+    // the status row is written, so a mail failure must not fail the webhook —
+    // bound the wait so a slow send can never hang the callback.
+    if (status === "completed" && apkUrl && build?.application_id) {
       try {
-        const { data: app } = await supabase
-          .from("global_reseller_applications")
-          .select("email, first_name, store_name, store_slug")
-          .eq("id", build.application_id)
-          .single();
-
-        if (app?.email) {
-          const rawName = app.store_name || app.store_slug || "Your";
-          const displayName = rawName
-            .split(/[-_ ]+/)
-            .filter(Boolean)
-            .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-            .join(" ");
-
-          // Send as the store, not as Edges Network: the app's shared mail
-          // account is the transport, but the store owner's own address is
-          // the Reply-To, so replies reach the reseller. The From *domain*
-          // cannot change per store (it must stay on the verified sending
-          // domain), so only the display name varies.
-          await sendAdminEmail({
-            to: app.email,
-            subject: `📱 Your ${displayName} App is Ready!`,
-            recipientName: app.first_name || displayName,
-            isHtml: false,
-            fromName: displayName,
-            replyTo: app.email,
-            message: `Your branded Android app for ${displayName} has been built successfully!
-
-📱 Download it here: ${apkUrl}
-
-You can also re-download it any time from your dashboard.`,
-          });
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-global-app-ready`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({
+              applicationId: build.application_id,
+              apkUrl,
+            }),
+            signal: AbortSignal.timeout(15_000),
+          },
+        );
+        if (!res.ok) {
+          console.error(
+            "Build notification email failed:",
+            res.status,
+            await res.text().catch(() => ""),
+          );
         }
       } catch (notifError) {
         console.error("Failed to send build notification:", notifError);
