@@ -114,7 +114,6 @@ function buildWelcomeEmail({
   const APP_URL = Deno.env.get("APP_URL") || "http://localhost:3000";
   const storeUrl = `${APP_URL}/${countryCode}/${storeSlug}`;
   const dashboardUrl = `${APP_URL}/${countryCode}/dashboard`;
-  const statusUrl = `${APP_URL}/${countryCode}/status?applicationId=${applicationId}`;
   
   const fullName = `${firstName} ${lastName}`;
   const displayName = storeName
@@ -247,13 +246,6 @@ function buildWelcomeEmail({
 
     <div class="cta-wrap">
       <a href="${dashboardUrl}" class="cta">📊 Go to Dashboard</a>
-    </div>
-
-    <div style="text-align: center; margin-top: 12px;">
-      <small style="color: #999; font-size: 12px;">
-        You can also track your application status here: 
-        <a href="${statusUrl}" style="color: #C98A54; text-decoration: underline;">Check Status</a>
-      </small>
     </div>
 
     ${androidApp ? `
