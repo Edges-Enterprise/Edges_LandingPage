@@ -125,6 +125,13 @@ export default function GlobalPlansPanel({
   const [bulkCountry, setBulkCountry] = useState<string>("all");
   const [bulkNetwork, setBulkNetwork] = useState<string>("all");
   const [bulkSaving, setBulkSaving] = useState(false);
+  // A destructive store-wide apply asks for confirmation in an in-app modal
+  // rather than window.confirm, so the prompt reads as part of the product
+  // ("Are you sure?") instead of the browser's "<host> says" chrome.
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   // The store-wide default markup and catalog mode, read so the "All Countries
   // + All Networks" scope can show what it already set. The Catalog card that
@@ -478,47 +485,9 @@ export default function GlobalPlansPanel({
     setSaving(false);
   };
 
-  const handleBulkUpdate = async () => {
-    const value = bulkValue === "" ? 0 : bulkValue;
-
-    // The exact markup is already applied to this scope — re-applying would
-    // only rewrite the same rows. Tell the user instead of running it again.
-    if (bulkAlreadyApplied) {
-      flash("info", t?.bulkAlreadyApplied || "This markup has already been applied");
-      return;
-    }
-
-    // How many plans this scope will touch, for the confirmation. The scope is
-    // the card's own country + network, ignoring the search box. It is a server
-    // count: the loaded list is only a page or two, so counting it would report
-    // 32 for a scope that is really thousands.
-    let scopeCount = total;
-    if (!bulkIsStoreWide) {
-      const countRes = await getGlobalPlans({
-        country: bulkCountry,
-        network: bulkNetwork,
-        offset: 0,
-        limit: 1,
-      });
-      scopeCount = countRes.success && countRes.data ? countRes.data.total : 0;
-    }
-
-    if (scopeCount === 0 && !bulkIsStoreWide) {
-      flash("error", t?.noPlans || "No plans available");
-      return;
-    }
-
-    const pretty = bulkType === "percentage" ? `${value}%` : fmt(value);
-    const scopeLabel =
-      `${bulkCountry === "all" ? (t?.allCountries || "all countries") : bulkCountry.toUpperCase()}` +
-      ` / ${bulkNetwork === "all" ? (t?.allNetworks || "all networks") : bulkNetwork}`;
-    const confirmText = bulkIsStoreWide
-      ? `Apply a ${pretty} markup to every plan in every country and network? This sets your store-wide default markup.`
-      : `Apply a ${pretty} markup to ${scopeCount} plan${scopeCount === 1 ? "" : "s"} in ${scopeLabel}?`;
-    if (!window.confirm(confirmText)) {
-      return;
-    }
-
+  // Runs the write itself. Kept separate from handleBulkUpdate so the in-app
+  // confirmation modal can call it after the user presses Confirm.
+  const applyBulkUpdate = async (value: number, pretty: string) => {
     setBulkSaving(true);
 
     // Optimistic: reflect the new markup (and enablement) on the cards at once.
@@ -585,6 +554,55 @@ export default function GlobalPlansPanel({
       flash("error", result.error || "Failed to update plans");
     }
     setBulkSaving(false);
+  };
+
+  const handleBulkUpdate = async () => {
+    const value = bulkValue === "" ? 0 : bulkValue;
+
+    // The exact markup is already applied to this scope — re-applying would
+    // only rewrite the same rows. Tell the user instead of running it again.
+    if (bulkAlreadyApplied) {
+      flash("info", t?.bulkAlreadyApplied || "This markup has already been applied");
+      return;
+    }
+
+    // How many plans this scope will touch, for the confirmation. The scope is
+    // the card's own country + network, ignoring the search box. It is a server
+    // count: the loaded list is only a page or two, so counting it would report
+    // 32 for a scope that is really thousands.
+    let scopeCount = total;
+    if (!bulkIsStoreWide) {
+      const countRes = await getGlobalPlans({
+        country: bulkCountry,
+        network: bulkNetwork,
+        offset: 0,
+        limit: 1,
+      });
+      scopeCount = countRes.success && countRes.data ? countRes.data.total : 0;
+    }
+
+    if (scopeCount === 0 && !bulkIsStoreWide) {
+      flash("error", t?.noPlans || "No plans available");
+      return;
+    }
+
+    const pretty = bulkType === "percentage" ? `${value}%` : fmt(value);
+    const scopeLabel =
+      `${bulkCountry === "all" ? (t?.allCountries || "all countries") : bulkCountry.toUpperCase()}` +
+      ` / ${bulkNetwork === "all" ? (t?.allNetworks || "all networks") : bulkNetwork}`;
+    const confirmMessage = bulkIsStoreWide
+      ? `Apply a ${pretty} markup to every plan in every country and network? This sets your store-wide default markup.`
+      : `Apply a ${pretty} markup to ${scopeCount} plan${scopeCount === 1 ? "" : "s"} in ${scopeLabel}?`;
+
+    // In-app confirmation instead of window.confirm, so the prompt is styled
+    // and titled "Are you sure?" rather than the browser's "<host> says".
+    setPendingConfirm({
+      message: confirmMessage,
+      onConfirm: () => {
+        setPendingConfirm(null);
+        void applyBulkUpdate(value, pretty);
+      },
+    });
   };
 
   return (
@@ -908,6 +926,7 @@ export default function GlobalPlansPanel({
           <button
             onClick={handleBulkUpdate}
             disabled={bulkSaving}
+            className="global-bulk-apply"
             aria-label={
               bulkAlreadyApplied
                 ? t?.bulkAlreadyApplied || "This markup has already been applied"
@@ -940,7 +959,7 @@ export default function GlobalPlansPanel({
             ) : (
               <Check size={15} />
             )}
-            {t?.apply || "Apply"}
+            <span className="global-bulk-apply-label">{t?.apply || "Apply"}</span>
           </button>
         </div>
       </div>
@@ -1251,6 +1270,47 @@ export default function GlobalPlansPanel({
         )}
       </div>
 
+      {/* In-app confirmation for a bulk apply (replaces window.confirm). */}
+      {pendingConfirm && (
+        <div className="global-confirm-overlay" role="presentation">
+          <div
+            className="global-confirm-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="global-confirm-title"
+          >
+            <div className="global-confirm-icon">
+              <AlertTriangle size={22} />
+            </div>
+            <h3 id="global-confirm-title" className="global-confirm-title">
+              {t?.areYouSure || "Are you sure?"}
+            </h3>
+            <p className="global-confirm-message">{pendingConfirm.message}</p>
+            <div className="global-confirm-actions">
+              <button
+                type="button"
+                className="global-confirm-cancel"
+                onClick={() => setPendingConfirm(null)}
+                disabled={bulkSaving}
+              >
+                {t?.cancel || "Cancel"}
+              </button>
+              <button
+                type="button"
+                className="global-confirm-ok"
+                onClick={pendingConfirm.onConfirm}
+                disabled={bulkSaving}
+              >
+                {bulkSaving ? (
+                  <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+                ) : null}
+                {t?.apply || "Apply"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
         @keyframes spin {
           from {
@@ -1311,6 +1371,82 @@ export default function GlobalPlansPanel({
           -moz-appearance: textfield;
           appearance: textfield;
         }
+        /* In-app confirm dialog for a bulk apply. */
+        .global-confirm-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 60;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1rem;
+          background: rgba(0, 0, 0, 0.55);
+          backdrop-filter: blur(2px);
+        }
+        .global-confirm-card {
+          width: 100%;
+          max-width: 26rem;
+          background: var(--bg2);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 1.4rem;
+          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+          text-align: center;
+        }
+        .global-confirm-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          margin-bottom: 0.75rem;
+          background: color-mix(in srgb, #ef4444 16%, transparent);
+          color: #ef4444;
+        }
+        .global-confirm-title {
+          margin: 0 0 0.5rem;
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+        .global-confirm-message {
+          margin: 0 0 1.25rem;
+          font-size: 0.86rem;
+          line-height: 1.5;
+          color: var(--muted);
+        }
+        .global-confirm-actions {
+          display: flex;
+          gap: 0.6rem;
+        }
+        .global-confirm-actions button {
+          flex: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 0.6rem 0.9rem;
+          border-radius: 10px;
+          font-size: 0.85rem;
+          font-weight: 700;
+          font-family: inherit;
+          cursor: pointer;
+        }
+        .global-confirm-actions button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .global-confirm-cancel {
+          background: var(--bg);
+          border: 1px solid var(--border);
+          color: var(--text);
+        }
+        .global-confirm-ok {
+          background: var(--brand-color);
+          border: none;
+          color: #FDF8F3;
+        }
         /* Mobile: name + toggle + chevron; the rest opens in the panel. */
         @media (max-width: 767px) {
           .global-plan-wholesale {
@@ -1369,6 +1505,16 @@ export default function GlobalPlansPanel({
           .global-plan-details > div {
             flex-wrap: wrap;
             row-gap: 0.6rem;
+          }
+          /* Icon-only apply button; the label is desktop-only. The padding and
+             gap are set inline on the button, so the compact overrides here
+             need !important to win. */
+          .global-bulk-apply {
+            padding: 0.55rem 0.7rem !important;
+            gap: 0 !important;
+          }
+          .global-bulk-apply-label {
+            display: none;
           }
         }
       `}</style>

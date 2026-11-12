@@ -37,5 +37,6 @@
   "next": "Siguiente",
   "storeWideHint": "Todos los países + todas las redes establece tu margen predeterminado para toda la tienda",
   "plansCount": "planes",
-  "allPlansShown": "Todos los planes mostrados"
+  "allPlansShown": "Todos los planes mostrados",
+  "areYouSure": "¿Estás seguro?"
 }

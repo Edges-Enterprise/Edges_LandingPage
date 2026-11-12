@@ -45,5 +45,6 @@
   "next": "Next",
   "storeWideHint": "All countries + all networks sets your store-wide default markup",
   "plansCount": "plans",
-  "allPlansShown": "All plans shown"
+  "allPlansShown": "All plans shown",
+  "areYouSure": "Are you sure?"
 }
