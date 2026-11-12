@@ -22,9 +22,18 @@ reseller dashboard).
 - Project `edges-landing-page`, id `prj_jxynbeusJCMYJKscqALL3iVpZKyc`,
   team `team_xF3vscoESNKJIyV5aqiHOqZ4`.
 - Auth for CLI/API: `$VERCEL_ACCESS_TOKEN`.
+- **Pushing `main` auto-deploys to production.** The repo has a Vercel Git
+  integration, so a push to `main` triggers a production build and moves the
+  `edges-landing-page.vercel.app` alias to it — **no manual deploy is needed
+  after a push**. Confirm it with
+  `GET https://api.vercel.com/v6/deployments?projectId=prj_jxynbeusJCMYJKscqALL3iVpZKyc&teamId=team_xF3vscoESNKJIyV5aqiHOqZ4&target=production`
+  (newest entry should carry your commit's `githubCommitSha` and reach
+  `READY`), then check the alias:
+  `GET https://api.vercel.com/v4/aliases?projectId=...&teamId=...`.
 - Deploy: `npx vercel deploy --prod --yes` (or `vercel deploy --yes` for a
-  preview). `vercel curl <path> --deployment <url>` bypasses deployment
-  protection (SSO) on preview URLs.
+  preview) — only needed to ship something **without** a push (e.g. an
+  uncommitted change). `vercel curl <path> --deployment <url>` bypasses
+  deployment protection (SSO) on preview URLs.
 - Preview URLs are blocked by deployment protection
   (`ssoProtection: all_except_custom_domains`); `vercel curl` handles it.
 
