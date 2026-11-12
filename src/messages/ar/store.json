@@ -80,5 +80,10 @@
   "businessHoursDesc": "حدد ساعات عمل متجرك",
   "subtitleMobile": "قم بتكوين هوية متجرك",
   "storeSubtext": "النص الفرعي",
-  "storeSubtextPlaceholder": "احصل على أفضل العروض على البيانات والرصيد والمزيد."
+  "storeSubtextPlaceholder": "احصل على أفضل العروض على البيانات والرصيد والمزيد.",
+  "shareStore": "شارك المتجر",
+  "shareStoreTitle": "شارك متجرك",
+  "shareStoreText": "تفقد متجري {store} — اشترِ البيانات والرصيد والمزيد!",
+  "copyLink": "نسخ الرابط",
+  "copied": "تم النسخ إلى الحافظة"
 }

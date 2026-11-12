@@ -80,5 +80,10 @@
   "businessHoursDesc": "Définissez les heures d'ouverture de votre boutique",
   "subtitleMobile": "Configurez l'image de marque de votre boutique",
   "storeSubtext": "Sous-texte",
-  "storeSubtextPlaceholder": "Obtenez les meilleures offres sur les forfaits data, le crédit et plus encore."
+  "storeSubtextPlaceholder": "Obtenez les meilleures offres sur les forfaits data, le crédit et plus encore.",
+  "shareStore": "Partager la boutique",
+  "shareStoreTitle": "Partagez votre boutique",
+  "shareStoreText": "Découvrez ma boutique {store} — data, crédit et plus encore !",
+  "copyLink": "Copier le lien",
+  "copied": "Copié dans le presse-papiers"
 }

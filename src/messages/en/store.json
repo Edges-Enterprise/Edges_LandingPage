@@ -80,5 +80,10 @@
   "businessHoursDesc": "Set your store's operating hours",
   "subtitleMobile": "Configure your store branding",
   "storeSubtext": "Subtext",
-  "storeSubtextPlaceholder": "Get the best deals on data, airtime, and more."
+  "storeSubtextPlaceholder": "Get the best deals on data, airtime, and more.",
+  "shareStore": "Share Store",
+  "shareStoreTitle": "Share your store",
+  "shareStoreText": "Check out my store on {store} — order data, airtime and more!",
+  "copyLink": "Copy link",
+  "copied": "Copied to clipboard"
 }

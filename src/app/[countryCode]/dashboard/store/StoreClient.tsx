@@ -2,7 +2,15 @@
 "use client";
 
 import { useState } from "react";
-import { Store, Palette, Eye, Save, Store as StoreIcon } from "lucide-react";
+import {
+  Store,
+  Palette,
+  Eye,
+  Save,
+  Store as StoreIcon,
+  Share2,
+  Check,
+} from "lucide-react";
 import StoreSettings from "./StoreSettings";
 import BrandingSettings from "./BrandingSettings";
 import ThemeSettings from "./ThemeSettings";
@@ -29,6 +37,8 @@ export default function StoreClient({
   const [activeTab, setActiveTab] = useState<TabType>("settings");
   const [showSaved, setShowSaved] = useState(false);
   const [data, setData] = useState(storeData);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const tabs = [
     { id: "settings" as TabType, label: t?.storeSettings || "Settings", icon: Store },
@@ -99,6 +109,55 @@ export default function StoreClient({
   // The storefront path, matching the URL the preview card's button used.
   const storeUrl = `/${countryCode}/${data.application.store_slug}`;
 
+  // Absolute URL for sharing/copying. `window.location.origin` is the live
+  // host (and correct behind previews/local dev); NEXT_PUBLIC_APP_URL is the
+  // fallback for the rare case it is unavailable.
+  const absoluteStoreUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${storeUrl}`
+      : `${process.env.NEXT_PUBLIC_APP_URL || ""}${storeUrl}`;
+
+  const storeLabel = data.application.store_name || data.application.store_slug;
+
+  const handleShare = async () => {
+    const shareText = (t?.shareStoreText || "Check out my store on {store} — order data, airtime and more!").replace(
+      "{store}",
+      storeLabel,
+    );
+
+    // Native share sheet (mobile, and some desktop browsers).
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: t?.shareStoreTitle || "Share your store",
+          text: shareText,
+          url: absoluteStoreUrl,
+        });
+        return;
+      } catch (err) {
+        // AbortError = the user dismissed the sheet; fall through to the
+        // copy-link popover so the action still does something useful.
+        if ((err as Error)?.name === "AbortError") return;
+      }
+    }
+    setShareOpen((open) => !open);
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(absoluteStoreUrl);
+    } catch {
+      const input = document.createElement("input");
+      input.value = absoluteStoreUrl;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div>
       {/* Page Header */}
@@ -133,6 +192,125 @@ export default function StoreClient({
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+          <div className="store-share-wrap" style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="store-share-btn"
+              title={t?.shareStore || "Share Store"}
+              aria-label={t?.shareStore || "Share Store"}
+              aria-expanded={shareOpen}
+              style={{
+                padding: "0.6rem 1.2rem",
+                background: "transparent",
+                border: "1px solid var(--border2)",
+                borderRadius: 8,
+                color: "var(--text)",
+                fontSize: "0.9rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--brand-color)";
+                e.currentTarget.style.background = "rgba(var(--brand-color-rgb), 0.05)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border2)";
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              {/* Mobile: an icon stands in for the label. */}
+              <Share2 className="store-share-icon" size={18} />
+              <span className="store-share-label">
+                {t?.shareStore || "Share Store"}
+              </span>
+            </button>
+
+            {shareOpen && (
+              <>
+                {/* Click-away layer for the popover. */}
+                <div
+                  onClick={() => setShareOpen(false)}
+                  style={{ position: "fixed", inset: 0, zIndex: 40 }}
+                />
+                <div
+                  role="dialog"
+                  aria-label={t?.shareStoreTitle || "Share your store"}
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: "calc(100% + 0.5rem)",
+                    zIndex: 50,
+                    width: 320,
+                    maxWidth: "90vw",
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 12,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                    padding: "1rem",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      color: "var(--muted)",
+                      margin: "0 0 0.5rem",
+                    }}
+                  >
+                    {t?.storeUrl || "Store URL"}
+                  </p>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <input
+                      type="text"
+                      value={absoluteStoreUrl}
+                      readOnly
+                      onFocus={(e) => e.currentTarget.select()}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        padding: "0.5rem 0.75rem",
+                        background: "var(--bg2)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        color: "var(--text)",
+                        fontSize: "0.8rem",
+                        fontFamily: "monospace",
+                        outline: "none",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCopy}
+                      title={t?.copyLink || "Copy link"}
+                      aria-label={t?.copyLink || "Copy link"}
+                      style={{
+                        flexShrink: 0,
+                        padding: "0.5rem 0.75rem",
+                        background: copied ? "rgba(110,189,138,0.15)" : "var(--bg2)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        color: copied ? "#6EBD8A" : "var(--text)",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.35rem",
+                        fontSize: "0.8rem",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {copied ? <Check size={15} /> : <Share2 size={15} />}
+                      {copied ? t?.copied || "Copied" : t?.copyLink || "Copy link"}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
           <a
             className="store-view-link"
             data-tour="visit_storefront"
@@ -202,6 +380,9 @@ export default function StoreClient({
         .store-view-icon {
           display: none;
         }
+        .store-share-icon {
+          display: none;
+        }
         .store-subtitle-mobile {
           display: none;
         }
@@ -212,13 +393,16 @@ export default function StoreClient({
           .store-subtitle-mobile {
             display: inline;
           }
-          .store-view-label {
+          .store-view-label,
+          .store-share-label {
             display: none;
           }
-          .store-view-icon {
+          .store-view-icon,
+          .store-share-icon {
             display: block;
           }
-          .store-view-link {
+          .store-view-link,
+          .store-share-btn {
             padding: 0.6rem 0.7rem !important;
           }
         }
