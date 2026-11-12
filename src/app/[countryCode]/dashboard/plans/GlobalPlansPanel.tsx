@@ -595,7 +595,7 @@ export default function GlobalPlansPanel({
         </div>
       )}
 
-      {/* Country picker: 20 options per page, radios, behind Back / Next */}
+      {/* Country picker: 20 options per page, behind Previous / Next */}
       <div
         style={{
           background: "var(--card)",
@@ -615,50 +615,29 @@ export default function GlobalPlansPanel({
             {countryPage + 1} / {countryPageCount}
           </span>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-            gap: "0.4rem 0.75rem",
-          }}
-        >
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
           {countryPageItems.map((cc) => {
             const isAll = cc === "all";
             const count = isAll
               ? countries.reduce((sum, c) => sum + c.count, 0)
               : countries.find((c) => c.country === cc)?.count ?? 0;
+            const isActive = activeCountry === cc;
             return (
-              <label
+              <button
                 key={cc}
+                onClick={() => onSelectCountry(cc)}
                 style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: "0.82rem",
-                  color: "var(--text)",
-                  cursor: "pointer",
-                  minWidth: 0,
+                  ...tabStyle,
+                  background: isActive ? "var(--brand-color)" : "var(--bg2)",
+                  color: isActive ? "#FDF8F3" : "var(--muted)",
+                  border: isActive ? "none" : "1px solid var(--border)",
                 }}
               >
-                <input
-                  type="radio"
-                  name="global-country"
-                  checked={activeCountry === cc}
-                  onChange={() => onSelectCountry(cc)}
-                />
-                <span
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {isAll ? t?.allCountries || "All Countries" : cc.toUpperCase()}
-                </span>
-                <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
+                {isAll ? t?.allCountries || "All Countries" : cc.toUpperCase()}
+                <span style={{ fontSize: "0.7rem", opacity: 0.7, marginLeft: 4 }}>
                   ({count})
                 </span>
-              </label>
+              </button>
             );
           })}
         </div>
@@ -1311,6 +1290,17 @@ export default function GlobalPlansPanel({
     </div>
   );
 }
+
+const tabStyle: React.CSSProperties = {
+  padding: "0.45rem 0.9rem",
+  borderRadius: 10,
+  fontSize: "0.78rem",
+  fontWeight: 700,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  letterSpacing: "0.02em",
+  transition: "all 0.15s",
+};
 
 const countryPagerBtn: React.CSSProperties = {
   display: "inline-flex",
