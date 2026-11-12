@@ -1522,35 +1522,55 @@ export default function GlobalPlansPanel({
             flex-wrap: wrap;
             row-gap: 0.6rem;
           }
-          /* Bulk row: country + network on the first line, then Markup Type +
-             Value + Apply kept together on the next. The icon-only Apply sits
-             inline with Markup Type and Value instead of wrapping onto a line
-             of its own. The scope selects stay full width so they fill the row. */
+          /* Bulk row on mobile: Apply To + Network share the first line, and
+             Markup Type + Value + Apply share the second. The controls are given
+             one height so each line reads as a single row, the Value field is
+             kept narrow, and a wider gap sets the icon-only Apply apart from the
+             Markup Type / Value fields.
+             ThemeSelect renders its trigger in another component, so styled-jsx
+             never scopes it — the trigger needs :global to be targeted here. */
           .global-bulk-row {
-            row-gap: 0.6rem;
+            row-gap: 0.7rem;
           }
+          .global-bulk-row :global(.theme-select-trigger) {
+            width: 100%;
+            height: 34px;
+            /* The trigger's inline min-width would stop it shrinking to half a
+               narrow phone; the label already ellipsises. */
+            min-width: 0 !important;
+          }
+          /* First line: the two scope selects split the width. */
           .global-bulk-row > div:not(.global-bulk-group) {
-            flex: 1 1 100%;
+            flex: 1 1 calc(50% - 0.3rem);
+            min-width: 0;
           }
-          .global-bulk-row > div:not(.global-bulk-group) > :last-child {
-            width: 100% !important;
-          }
+          /* Second line: Markup Type grows, Value stays narrow, Apply is compact. */
           .global-bulk-group {
             flex: 1 1 100%;
+            /* The group's gap is inline, so it needs !important; the wider gap
+               sets the fields apart, in particular Value from Apply. */
+            gap: 1rem !important;
           }
           .global-bulk-group > div {
             flex: 1 1 0;
             min-width: 0;
           }
-          .global-bulk-group > div > :last-child {
+          .global-bulk-group > div:last-of-type {
+            flex: 0 0 66px;
+          }
+          .global-bulk-group > div > input {
             width: 100% !important;
+            height: 34px;
           }
           /* Icon-only apply button; the label is desktop-only. The padding and
              gap are set inline on the button, so the compact overrides here
              need !important to win. */
           .global-bulk-apply {
             flex: 0 0 auto;
-            align-self: center !important;
+            /* The field boxes are taller than the button because of their labels,
+               so bottom-align the button with the select/input row. */
+            align-self: flex-end !important;
+            height: 34px;
             padding: 0.55rem 0.7rem !important;
             gap: 0 !important;
           }
