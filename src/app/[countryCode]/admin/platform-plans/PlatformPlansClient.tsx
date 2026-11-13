@@ -184,7 +184,48 @@ export default function PlatformPlansClient({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <div style={{ padding: "1.5rem", maxWidth: 1100, margin: "0 auto" }}>
+    <div className="pp-page">
+      <style>{`
+        .pp-page {
+          padding: 1.5rem;
+          max-width: 1100px;
+          margin: 0 auto;
+        }
+        /* The markup and catalog tables carry six columns each. Below the
+           tablet breakpoint they scroll sideways rather than crushing the
+           columns or forcing the page wider than the viewport. */
+        .pp-table-wrap {
+          width: 100%;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        .pp-table-wrap table {
+          min-width: 560px;
+        }
+        .pp-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+        .pp-actions {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        @media (max-width: 767px) {
+          .pp-page {
+            padding: 1rem 0.85rem;
+          }
+          .pp-grid {
+            grid-template-columns: 1fr;
+          }
+          .pp-actions {
+            justify-content: flex-start;
+          }
+        }
+      `}</style>
       <h1 style={{ fontSize: "1.4rem", fontWeight: 700, marginBottom: 4 }}>
         Platform plans
       </h1>
@@ -220,14 +261,7 @@ export default function PlatformPlansClient({
           rows apply. Cross-border uses the country row, then the default.
         </p>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-            gap: 10,
-            marginBottom: 14,
-          }}
-        >
+        <div className="pp-grid">
           <label style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
             Scope
             <ThemeSelect
@@ -294,70 +328,74 @@ export default function PlatformPlansClient({
           {pending ? "Saving…" : "Save markup"}
         </button>
 
-        <table
-          style={{
-            width: "100%",
-            marginTop: 18,
-            borderCollapse: "collapse",
-            fontSize: "0.82rem",
-          }}
-        >
-          <thead>
-            <tr style={{ color: "var(--muted)", textAlign: "left" }}>
-              <th style={{ padding: "6px 4px" }}>Scope</th>
-              <th style={{ padding: "6px 4px" }}>Key</th>
-              <th style={{ padding: "6px 4px" }}>Type</th>
-              <th style={{ padding: "6px 4px" }}>Value</th>
-              <th style={{ padding: "6px 4px" }}>Status</th>
-              <th style={{ padding: "6px 4px" }} />
-            </tr>
-          </thead>
-          <tbody>
-            {markups.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ padding: 10, color: "var(--dim)" }}>
-                  No markup rows.
-                </td>
+        <div className="pp-table-wrap">
+          <table
+            style={{
+              width: "100%",
+              marginTop: 18,
+              borderCollapse: "collapse",
+              fontSize: "0.82rem",
+            }}
+          >
+            <thead>
+              <tr style={{ color: "var(--muted)", textAlign: "left" }}>
+                <th style={{ padding: "6px 4px" }}>Scope</th>
+                <th style={{ padding: "6px 4px" }}>Key</th>
+                <th style={{ padding: "6px 4px" }}>Type</th>
+                <th style={{ padding: "6px 4px" }}>Value</th>
+                <th style={{ padding: "6px 4px" }}>Status</th>
+                <th style={{ padding: "6px 4px" }} />
               </tr>
-            )}
-            {markups.map((row) => (
-              <tr
-                key={row.id}
-                style={{ borderTop: "1px solid var(--border)" }}
-              >
-                <td style={{ padding: "8px 4px" }}>{row.scope}</td>
-                <td style={{ padding: "8px 4px" }}>{row.scope_key}</td>
-                <td style={{ padding: "8px 4px" }}>{row.markup_type}</td>
-                <td style={{ padding: "8px 4px" }}>{row.markup_value}</td>
-                <td style={{ padding: "8px 4px" }}>
-                  <span
-                    style={{
-                      color: row.enabled ? "var(--green)" : "var(--dim)",
-                    }}
-                  >
-                    {row.enabled ? "Enabled" : "Disabled"}
-                  </span>
-                </td>
-                <td style={{ padding: "8px 4px", textAlign: "right" }}>
-                  <button
-                    style={{ ...ghostBtnStyle, marginRight: 6 }}
-                    onClick={() => onToggleMarkup(row)}
-                    disabled={pending}
-                  >
-                    {row.enabled ? "Disable" : "Enable"}
-                  </button>
-                  <button
-                    style={ghostBtnStyle}
-                    onClick={() => onDeleteMarkup(row)}
-                    disabled={pending}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {markups.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ padding: 10, color: "var(--dim)" }}>
+                    No markup rows.
+                  </td>
+                </tr>
+              )}
+              {markups.map((row) => (
+                <tr
+                  key={row.id}
+                  style={{ borderTop: "1px solid var(--border)" }}
+                >
+                  <td style={{ padding: "8px 4px" }}>{row.scope}</td>
+                  <td style={{ padding: "8px 4px" }}>{row.scope_key}</td>
+                  <td style={{ padding: "8px 4px" }}>{row.markup_type}</td>
+                  <td style={{ padding: "8px 4px" }}>{row.markup_value}</td>
+                  <td style={{ padding: "8px 4px" }}>
+                    <span
+                      style={{
+                        color: row.enabled ? "var(--green)" : "var(--dim)",
+                      }}
+                    >
+                      {row.enabled ? "Enabled" : "Disabled"}
+                    </span>
+                  </td>
+                  <td style={{ padding: "8px 4px" }}>
+                    <div className="pp-actions">
+                      <button
+                        style={ghostBtnStyle}
+                        onClick={() => onToggleMarkup(row)}
+                        disabled={pending}
+                      >
+                        {row.enabled ? "Disable" : "Enable"}
+                      </button>
+                      <button
+                        style={ghostBtnStyle}
+                        onClick={() => onDeleteMarkup(row)}
+                        disabled={pending}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* ---------- Plan catalog ---------- */}
@@ -370,14 +408,7 @@ export default function PlatformPlansClient({
           store. Adding a new plan is done by SQL for now.
         </p>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-            gap: 10,
-            marginBottom: 12,
-          }}
-        >
+        <div className="pp-grid" style={{ marginBottom: 12 }}>
           <label style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
             Provider
             <ThemeSelect
@@ -425,69 +456,71 @@ export default function PlatformPlansClient({
           {total} plan{total === 1 ? "" : "s"} — page {page + 1} of {totalPages}
         </div>
 
-        <table
-          style={{
-            width: "100%",
-            marginTop: 8,
-            borderCollapse: "collapse",
-            fontSize: "0.8rem",
-          }}
-        >
-          <thead>
-            <tr style={{ color: "var(--muted)", textAlign: "left" }}>
-              <th style={{ padding: "6px 4px" }}>Provider</th>
-              <th style={{ padding: "6px 4px" }}>Plan</th>
-              <th style={{ padding: "6px 4px" }}>Country</th>
-              <th style={{ padding: "6px 4px" }}>Cost</th>
-              <th style={{ padding: "6px 4px" }}>Status</th>
-              <th style={{ padding: "6px 4px" }} />
-            </tr>
-          </thead>
-          <tbody>
-            {plans.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ padding: 10, color: "var(--dim)" }}>
-                  No plans match.
-                </td>
+        <div className="pp-table-wrap">
+          <table
+            style={{
+              width: "100%",
+              marginTop: 8,
+              borderCollapse: "collapse",
+              fontSize: "0.8rem",
+            }}
+          >
+            <thead>
+              <tr style={{ color: "var(--muted)", textAlign: "left" }}>
+                <th style={{ padding: "6px 4px" }}>Provider</th>
+                <th style={{ padding: "6px 4px" }}>Plan</th>
+                <th style={{ padding: "6px 4px" }}>Country</th>
+                <th style={{ padding: "6px 4px" }}>Cost</th>
+                <th style={{ padding: "6px 4px" }}>Status</th>
+                <th style={{ padding: "6px 4px" }} />
               </tr>
-            )}
-            {plans.map((plan) => (
-              <tr key={plan.id} style={{ borderTop: "1px solid var(--border)" }}>
-                <td style={{ padding: "8px 4px" }}>{plan.provider}</td>
-                <td style={{ padding: "8px 4px" }}>
-                  <div>{plan.name}</div>
-                  <div style={{ color: "var(--dim)", fontSize: "0.72rem" }}>
-                    {plan.provider_plan_id}
-                  </div>
-                </td>
-                <td style={{ padding: "8px 4px" }}>
-                  {plan.country_code.toUpperCase()}
-                </td>
-                <td style={{ padding: "8px 4px" }}>
-                  {plan.base_price} {plan.currency}
-                </td>
-                <td style={{ padding: "8px 4px" }}>
-                  <span
-                    style={{
-                      color: plan.is_active ? "var(--green)" : "var(--dim)",
-                    }}
-                  >
-                    {plan.is_active ? "Active" : "Inactive"}
-                  </span>
-                </td>
-                <td style={{ padding: "8px 4px", textAlign: "right" }}>
-                  <button
-                    style={ghostBtnStyle}
-                    onClick={() => onTogglePlan(plan)}
-                    disabled={pending}
-                  >
-                    {plan.is_active ? "Disable" : "Enable"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {plans.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ padding: 10, color: "var(--dim)" }}>
+                    No plans match.
+                  </td>
+                </tr>
+              )}
+              {plans.map((plan) => (
+                <tr key={plan.id} style={{ borderTop: "1px solid var(--border)" }}>
+                  <td style={{ padding: "8px 4px" }}>{plan.provider}</td>
+                  <td style={{ padding: "8px 4px" }}>
+                    <div>{plan.name}</div>
+                    <div style={{ color: "var(--dim)", fontSize: "0.72rem" }}>
+                      {plan.provider_plan_id}
+                    </div>
+                  </td>
+                  <td style={{ padding: "8px 4px" }}>
+                    {plan.country_code.toUpperCase()}
+                  </td>
+                  <td style={{ padding: "8px 4px" }}>
+                    {plan.base_price} {plan.currency}
+                  </td>
+                  <td style={{ padding: "8px 4px" }}>
+                    <span
+                      style={{
+                        color: plan.is_active ? "var(--green)" : "var(--dim)",
+                      }}
+                    >
+                      {plan.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td style={{ padding: "8px 4px", textAlign: "right" }}>
+                    <button
+                      style={ghostBtnStyle}
+                      onClick={() => onTogglePlan(plan)}
+                      disabled={pending}
+                    >
+                      {plan.is_active ? "Disable" : "Enable"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
           <button

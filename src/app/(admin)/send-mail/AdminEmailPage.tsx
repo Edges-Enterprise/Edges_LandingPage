@@ -91,7 +91,7 @@ export default function AdminEmailPage() {
                 value={names}
                 onChange={(e) => setNames(e.target.value)}
                 placeholder="John Doe, Jane Smith"
-                className="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-[#D7A77F] ..."
+                className="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-500 focus:border-[#D7A77F] focus:outline-none"
                 disabled={isPending}
               />
               <p className="text-xs text-gray-500 mt-1">

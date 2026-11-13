@@ -666,6 +666,35 @@ Operational invariants worth keeping:
   `enabled` flags were unrecoverable.
 
 
+## Admin section: what is real vs placeholder
+
+Read this before "fixing the admin UI" — most of the `/admin/*` tree is not a
+feature yet, and the real pages live in **two** route trees.
+
+- **Real admin surfaces (three):**
+  1. `src/app/[countryCode]/admin/platform-plans/` — platform plans + platform
+     markup (see the next section).
+  2. `src/app/(admin)/send-mail/` — admin email broadcast (`AdminEmailPage.tsx`,
+     Tailwind). Gate: `profiles.is_admin` check in its `page.tsx`.
+  3. `src/app/(admin)/admin-notifications/` — push-notification composer
+     (`AdminNotificationPage.tsx`, Tailwind). Same gate.
+- **Everything else under `src/app/[countryCode]/admin/*` is a "Coming soon"
+  placeholder** (`admin/page.tsx`, `dashboard/`, `reports/`, `applications/`,
+  `resellers/`, `settings/`, `verifications/`, `compliance/`, `notifications/`,
+  and `admin/layout.tsx` itself — which has **no** auth check). This is the
+  standing Option A scaffold policy: leave them as placeholders unless a task
+  targets one. `src/app/(admin)/panel/` is a stub that renders only the text
+  "Admin dashboard" and is ungated.
+- **Dead scaffold to ignore:** `src/components/reseller/layout/AdminSidebar.tsx`
+  and `AdminHeader.tsx` are **0-byte** files imported by nothing;
+  `src/middleware/*.ts` (incl. `admin-auth.ts`) are all 0 bytes and there is no
+  root `middleware.ts`. Don't assume a sidebar/header/middleware exists.
+- The `(admin)` route group has **no layout** — it maps to top-level
+  `/send-mail`, `/admin-notifications`, `/panel` (no `[countryCode]` prefix).
+- The two `(admin)` tools are Tailwind and **already responsive** (`p-4 md:p-8`,
+  `grid-cols-1 md:grid-cols-4`, `max-w-4xl`/`max-w-6xl mx-auto`). Verified at
+  320/768/1280px: no horizontal overflow. Only `platform-plans` needed work.
+
 ## Platform-admin surface (`/…/admin/platform-plans`)
 
 - The surface lives at `src/app/[countryCode]/admin/platform-plans/` and is
@@ -684,6 +713,21 @@ Operational invariants worth keeping:
 - **Adding a new plan is deliberately out of scope** (deferred item 9): the
   person said Lizzysub/Accragh plans are added by SQL. Do not add a "new plan"
   form here without picking the pin up.
+- The page is **responsive** now: both six-column tables sit inside a
+  `.pp-table-wrap` (`overflow-x: auto`, table `min-width: 560px`) so they scroll
+  sideways on phones instead of forcing the page wide; the two form grids
+  collapse to one column and the row action buttons flex-wrap under 767px. If
+  you add a third table, wrap it the same way — an unwrapped wide table is what
+  makes `document.scrollWidth > clientWidth` (the page overflows sideways).
+- **The `.theme-select-*` rules live in `reseller.css`, not
+  `dashboard-theme.css`.** They were moved because this admin page renders
+  `ThemeSelect` but only imports `@/app/reseller.css`; while the rules sat in
+  `dashboard-theme.css` the triggers rendered unstyled and the portaled menu was
+  unpositioned here. `reseller.css` also seeds `--brand-color` /
+  `--brand-color-rgb` / `--accent-bg-hover` / `--shadow-lg` in `:root` so the
+  shared widget themes on pages that do not set a store brand colour (the
+  dashboard still overrides `--brand-color` on `<html>`). If you add a new
+  shared themed widget, put its base CSS in `reseller.css` for the same reason.
 
 ## Adding a customer from the dashboard
 
