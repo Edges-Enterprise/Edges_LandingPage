@@ -367,6 +367,21 @@ touch the legacy path.
   card shows the plan name collapsed and the country flag expanded), put the
   swapped-out text on an `aria-label` of the interactive container so a screen
   reader still announces it. `GlobalPlansPanel` does this on the plan title.
+- A styled-jsx `display: none` (or any class rule) **loses to an inline
+  `style` prop**. `GlobalPlansPanel`'s edit pencil uses the shared
+  `btnIconStyle`, which sets `display: "inline-flex"`, so the mobile media
+  query that should hide the desktop pencil (`.global-plan-edit-desktop {
+  display: none }`) was silently beaten and **both** pencils rendered on an
+  expanded mobile card. Either move `display` out of the shared style object
+  or add `!important` to the media-query rule; the panel does the latter for
+  both `.global-plan-edit-inline` and `.global-plan-edit-desktop`. Verify with
+  `getComputedStyle(btn).display`, not by counting buttons in the DOM — the
+  hidden one is still in the DOM.
+- The per-plan markup-type field must be the themed `ThemeSelect` (as the bulk
+  card uses), **not** a native `<select>`: the OS paints the native popup and
+  ignores the store theme. `ThemeSelect` renders its trigger inside the
+  component, so styled-jsx needs `:global(.theme-select-trigger)` to size it
+  (the edit row sets `height: 34px` to match the value input).
 
 ## Downloading test APKs (Termux)
 

@@ -1165,12 +1165,11 @@ export default function GlobalPlansPanel({
 
                   <div className="global-plan-details">
                     {isEditing ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                        <select
+                      <div className="global-plan-edit-row" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                        <ThemeSelect
                           value={editType}
-                          onChange={(e) =>
-                            setEditType(e.target.value as "percentage" | "fixed")
-                          }
+                          onChange={(v) => setEditType(v as "percentage" | "fixed")}
+                          ariaLabel={t?.markupType || "Markup Type"}
                           style={{
                             background: "var(--bg2)",
                             border: "1px solid var(--border)",
@@ -1180,10 +1179,11 @@ export default function GlobalPlansPanel({
                             fontSize: "0.8rem",
                             fontFamily: "inherit",
                           }}
-                        >
-                          <option value="percentage">{t?.percentage || "Percentage"}</option>
-                          <option value="fixed">{t?.fixed || "Fixed Amount"}</option>
-                        </select>
+                          options={[
+                            { value: "percentage", label: t?.percentage || "Percentage" },
+                            { value: "fixed", label: t?.fixed || "Fixed Amount" },
+                          ]}
+                        />
                         <input
                           type="number"
                           value={editValue}
@@ -1374,14 +1374,22 @@ export default function GlobalPlansPanel({
         .global-plan-flag {
           display: none;
         }
+        /* The pencil is placed inline (btnIconStyle sets display:inline-flex),
+           so the hide/show rules need !important to beat that inline style. */
         .global-plan-edit-inline {
-          display: none;
+          display: none !important;
         }
         .global-plan-edit-desktop {
-          display: inline-flex;
+          display: inline-flex !important;
         }
         .global-plan-cost-line {
           display: block;
+        }
+        /* The edit row pairs the themed markup-type select with the value input;
+           match the trigger to the input's height so the row reads as one line.
+           The trigger lives in another component, so styled-jsx needs :global. */
+        .global-plan-edit-row :global(.theme-select-trigger) {
+          height: 34px;
         }
         /* Toggle: desktop keeps the original green / dim appearance. */
         .global-plan-toggle.is-on {
@@ -1515,10 +1523,10 @@ export default function GlobalPlansPanel({
             padding-top: 0;
           }
           .global-plan-edit-inline {
-            display: inline-flex;
+            display: inline-flex !important;
           }
           .global-plan-edit-desktop {
-            display: none;
+            display: none !important;
           }
           .global-plan-title {
             flex-wrap: nowrap;
