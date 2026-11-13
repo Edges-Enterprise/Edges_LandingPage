@@ -1035,6 +1035,7 @@ export default function GlobalPlansPanel({
                       role={isMobile ? "button" : undefined}
                       tabIndex={isMobile ? 0 : undefined}
                       aria-expanded={isMobile ? isExpanded : undefined}
+                      aria-label={isMobile ? plan.name : undefined}
                       onClick={() => {
                         if (!isMobile) return;
                         setExpandedPlanId(isExpanded ? null : plan.id);
@@ -1047,7 +1048,13 @@ export default function GlobalPlansPanel({
                         }
                       }}
                     >
-                      <h3 style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.92rem" }}>
+                      <span className="global-plan-flag" aria-hidden="true">
+                        {countryFlag(plan.country_code || "")}
+                      </span>
+                      <h3
+                        className="global-plan-name"
+                        style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.92rem" }}
+                      >
                         {plan.name}
                       </h3>
                       <span
@@ -1362,6 +1369,11 @@ export default function GlobalPlansPanel({
         .global-plan-chevron {
           display: none;
         }
+        /* Desktop keeps the plan name and never shows the flag; the flag and
+           the swapped name are a mobile-only affordance. */
+        .global-plan-flag {
+          display: none;
+        }
         .global-plan-edit-inline {
           display: none;
         }
@@ -1514,6 +1526,21 @@ export default function GlobalPlansPanel({
           .global-plan-title h3 {
             flex: 1 1 auto;
             min-width: 0;
+          }
+          /* Mobile: the leading slot is the plan name when collapsed and the
+             country flag when expanded — the flag replaces the name rather
+             than joining it. The leading element grows so the toggle and
+             chevron stay pinned right, exactly as the name does collapsed. */
+          .global-plan-flag {
+            display: none;
+          }
+          .global-plan-card--expanded .global-plan-flag {
+            display: inline-flex;
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          .global-plan-card--expanded .global-plan-name {
+            display: none;
           }
           .global-plan-chevron {
             display: inline-flex;
