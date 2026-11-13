@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { registerCustomerToGlobalReseller } from "@/actions/reseller/customers/registerCustomerToGlobalReseller";
 import { getGlobalCustomerAuthEmail } from "@/actions/reseller/customers/getGlobalCustomerAuthEmail";
+import { checkStoreOwnership } from "@/actions/reseller/store/checkStoreOwnership";
 
 export type AuthMode = "signin" | "signup";
 
@@ -126,11 +127,12 @@ export function useCustomerAuth({
 
     if (data.user) {
       // The store's own public customer-login form doubles as an
-      // owner-login shortcut in the legacy flow — preserved here.
-      // Resellers' Supabase Auth accounts carry store_slug in
-      // user_metadata (confirmed via submitApplication.ts), so this
-      // checks the slug rather than legacy's store_name equality.
-      const isOwner = data.user.user_metadata?.store_slug === storeSlug;
+      // owner-login shortcut in the legacy flow — preserved here. Ownership
+      // is decided server-side: the account's store_slug metadata is not a
+      // reliable signal because reseller-added customers carry the owner's
+      // slug too (addCustomerWithLogin.ts), which routed them to the
+      // dashboard.
+      const isOwner = await checkStoreOwnership({ storeSlug });
       if (isOwner) {
         router.push(`/${countryCode}/dashboard`);
       } else {

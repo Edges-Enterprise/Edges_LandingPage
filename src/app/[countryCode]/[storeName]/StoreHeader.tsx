@@ -25,6 +25,7 @@ import { useTheme } from "@/providers/ThemeProvider";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import NotificationPanel from "@/components/notifications/NotificationPanel";
 import { createClient } from "@/lib/supabase/client";
+import { checkStoreOwnership } from "@/actions/reseller/store/checkStoreOwnership";
 import { toWhatsAppLink } from "@/lib/phone/toWhatsAppLink";
 import { formatStorePrice } from "@/lib/currency/formatStorePrice";
 
@@ -98,15 +99,16 @@ export default function StoreHeader({
       setLoggedIn(!!session);
 
       if (session?.user) {
-        // Owner detection compares store_slug, matching the auth hook and the
-        // profile page. It previously compared store_name, but the reseller
-        // signup writes store_name as the slug too — a display-name mismatch
-        // silently classified the owner as a customer, which swapped the
-        // drawer's Dashboard row for Contact Store.
-        setIsStoreOwner(
-          session.user.user_metadata?.store_slug ===
-            storeData.application.store_slug,
-        );
+        // Ownership is decided server-side against the application row whose
+        // auth_user_id is this user. The store_slug metadata comparison this
+        // replaced matched reseller-added customers too (they carry the
+        // owner's slug), which swapped their drawer's Contact Store row for
+        // the owner-only Dashboard.
+        checkStoreOwnership({
+          applicationId: storeData.application.id,
+        })
+          .then(setIsStoreOwner)
+          .catch(() => setIsStoreOwner(false));
       } else {
         setIsStoreOwner(false);
       }
@@ -122,17 +124,18 @@ export default function StoreHeader({
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setLoggedIn(!!session);
       if (session?.user) {
-        setIsStoreOwner(
-          session.user.user_metadata?.store_slug ===
-            storeData.application.store_slug,
-        );
+        checkStoreOwnership({
+          applicationId: storeData.application.id,
+        })
+          .then(setIsStoreOwner)
+          .catch(() => setIsStoreOwner(false));
       } else {
         setIsStoreOwner(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [storeData.application.store_slug]);
+  }, [storeData.application.store_slug, storeData.application.id]);
 
   // Get reseller phone for WhatsApp
   useEffect(() => {

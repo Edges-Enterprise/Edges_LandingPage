@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { registerCustomerToGlobalReseller } from "@/actions/reseller/customers/registerCustomerToGlobalReseller";
 import { getGlobalCustomerAuthEmail } from "@/actions/reseller/customers/getGlobalCustomerAuthEmail";
 import { getCurrentCustomerPinStatus } from "@/actions/reseller/customers/getCurrentCustomerPinStatus";
+import { checkStoreOwnership } from "@/actions/reseller/store/checkStoreOwnership";
 
 export type AuthMode = "signin" | "signup";
 
@@ -62,14 +63,16 @@ export function useStoreCustomerAuth(
       setAuthReady(true);
       if (!user) return;
       setLoggedIn(true);
-      // Resellers' Auth accounts carry store_slug in user_metadata
-      // (set by submitApplication.ts) — compare that, not store_name.
-      // The slug is the same value this hook is given; store_name is the
-      // display name ("Kwam Two" vs "kwam-two") and never matched, so the
-      // owner was misclassified as a customer on the storefront.
-      setIsStoreOwner(user.user_metadata?.store_slug === storeSlug);
+      // Ownership is decided server-side against the application row whose
+      // auth_user_id is this user, not by comparing the account's store_slug
+      // metadata: a reseller-added customer carries the *owner's* store_slug
+      // (addCustomerWithLogin.ts), so the metadata comparison marked those
+      // customers as the owner and showed them the dashboard.
+      checkStoreOwnership({ applicationId: resellerId })
+        .then(setIsStoreOwner)
+        .catch(() => setIsStoreOwner(false));
     });
-  }, [storeSlug]);
+  }, [storeSlug, resellerId]);
 
   useEffect(() => {
     if (!loggedIn) {
@@ -143,7 +146,10 @@ export function useStoreCustomerAuth(
     }
 
     if (data.user) {
-      const owner = data.user.user_metadata?.store_slug === storeSlug;
+      // Authoritative server-side ownership check (see the initial-load
+      // effect) — the account's store_slug metadata is not a reliable signal
+      // because reseller-added customers carry the owner's slug too.
+      const owner = await checkStoreOwnership({ applicationId: resellerId });
       setIsStoreOwner(owner);
       setLoggedIn(true);
       // Sign-in always lands on the storefront, for the owner as much as for
@@ -155,7 +161,7 @@ export function useStoreCustomerAuth(
       setPassword("");
     }
     setLoginLoading(false);
-  }, [authMode, email, password, storeSlug]);
+  }, [authMode, email, password, storeSlug, resellerId]);
 
   const handleLogout = useCallback(async () => {
     setLogoutLoading(true);

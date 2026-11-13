@@ -13,6 +13,7 @@ import OnboardingProvider, {
   useOnboarding,
 } from "@/providers/OnboardingProvider";
 import { getCountryConfig } from "@/config/countries";
+import { checkStoreOwnership } from "@/actions/reseller/store/checkStoreOwnership";
 import StoreLoader, {
   storeLabel,
   PLATFORM_LABEL,
@@ -47,6 +48,17 @@ export default function DashboardLayout({
 
       if (!user) {
         router.push(`/${countryCode}/sign-in`);
+        return;
+      }
+
+      // The dashboard belongs to the store owner only. A customer account
+      // (e.g. one a reseller added, which carries the owner's store_slug in
+      // its metadata) can otherwise reach this shell; the data RPC is scoped
+      // to the owner's id so it would render empty, but the correct
+      // behaviour is to send them back to the country landing.
+      const isOwner = await checkStoreOwnership();
+      if (!isOwner) {
+        router.replace(`/${countryCode}`);
         return;
       }
 

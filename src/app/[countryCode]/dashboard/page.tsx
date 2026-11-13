@@ -1,6 +1,7 @@
 // src/app/[countryCode]/dashboard/page.tsx
 import { cache } from "react";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { getCountryConfig } from "@/config/countries";
 import { CountryProvider } from "@/providers/CountryProvider";
@@ -22,6 +23,24 @@ const getAuthedUser = cache(async () => {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
+});
+
+// The dashboard is owner-only. A customer account can hold a valid session
+// (reseller-added customers even carry the owner's store_slug), so gate on an
+// authoritative ownership row rather than on being signed in.
+const isStoreOwner = cache(async () => {
+  const supabase = await createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data } = await supabase
+    .from("global_reseller_applications")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+  return !!data;
 });
 
 const getDashboardData = cache(async (userId: string) => {
@@ -179,6 +198,10 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
   if (!user) {
     // Redirect handled by middleware, but just in case
     return null;
+  }
+
+  if (!(await isStoreOwner())) {
+    redirect(`/${countryCode}`);
   }
 
   const config = getCountryConfig(countryCode);
