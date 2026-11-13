@@ -5074,6 +5074,19 @@ only so this section is the single wrap-up checklist):**
    (never exercised until `all` mode made foreign plans browsable); deferred,
    not fixed here.
 
+9. **PINNED 2026-11-13 — "Add new plans" in the platform-admin surface.**
+   The platform-admin surface (set platform markup at default/country/provider/
+   plan; enable/disable a plan) is being built as part of the Lizzysub/Accragh
+   "raw cost at home" work. **Manual creation of a new plan row in
+   `global_base_plans` from that UI is deliberately left out** — the person
+   said "we can always use SQL to add new plans to the Lizzysub and accragh so
+   let's leave the add new plans out for now, put a pin on it". Lizzysub and
+   Accragh plans are **seeded, not synced** (`synced_at = null`), so a manual
+   `INSERT`/`UPDATE` survives; add them by SQL until this is picked up. The
+   admin surface still lets the platform **enable/disable** an existing plan
+   (`is_active`, which every read already filters), so a SQL-added plan can be
+   turned on/off from the UI. Revisit as a UI task when convenient.
+
 **Added 2026-10-29 (remaining Task 8 person steps — the person
 confirmed these will be handled at project completion, alongside the
 password rotation above; the board rows stay as they are, this is the
