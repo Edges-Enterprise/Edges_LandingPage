@@ -569,6 +569,18 @@ Operational invariants worth keeping:
   `global-store-fund-wallet` = `true`; `global-network-lookup`,
   `global-store-catalog`, `global-catalog-sync`, `global-fx-refresh` =
   `false` (deliberately anon or secret-header-gated).
+- **CLI 3.1.0 refuses a production deploy in agent mode without `--yes`**
+  (`HostedMutationConsentRequiredError`), and `--project-ref` is deprecated
+  in favour of `--remote=<ref>`. Install the CLI without a global prefix
+  (`npm i -g --prefix /tmp/npmglobal supabase@latest`) and export
+  `SUPABASE_ACCESS_TOKEN=$SUPABASE_OPEN_HANDS` before deploying.
+- **A `_shared/currency/*` change must be redeployed to every edge function
+  that bundles it** — the web app auto-deploys via Vercel on push, but edge
+  functions do not. The three that embed the pricing pipeline are
+  `global-store-catalog`, `global-purchase-data`, `global-purchase-airtime`
+  (grep the function for `storePrice`/`purchaseOrchestrator` to be sure). A
+  change that reaches only `main` is live for the dashboard but **not** for
+  the storefront or the purchase path until these are redeployed.
 
 - The **Zendit fallback rate has a 6h TTL** and `catalog-sync` is the only
   writer of it while Korapay's key is invalid, so `catalog-sync` runs **every
