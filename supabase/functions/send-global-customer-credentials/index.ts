@@ -145,7 +145,9 @@ Deno.serve(async (req) => {
 
     const appUrl =
       Deno.env.get("APP_URL") || "https://edges-landing-page.vercel.app";
-    const signInUrl = `${appUrl}/${reseller.country_code}/${reseller.store_slug}`;
+    // Land on the storefront with the customer sign-in modal already open
+    // (?login=true is the storefront's own sign-in trigger).
+    const signInUrl = `${appUrl}/${reseller.country_code}/${reseller.store_slug}?login=true`;
 
     const html = buildCredentialsEmail({
       firstName,
