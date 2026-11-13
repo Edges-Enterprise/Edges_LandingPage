@@ -435,12 +435,13 @@ export default function PlansClient({
   // KEY FIX: getCostPriceSafe - Shows Wholesale Price
   // ============================================
   const getCostPriceSafe = (plan: PlanWithConfig) => {
-    // For Zendit plans, show cost in local currency
-    if (
-      plan.provider === "zendit" &&
-      plan.cost_local !== undefined &&
-      plan.cost_local !== null
-    ) {
+    // The cost basis is the platform price the purchase path deducts — the
+    // pipeline's `cost_local` (raw cost + platform markup + FX buffer), in the
+    // store currency. `base_price` is only a fallback for a plan the action
+    // could not price; it is a raw wholesale cost, not the number the
+    // reseller's markup is applied to, so showing it understates cost and
+    // overstates profit.
+    if (plan.cost_local !== undefined && plan.cost_local !== null) {
       const currency = plan.display_currency || plan.currency || localCurrency;
       return {
         amount: plan.cost_local,
@@ -448,7 +449,7 @@ export default function PlansClient({
         formatted: formatPrice(plan.cost_local, currency),
       };
     }
-    // For all plans, show base price
+    // Fallback: the raw wholesale cost.
     const currency = plan.currency || localCurrency;
     return {
       amount: plan.base_price,
@@ -489,33 +490,30 @@ export default function PlansClient({
   // KEY FIX: getYourPriceSafe - Shows wholesale OR marked-up price
   // ============================================
   const getYourPriceSafe = (plan: PlanWithConfig) => {
-    // Get the wholesale price (cost to reseller)
-    let wholesaleAmount: number;
-    let wholesaleCurrency: string;
-
-    if (plan.provider === "zendit" && plan.cost_local !== undefined) {
-      wholesaleAmount = plan.cost_local;
-      wholesaleCurrency =
-        plan.display_currency || plan.currency || localCurrency;
-    } else {
-      wholesaleAmount = plan.base_price;
-      wholesaleCurrency = plan.currency || localCurrency;
-    }
+    // The cost basis is the pipeline's `cost_local` (platform price), the same
+    // number the purchase path deducts and the reseller's markup is applied to.
+    // `base_price` is only a fallback for an unpriceable plan.
+    const hasCostLocal =
+      plan.cost_local !== undefined && plan.cost_local !== null;
+    const costBasis = hasCostLocal ? plan.cost_local! : plan.base_price;
+    const currency = hasCostLocal
+      ? (plan.display_currency || plan.currency || localCurrency)
+      : (plan.currency || localCurrency);
 
     // Check if markup is applied
     const hasMarkup = plan.config && plan.config.markup_value > 0;
 
-    // If markup is added, show marked-up price; otherwise show wholesale
+    // If markup is added, show the pipeline's customer price (what the customer
+    // is actually charged) — never a re-derived `cost + markup`, which drifts
+    // from the charged price once the platform markup or FX rate changes.
     const sellingPrice = hasMarkup
-      ? plan.provider === "zendit" && plan.selling_price_local !== undefined
-        ? plan.selling_price_local
-        : (plan.config?.selling_price ?? wholesaleAmount)
-      : wholesaleAmount;
+      ? (plan.config?.selling_price ?? plan.selling_price_local ?? costBasis)
+      : costBasis;
 
     return {
       amount: sellingPrice,
-      currency: wholesaleCurrency,
-      formatted: formatPrice(sellingPrice, wholesaleCurrency),
+      currency: currency,
+      formatted: formatPrice(sellingPrice, currency),
       hasMarkup: hasMarkup,
     };
   };
@@ -524,35 +522,22 @@ export default function PlansClient({
   // KEY FIX: getProfitSafe - Shows 0 if no markup
   // ============================================
   const getProfitSafe = (plan: PlanWithConfig) => {
-    // For Zendit plans, show profit in local currency
-    if (plan.provider === "zendit" && plan.cost_local !== undefined) {
-      const costLocal = plan.cost_local;
-      const hasMarkup = plan.config && plan.config.markup_value > 0;
-      const sellingPriceLocal = hasMarkup
-        ? (plan.selling_price_local ?? costLocal)
-        : costLocal; // No markup = no profit
-      const profit = sellingPriceLocal - costLocal;
-      const profitPercent = costLocal > 0 ? (profit / costLocal) * 100 : 0;
-      const currency = plan.display_currency || plan.currency || localCurrency;
+    // Profit is charged price minus the cost basis the purchase path deducts
+    // (`cost_local`, the platform price). Using `base_price` here understated
+    // the basis and overstated profit by the platform markup + FX buffer.
+    const hasCostLocal =
+      plan.cost_local !== undefined && plan.cost_local !== null;
+    const costLocal = hasCostLocal ? plan.cost_local! : plan.base_price;
+    const currency = hasCostLocal
+      ? (plan.display_currency || plan.currency || localCurrency)
+      : (plan.currency || localCurrency);
 
-      return {
-        amount: profit,
-        currency: currency,
-        formatted: formatPrice(profit, currency),
-        percent: profitPercent,
-        hasMarkup: hasMarkup,
-      };
-    }
-
-    // For all plans
-    const cost = plan.base_price;
     const hasMarkup = plan.config && plan.config.markup_value > 0;
     const sellingPrice = hasMarkup
-      ? (plan.config?.selling_price ?? cost)
-      : cost; // No markup = no profit
-    const profit = sellingPrice - cost;
-    const profitPercent = cost > 0 ? (profit / cost) * 100 : 0;
-    const currency = plan.currency || localCurrency;
+      ? (plan.config?.selling_price ?? plan.selling_price_local ?? costLocal)
+      : costLocal; // No markup = no profit
+    const profit = sellingPrice - costLocal;
+    const profitPercent = costLocal > 0 ? (profit / costLocal) * 100 : 0;
 
     return {
       amount: profit,
@@ -985,15 +970,16 @@ export default function PlansClient({
             const yourPrice = getYourPriceSafe(plan);
             const profit = getProfitSafe(plan);
 
-            // Calculate edit values — markup is always entered/applied in
-            // LOCAL currency. Use cost_local as the basis for Zendit plans
-            // (never base_price, which is USD) and base_price for everyone
-            // else (already local currency for lizzysub/accragh).
-            const isZenditPlan =
-              plan.provider === "zendit" &&
-              plan.cost_local !== undefined &&
-              plan.cost_local !== null;
-            const editCostBasis = isZenditPlan
+            // Markup is entered and applied in LOCAL currency, on the cost
+            // basis the purchase path deducts — the pipeline's `cost_local`
+            // (platform price = raw cost + platform markup + FX buffer).
+            // `base_price` is a raw wholesale cost (USD for Zendit, provider
+            // currency otherwise) and is only a fallback when the plan could
+            // not be priced, so using it for non-Zendit plans understated the
+            // basis and made the edit preview disagree with the saved price.
+            const hasCostLocal =
+              plan.cost_local !== undefined && plan.cost_local !== null;
+            const editCostBasis = hasCostLocal
               ? (plan.cost_local as number)
               : plan.base_price;
 
@@ -1007,10 +993,9 @@ export default function PlansClient({
               ? editSellingPriceLocal - editCostBasis
               : profit.amount;
 
-            const editCurrency =
-              plan.provider === "zendit" && plan.display_currency
-                ? plan.display_currency
-                : plan.currency || localCurrency;
+            const editCurrency = hasCostLocal
+              ? (plan.display_currency || plan.currency || localCurrency)
+              : (plan.currency || localCurrency);
 
             // Label for "Your Price" - shows "Wholesale" if no markup
             const priceLabel = yourPrice.hasMarkup

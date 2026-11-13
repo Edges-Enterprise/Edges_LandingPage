@@ -98,7 +98,10 @@ export async function priceRangeAmount(params: PriceRangeAmountParams): Promise<
 
     const priced = priceRangePlan(
       plan as never,
-      config as never,
+      // Ignore any stored pin: a RANGE price depends on the amount chosen, so
+      // a `selling_price` snapshot is never authoritative. Price from the
+      // markup, exactly as the card and the purchase path do.
+      { ...(config as Record<string, unknown>), selling_price: null } as never,
       context,
       platformMarkups,
       params.sendAmount,

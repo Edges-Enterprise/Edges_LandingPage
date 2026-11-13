@@ -439,6 +439,26 @@ is the specific bug the layer exists to prevent.
   balance against it, so passing the raw cost would hand the reseller the
   platform's markup as margin. The raw cost (`costLocalDecimal`) is what the
   provider call is paid; the two are different numbers and must not be swapped.
+- **The markup is the source of truth; `selling_price` is only a cache.** The
+  reseller's price is always Cost Price + Markup, recomputed through the
+  pipeline. Every write path (`updatePlanConfig`, `togglePlan`,
+  `bulkUpdatePlans`) derives the stored
+  `global_reseller_plan_configs.selling_price` from cost + markup and passes
+  `selling_price: null` to `pricePlan`. Do NOT let a stored `selling_price`
+  override the markup: it goes stale the moment the platform markup or the FX
+  rate changes, and then the card, the storefront and the charge disagree. The
+  override is dropped once, at the single choke point every read and the
+  purchase path resolve through (`resolveCatalogPlan` in
+  `_shared/catalog/catalogResolution.ts`, which nulls the pin), and
+  `priceRangeAmount.ts` nulls it too because a RANGE price depends on the
+  amount. A display that re-derives `cost + markup` itself is the same defect
+  in another place — show the pipeline's `customerPriceDecimal`
+  (`selling_price_local`) instead.
+- **A plan's cost basis is `cost_local`, for every provider.** It is the
+  platform price the purchase path deducts and the markup applies to. Do not
+  branch to `base_price` for non-Zendit providers (lizzysub/accragh): that is
+  a raw wholesale cost, so it understates cost and overstates profit by the
+  platform markup + FX buffer.
 - **The FX buffer stays with the platform.** The floor and the platform price
   use the buffered rate (`usdToStoreRate * (1 + bufferFraction)`). Measuring
   them at the raw rate pays the buffer out as reseller margin.

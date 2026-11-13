@@ -80,14 +80,24 @@ export function resolveCatalogPlan(
 ): ResolvedCatalogPlan {
   const enabled = config?.enabled === true;
 
+  // The markup is authoritative; a stored `selling_price` is only a cache of
+  // the price it once produced. Every write path (updatePlanConfig, togglePlan,
+  // bulkUpdatePlans) computes it as cost + markup and prices through the
+  // pipeline, so the stored number drifts the moment the platform markup or
+  // the FX rate changes. Rebasing every consumer on the markup keeps
+  // "Your Price" equal to Cost Price + Markup, and keeps the displayed price
+  // equal to the charged one.
+  const withoutPin = (
+    row: CatalogPlanConfig,
+  ): CatalogPlanConfig => ({ ...row, selling_price: null });
+
   if (settings.catalogMode === "all") {
     if (config) {
       // A row is an override: it keeps the plan (with its own markup) when
       // enabled, and opts it out when not.
-      return { include: enabled, config };
+      return { include: enabled, config: withoutPin(config) };
     }
-    // No row: sold at the store's default markup. selling_price is null so
-    // the pipeline computes the price from the markup rather than pinning it.
+    // No row: sold at the store's default markup.
     return {
       include: true,
       config: {
@@ -98,6 +108,6 @@ export function resolveCatalogPlan(
     };
   }
 
-  // selected: strict opt-in, unchanged.
-  return { include: enabled, config: config ?? null };
+  // selected: strict opt-in, priced from its own markup.
+  return { include: enabled, config: config ? withoutPin(config) : null };
 }

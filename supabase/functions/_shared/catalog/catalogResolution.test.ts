@@ -63,9 +63,11 @@ Deno.test("selected: a plan is sold only with an enabled row", () => {
   assert.equal(disabled.include, false);
 
   const row = { markup_type: "fixed", markup_value: 40, selling_price: 500, enabled: true };
+  // The stored price is dropped so the plan prices from cost + markup, which
+  // is what keeps the dashboard and the charge in agreement.
   assert.deepEqual(resolveCatalogPlan(row, SELECTED), {
     include: true,
-    config: row,
+    config: { ...row, selling_price: null },
   });
 });
 
@@ -82,7 +84,10 @@ Deno.test("all: a plan with no row is sold at the store default markup", () => {
 
 Deno.test("all: a row overrides the default and can opt a plan out", () => {
   const row = { markup_type: "fixed", markup_value: 99, selling_price: 1234, enabled: true };
-  assert.deepEqual(resolveCatalogPlan(row, ALL), { include: true, config: row });
+  assert.deepEqual(resolveCatalogPlan(row, ALL), {
+    include: true,
+    config: { ...row, selling_price: null },
+  });
 
   // enabled = false is an explicit opt-out, not "use the default".
   const optedOut = resolveCatalogPlan(
@@ -90,6 +95,18 @@ Deno.test("all: a row overrides the default and can opt a plan out", () => {
     ALL,
   );
   assert.equal(optedOut.include, false);
+});
+
+Deno.test("a stale stored price never pins the price over the markup", () => {
+  // Regression guard: the stored selling_price is a cache of a price computed
+  // under an older platform markup / FX rate. Once it drifts, letting it win
+  // over the markup is the defect that made "Your Price" disagree with
+  // Cost Price + Markup (and with the charged price).
+  const row = { markup_type: "percentage", markup_value: 100, selling_price: 18772, enabled: true };
+  const selected = resolveCatalogPlan(row, SELECTED);
+  assert.equal(selected.config?.selling_price, null);
+  assert.equal(selected.config?.markup_value, 100);
+  assert.equal(selected.config?.markup_type, "percentage");
 });
 
 Deno.test("all: a store default of zero markup still includes plans", () => {
