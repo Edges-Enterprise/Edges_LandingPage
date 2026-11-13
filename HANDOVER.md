@@ -370,6 +370,15 @@ not fail) when it is absent — those are the 4 ignored tests in the suite. Do
 not set it on the live project; it would point the integration test at the
 production database.
 
+**Related, pinned 2026-11-12 — the `anon` key also reads/writes the credential
+tables.** While fixing the storefront-ownership bug we found that the public
+`anon` key reads `resellers` (68 rows incl. plaintext `temp_password` +
+`dashboard_token`) and has full read/write on `global_reseller_applications`
+(RLS off; 54 rows incl. `auth_user_id`, `bvn`). The person deferred the fix
+explicitly — it is pinned in "Project-completion stage — deferred items", to be
+done with the credential rotations above. Full evidence and the staged fix shape
+are there; do not action it mid-task.
+
 ## Schema snapshots — committed directly, not via patch (standing rule)
 
 `supabase/schema.sql` is a tracked, schema-only snapshot of the live DB
@@ -4920,6 +4929,49 @@ only so this section is the single wrap-up checklist):**
 - Chained straight after it: Task 2's `reseller_applications`
   table/columns that don't exist (`getApplicationDraft.ts` /
   `saveApplicationDraft.ts`; dead code) — implement or delete.
+- **PINNED 2026-11-12 — the credential-leaking tables (`resellers`,
+  `global_reseller_applications`). Do it with the credential rotations above,
+  not before; the person explicitly deferred it ("put a pin on it … we will not
+  be handling this now").** Found while fixing the storefront-ownership bug: the
+  public `anon` key (which ships in the browser bundle) can read and write these
+  tables directly through PostgREST. Measured live against `jjyyfaxcwanrmiipzkoj`:
+  - `resellers` — RLS **on**, but policy `public_read_active_resellers`
+    (`FOR SELECT TO authenticated, anon USING (status = 'active')`) leaks
+    **68** rows to anon, including **`temp_password` (plaintext, e.g. 12 chars)
+    and `dashboard_token`**. `/dashboard/auth?token=…`
+    (`src/app/(reseller-dashboard)/dashboard/auth/route.ts`) looks the reseller
+    up by that token and **`signInWithPassword`s with `temp_password`**, so
+    anyone reading the table can log in as any of those 68 resellers. The policy
+    is committed at `supabase/schema.sql:13505`.
+  - `global_reseller_applications` — RLS **off** entirely. anon reads **54**
+    rows including `temp_password` (51 non-null), `dashboard_token` (52),
+    `bvn` (5), `transaction_pin`, `auth_user_id`; anon also holds
+    `INSERT/UPDATE/DELETE/TRUNCATE` (a non-destructive UPDATE probe matching
+    zero rows returned **204**, i.e. write is permitted).
+  - `global_customers` / `global_wallets` / `global_orders` are **fine** — RLS
+    on with owner-scoped `auth.uid()` policies, anon reads 0 rows.
+  - Same root cause as the RPC note below: `get_global_reseller_dashboard_context`
+    is `SECURITY DEFINER`, anon/authenticated-callable, and trusts a
+    caller-supplied `p_user_id` with no `auth.uid()` check — but the table read
+    is the larger hole, since it hands over the `auth_user_id` the RPC trusts
+    (and the plaintext passwords).
+  - Fix shape when picked up (staged, not yet applied): (1) drop the
+    `public_read_active_resellers` anon policy and revoke
+    `INSERT/UPDATE/DELETE/TRUNCATE` from anon on `global_reseller_applications`;
+    (2) column-level `REVOKE` of `temp_password`, `dashboard_token`, `bvn`,
+    `transaction_pin`, `auth_email`, `push_token`, `fcm_token` from
+    `anon`/`authenticated`, keeping the storefront display columns; (3) enable
+    RLS on `global_reseller_applications` (owner policy `auth.uid() =
+    auth_user_id` + a narrow active-store select policy) and rework the **12**
+    browser-side (anon) callers that would break — notably `useStorePurchase.ts`
+    (PIN update), `[storeName]/layout.tsx` + `StoreLayoutClient.tsx` (storefront
+    load), `StoreHeader.tsx`, the `dashboard/{pending,rejected,settings,store/*}`
+    pages, and `success/SuccessClient.tsx` (reads `temp_password` for
+    auto-sign-in) — move the sensitive ones to server actions; (4) make the RPC
+    use `auth.uid()` instead of `p_user_id`, or make it owner-only; (5) rotate
+    the now-known reseller passwords/tokens and re-run the dump. Steps 1–2 are
+    safe/reversible and stop the credential leak; 3–4 need the caller rework and
+    a per-flow verification pass. **Do not apply any of this mid-task.**
 
 **Added 2026-10-06 (from the `1.d.iv.zi` session):**
 1. **Revoke migration for the four open `1.d.i` money RPCs**
