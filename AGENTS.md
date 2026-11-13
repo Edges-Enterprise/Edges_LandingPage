@@ -362,6 +362,11 @@ touch the legacy path.
 - The storefront install banner renders only for an **Android + mobile/tablet**
   user agent (`showInstallBanner`); to see it in headless Chromium, set an
   Android UA and `isMobile: true`/`hasTouch: true`, and wait ~3s for its timer.
+- Hiding an element with `display: none` **removes it from the accessibility
+  tree**. When a mobile rule swaps one element for another (e.g. the global plan
+  card shows the plan name collapsed and the country flag expanded), put the
+  swapped-out text on an `aria-label` of the interactive container so a screen
+  reader still announces it. `GlobalPlansPanel` does this on the plan title.
 
 ## Downloading test APKs (Termux)
 
@@ -573,6 +578,16 @@ Operational invariants worth keeping:
   refetches the local list.
 - `refreshPlans(network)` refreshes one network; `refreshPlans(null)` refreshes
   the whole catalog. A global-panel change calls the latter (`onChanged`).
+- The "already applied" guard fires only when the **whole** scope already carries
+  an **enabled** config at the chosen markup (`bulkScopeFullyApplied`), because a
+  bulk apply also *enables* what it touches. A scope with a disabled or missing
+  config is therefore a real apply, not a no-op — do not "test" the guard by
+  clicking Apply on such a scope against a live store; it writes.
+- Verifying a bulk/plan action against the **live** store is a **write**, not a
+  read. Read the scope's current state first so the click is a true no-op (or use
+  a scratch store). A verification click once enabled 5 live Airtel plans on
+  rw/Simi; `global_reseller_plan_configs` keeps no history, so the prior
+  `enabled` flags were unrecoverable.
 
 
 ## Adding a customer from the dashboard
