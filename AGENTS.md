@@ -53,6 +53,13 @@ reseller dashboard).
 - Updating only the `target` of an env var with
   `PATCH /v9/projects/{id}/env/{envId}` preserves the stored value (verified for
   `sensitive` vars); the CLI has no target-only update.
+- `npx next build` needs the Supabase vars **exported in the shell** or it dies
+  during "Collecting page data" on `/api/xixa-account/webhook` with
+  `Error: supabaseUrl is required` (that route builds a Supabase client at
+  module scope). `APP2_SUPABASE_URL` / `APP2_SUPABASE_SECRET_KEY` and the
+  `APP3_*` pair come from the registered secrets. This failure is unrelated to
+  whatever you are changing — reproduce it with your change stashed before
+  blaming the diff.
 
 ### Env var names: use the `NEXT_PUBLIC_` Supabase vars on Vercel
 
@@ -580,6 +587,22 @@ alias-email scheme as self-signup (`<local>+<storeSlug><n>@<domain>`), retrying
 the suffix on a duplicate; it rolls the auth user back if the customer insert
 fails, creates the wallet, and emails the generated credentials. Do not revert
 the modal to a direct `global_customers` insert.
+
+**Store ownership is never decided from `user_metadata.store_slug`.** That
+comparison (`user.user_metadata?.store_slug === storeSlug`) is wrong: the
+Add-customer action above stamps a customer's auth account with the **owner's**
+`store_slug`, so those customers compare equal and get misclassified as the
+owner — they then see the owner-only Dashboard in the storefront header/sidebar.
+Self-signup sets no `store_slug`, so it never showed the bug. The only reliable
+signal is a `global_reseller_applications` row whose `auth_user_id` is the
+session user's own id; use the server action
+`src/actions/reseller/store/checkStoreOwnership.ts` (returns a boolean — never
+ship the owner's UUID to the client, because the dashboard RPC
+`get_global_reseller_dashboard_context` is `SECURITY DEFINER`, anon/authenticated
+callable, and trusts its `p_user_id` argument, while
+`global_reseller_applications` has RLS disabled). The dashboard is also gated to
+owners in `dashboard/layout.tsx` and `dashboard/page.tsx`.
+
 
 
 ## Pushing to GitHub from the sandbox
