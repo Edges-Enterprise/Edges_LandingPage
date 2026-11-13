@@ -13,11 +13,12 @@ import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { purchaseFromProvider, PurchaseCategory } from "./providers.ts";
 import { getCountryDialCode } from "./countryDialCodes.ts";
 import {
-  loadStoreContext,
+  loadStoreContextRows,
   pricePlan,
   priceRangePlan,
   PriceUnavailableError,
 } from "./currency/storePrice.ts";
+import { platformMarkupChain } from "./currency/markup.ts";
 import { currencyDivisor } from "./currency/registry.ts";
 import { RangeError as RangeValidationError } from "./currency/range.ts";
 import {
@@ -165,10 +166,19 @@ export async function processPurchase(
   let profit: number;
   let priceDetail;
   try {
-    const { context, platformMarkups } = await loadStoreContext(
+    const { context, markupRows } = await loadStoreContextRows(
       supabaseAdmin,
-      { countryCode: storeCountry, planId: basePlan.id },
+      { countryCode: storeCountry },
     );
+    const home =
+      (basePlan.currency ?? "USD").toUpperCase() ===
+        (context.currency ?? "").toUpperCase();
+    const platformMarkups = platformMarkupChain(markupRows, {
+      countryCode: (storeCountry || "").toLowerCase(),
+      planId: basePlan.id,
+      provider: basePlan.provider,
+      home,
+    });
 
     // A RANGE offer is priced from the amount the customer chose, against
     // the bounds we just read (current, not a cached snapshot), so a stale

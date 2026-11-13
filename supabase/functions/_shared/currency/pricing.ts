@@ -44,14 +44,19 @@ export interface MarkupRule {
   source?:
     | "platform_default"
     | "platform_country"
+    | "platform_provider"
     | "platform_plan"
     | "reseller";
 }
 
 /** A single step in the markup chain, kept for display and audit. */
 export interface MarkupStep {
-  source: "platform_default" | "platform_country" | "platform_plan" |
-    "reseller";
+  source:
+    | "platform_default"
+    | "platform_country"
+    | "platform_provider"
+    | "platform_plan"
+    | "reseller";
   markup_type: MarkupType;
   markup_value: number;
   /** Amount after this step, in the currency it was applied in. */

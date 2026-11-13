@@ -17,10 +17,11 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  loadStoreContext,
+  loadStoreContextRows,
   pricePlan,
   type ResolvedStorePrice,
 } from "../../../supabase/functions/_shared/currency/storePrice.ts";
+import { platformMarkupChain } from "../../../supabase/functions/_shared/currency/markup.ts";
 
 /**
  * Price one base plan for one reseller's store, through the shared pipeline.
@@ -37,9 +38,16 @@ export async function priceResellerPlan(params: {
   config: Record<string, unknown> | null;
 }): Promise<ResolvedStorePrice> {
   const supabase = createAdminClient();
-  const { context, platformMarkups } = await loadStoreContext(supabase, {
+  const { context, markupRows } = await loadStoreContextRows(supabase, {
     countryCode: (params.countryCode || "").toLowerCase(),
-    planId: (params.plan?.id as string | undefined) ?? null,
+  });
+  const plan = params.plan ?? {};
+  const platformMarkups = platformMarkupChain(markupRows, {
+    countryCode: (params.countryCode || "").toLowerCase(),
+    planId: (plan.id as string | undefined) ?? null,
+    provider: (plan.provider as string | undefined) ?? null,
+    home: ((plan.currency as string | undefined) ?? "USD").toUpperCase() ===
+      (context.currency ?? "").toUpperCase(),
   });
   return pricePlan(
     params.plan as never,

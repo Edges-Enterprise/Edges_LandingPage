@@ -477,6 +477,35 @@ is the specific bug the layer exists to prevent.
 - **The FX buffer stays with the platform.** The floor and the platform price
   use the buffered rate (`usdToStoreRate * (1 + bufferFraction)`). Measuring
   them at the raw rate pays the buffer out as reseller margin.
+- **The platform markup chain splits by CASE: home vs cross-border.** The
+  switch is `home = (plan.currency ?? "USD") === ctx.currency` — the plan's
+  cost currency equals the store's. `_shared/currency/markup.ts`
+  `resolvePlatformMarkup`/`platformMarkupChain` take `home` and resolve
+  differently:
+  - **HOME** (a Lizzysub NGN plan in an NG store, an Accragh GHS plan in a GH
+    store): `plan -> provider -> 0`. There is no FX, so nothing converts and
+    the pipeline adds **no buffer** (`bufferFraction = 0` in
+    `pricePlan`/`priceRangePlan`). The reseller's cost basis is the **raw
+    cost**; the platform takes nothing unless it set a plan/provider row. The
+    **country row and the 12% default do NOT apply at home.**
+  - **CROSS-BORDER** (any mismatch, including **every Zendit plan**, because
+    Zendit is USD): `country -> default` (12%), plus the FX buffer. Plan and
+    provider rows are **home-only** and are ignored here, so a per-plan cut
+    cannot leak into the FX path.
+  Do not "simplify" this back to a single chain: applying the default 12% at
+  home would re-introduce the double-charge the split exists to remove, and
+  letting plan/provider rows into the cross-border path would let a
+  provider-wide cut silently reprice every foreign plan.
+- **Plan- and provider-scoped markup rows apply at home only** (decision of
+  record, 2026-11-13, "option b"). They are read only when `home` is true.
+- **A disabled markup row is terminal, not a fall-through.** A disabled row at
+  a more specific level means "no platform markup here", so it must NOT fall
+  back to a broader level. `loadStoreContextRows` therefore loads **every**
+  row (not only `enabled = true`) — filtering `enabled` in SQL would make a
+  disabled row vanish and fall through to the country/default row, which is
+  the opposite of what the admin surface's "Disable" means.
+- **The floor is 0** — sell-at-cost is allowed. There is no minimum platform
+  markup.
 - **A stale or missing rate is a hard failure**, not a guess — except USD,
   whose rate is 1 and needs no row.
 
@@ -624,6 +653,25 @@ Operational invariants worth keeping:
   rw/Simi; `global_reseller_plan_configs` keeps no history, so the prior
   `enabled` flags were unrecoverable.
 
+
+## Platform-admin surface (`/…/admin/platform-plans`)
+
+- The surface lives at `src/app/[countryCode]/admin/platform-plans/` and is
+  **gated server-side** by `getPlatformAdmin()` (`src/lib/admin/requirePlatformAdmin.ts`),
+  which reads `profiles.is_admin`; a non-admin gets `notFound()`. Every server
+  action in `src/app/actions/platform-plans.ts` re-checks the gate — the page
+  gate is not a substitute. **Do not** reuse the `[countryCode]/admin/layout`
+  placeholder: it has **no** auth check.
+- Writes go through the **service-role** client (`createAdminClient`), because
+  `global_platform_markups` and `global_base_plans` have **RLS on with no
+  policies** — only the service role reaches them. A user-scoped client returns
+  empty for reads and silently fails for writes.
+- It sets platform markup at **default / country / provider / plan** (upsert on
+  the `(scope, scope_key)` unique index) and **enables/disables** a plan
+  (`is_active`, which every catalog read already filters).
+- **Adding a new plan is deliberately out of scope** (deferred item 9): the
+  person said Lizzysub/Accragh plans are added by SQL. Do not add a "new plan"
+  form here without picking the pin up.
 
 ## Adding a customer from the dashboard
 

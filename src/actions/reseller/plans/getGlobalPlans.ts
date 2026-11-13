@@ -196,6 +196,9 @@ export async function getGlobalPlans(
       const platformMarkups = platformMarkupChain(markupRows, {
         countryCode: countryCodeLower,
         planId: plan.id,
+        provider: plan.provider,
+        home: (plan.currency ?? "USD").toUpperCase() ===
+          (storeContext.currency ?? "").toUpperCase(),
       });
 
       const isRange = (plan.price_type ?? "FIXED").toUpperCase() === "RANGE";

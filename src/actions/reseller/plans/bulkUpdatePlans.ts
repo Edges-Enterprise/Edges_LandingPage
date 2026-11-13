@@ -162,6 +162,9 @@ export async function bulkUpdatePlans(params: BulkUpdatePlansParams): Promise<{
       const platformMarkups = platformMarkupChain(markupRows, {
         countryCode: countryCodeLower,
         planId: plan.id,
+        provider: plan.provider,
+        home: (plan.currency ?? "USD").toUpperCase() ===
+          (storeContext.currency ?? "").toUpperCase(),
       });
       const isRange = (plan.price_type ?? "FIXED").toUpperCase() === "RANGE";
       const priced = isRange && plan.range_min != null

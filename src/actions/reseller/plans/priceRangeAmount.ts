@@ -13,9 +13,10 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  loadStoreContext,
+  loadStoreContextRows,
   priceRangePlan,
 } from "../../../../supabase/functions/_shared/currency/storePrice.ts";
+import { platformMarkupChain } from "../../../../supabase/functions/_shared/currency/markup.ts";
 
 interface PriceRangeAmountParams {
   resellerId: string;
@@ -69,7 +70,7 @@ export async function priceRangeAmount(params: PriceRangeAmountParams): Promise<
     const { data: plan, error: planError } = await adminClient
       .from("global_base_plans")
       .select(
-        "id, provider_plan_id, country_code, network, name, category, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx",
+        "id, provider, provider_plan_id, country_code, network, name, category, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx",
       )
       .eq("provider_plan_id", params.providerPlanId)
       .eq("is_active", true)
@@ -91,9 +92,15 @@ export async function priceRangeAmount(params: PriceRangeAmountParams): Promise<
       return { success: false, error: "Plan not available" };
     }
 
-    const { context, platformMarkups } = await loadStoreContext(adminClient, {
+    const { context, markupRows } = await loadStoreContextRows(adminClient, {
       countryCode: application.country_code,
+    });
+    const platformMarkups = platformMarkupChain(markupRows, {
+      countryCode: (application.country_code || "").toLowerCase(),
       planId: plan.id,
+      provider: plan.provider,
+      home: (plan.currency ?? "USD").toUpperCase() ===
+        (context.currency ?? "").toUpperCase(),
     });
 
     const priced = priceRangePlan(

@@ -51,12 +51,13 @@ import {
   type CatalogPlanConfig,
 } from "../_shared/catalog/catalogResolution.ts";
 import {
-  loadStoreContext,
+  loadStoreContextRows,
   pricePlan,
   priceRangePlan,
   PriceUnavailableError,
   type ResolvedStorePrice,
 } from "../_shared/currency/storePrice.ts";
+import { platformMarkupChain } from "../_shared/currency/markup.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -190,12 +191,14 @@ Deno.serve(async (req) => {
     const country = (reseller.country_code || "").toLowerCase();
 
     // 4. Load the store's currency and rate once, then price every plan
-    //    through the one pipeline the purchase flow also uses.
-    let storeContext, platformMarkups;
+    //    through the one pipeline the purchase flow also uses. The platform
+    //    markup is resolved PER PLAN below, because home vs cross-border
+    //    depends on each plan's cost currency.
+    let storeContext, markupRows;
     try {
-      const loaded = await loadStoreContext(admin, { countryCode: country });
+      const loaded = await loadStoreContextRows(admin, { countryCode: country });
       storeContext = loaded.context;
-      platformMarkups = loaded.platformMarkups;
+      markupRows = loaded.markupRows;
     } catch (error) {
       if (error instanceof PriceUnavailableError) {
         console.error("global-store-catalog pricing unavailable:", error.message);
@@ -210,6 +213,15 @@ Deno.serve(async (req) => {
       // the store default in `all` mode. In `selected` mode only plans with an
       // enabled row reached here, so cfg is never null.
       const cfg = p.__config as CatalogPlanConfig | null;
+      // HOME (cost currency == store currency) skips the platform markup and
+      // the buffer; every other plan keeps the FX chain.
+      const platformMarkups = platformMarkupChain(markupRows, {
+        countryCode: country,
+        planId: p.id,
+        provider: p.provider,
+        home: (p.currency ?? "USD").toUpperCase() ===
+          (storeContext.currency ?? "").toUpperCase(),
+      });
       // A RANGE offer has no single price — the customer chooses the amount.
       // The tile shows the price of the MINIMUM amount ("from X"), priced
       // through the same pipeline as the purchase, so the number shown and

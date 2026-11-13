@@ -155,6 +155,11 @@ export async function getPlans(params: GetPlansParams = {}): Promise<{
       const platformMarkups = platformMarkupChain(markupRows, {
         countryCode: countryCodeLower,
         planId: plan.id,
+        provider: plan.provider,
+        // HOME (cost currency == store currency): raw cost, no platform
+        // markup and no buffer. Every other case keeps the FX chain.
+        home: (plan.currency ?? "USD").toUpperCase() ===
+          (storeContext.currency ?? "").toUpperCase(),
       });
 
       const isRange = (plan.price_type ?? "FIXED").toUpperCase() === "RANGE";

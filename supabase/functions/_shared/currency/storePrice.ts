@@ -73,6 +73,8 @@ export class PriceUnavailableError extends Error {
 export interface StorePlanRow {
   id: string;
   provider_plan_id: string;
+  /** The upstream provider: lizzysub, accragh or zendit. */
+  provider?: string | null;
   country_code: string;
   name: string;
   category: string;
@@ -85,6 +87,19 @@ export interface StorePlanRow {
   send_value?: number | null;
   send_currency?: string | null;
   zendit_fx?: number | null;
+}
+
+/**
+ * True when the plan's wholesale cost is already in the store's own currency
+ * — the "home" case (a Lizzysub NGN plan in an NG store, an Accragh GHS plan
+ * in a GH store). No FX happens, so no buffer is added and the platform's
+ * default markup does not apply; the reseller marks up on the raw cost.
+ *
+ * Every Zendit plan is USD, so a Zendit plan is home only in a USD store.
+ */
+export function isHomeCost(plan: StorePlanRow, ctx: StoreContext): boolean {
+  const costCurrency = (plan.currency ?? BASE_CURRENCY).toUpperCase();
+  return costCurrency === (ctx.currency ?? "").toUpperCase();
 }
 
 export interface PlanConfigRow {
@@ -151,7 +166,13 @@ export interface StoreContext {
  */
 export async function loadStoreContext(
   client: PriceDbClient,
-  opts: { countryCode: string; planId?: string | null },
+  opts: {
+    countryCode: string;
+    planId?: string | null;
+    provider?: string | null;
+    /** True when the plan's cost currency equals the store's. */
+    home?: boolean;
+  },
 ): Promise<{ context: StoreContext; platformMarkups: MarkupRule[] }> {
   const { context, markupRows } = await loadStoreContextRows(client, opts);
   return {
@@ -159,6 +180,8 @@ export async function loadStoreContext(
     platformMarkups: platformMarkupChain(markupRows, {
       countryCode: (opts.countryCode || "").toLowerCase(),
       planId: opts.planId ?? null,
+      provider: opts.provider ?? null,
+      home: opts.home === true,
     }),
   };
 }
@@ -236,11 +259,15 @@ export async function loadStoreContextRows(
   // including the USD fallback when its row was missing or stale.
   usdRates[currency] = resolvedRate.rate;
 
+  // Every row, enabled or not: the resolver treats a DISABLED row at a
+  // specific level as a terminal "no platform markup here" — it must see the
+  // row to do that. Filtering `enabled` here would instead make a disabled
+  // row fall through to a broader level, which is the opposite of what the
+  // admin surface's "disable" means.
   const markupRows = rowsOf(
     await client
       .from("global_platform_markups")
-      .select("scope, scope_key, markup_type, markup_value, enabled")
-      .eq("enabled", true),
+      .select("scope, scope_key, markup_type, markup_value, enabled"),
   ) as unknown as PlatformMarkupRow[];
 
   return {
@@ -274,6 +301,7 @@ export function pricePlan(
   ctx: StoreContext,
   platformMarkups: MarkupRule[],
 ): ResolvedStorePrice {
+  const home = isHomeCost(plan, ctx);
   const resellerMarkup: MarkupRule | null = config
     ? {
       markup_type: config.markup_type === "fixed" ? "fixed" : "percentage",
@@ -301,7 +329,10 @@ export function pricePlan(
     platformMarkups,
     resellerMarkup,
     resellerSellingPrice: config?.selling_price ?? null,
-    bufferFraction: ctx.bufferFraction,
+    // HOME (cost currency == store currency): no FX happens, so there is
+    // nothing to buffer. The caller has already resolved the markup chain
+    // for the home case (plan -> provider -> 0).
+    bufferFraction: home ? 0 : ctx.bufferFraction,
   });
 
   const priceType = (plan.price_type || "FIXED").toUpperCase() === "RANGE"
@@ -341,6 +372,7 @@ export function priceRangePlan(
   platformMarkups: MarkupRule[],
   sendAmount: number,
 ): ResolvedStorePrice & { sendAmount: number } {
+  const home = isHomeCost(plan, ctx);
   const resellerMarkup: MarkupRule | null = config
     ? {
       markup_type: config.markup_type === "fixed" ? "fixed" : "percentage",
@@ -357,7 +389,7 @@ export function priceRangePlan(
     platformMarkups,
     resellerMarkup,
     resellerSellingPrice: config?.selling_price ?? null,
-    bufferFraction: ctx.bufferFraction,
+    bufferFraction: home ? 0 : ctx.bufferFraction,
     bounds: {
       min: Number(plan.range_min ?? 0),
       max: Number(plan.range_max ?? 0),

@@ -53,10 +53,11 @@ import {
   type CatalogPlanConfig,
 } from "../../../supabase/functions/_shared/catalog/catalogResolution.ts";
 import {
-  loadStoreContext,
+  loadStoreContextRows,
   pricePlan,
   priceRangePlan,
 } from "../../../supabase/functions/_shared/currency/storePrice.ts";
+import { platformMarkupChain } from "../../../supabase/functions/_shared/currency/markup.ts";
 
 export interface StoreCatalog {
   plans: StoreProduct[];
@@ -178,13 +179,15 @@ export async function getStoreCatalog(
 
   // The store's currency and rate, loaded once through the shared loader.
   // A missing rate is a hard failure (an empty catalog) rather than a guess.
-  let storeContext, platformMarkups;
+  // The platform markup is resolved PER PLAN below, because home vs
+  // cross-border depends on each plan's cost currency.
+  let storeContext, markupRows;
   try {
-    const loaded = await loadStoreContext(supabase, {
+    const loaded = await loadStoreContextRows(supabase, {
       countryCode: (countryCode || "").toLowerCase(),
     });
     storeContext = loaded.context;
-    platformMarkups = loaded.platformMarkups;
+    markupRows = loaded.markupRows;
   } catch (error) {
     console.error("Store catalog pricing unavailable:", error);
     return EMPTY;
@@ -196,6 +199,15 @@ export async function getStoreCatalog(
     // default in `all` mode.
     const cfg = p.__config as CatalogPlanConfig | null;
     const isRange = (p.price_type ?? "FIXED").toUpperCase() === "RANGE";
+    // HOME (cost currency == store currency) skips the platform markup and
+    // the buffer; every other plan keeps the FX chain. Resolved per plan.
+    const platformMarkups = platformMarkupChain(markupRows, {
+      countryCode: (countryCode || "").toLowerCase(),
+      planId: p.id,
+      provider: p.provider,
+      home: (p.currency ?? "USD").toUpperCase() ===
+        (storeContext.currency ?? "").toUpperCase(),
+    });
     // A RANGE offer shows the price of its minimum amount ("from X"); the
     // customer's chosen amount is priced at checkout through the same
     // pipeline. A FIXED offer prices from its stored cost.
