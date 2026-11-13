@@ -36,6 +36,7 @@ import { getCatalogSettings } from "@/actions/reseller/plans/catalogMode";
 import { CountryConfig } from "@/config/countries";
 import { PlanWithConfig } from "@/types/reseller/plans";
 import { formatPrice } from "@/lib/currency/currency";
+import { countryFlag } from "@/lib/storefront/countryLabel";
 import ThemeSelect from "../ThemeSelect";
 
 /** Rows per page — must match the action's page size. */
@@ -724,7 +725,16 @@ export default function GlobalPlansPanel({
                   border: isActive ? "none" : "1px solid var(--border)",
                 }}
               >
-                {isAll ? t?.allCountries || "All Countries" : cc.toUpperCase()}
+                {isAll ? (
+                  t?.allCountries || "All Countries"
+                ) : (
+                  <>
+                    <span aria-hidden style={{ marginRight: 6 }}>
+                      {countryFlag(cc)}
+                    </span>
+                    {cc.toUpperCase()}
+                  </>
+                )}
                 <span style={{ fontSize: "0.7rem", opacity: 0.7, marginLeft: 4 }}>
                   ({count})
                 </span>
