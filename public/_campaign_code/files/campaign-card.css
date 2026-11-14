@@ -208,14 +208,16 @@
    GLASS BODY — the mascot's torso. No top edge.
 ========================================== */
 
-/* The body is a SQUARE glass plate — no rounded corners — and fully
-   translucent. Its top fades in over the shoulders so there is no line under
-   the neck; the torso dissolves into it. */
+/* The body is a glass plate — square at the top (no top edge, no top border)
+   and curved along the bottom. Its top fades in over the shoulders so there is
+   no line under the neck; the torso dissolves into it. */
 .goat-campaign-card .campaign-panel {
   position: absolute;
   inset: 0;
   z-index: 0;
-  border-radius: 0;
+  /* Curved bottom corners; the top stays square so the shoulders read as the
+     card's top. The rim light inherits this radius. */
+  border-radius: 0 0 8cqw 8cqw;
   overflow: hidden;
   background: var(--glass-fill);
   -webkit-backdrop-filter: blur(18px) saturate(165%);
