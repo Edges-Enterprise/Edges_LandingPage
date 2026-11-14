@@ -1,16 +1,17 @@
 // src/components/campaign/FirstDepositCampaignCard.tsx
 //
 // The live campaign card shown at the top of the reseller dashboard. The card
-// headline always states the base reward in USD ($10); the reseller's own
-// currency equivalent is shown directly beneath it, converted at the live FX
-// rate. The card renders only while the reseller is still eligible (i.e. has
-// not yet made an app-initiated deposit).
+// headline always states the base reward in USD ($10) as the big flared hero;
+// the reseller's own currency equivalent sits directly beneath it, converted
+// at the live FX rate. The card renders only while the reseller is still
+// eligible (i.e. has not yet made an app-initiated deposit).
 "use client";
 
 import { useEffect, useState } from "react";
 import CampaignCard, { CampaignTheme } from "./CampaignCard";
 import { getFirstDepositCampaignState } from "@/actions/reseller/campaigns/firstDepositCampaign";
 import { formatCurrency } from "@/lib/utils/helpers";
+import { openAppOrInstall } from "@/lib/utils/deepLink";
 
 interface FirstDepositCampaignCardProps {
   /** The reseller's brand colour, so the card carries their identity. */
@@ -20,10 +21,17 @@ interface FirstDepositCampaignCardProps {
    * from the store's own --brand-color.
    */
   theme?: CampaignTheme;
+  /** In-app route the CTA should land on, e.g. "deposit" (default: app home). */
+  deepLinkPath?: string;
+  /** App Store / TestFlight page, used when the app is missing on iOS. */
+  iosStoreUrl?: string;
+  /** Play Store page; used on Android only if there is no APK build. */
+  androidStoreUrl?: string;
   /** Translation strings; falls back to English. */
   translations?: {
     eyebrow?: string;
     headline?: string;
+    /** May contain {amount}, which becomes the big flared figure. */
     headlineAccent?: string;
     benefit1?: string;
     benefit2?: string;
@@ -40,6 +48,9 @@ const USD_REWARD = 10;
 export default function FirstDepositCampaignCard({
   brandColor,
   theme = "brand",
+  deepLinkPath,
+  iosStoreUrl,
+  androidStoreUrl,
   translations,
 }: FirstDepositCampaignCardProps) {
   const [state, setState] = useState<{
@@ -67,56 +78,29 @@ export default function FirstDepositCampaignCard({
 
   const t = translations || {};
 
-  /**
-   * The CTA opens the reseller app if it is installed and falls back to the
-   * APK download when it is not. On Android an `intent://` link with a
-   * `browser_fallback_url` does both in one tap. On iOS the custom scheme is
-   * tried first, and the APK (Android-only) is the last resort.
-   */
+  /** One tap: open the app if it is installed, otherwise send them to install. */
   const openApp = () => {
-    if (typeof window === "undefined") return;
-    const scheme = state.appScheme || "edges-network";
-    const ua = window.navigator.userAgent || "";
-    const isAndroid = /android/i.test(ua);
-    const isIOS = /iphone|ipad|ipod/i.test(ua);
-
-    if (isAndroid && state.packageName) {
-      const fallback = state.apkUrl
-        ? `browser_fallback_url=${encodeURIComponent(state.apkUrl)};`
-        : "";
-      window.location.href = `intent://#Intent;scheme=${scheme};package=${state.packageName};${fallback}end`;
-      return;
-    }
-
-    if (isIOS) {
-      window.location.href = `${scheme}://`;
-      // If nothing handled the scheme the page stays put; send the user to the
-      // storefront so they can install from there.
-      window.setTimeout(() => {
-        if (!document.hidden && state.apkUrl) window.location.href = state.apkUrl;
-      }, 1800);
-      return;
-    }
-
-    // Desktop / unknown: there is no app to open, so offer the download.
-    if (state.apkUrl) window.open(state.apkUrl, "_blank", "noopener");
+    const androidFallback = state.apkUrl || androidStoreUrl || null;
+    openAppOrInstall({
+      scheme: state.appScheme || "edges-network",
+      path: deepLinkPath,
+      androidPackage: state.packageName,
+      androidFallbackUrl: androidFallback,
+      iosFallbackUrl: iosStoreUrl || null,
+      desktopFallbackUrl: androidFallback,
+    });
   };
 
-  // The headline always states the base reward in USD; the reseller's own
-  // currency conversion is shown directly beneath it. When the wallet is
-  // already USD the conversion is redundant, so it is omitted.
-  const usdText = formatCurrency(USD_REWARD, "USD");
+  // The hero states the base reward in USD; the reseller's own currency
+  // conversion is shown directly beneath it. When the wallet is already USD
+  // the conversion is redundant, so it is omitted. "$10.00" -> "$10".
+  const usdText = formatCurrency(USD_REWARD, "USD").replace(/[.,]00$/, "");
   const isLocalCurrency =
     state.currency.toUpperCase() !== "USD" && state.localAmount !== null;
   const localText =
     state.localAmount !== null
       ? formatCurrency(state.localAmount, state.currency)
       : null;
-
-  const headlineAccent = (t.headlineAccent || "GET {amount} FREE.").replace(
-    "{amount}",
-    usdText,
-  );
 
   const conversion =
     isLocalCurrency && localText
@@ -140,7 +124,8 @@ export default function FirstDepositCampaignCard({
           theme,
           eyebrow: t.eyebrow || "LIMITED-TIME OFFER",
           headline: t.headline || "DEPOSIT IN THE APP.",
-          headlineAccent,
+          headlineAccent: t.headlineAccent || "GET {amount} FREE.",
+          amount: usdText,
           conversion,
           benefits: [
             t.benefit1 || "⚡ Instant top-up",

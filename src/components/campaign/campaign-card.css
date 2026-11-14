@@ -1,45 +1,66 @@
 /* ==========================================
-   MASCOT-MORPH CAMPAIGN CARD
+   MASCOT-MORPH CAMPAIGN CARD  (v2)
    A reusable, brand-adaptive promo card.
 
-   The idea: the mascot is not placed on top of
-   the card — the mascot BECOMES the card. Its
-   head breaks above the top edge, and its body
-   dissolves (masked) into the square glass panel
-   where the copy sits. So the top of the card is
-   the mascot's head, and the body is the square.
+   The mascot IS the card:
+   - its neck + shoulders sit exactly on the card's top line, so there is no
+     card top and no top border — the shoulders are the top;
+   - the rest of the card is the mascot's body: a glass dome that fades in
+     from nothing under the shoulders;
+   - the CTA straddles the BOTTOM border, so the border runs behind it and
+     the button reads as pinned to the rim.
 
-   Scoped to .goat-campaign-card, and sized with
-   container-query units (cqw = 1% of the card's
-   own width) so the whole thing scales as one
-   unit at any width.
+   Scoped to .goat-campaign-card and sized with container-query units
+   (cqw = 1% of the card's own width) so it scales as one unit.
 ========================================== */
 
-/* The wrapper is the perspective stage and reserves the headroom the head
-   breaks into, so nothing clips it. */
+/* MASCOT GEOMETRY — the only numbers to touch if the mascot art changes.
+     --m-w       mascot width, in % of card width
+     --m-ratio   image height / width
+     --m-anchor  how far down the image the neck/shoulder line is (0-1);
+                 that line is placed exactly on the card's top edge.
+   Declared on both the wrapper (reserves head-room) and the card. */
+.first-deposit-campaign,
+.goat-campaign-card {
+  --m-w: 92;
+  --m-ratio: 1.0433;
+  --m-anchor: 0.5;
+}
+
+/* The wrapper is the stage: it reserves the head-room the mascot breaks into
+   (a % padding resolves against the wrapper width, so it scales with the card)
+   and the room the CTA overhangs below. */
 .first-deposit-campaign {
   position: relative;
   width: 100%;
   max-width: 340px;
   margin-inline: auto;
-  margin-bottom: 1.75rem;
-  padding-top: 2.4rem;
+  /* The half of the CTA that hangs below the card lives INSIDE the wrapper's
+     own box (padding, not margin), so a parent with overflow:hidden or
+     rounded clipping can't cut the button off. */
+  padding-bottom: 3.6rem;
   perspective: 1500px;
 }
 
-/* Soft brand-tinted ground shadow under the panel. */
+.first-deposit-campaign::before {
+  content: "";
+  display: block;
+  padding-top: calc(var(--m-w) * var(--m-ratio) * var(--m-anchor) * 1%);
+}
+
+/* Soft brand-tinted ground shadow under the card. */
 .first-deposit-campaign::after {
   content: "";
   position: absolute;
-  left: 14%;
-  right: 14%;
-  bottom: 6px;
-  height: 30px;
+  left: 12%;
+  right: 12%;
+  bottom: 3.1rem;
+  height: 34px;
   z-index: -1;
   border-radius: 50%;
   background: color-mix(in srgb, var(--brand-color, #000) 60%, transparent);
   filter: blur(26px);
-  opacity: 0.55;
+  opacity: 0.6;
 }
 
 .goat-campaign-card {
@@ -55,6 +76,8 @@
     color-mix(in srgb, var(--primary) 45%, white)
   );
   --text: var(--campaign-text, #ffffff);
+  /* Dark ink for text sitting on the bright accent (the CTA). */
+  --ink: color-mix(in srgb, var(--secondary) 86%, black);
 
   --card-font-display: var(
     --campaign-font-display,
@@ -62,21 +85,38 @@
   );
   --card-font-sans: var(--campaign-font-sans, var(--font-sans, inherit));
 
+  /* Mascot geometry, resolved against the card's own width. */
+  --mascot-w: calc(var(--m-w) * 1cqw);
+  --mascot-h: calc(var(--mascot-w) * var(--m-ratio));
+  --mascot-neck: calc(var(--mascot-h) * var(--m-anchor));
+
+  /* The torso stays FULL (no early fade-out); the image box cuts it off at the
+     bottom, so the fade lives at that cut — the body feathers out only as it
+     is clipped. Stops are % of the mascot image height. */
+  --mascot-fade: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 80%,
+    rgba(0, 0, 0, 0.72) 88%,
+    rgba(0, 0, 0, 0.34) 94%,
+    transparent 100%
+  );
+
   /* Glass tint — translucent, so the page behind shows through the frost. */
   --glass-fill: linear-gradient(
-    158deg,
-    color-mix(in srgb, var(--primary) 58%, transparent) 0%,
-    color-mix(in srgb, var(--secondary) 68%, transparent) 54%,
-    color-mix(in srgb, var(--secondary) 86%, transparent) 100%
+    168deg,
+    color-mix(in srgb, var(--primary) 22%, transparent) 0%,
+    color-mix(in srgb, var(--secondary) 26%, transparent) 52%,
+    color-mix(in srgb, var(--secondary) 34%, transparent) 100%
   );
 
   position: relative;
   isolation: isolate;
-  /* The head must break the top edge, so the card itself never clips. */
+  /* The head breaks the top and the CTA breaks the bottom: never clip. */
   overflow: visible;
 
   width: 100%;
-  aspect-ratio: 1 / 1; /* square */
+  aspect-ratio: 100 / 112;
 
   font-family: var(--card-font-sans);
   -webkit-font-smoothing: antialiased;
@@ -84,8 +124,7 @@
 
   container-type: inline-size;
 
-  transform: rotateX(5deg) rotateY(-3deg);
-  transform-style: preserve-3d;
+  transform: rotateX(4deg) rotateY(-2deg);
   transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -102,41 +141,63 @@
 }
 
 /* ==========================================
-   GLASS PANEL — the square the body blends into
+   GLASS BODY — the mascot's torso. No top edge.
 ========================================== */
 
-/* The panel is the mascot's BODY, not a bordered box: it has no top edge at
-   all, so the mascot's neck/shoulders are the card's top. The top is tucked up
-   under the neck (negative inset) so the body flows straight into the panel. */
+/* The body is a SQUARE glass plate — no rounded corners — and fully
+   translucent. Its top fades in over the shoulders so there is no line under
+   the neck; the torso dissolves into it. */
 .goat-campaign-card .campaign-panel {
   position: absolute;
   inset: 0;
   z-index: 0;
-  border-radius: 0 0 30px 30px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--glass-fill);
-  -webkit-backdrop-filter: blur(20px) saturate(170%);
-  backdrop-filter: blur(20px) saturate(170%);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-top: 0;
-  box-shadow:
-    0 30px 60px -22px rgba(0, 0, 0, 0.62),
-    0 10px 26px -14px rgba(0, 0, 0, 0.45),
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
-  /* Feather the panel's very top so it has no line where it meets the neck. */
+  -webkit-backdrop-filter: blur(18px) saturate(165%);
+  backdrop-filter: blur(18px) saturate(165%);
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    rgba(0, 0, 0, 0.45) 4cqw,
-    #000 14cqw,
-    #000 100%
+    transparent 8cqw,
+    rgba(0, 0, 0, 0.22) 17cqw,
+    rgba(0, 0, 0, 0.62) 28cqw,
+    #000 42cqw
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    rgba(0, 0, 0, 0.45) 4cqw,
-    #000 14cqw,
-    #000 100%
+    transparent 8cqw,
+    rgba(0, 0, 0, 0.22) 17cqw,
+    rgba(0, 0, 0, 0.62) 28cqw,
+    #000 42cqw
+  );
+}
+
+/* Rim light: invisible at the shoulders, fully there by mid-body and along
+   the bottom edge (where the CTA covers its middle). */
+.goat-campaign-card .campaign-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-bottom-color: rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent),
+    inset 0 -2cqw 4cqw -2cqw rgba(255, 255, 255, 0.3);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 30cqw,
+    #000 60cqw
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 30cqw,
+    #000 60cqw
   );
 }
 
@@ -148,13 +209,13 @@
   pointer-events: none;
   background:
     radial-gradient(
-      120% 80% at 8% 0%,
-      rgba(255, 255, 255, 0.42) 0%,
+      120% 70% at 8% 18%,
+      rgba(255, 255, 255, 0.32) 0%,
       rgba(255, 255, 255, 0) 46%
     ),
     linear-gradient(
       160deg,
-      rgba(255, 255, 255, 0.26) 0%,
+      rgba(255, 255, 255, 0.2) 0%,
       rgba(255, 255, 255, 0) 30%,
       rgba(255, 255, 255, 0) 68%,
       rgba(255, 255, 255, 0.12) 100%
@@ -168,12 +229,12 @@
   pointer-events: none;
   background:
     radial-gradient(
-      ellipse at 50% 18%,
-      rgba(255, 255, 255, 0.4) 0%,
+      ellipse at 50% 24%,
+      rgba(255, 255, 255, 0.3) 0%,
       transparent 46%
     ),
     radial-gradient(
-      ellipse at 12% 86%,
+      ellipse at 12% 90%,
       color-mix(in srgb, var(--accent) 30%, transparent),
       transparent 52%
     );
@@ -185,7 +246,7 @@
   pointer-events: none;
   background: radial-gradient(
     circle,
-    rgba(255, 255, 255, 0.3),
+    rgba(255, 255, 255, 0.26),
     rgba(255, 255, 255, 0) 70%
   );
 }
@@ -193,8 +254,8 @@
 .goat-campaign-card .campaign-orb--one {
   width: 74%;
   aspect-ratio: 1;
-  top: -16%;
-  right: -24%;
+  top: 6%;
+  right: -26%;
 }
 
 .goat-campaign-card .campaign-orb--two {
@@ -205,40 +266,32 @@
 }
 
 /* ==========================================
-   MASCOT — head above the card, body dissolving
-   into the panel. The mask is what makes the
-   body "morph" into the glass square instead of
-   sitting on top of it.
+   MASCOT — head above the card, neck/shoulders on the top line, torso
+   dissolving into the glass body.
 ========================================== */
 
-/* The mascot is scaled so its neck/shoulders land exactly on the card's top
-   edge and its body fills the whole panel beneath. `object-position: center
-   top` pins the head; the negative top lets the head break above the edge. */
+/* Placed so the neck/shoulder line (image y = --m-anchor) lands exactly on the
+   card's top edge. Everything above is the head breaking out. */
 .goat-campaign-card .campaign-mascot {
   position: absolute;
   left: 50%;
-  /* The neck (image y≈26%) is placed on the card's top edge; everything above
-     it is the head that breaks out, everything below is the body in the panel. */
-  top: -35.1cqw;
-  transform: translateX(-50%) translateZ(80px);
-  width: 129.7cqw;
-  height: 135.1cqw;
+  top: calc(var(--mascot-neck) * -1);
+  transform: translateX(-50%);
+  width: var(--mascot-w);
+  height: var(--mascot-h);
   z-index: 3;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
   pointer-events: none;
 }
 
-/* A soft brand haze that bridges the neck into the panel, so there is no seam
-   where the shoulders meet the body. */
+/* A brand haze straddling the neck line that bridges the shoulders into the
+   body, so there is never a seam. */
 .goat-campaign-card .campaign-mascot::before {
   content: "";
   position: absolute;
   left: 50%;
-  top: 26cqw;
+  top: calc(var(--mascot-neck) - 12cqw);
   transform: translateX(-50%);
-  width: 150%;
+  width: 130%;
   height: 40cqw;
   border-radius: 50%;
   background: radial-gradient(
@@ -253,13 +306,14 @@
 
 .goat-campaign-card .campaign-mascot__glow {
   position: absolute;
+  left: 6%;
   width: 88%;
-  height: 62%;
-  top: 4%;
+  height: 56%;
+  top: 2%;
   border-radius: 50%;
   background: radial-gradient(
     ellipse,
-    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.5) 0%,
     color-mix(in srgb, var(--accent) 30%, transparent) 40%,
     transparent 72%
   );
@@ -267,39 +321,23 @@
 }
 
 .goat-campaign-card .campaign-mascot__image {
-  position: relative;
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
   object-position: center top;
-  /* Head and shoulders stay solid; the torso fades as it reaches down into the
-     glass, so the body reads as becoming the card rather than sitting on it. */
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    #000 0%,
-    #000 58%,
-    rgba(0, 0, 0, 0.5) 76%,
-    rgba(0, 0, 0, 0.14) 90%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    #000 0%,
-    #000 58%,
-    rgba(0, 0, 0, 0.5) 76%,
-    rgba(0, 0, 0, 0.14) 90%,
-    transparent 100%
-  );
-  filter: drop-shadow(0 16px 12px rgba(0, 0, 0, 0.32))
-    drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
+  -webkit-mask-image: var(--mascot-fade);
+  mask-image: var(--mascot-fade);
+  /* No filter here: a drop-shadow on a masked image smears faint vertical
+     lines at the image box edges. The glow comes from __glow instead. */
   user-select: none;
 }
 
-/* Colour-grading layer. It is masked to the mascot's own silhouette (the PNG's
-   alpha) and to the same vertical fade as the image, then blended in "color"
-   mode so it re-tints the art to the reseller's theme hue while keeping its
-   original shading. So one PNG recolours itself for every brand. */
+/* Colour-grading layer, masked to the mascot's own silhouette (the image's
+   alpha) and to the same fade as the image, then blended in "color" mode so it
+   re-tints the art to the reseller's theme hue while keeping its shading. */
 .goat-campaign-card .campaign-mascot__grade {
   position: absolute;
   inset: 0;
@@ -313,24 +351,11 @@
   );
   mix-blend-mode: color;
   opacity: 0.92;
-  -webkit-mask-image: var(--mascot-url),
-    linear-gradient(
-      to bottom,
-      #000 0%,
-      #000 58%,
-      rgba(0, 0, 0, 0.5) 76%,
-      rgba(0, 0, 0, 0.14) 90%,
-      transparent 100%
-    );
-  mask-image: var(--mascot-url),
-    linear-gradient(
-      to bottom,
-      #000 0%,
-      #000 58%,
-      rgba(0, 0, 0, 0.5) 76%,
-      rgba(0, 0, 0, 0.14) 90%,
-      transparent 100%
-    );
+  /* Trim the edge columns: a blended + masked layer otherwise leaves a faint
+     hairline along the left/right of the mascot box. */
+  clip-path: inset(0 3px);
+  -webkit-mask-image: var(--mascot-url), var(--mascot-fade);
+  mask-image: var(--mascot-url), var(--mascot-fade);
   -webkit-mask-size: contain, 100% 100%;
   mask-size: contain, 100% 100%;
   -webkit-mask-position: center top, center top;
@@ -347,55 +372,61 @@
 
 .goat-campaign-card .campaign-content {
   position: absolute;
-  inset: 33% 0 0 0;
+  inset: 27cqw 0 0 0;
   z-index: 5;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  /* No bottom padding: the CTA must reach the card's bottom edge so it sits
-     on the border line. */
-  padding: 0 7cqw 0;
-  transform: translateZ(30px);
+  /* Bottom padding clears the half of the CTA that overhangs the rim. */
+  padding: 0 7cqw 12.5cqw;
 }
 
 .goat-campaign-card .campaign-eyebrow {
   display: inline-block;
-  padding: 1.3cqw 2.6cqw;
+  padding: 1.2cqw 3cqw;
   border-radius: 50px;
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.4);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   font-family: var(--card-font-sans);
-  font-size: 2.3cqw;
+  font-size: 2.7cqw;
   font-weight: 700;
   letter-spacing: 0.14em;
   color: var(--text);
 }
 
-/* Embossed display type, in the store's own display face. */
+/* ---- Headline ---- */
+
 .goat-campaign-card .campaign-title {
   width: 100%;
-  margin: 2.1cqw 0 0;
+  margin: 2cqw 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   font-family: var(--card-font-display);
-  font-size: 7.6cqw;
-  line-height: 0.96;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  line-height: 1;
   text-transform: uppercase;
-  color: #ffffff;
-  text-shadow:
-    0 0.35cqw 0 color-mix(in srgb, var(--primary) 28%, white),
-    0 0.7cqw 0 color-mix(in srgb, var(--secondary) 52%, white),
-    0 1.1cqw 0 color-mix(in srgb, var(--secondary) 62%, black),
-    0 1.6cqw 0 color-mix(in srgb, var(--secondary) 82%, black),
-    0 2.4cqw 3cqw rgba(0, 0, 0, 0.5);
-  filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.2));
 }
 
-.goat-campaign-card .campaign-title span {
-  display: inline-block;
+.goat-campaign-card .campaign-title__line {
+  font-size: 6.2cqw;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  text-shadow:
+    0 0.3cqw 0 color-mix(in srgb, var(--primary) 28%, white),
+    0 0.6cqw 0 color-mix(in srgb, var(--secondary) 52%, white),
+    0 1cqw 0 color-mix(in srgb, var(--secondary) 62%, black),
+    0 1.4cqw 0 color-mix(in srgb, var(--secondary) 82%, black),
+    0 2cqw 2.4cqw rgba(0, 0, 0, 0.5);
+}
+
+/* Plain accent line (used when no hero amount is supplied). */
+.goat-campaign-card .campaign-title__accent {
+  margin-top: 1cqw;
+  font-size: 7cqw;
   color: var(--accent);
   text-shadow:
     0 0.35cqw 0 color-mix(in srgb, var(--accent) 55%, white),
@@ -405,76 +436,273 @@
     0 2.6cqw 3cqw rgba(0, 0, 0, 0.5);
 }
 
-/* Local-currency conversion — the amount, the hero of the card. */
+/* ---- HERO AMOUNT: big, gradient-filled, flared ---- */
+
+.goat-campaign-card .campaign-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 2.4cqw;
+  margin-top: 1.2cqw;
+}
+
+.goat-campaign-card .campaign-hero__word {
+  font-size: 5.2cqw;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  text-shadow:
+    0 0.35cqw 0 color-mix(in srgb, var(--secondary) 60%, black),
+    0 0.9cqw 1.8cqw rgba(0, 0, 0, 0.5);
+}
+
+.goat-campaign-card .campaign-amount-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1.2cqw;
+}
+
+.goat-campaign-card .campaign-amount {
+  position: relative;
+  z-index: 1;
+  font-size: 22cqw;
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  /* Gradient-filled glyphs with a travelling white shine on top. The
+     emboss/glow is drop-shadow (not text-shadow) because text-shadow would
+     show through the transparent fill. */
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background:
+    linear-gradient(
+        105deg,
+        transparent 38%,
+        rgba(255, 255, 255, 0.95) 50%,
+        transparent 62%
+      )
+      160% 0 / 250% 100% no-repeat,
+    linear-gradient(
+      180deg,
+      #ffffff 0%,
+      color-mix(in srgb, var(--accent) 38%, white) 38%,
+      var(--accent) 72%,
+      color-mix(in srgb, var(--accent) 62%, var(--primary)) 100%
+    );
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 0.6cqw 0 color-mix(in srgb, var(--secondary) 55%, black))
+    drop-shadow(0 1.3cqw 0 color-mix(in srgb, var(--secondary) 85%, black))
+    drop-shadow(0 0 2.6cqw color-mix(in srgb, var(--accent) 90%, transparent))
+    drop-shadow(0 2cqw 2.4cqw rgba(0, 0, 0, 0.45));
+  animation: campaign-shine 3.6s ease-in-out infinite;
+}
+
+/* Longer figures ("$10.50", "€100") step down so the row never overflows. */
+.goat-campaign-card .campaign-amount--long {
+  font-size: 15cqw;
+}
+
+/* FLARE: a rotating sunburst plus a pulsing bloom, behind the figure. */
+.goat-campaign-card .campaign-flare {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 190%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.goat-campaign-card .campaign-flare::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.6) 0deg 4deg,
+    transparent 4deg 15deg
+  );
+  -webkit-mask-image: radial-gradient(
+    circle,
+    #000 0%,
+    rgba(0, 0, 0, 0.55) 34%,
+    transparent 68%
+  );
+  mask-image: radial-gradient(
+    circle,
+    #000 0%,
+    rgba(0, 0, 0, 0.55) 34%,
+    transparent 68%
+  );
+  opacity: 0.6;
+  animation: campaign-rays 16s linear infinite;
+}
+
+.goat-campaign-card .campaign-flare::after {
+  content: "";
+  position: absolute;
+  inset: 22%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.7) 0%,
+    color-mix(in srgb, var(--accent) 70%, transparent) 32%,
+    color-mix(in srgb, var(--primary) 40%, transparent) 55%,
+    transparent 72%
+  );
+  filter: blur(8px);
+  animation: campaign-bloom 2.8s ease-in-out infinite;
+}
+
+/* Four-point sparkles that twinkle around the figure. */
+.goat-campaign-card .campaign-spark {
+  position: absolute;
+  z-index: 2;
+  width: 5.4cqw;
+  aspect-ratio: 1;
+  background: #ffffff;
+  clip-path: polygon(
+    50% 0,
+    62% 38%,
+    100% 50%,
+    62% 62%,
+    50% 100%,
+    38% 62%,
+    0 50%,
+    38% 38%
+  );
+  pointer-events: none;
+  animation: campaign-twinkle 2.4s ease-in-out infinite;
+}
+
+.goat-campaign-card .campaign-spark--a {
+  top: -4%;
+  right: -3%;
+}
+
+.goat-campaign-card .campaign-spark--b {
+  width: 3cqw;
+  bottom: 8%;
+  left: -2%;
+  animation-delay: 0.8s;
+}
+
+.goat-campaign-card .campaign-spark--c {
+  width: 2.4cqw;
+  top: 34%;
+  right: -9%;
+  animation-delay: 1.5s;
+}
+
+@keyframes campaign-shine {
+  0%,
+  55% {
+    background-position:
+      160% 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      -60% 0,
+      0 0;
+  }
+}
+
+@keyframes campaign-rays {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes campaign-bloom {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes campaign-twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.3) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+}
+
+/* ---- Local-currency conversion ---- */
+
 .goat-campaign-card .campaign-conversion {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.6cqw;
-  margin: 2.2cqw 0 0;
-  padding: 1.4cqw 5cqw;
+  gap: 0.5cqw;
+  margin: 1.8cqw 0 0;
+  padding: 1.2cqw 5cqw;
   border-radius: 5cqw;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.36);
   -webkit-backdrop-filter: blur(8px) saturate(150%);
   backdrop-filter: blur(8px) saturate(150%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
-/* Flare behind the amount: a bright brand bloom that lifts it off the glass. */
-.goat-campaign-card .campaign-conversion::before {
-  content: "";
-  position: absolute;
-  inset: -30% -14%;
-  z-index: -1;
-  border-radius: 50%;
-  background: radial-gradient(
-    ellipse at 50% 50%,
-    color-mix(in srgb, var(--accent) 70%, transparent) 0%,
-    color-mix(in srgb, var(--primary) 45%, transparent) 42%,
-    transparent 72%
-  );
-  filter: blur(16px);
-  opacity: 0.85;
-  pointer-events: none;
-}
-
 .goat-campaign-card .campaign-conversion__value {
   font-family: var(--card-font-display);
-  font-size: 9.4cqw;
+  font-size: 8.4cqw;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1;
   color: #ffffff;
-  /* Flared emboss: a bright bloom hugging the glyphs plus a deep drop. */
   text-shadow:
-    0 0 2.2cqw color-mix(in srgb, var(--accent) 90%, white),
-    0 0 4.4cqw color-mix(in srgb, var(--primary) 70%, transparent),
+    0 0 2cqw color-mix(in srgb, var(--accent) 90%, white),
+    0 0 4cqw color-mix(in srgb, var(--primary) 70%, transparent),
     0 0.3cqw 0 color-mix(in srgb, var(--accent) 60%, white),
     0 0.7cqw 0 color-mix(in srgb, var(--secondary) 70%, black),
-    0 1.2cqw 2.4cqw rgba(0, 0, 0, 0.55);
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
+    0 1.2cqw 2.2cqw rgba(0, 0, 0, 0.55);
+}
+
+.goat-campaign-card .campaign-conversion__value::before {
+  content: "≈";
+  margin-right: 0.22em;
+  font-size: 0.62em;
+  opacity: 0.85;
 }
 
 .goat-campaign-card .campaign-conversion__caption {
   font-family: var(--card-font-sans);
-  font-size: 2.2cqw;
+  font-size: 2.5cqw;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.92);
   line-height: 1.2;
 }
 
-/* Benefit pills — frosted chips, pinned above the CTA. */
+/* ---- Benefit chips: pinned above the CTA ---- */
+
 .goat-campaign-card .campaign-benefits {
   width: 100%;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.4cqw;
   margin-top: auto;
-  padding-top: 2cqw;
+  padding-top: 1.6cqw;
 }
 
 .goat-campaign-card .campaign-benefit {
@@ -483,7 +711,7 @@
   justify-content: center;
   align-items: center;
   text-align: center;
-  padding: 1.7cqw 0.7cqw;
+  padding: 1.6cqw 0.8cqw;
   border-radius: 3cqw;
   background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -491,101 +719,140 @@
   backdrop-filter: blur(10px) saturate(150%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 6px 14px rgba(0, 0, 0, 0.16);
+    0 5px 12px rgba(0, 0, 0, 0.16);
   font-family: var(--card-font-sans);
-  font-size: 2cqw;
+  font-size: 2.9cqw;
   font-weight: 600;
   line-height: 1.2;
   color: var(--text);
 }
 
-/* The CTA sits ON the card's bottom border: it runs full-bleed to the edges
-   and is anchored so its lower edge rides the border line, which hides the
-   button's own bottom edge — it reads as resting on the rim of the card.
-   It is cut from glass: frosted, translucent, so the brand shows through. */
+/* ==========================================
+   CTA — pinned ON the bottom border.
+   Centred on the card's bottom edge (half inside, half hanging below), so the
+   border line runs straight behind the button. A bright rim hides the seam
+   where the two meet, so only the ends of the border are seen, as if the
+   button is sitting on the line.
+========================================== */
+
 .goat-campaign-card .campaign-cta {
-  position: relative;
-  width: calc(100% + 14cqw);
-  margin: auto -7cqw 0;
-  padding: 4.4cqw 0;
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 7;
+  transform: translate(-50%, 50%);
+
+  width: max-content;
+  min-width: 84cqw;
+  max-width: 94cqw;
+  white-space: nowrap;
+  min-height: 17.5cqw;
+  padding: 0 6cqw;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 2.4cqw;
-  border-radius: 46px 46px 30px 30px;
+  gap: 2.6cqw;
+  overflow: hidden;
+
+  /* Crystal glass: a translucent frosted fill the page reads through, with a
+     bright bevel edge — no opaque colour block. */
+  border: 1.4cqw solid rgba(255, 255, 255, 0.62);
+  border-radius: 999px;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.34) 0%,
-    rgba(255, 255, 255, 0.12) 50%,
-    color-mix(in srgb, var(--accent) 34%, transparent) 100%
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(255, 255, 255, 0.18) 46%,
+    color-mix(in srgb, var(--primary) 26%, transparent) 100%
   );
-  -webkit-backdrop-filter: blur(18px) saturate(185%);
-  backdrop-filter: blur(18px) saturate(185%);
-  color: #ffffff;
-  border: 1.5px solid rgba(255, 255, 255, 0.72);
-  border-bottom: 0;
-  box-shadow:
-    0 2.4cqw 5cqw rgba(0, 0, 0, 0.34),
-    inset 0 2px 0 rgba(255, 255, 255, 0.8),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(14px) saturate(190%);
+  backdrop-filter: blur(14px) saturate(190%);
+  color: var(--text);
   text-decoration: none;
   font-family: var(--card-font-sans);
-  font-size: 4.6cqw;
+  font-size: 5.9cqw;
   font-weight: 900;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.4),
-    0 0.5cqw 1.4cqw rgba(0, 0, 0, 0.45);
+  text-shadow: 0 0.4cqw 1.4cqw rgba(0, 0, 0, 0.42);
   cursor: pointer;
-  transform: translateZ(46px);
+  -webkit-tap-highlight-color: transparent;
+
+  box-shadow:
+    /* rim that "cuts" the card's border behind the button */
+    0 0 0 0.9cqw rgba(255, 255, 255, 0.55),
+    0 0 0 1.5cqw color-mix(in srgb, var(--secondary) 40%, transparent),
+    /* glassy inner bevel + outer glow/drop */
+    inset 0 0.9cqw 0.6cqw -0.4cqw rgba(255, 255, 255, 0.9),
+    inset 0 -1cqw 0.8cqw -0.5cqw rgba(255, 255, 255, 0.35),
+    0 0 7cqw color-mix(in srgb, var(--accent) 55%, transparent),
+    0 3.2cqw 5cqw rgba(0, 0, 0, 0.38);
+
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;
 }
 
-/* Crystal facet sheen across the glass. */
-.goat-campaign-card .campaign-cta::after {
+/* Light sweep that runs across the button on a loop. */
+.goat-campaign-card .campaign-cta::before {
   content: "";
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 36%;
   background: linear-gradient(
-    118deg,
-    rgba(255, 255, 255, 0.6) 0%,
-    rgba(255, 255, 255, 0) 40%,
-    rgba(255, 255, 255, 0) 62%,
-    rgba(255, 255, 255, 0.32) 100%
+    105deg,
+    transparent,
+    rgba(255, 255, 255, 0.75),
+    transparent
   );
-  mix-blend-mode: screen;
+  transform: skewX(-18deg);
+  pointer-events: none;
+  animation: campaign-cta-sweep 3.4s ease-in-out infinite;
 }
 
-.goat-campaign-card .campaign-cta span {
-  font-size: 1.25em;
+@keyframes campaign-cta-sweep {
+  0%,
+  45% {
+    left: -40%;
+  }
+  100% {
+    left: 130%;
+  }
+}
+
+.goat-campaign-card .campaign-cta__label {
+  position: relative;
+}
+
+.goat-campaign-card .campaign-cta__arrow {
+  position: relative;
+  font-size: 1.3em;
+  line-height: 1;
+  animation: campaign-cta-nudge 1.6s ease-in-out infinite;
+}
+
+@keyframes campaign-cta-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(0.8cqw);
+  }
 }
 
 .goat-campaign-card .campaign-cta:hover {
-  transform: translateZ(46px) translateY(-2px);
-  box-shadow:
-    0 3.4cqw 6cqw rgba(0, 0, 0, 0.36),
-    inset 0 2px 0 rgba(255, 255, 255, 0.85),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  transform: translate(-50%, calc(50% - 0.6cqw));
 }
 
 .goat-campaign-card .campaign-cta:active {
-  transform: translateZ(46px) translateY(1px);
-  box-shadow:
-    0 1cqw 2cqw rgba(0, 0, 0, 0.22),
-    inset 0 2px 0 rgba(255, 255, 255, 0.7),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+  transform: translate(-50%, calc(50% + 0.3cqw)) scale(0.985);
 }
 
 .goat-campaign-card .campaign-cta:focus-visible {
   outline: 3px solid #ffffff;
-  outline-offset: 4px;
+  outline-offset: 5px;
 }
 
 /* ==========================================
@@ -640,6 +907,20 @@
   .goat-campaign-card {
     transform: none;
   }
+
+  .goat-campaign-card .campaign-amount,
+  .goat-campaign-card .campaign-flare::before,
+  .goat-campaign-card .campaign-flare::after,
+  .goat-campaign-card .campaign-spark,
+  .goat-campaign-card .campaign-cta::before,
+  .goat-campaign-card .campaign-cta__arrow {
+    animation: none;
+  }
+
+  /* Without the twinkle loop the sparkles would sit as static stars. */
+  .goat-campaign-card .campaign-spark {
+    opacity: 0;
+  }
 }
 
 /* Browsers without backdrop-filter still get a legible, more opaque panel. */
@@ -648,7 +929,7 @@
 ) {
   .goat-campaign-card .campaign-panel {
     background: linear-gradient(
-      158deg,
+      168deg,
       color-mix(in srgb, var(--primary) 88%, black) 0%,
       var(--secondary) 100%
     );

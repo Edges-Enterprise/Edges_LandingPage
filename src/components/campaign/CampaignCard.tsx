@@ -1,9 +1,11 @@
 // src/components/campaign/CampaignCard.tsx
 //
-// The reusable mascot-morph campaign card. The mascot's head breaks above the
-// top edge and its body dissolves into the square glass panel behind the copy,
-// so the mascot reads as the card itself. Content comes from a config object;
-// the visual identity lives entirely in campaign-card.css.
+// The reusable mascot-morph campaign card. There is no card "top": the
+// mascot's neck and shoulders ARE the top edge, and the glass panel below is
+// the mascot's body, so the head breaks out and the torso dissolves into the
+// copy area. The CTA straddles the bottom border line like a badge pinned to
+// the rim. Content comes from a config object; the visual identity lives
+// entirely in campaign-card.css.
 "use client";
 
 import "./campaign-card.css";
@@ -21,13 +23,18 @@ export interface CampaignConfig {
   eyebrow: string;
   /** First headline line, rendered in white. */
   headline: string;
-  /** Accent headline line, rendered in the theme accent colour. */
-  headlineAccent?: string;
   /**
-   * The local-currency equivalent of the headline reward, shown directly
-   * beneath it. `value` is the converted figure (e.g. "₦16,400"); `caption`
-   * is a short note (e.g. "at today's rate"). Omitted when the reward is
-   * already in the user's own currency.
+   * Accent headline line. May contain the token `{amount}`; when `amount` is
+   * also supplied, the token is rendered as the big flared hero figure
+   * (e.g. "GET {amount} FREE." -> GET [ $10 ] FREE.).
+   */
+  headlineAccent?: string;
+  /** The reward figure to feature as the hero (e.g. "$10"). */
+  amount?: string;
+  /**
+   * The local-currency equivalent of the reward, shown directly beneath it.
+   * `value` is the converted figure (e.g. "₦16,400"); `caption` is a short
+   * note (e.g. "at today's rate"). Omitted when already in the user's currency.
    */
   conversion?: { value: string; caption?: string };
   /** Up to three short benefit labels. */
@@ -46,6 +53,8 @@ export interface CampaignConfig {
   mascotAlt?: string;
 }
 
+const AMOUNT_TOKEN = "{amount}";
+
 export default function CampaignCard({
   config,
   className,
@@ -57,6 +66,7 @@ export default function CampaignCard({
     eyebrow,
     headline,
     headlineAccent,
+    amount,
     conversion,
     benefits = [],
     cta,
@@ -71,20 +81,36 @@ export default function CampaignCard({
 
   const ctaContent = (
     <>
-      {cta} <span aria-hidden="true">→</span>
+      <span className="campaign-cta__label">{cta}</span>
+      <span className="campaign-cta__arrow" aria-hidden="true">
+        →
+      </span>
     </>
   );
+
+  // Split "GET {amount} FREE." around the token so the figure can be the hero.
+  const hasHero = !!amount && !!headlineAccent?.includes(AMOUNT_TOKEN);
+  const [heroPre, heroPost] = hasHero
+    ? (headlineAccent as string).split(AMOUNT_TOKEN).map((s) => s.trim())
+    : ["", ""];
+  const amountClass =
+    amount && amount.length > 4
+      ? "campaign-amount campaign-amount--long"
+      : "campaign-amount";
 
   return (
     <article
       className={`goat-campaign-card${themeClass}${className ? ` ${className}` : ""}`}
     >
+      {/* The mascot's body: a glass dome with no top edge or top border. */}
       <div className="campaign-panel" aria-hidden="true">
         <div className="campaign-atmosphere" />
         <div className="campaign-orb campaign-orb--one" />
         <div className="campaign-orb campaign-orb--two" />
       </div>
 
+      {/* The mascot: head above the card, neck/shoulders on the top line, torso
+          fading into the panel. */}
       <div
         className="campaign-mascot"
         aria-hidden="true"
@@ -106,12 +132,26 @@ export default function CampaignCard({
         <span className="campaign-eyebrow">{eyebrow}</span>
 
         <h2 className="campaign-title">
-          {headline}
-          {headlineAccent && (
-            <>
-              <br />
-              <span>{headlineAccent}</span>
-            </>
+          <span className="campaign-title__line">{headline}</span>
+
+          {hasHero ? (
+            <span className="campaign-hero">
+              {heroPre && <span className="campaign-hero__word">{heroPre}</span>}
+              <span className="campaign-amount-wrap">
+                <span className="campaign-flare" aria-hidden="true" />
+                <span className={amountClass}>{amount}</span>
+                <i className="campaign-spark campaign-spark--a" aria-hidden="true" />
+                <i className="campaign-spark campaign-spark--b" aria-hidden="true" />
+                <i className="campaign-spark campaign-spark--c" aria-hidden="true" />
+              </span>
+              {heroPost && (
+                <span className="campaign-hero__word">{heroPost}</span>
+              )}
+            </span>
+          ) : (
+            headlineAccent && (
+              <span className="campaign-title__accent">{headlineAccent}</span>
+            )
           )}
         </h2>
 
@@ -138,6 +178,7 @@ export default function CampaignCard({
           </div>
         )}
 
+        {/* Absolutely positioned: straddles the card's bottom border line. */}
         {ctaHref ? (
           <a className="campaign-cta" href={ctaHref}>
             {ctaContent}
