@@ -27,9 +27,8 @@ import {
   useState,
   useTransition,
 } from "react";
-import { Check, ChevronDown, Loader2, Pencil } from "lucide-react";
+import { Check, ChevronDown, Loader2, Pencil, X } from "lucide-react";
 import ThemeSelect from "@/app/[countryCode]/dashboard/ThemeSelect";
-import { countryFlag } from "@/lib/storefront/countryLabel";
 import {
   deletePlatformMarkup,
   listPlatformMarkups,
@@ -99,6 +98,68 @@ const ghostBtnStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+// Card controls, mirroring the local plans list (`PlansClient.tsx`).
+const smallInputStyle: React.CSSProperties = {
+  padding: "0.35rem 0.5rem",
+  background: "var(--bg2)",
+  border: "1px solid var(--border)",
+  borderRadius: 6,
+  color: "var(--text)",
+  fontSize: "0.8rem",
+  outline: "none",
+  fontFamily: "inherit",
+};
+
+const btnSaveStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  padding: "0.3rem 0.7rem",
+  background: "#6EBD8A",
+  border: "none",
+  borderRadius: 6,
+  color: "#fff",
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  cursor: "pointer",
+  fontFamily: "inherit",
+};
+
+const btnCancelStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "0.3rem",
+  background: "transparent",
+  border: "none",
+  borderRadius: 6,
+  color: "var(--dim)",
+  cursor: "pointer",
+};
+
+const btnIconStyle: React.CSSProperties = {
+  alignItems: "center",
+  padding: "0.4rem",
+  background: "transparent",
+  border: "1px solid var(--border)",
+  borderRadius: 6,
+  color: "var(--muted)",
+  cursor: "pointer",
+};
+
+/** The reseller's home price for a plan: raw cost + the plan's own markup. */
+function homePriceValue(
+  plan: PlatformPlanRow,
+  markup: MarkupRow | undefined,
+): number {
+  if (!markup || !markup.enabled) return plan.base_price;
+  if (markup.markup_type === "percentage") {
+    return homePriceAfter(plan.base_price, "percentage", markup.markup_value);
+  }
+  // A fixed markup is USD and cannot be added to a local cost without the
+  // rate; the raw cost is the honest basis.
+  return plan.base_price;
+}
+
 /** The raw cost after a percentage markup — the home basis the reseller sees. */
 function homePriceAfter(base: number, type: MarkupType, value: number): number {
   if (!Number.isFinite(value) || value <= 0) return base;
@@ -107,26 +168,6 @@ function homePriceAfter(base: number, type: MarkupType, value: number): number {
 
 function formatAmount(value: number, currency: string): string {
   return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`;
-}
-
-/**
- * The reseller's home basis for one plan. A percentage markup raises the raw
- * cost in its own currency; a fixed markup is USD, so it cannot be added to a
- * local cost without the rate — it is shown as raw cost plus the USD amount.
- */
-function homeBasisLabel(
-  plan: PlatformPlanRow,
-  markup: MarkupRow | undefined,
-): string {
-  const raw = formatAmount(plan.base_price, plan.currency);
-  if (!markup || !markup.enabled) return raw;
-  if (markup.markup_type === "percentage") {
-    return `${formatAmount(
-      homePriceAfter(plan.base_price, "percentage", markup.markup_value),
-      plan.currency,
-    )} (raw + ${markup.markup_value}%)`;
-  }
-  return `${raw} + ${markup.markup_value} USD`;
 }
 
 export default function PlatformPlansClient({
@@ -301,6 +342,9 @@ export default function PlatformPlansClient({
       const res = await deletePlatformMarkup(row.id);
       setMessage(res.success ? "Markup removed." : res.error ?? "Failed");
       refreshMarkups();
+      // A cleared plan markup leaves the plan back at raw cost; close the
+      // editor so it does not sit open showing a stale value.
+      if (res.success && row.scope === "plan") setEditingPlanId(null);
     });
   };
 
@@ -390,11 +434,12 @@ export default function PlatformPlansClient({
           flex-wrap: wrap;
           justify-content: flex-end;
         }
-        /* Catalog: the plans-list card UI. Each plan is a card; on desktop the
-           details wrapper is display: contents, so the card is a single row
-           (name + badges + toggle on the left, markup/price/profit inline) and
-           no chevron renders. On mobile it collapses to flag + name + toggle +
-           chevron and the details open in a dropdown. */
+        /* Catalog: the local plans-list card UI (mirrors PlansClient.tsx).
+           Each plan is a card; on desktop the details wrapper is display:
+           contents, so the card is a single row — name + badges + toggle on the
+           left, the Markup / Your Price stats and the edit pencil inline — and
+           no chevron renders. On mobile it collapses to name + toggle + chevron
+           and the details open in a dropdown. */
         .pp-list {
           display: flex;
           flex-direction: column;
@@ -431,11 +476,6 @@ export default function PlatformPlansClient({
         .pp-card-chevron {
           display: none;
         }
-        /* Desktop keeps the plan name and never shows the flag; the flag is a
-           mobile-only leading affordance. */
-        .pp-card-flag {
-          display: none;
-        }
         .pp-card-edit-inline {
           display: none !important;
         }
@@ -446,12 +486,11 @@ export default function PlatformPlansClient({
           display: block;
         }
         .pp-badge {
-          font-size: 0.68rem;
-          color: var(--muted);
+          font-size: 0.7rem;
+          color: var(--dim);
           background: var(--bg2);
-          border: 1px solid var(--border);
-          padding: 1px 7px;
-          border-radius: 100px;
+          padding: 0.15rem 0.5rem;
+          border-radius: 4px;
           white-space: nowrap;
         }
         .pp-toggle {
@@ -470,29 +509,27 @@ export default function PlatformPlansClient({
         .pp-toggle.is-off {
           background: var(--dim);
         }
-        .pp-icon-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: var(--bg2);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          color: var(--muted);
-          padding: 0.3rem;
-          cursor: pointer;
+        /* The per-plan markup input empties on focus; its spinner would eat
+           taps on the narrow field. */
+        .pp-edit-value::-webkit-outer-spin-button,
+        .pp-edit-value::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
         }
-        .pp-icon-btn:hover {
-          color: var(--text);
+        .pp-edit-value {
+          -moz-appearance: textfield;
+          appearance: textfield;
         }
         .pp-stat {
-          text-align: right;
+          text-align: center;
+          min-width: 60px;
         }
         .pp-stat-label {
-          font-size: 0.66rem;
+          font-size: 0.65rem;
           color: var(--dim);
         }
         .pp-stat-value {
-          font-size: 0.82rem;
+          font-size: 0.85rem;
           color: var(--text);
           font-weight: 600;
         }
@@ -502,38 +539,6 @@ export default function PlatformPlansClient({
           padding: 1rem;
           color: var(--dim);
           font-size: 0.78rem;
-        }
-        .pp-detail-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-          gap: 10px 18px;
-          font-size: 0.8rem;
-        }
-        .pp-detail-label {
-          color: var(--muted);
-          font-size: 0.7rem;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          display: block;
-          margin-bottom: 2px;
-        }
-        .pp-markup-box {
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          padding: 0.85rem;
-          background: var(--bg2);
-        }
-        .pp-markup-controls {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-          gap: 10px;
-          align-items: end;
-        }
-        .pp-inline-actions {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin-top: 10px;
         }
         @media (max-width: 767px) {
           .pp-page {
@@ -545,8 +550,8 @@ export default function PlatformPlansClient({
           .pp-actions {
             justify-content: flex-start;
           }
-          /* Mobile: the collapsed row is flag + name + toggle + chevron; the
-             rest opens in the dropdown. */
+          /* Mobile: the collapsed row is name + toggle + chevron; the rest
+             opens in the dropdown. */
           .pp-card-cost-line {
             display: none;
           }
@@ -576,19 +581,6 @@ export default function PlatformPlansClient({
             flex: 1 1 auto;
             min-width: 0;
           }
-          /* Mobile: the flag replaces the name when expanded, so the flag sits
-             left of the badges and grows to pin the toggle and chevron right. */
-          .pp-card-flag {
-            display: none;
-          }
-          .pp-card--expanded .pp-card-flag {
-            display: inline-flex;
-            flex: 1 1 auto;
-            min-width: 0;
-          }
-          .pp-card--expanded .pp-card-name {
-            display: none;
-          }
           .pp-card-chevron {
             display: inline-flex;
             align-items: center;
@@ -598,8 +590,11 @@ export default function PlatformPlansClient({
           .pp-card--expanded .pp-card-chevron {
             transform: rotate(180deg);
           }
-          .pp-card-toggle.is-off {
+          .pp-toggle.is-off {
             background: #EF4444;
+          }
+          .pp-stat {
+            min-width: 50px;
           }
         }
       `}</style>
@@ -856,6 +851,11 @@ export default function PlatformPlansClient({
             const isExpanded = expandedPlanId === plan.id;
             const isEditing = editingPlanId === plan.id;
             const planMarkup = planMarkupFor(plan.id);
+            const editValue = Number(planMarkupValue) || 0;
+            const editHomePreview =
+              planMarkupType === "percentage"
+                ? homePriceAfter(plan.base_price, "percentage", editValue)
+                : plan.base_price;
             return (
               <div
                 key={plan.id}
@@ -883,9 +883,6 @@ export default function PlatformPlansClient({
                         }
                       }}
                     >
-                      <span className="pp-card-flag" aria-hidden="true">
-                        {countryFlag(plan.country_code || "")}
-                      </span>
                       <h3
                         className="pp-card-name"
                         style={{
@@ -948,7 +945,7 @@ export default function PlatformPlansClient({
                           marginTop: 3,
                         }}
                       >
-                        Cost:{" "}
+                        Wholesale:{" "}
                         <strong style={{ color: "var(--text)" }}>
                           {formatAmount(plan.base_price, plan.currency)}
                         </strong>
@@ -956,7 +953,8 @@ export default function PlatformPlansClient({
                       {/* Mobile: edit the markup while the card is open. */}
                       {plan.is_active && !isEditing && isExpanded && (
                         <button
-                          className="pp-card-edit-inline pp-icon-btn"
+                          className="pp-card-edit-inline"
+                          style={btnIconStyle}
                           onClick={() => startEditPlanMarkup(plan)}
                           title="Edit markup"
                           aria-label="Edit markup"
@@ -970,138 +968,133 @@ export default function PlatformPlansClient({
                   {/* Details — inline on desktop, dropdown on mobile */}
                   <div className="pp-card-details">
                     {isEditing ? (
-                      <div className="pp-markup-box">
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          flexWrap: "wrap",
+                          background: "var(--bg2)",
+                          padding: "0.4rem 0.75rem",
+                          borderRadius: 8,
+                        }}
+                      >
+                        <ThemeSelect
+                          value={planMarkupType}
+                          onChange={(v) => setPlanMarkupType(v as MarkupType)}
+                          style={{ ...smallInputStyle, width: 72 }}
+                          ariaLabel="Plan markup type"
+                          menuMinWidth={90}
+                          options={[
+                            { value: "percentage", label: "%" },
+                            { value: "fixed", label: "USD" },
+                          ]}
+                        />
+                        <input
+                          className="pp-edit-value"
+                          type="number"
+                          value={planMarkupValue}
+                          onChange={(e) => setPlanMarkupValue(e.target.value)}
+                          style={{ ...smallInputStyle, width: 70 }}
+                          inputMode="decimal"
+                          autoFocus
+                          placeholder={planMarkup ? String(planMarkup.markup_value) : "0"}
+                          min="0"
+                          step={planMarkupType === "percentage" ? "1" : "10"}
+                        />
                         <div
                           style={{
-                            fontWeight: 600,
-                            fontSize: "0.82rem",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Platform markup (this plan)
-                        </div>
-                        <p
-                          style={{
-                            color: "var(--muted)",
                             fontSize: "0.75rem",
-                            marginBottom: 10,
+                            color: "var(--dim)",
+                            minWidth: 80,
+                            textAlign: "center",
                           }}
                         >
-                          Raises this plan&apos;s cost for the reseller at home.
-                          Percentage is applied to the raw cost (Lizzysub NGN,
-                          Accragh GHS); a fixed amount is applied in USD. Leave
-                          it clear to sell at raw cost.
-                        </p>
-                        <div className="pp-markup-controls">
-                          <label
-                            style={{ fontSize: "0.75rem", color: "var(--muted)" }}
-                          >
-                            Type
-                            <ThemeSelect
-                              value={planMarkupType}
-                              onChange={(v) =>
-                                setPlanMarkupType(v as MarkupType)
-                              }
-                              options={[
-                                { value: "percentage", label: "Percentage" },
-                                { value: "fixed", label: "Fixed amount" },
-                              ]}
-                              ariaLabel="Plan markup type"
-                              style={{ ...inputStyle, marginTop: 4 }}
-                            />
-                          </label>
-                          <label
-                            style={{ fontSize: "0.75rem", color: "var(--muted)" }}
-                          >
-                            Value
-                            <input
-                              style={{ ...inputStyle, marginTop: 4 }}
-                              inputMode="decimal"
-                              autoFocus
-                              placeholder={
-                                planMarkup
-                                  ? String(planMarkup.markup_value)
-                                  : "0"
-                              }
-                              value={planMarkupValue}
-                              onChange={(e) =>
-                                setPlanMarkupValue(e.target.value)
-                              }
-                            />
-                          </label>
+                          <div>
+                            Reseller:{" "}
+                            <strong style={{ color: "var(--brand-color)" }}>
+                              {formatAmount(editHomePreview, plan.currency)}
+                            </strong>
+                          </div>
                         </div>
-                        <div className="pp-inline-actions">
-                          <button
-                            style={btnStyle}
-                            onClick={() => onSavePlanMarkup(plan)}
-                            disabled={pending}
-                          >
-                            Save markup
-                          </button>
-                          {planMarkup && (
-                            <button
-                              style={ghostBtnStyle}
-                              onClick={() => onDeleteMarkup(planMarkup)}
-                              disabled={pending}
-                            >
-                              Clear markup
-                            </button>
+                        <button
+                          onClick={() => onSavePlanMarkup(plan)}
+                          disabled={pending}
+                          style={btnSaveStyle}
+                        >
+                          {pending ? (
+                            <Loader2
+                              size={14}
+                              style={{ animation: "spin 1s linear infinite" }}
+                            />
+                          ) : (
+                            <Check size={14} />
                           )}
+                          Save
+                        </button>
+                        {planMarkup && (
                           <button
-                            style={ghostBtnStyle}
-                            onClick={() => setEditingPlanId(null)}
+                            onClick={() => onDeleteMarkup(planMarkup)}
                             disabled={pending}
+                            style={btnCancelStyle}
+                            title="Clear markup"
+                            aria-label="Clear markup"
                           >
-                            Cancel
+                            <X size={14} />
                           </button>
-                        </div>
+                        )}
+                        <button
+                          onClick={() => setEditingPlanId(null)}
+                          disabled={pending}
+                          style={btnCancelStyle}
+                          title="Cancel"
+                          aria-label="Cancel"
+                        >
+                          <X size={14} />
+                        </button>
                       </div>
                     ) : (
                       <div
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: "0.9rem",
+                          gap: "1.5rem",
                           flexWrap: "wrap",
                         }}
                       >
                         <div className="pp-stat">
-                          <p className="pp-stat-label">Provider</p>
-                          <p className="pp-stat-value">{plan.provider}</p>
-                        </div>
-                        <div className="pp-stat">
-                          <p className="pp-stat-label">Provider plan ID</p>
-                          <p className="pp-stat-value">{plan.provider_plan_id}</p>
-                        </div>
-                        <div className="pp-stat">
-                          <p className="pp-stat-label">Country</p>
-                          <p className="pp-stat-value">
-                            {(plan.country_code || "").toUpperCase()}
+                          <p className="pp-stat-label">Markup</p>
+                          <p
+                            className="pp-stat-value"
+                            style={{ color: planMarkup ? "var(--text)" : "var(--dim)" }}
+                          >
+                            {planMarkup
+                              ? planMarkup.markup_type === "percentage"
+                                ? `${planMarkup.markup_value}%`
+                                : formatAmount(planMarkup.markup_value, "USD")
+                              : "—"}
                           </p>
                         </div>
-                        <div className="pp-stat">
-                          <p className="pp-stat-label">Network</p>
-                          <p className="pp-stat-value">{plan.network ?? "—"}</p>
-                        </div>
-                        <div className="pp-stat">
-                          <p className="pp-stat-label">Category</p>
-                          <p className="pp-stat-value">{plan.category}</p>
-                        </div>
-                        <div className="pp-stat">
-                          <p className="pp-stat-label">Price type</p>
-                          <p className="pp-stat-value">
-                            {plan.price_type ?? "fixed"}
-                          </p>
-                        </div>
-                        <div className="pp-stat">
-                          <p className="pp-stat-label">Reseller sees (home)</p>
-                          <p className="pp-stat-value">
-                            {homeBasisLabel(plan, planMarkup)}
+                        <div className="pp-stat" style={{ minWidth: 80 }}>
+                          <p className="pp-stat-label">Your Price</p>
+                          <p
+                            className="pp-stat-value"
+                            style={{
+                              fontSize: "1rem",
+                              fontWeight: 700,
+                              color: planMarkup ? "var(--brand-color)" : "var(--text)",
+                            }}
+                          >
+                            {formatAmount(
+                              homePriceValue(plan, planMarkup),
+                              plan.currency,
+                            )}
                           </p>
                         </div>
                         {plan.is_active && (
                           <button
-                            className="pp-card-edit-desktop pp-icon-btn"
+                            className="pp-card-edit-desktop"
+                            style={btnIconStyle}
                             onClick={() => startEditPlanMarkup(plan)}
                             title="Edit markup"
                             aria-label="Edit markup"

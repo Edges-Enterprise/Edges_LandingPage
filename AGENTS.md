@@ -719,26 +719,23 @@ feature yet, and the real pages live in **two** route trees.
   provider, or open one plan and set its per-plan row. Levels REPLACE, they do
   not stack (see `_shared/currency/markup.ts`): cross-border resolves country
   then default (12%); home resolves plan then provider, then nothing.
-- **The Plan catalog is the dashboard's plans-list card UI, and it
-  infinite-scrolls.** Each plan is a card (`pp-card`) mirroring
-  `GlobalPlansPanel.tsx` / `PlansClient.tsx`: a collapsed row of flag (mobile)
-  + name + provider/country/network/Range badges + a real toggle switch + a
-  chevron, with a cost line under the name. On desktop the details wrapper is
-  `display: contents`, so the card is a single row — the detail stats
-  (provider-plan id, country, network, category, price type, the reseller's
-  home basis) and the edit pencil sit inline — and no chevron renders. On
-  mobile (≤767px) the card collapses to flag + name + toggle + chevron, the
-  cost line hides, and tapping the row (or using the toggle, which also
-  auto-opens it, `stopPropagation`ed) reveals the details; the flag replaces
-  the name in the leading slot when expanded so the toggle and chevron stay
-  pinned right. Expanding is exclusive (one card at a time).
-  **The per-plan markup editor** (type + value, Save/Clear/Cancel) opens from
-  the pencil and is seeded from the plan's current markup
-  (`startEditPlanMarkup`). The home basis is rendered by `homeBasisLabel`:
-  `49 NGN` at raw cost, `53.9 NGN (raw + 10%)` for a percentage plan markup,
-  `49 NGN + 100 USD` for a fixed one (a fixed markup is USD and cannot be added
-  to a local cost without the rate, so it is shown as raw + USD rather than
-  invented).
+- **The Plan catalog is the LOCAL plans-list card UI, and it
+  infinite-scrolls.** Each plan is a card (`pp-card`) mirroring the local card
+  in `PlansClient.tsx` (NOT `GlobalPlansPanel.tsx`): a collapsed row of name +
+  provider/country/network/Range badges + a real toggle switch + a chevron,
+  with a `Wholesale:` cost line under the name. On desktop the details wrapper
+  is `display: contents`, so the card is a single row — the centered `Markup` /
+  `Your Price` stats and the edit pencil sit inline — and no chevron renders.
+  On mobile (≤767px) the card collapses to name + toggle + chevron, the cost
+  line hides, and tapping the row (or using the toggle, which also auto-opens
+  it, `stopPropagation`ed) reveals the details; the expanded cost line also
+  carries the edit pencil. Expanding is exclusive (one card at a time).
+  **The per-plan markup editor** copies the local edit row: the `%` / `USD`
+  type select (a fixed markup is USD) beside the value input with a live
+  `Reseller:` preview (`homePriceValue`), a labeled green Save, and X buttons
+  for Clear and Cancel; it opens from the pencil and is seeded from the plan's
+  current markup (`startEditPlanMarkup`). The stats show the plan's markup
+  (`—` when none) and the reseller's home price.
   **Scrolling** replaces the old Previous/Next pager: an `IntersectionObserver`
   sentinel (`rootMargin: 600px`) appends the next 50 via `fetchPage`, one
   in-flight page at a time (`inFlight` ref) with newest-wins sequencing
