@@ -70,11 +70,25 @@ export default function FirstDepositCampaignCard({
 
   useEffect(() => {
     let active = true;
-    getFirstDepositCampaignState().then((s) => {
-      if (active) setState(s);
-    });
+    const load = () => {
+      getFirstDepositCampaignState().then((s) => {
+        if (active) setState(s);
+      });
+    };
+    load();
+
+    // The CTA sends the reseller into the app to make the deposit. Re-check
+    // when the tab regains focus, so returning from the app hides the card
+    // without a manual reload.
+    const onFocus = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
     return () => {
       active = false;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
     };
   }, []);
 

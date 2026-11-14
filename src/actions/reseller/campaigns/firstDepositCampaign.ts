@@ -2,9 +2,19 @@
 //
 // State for the reseller-dashboard "first deposit through the app" campaign
 // card. The card stays visible until the reseller's first *app-initiated*
-// deposit is made — which is exactly when award_app_first_deposit_bonus()
-// flips global_wallets.app_bonus_claimed to true. A deposit made on the web
-// dashboard does NOT claim it, so the card correctly persists.
+// deposit is made. Two independent signals retire it, and either one is
+// enough:
+//
+//   1. global_wallets.app_bonus_claimed flips to true when
+//      award_app_first_deposit_bonus() awards the USD 10 — the normal path.
+//   2. A completed global_transactions row carrying metadata.source = 'app'.
+//      This covers the case where the award was skipped because no fresh FX
+//      rate existed (the RPC returns reason 'no_rate' and leaves the flag
+//      false), so the deposit still hides the card even though the bonus was
+//      not credited.
+//
+// A deposit made on the web dashboard carries source 'web' and does NOT
+// satisfy either signal, so the card correctly persists.
 //
 // The reward is a fixed USD 10; the card shows that base figure and, directly
 // beneath it, the equivalent in the reseller's own currency. The conversion
@@ -76,6 +86,7 @@ export async function getFirstDepositCampaignState(): Promise<FirstDepositCampai
       { data: virtualAccount },
       { data: appBuild },
       { data: appConfig },
+      { data: appDeposit },
     ] = await Promise.all([
       admin
         .from("global_wallets")
@@ -102,12 +113,25 @@ export async function getFirstDepositCampaignState(): Promise<FirstDepositCampai
         .select("config")
         .eq("application_id", application.id)
         .maybeSingle(),
+      // The ad is for the FIRST app deposit only, so any completed deposit
+      // that came from the app retires it. Checked separately from
+      // `app_bonus_claimed` because the award is skipped when no fresh FX
+      // rate exists (reason 'no_rate'), which would otherwise leave the card
+      // visible after the deposit it was advertising had already happened.
+      admin
+        .from("global_transactions")
+        .select("id")
+        .eq("reseller_id", application.id)
+        .eq("status", "completed")
+        .eq("metadata->>source", "app")
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     if (!wallet) return DEFAULT_STATE;
 
     const currency = (wallet.currency || "USD").toUpperCase();
-    const eligible = !wallet.app_bonus_claimed;
+    const eligible = !wallet.app_bonus_claimed && !appDeposit;
 
     // Only fetch a conversion while the offer is live; it costs a network
     // call (cached for an hour upstream).
