@@ -128,7 +128,7 @@
   overflow: visible;
 
   width: 100%;
-  aspect-ratio: 100 / 112;
+  aspect-ratio: 100 / 100;
 
   font-family: var(--card-font-sans);
   -webkit-font-smoothing: antialiased;
@@ -390,8 +390,9 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  /* Bottom padding clears the half of the CTA that overhangs the rim. */
-  padding: 0 7cqw 12.5cqw;
+  /* Side padding is tight so the headline can run large; the bottom clears the
+     half of the CTA that overhangs the rim, keeping the pills close to it. */
+  padding: 0 4cqw 9.5cqw;
 }
 
 .goat-campaign-card .campaign-eyebrow {
@@ -414,7 +415,7 @@
 
 .goat-campaign-card .campaign-title {
   width: 100%;
-  margin: 2cqw 0 0;
+  margin: 1.2cqw 0 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -425,8 +426,8 @@
 }
 
 .goat-campaign-card .campaign-title__line {
-  font-size: 6.2cqw;
-  letter-spacing: -0.01em;
+  font-size: 7.2cqw;
+  letter-spacing: -0.02em;
   color: #ffffff;
   text-shadow:
     0 0.3cqw 0 color-mix(in srgb, var(--primary) 28%, white),
@@ -457,11 +458,11 @@
   align-items: center;
   justify-content: center;
   gap: 0 2.4cqw;
-  margin-top: 1.2cqw;
+  margin-top: 0.6cqw;
 }
 
 .goat-campaign-card .campaign-hero__word {
-  font-size: 5.2cqw;
+  font-size: 6.8cqw;
   font-weight: 900;
   letter-spacing: 0.05em;
   color: #ffffff;
@@ -517,7 +518,7 @@
 
 /* Longer figures ("$10.50", "€100") step down so the row never overflows. */
 .goat-campaign-card .campaign-amount--long {
-  font-size: 15cqw;
+  font-size: 19cqw;
 }
 
 /* FLARE: a rotating sunburst plus a pulsing bloom, behind the figure. */
@@ -667,7 +668,7 @@
   align-items: center;
   gap: 0.5cqw;
   /* Sits directly on the hero figure — no gap above the pill. */
-  margin: 0.4cqw 0 0;
+  margin: 0.2cqw 0 0;
   padding: 1.2cqw 5cqw;
   border-radius: 5cqw;
   background: var(--pill-bg);
@@ -717,9 +718,9 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.4cqw;
-  /* Sit right under the conversion pill (no auto-gap pushing them down); the
-     space to the CTA below is padding, not a stretch. */
-  margin-top: 2.2cqw;
+  /* Pinned to the bottom of the content box so the chips hug the button; the
+     amount/conversion pills sit directly above them. */
+  margin-top: auto;
   padding-top: 0;
 }
 
