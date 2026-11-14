@@ -885,3 +885,14 @@ Test logic with `deno test src/lib/onboarding/` (install deno via
   `/public/_campaign_code/files/`. Those copies are SNAPSHOTS — after editing
   any of the four source files, re-copy them:
   `cp src/components/campaign/{CampaignCard.tsx,FirstDepositCampaignCard.tsx,campaign-card.css} src/actions/reseller/campaigns/firstDepositCampaign.ts public/_campaign_code/files/`
+- Upload receiver (dev aid): `scripts/upload_server.py` replaces the plain
+  `http.server` on port 12000. It serves `/public` exactly as before AND accepts
+  uploads, so a revised file can be pushed straight into the source tree:
+  - `POST /upload` multipart (`curl -F "file=@x.css" …/upload`) or raw with an
+    `X-Filename:` header; `PUT /upload/<name>` for a raw body; `GET /upload`
+    lists what arrived.
+  - Only the four known campaign filenames are written to their real path; any
+    other allowed extension (`.ts/.tsx/.css/.json/.md/.txt/.patch/.diff`) lands
+    in `.uploads/` (gitignored). Every upload is also copied to `.uploads/`.
+  - Browser form: `/_campaign_code/upload.html`. No auth — dev sandbox only;
+    treat received files as untrusted until reviewed.

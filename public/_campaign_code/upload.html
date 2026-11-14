@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Send revised campaign files</title>
+<style>
+  :root{--bg:#0e0b08;--panel:#171310;--panel2:#1f1a15;--border:#33291f;--text:#F5E9D9;--dim:#b7a08a;--accent:#C98A54;--ok:#4ade80;--mono:ui-monospace,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px 16px 64px;font-family:var(--sans);color:var(--text);background:radial-gradient(circle at 18% 6%,#2a1a0d,#0e0b08 60%);min-height:100vh}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:1.35rem;font-weight:800;margin:0 0 6px}
+  p.lede{color:var(--dim);font-size:.9rem;line-height:1.55;margin:0 0 18px}
+  code{font-family:var(--mono);font-size:.85em;background:#241c15;padding:1px 5px;border-radius:5px;color:var(--accent);word-break:break-all}
+  .drop{border:2px dashed var(--border);border-radius:16px;background:var(--panel);padding:26px 18px;text-align:center;transition:border-color .15s,background .15s}
+  .drop.hot{border-color:var(--accent);background:var(--panel2)}
+  .drop strong{display:block;font-size:1rem;margin-bottom:4px}
+  .drop span{color:var(--dim);font-size:.82rem}
+  input[type=file]{display:none}
+  .btn{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font:700 .85rem/1 var(--sans);padding:11px 16px;border-radius:11px;border:1px solid var(--border);background:var(--panel2);color:var(--text);margin-top:14px}
+  .btn--primary{background:linear-gradient(180deg,#e6b184,#C98A54);color:#2a1a0d;border-color:#e6b184}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  ul{list-style:none;padding:0;margin:18px 0 0}
+  li{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:11px 13px;margin-bottom:9px;font-size:.85rem}
+  .nm{font-family:var(--mono);word-break:break-all}
+  .meta{color:var(--dim);font-size:.72rem;margin-top:3px}
+  .pill{font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .pill--ok{background:rgba(74,222,128,.15);color:var(--ok);border:1px solid rgba(74,222,128,.4)}
+  .pill--err{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.4)}
+  .pill--wait{background:rgba(183,160,138,.15);color:var(--dim);border:1px solid var(--border)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .note{color:var(--dim);font-size:.78rem;margin-top:18px;line-height:1.6}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Send revised campaign files</h1>
+  <p class="lede">
+    Drop your edited file(s) here. Known names land straight in the source tree
+    (<code>src/components/campaign/…</code>, <code>src/actions/reseller/campaigns/…</code>);
+    any other allowed file lands in <code>.uploads/</code> for review. Everything is
+    also kept in <code>.uploads/</code> as a copy.
+  </p>
+
+  <div class="drop" id="drop">
+    <strong>Tap to choose files, or drop them here</strong>
+    <span>CampaignCard.tsx · FirstDepositCampaignCard.tsx · campaign-card.css · firstDepositCampaign.ts</span>
+    <input type="file" id="picker" multiple>
+    <div class="row" style="justify-content:center">
+      <button class="btn btn--primary" id="send" disabled>Upload</button>
+      <button class="btn" id="clear" disabled>Clear</button>
+    </div>
+  </div>
+
+  <ul id="list"></ul>
+
+  <div class="row">
+    <a class="btn" href="/upload" target="_blank" rel="noopener">Inbox (JSON)</a>
+    <a class="btn" href="/_campaign_code/">Back to source viewer</a>
+  </div>
+
+  <p class="note">
+    Terminal alternative:<br>
+    <code>curl -F "file=@campaign-card.css" https://work-1-rstckrgngbuzlirv.prod-runtime.all-hands.dev/upload</code>
+  </p>
+</div>
+
+<script>
+const picker = document.getElementById("picker");
+const drop = document.getElementById("drop");
+const list = document.getElementById("list");
+const sendBtn = document.getElementById("send");
+const clearBtn = document.getElementById("clear");
+let chosen = [];
+
+const fmt = (n) => n < 1024 ? n + " B" : (n/1024).toFixed(1) + " KB";
+
+function paint(){
+  list.innerHTML = "";
+  chosen.forEach((f, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<div><div class="nm">${f.name}</div><div class="meta">${fmt(f.size)}</div></div>
+      <span class="pill pill--wait" data-i="${i}">queued</span>`;
+    list.appendChild(li);
+  });
+  sendBtn.disabled = chosen.length === 0;
+  clearBtn.disabled = chosen.length === 0;
+}
+
+function add(files){
+  for (const f of files) if (!chosen.some(c => c.name === f.name)) chosen.push(f);
+  paint();
+}
+
+picker.onchange = () => add(picker.files);
+drop.onclick = (e) => { if (e.target === drop || e.target.tagName === "STRONG" || e.target.tagName === "SPAN") picker.click(); };
+["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("hot"); }));
+["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("hot"); }));
+drop.addEventListener("drop", e => add(e.dataTransfer.files));
+clearBtn.onclick = () => { chosen = []; picker.value = ""; paint(); };
+
+sendBtn.onclick = async () => {
+  sendBtn.disabled = true;
+  const fd = new FormData();
+  chosen.forEach(f => fd.append("file", f, f.name));
+  try{
+    const res = await fetch("/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    (data.results || []).forEach((r, i) => {
+      const pill = list.querySelector(`.pill[data-i="${i}"]`);
+      if (!pill) return;
+      if (r.error){ pill.className = "pill pill--err"; pill.textContent = r.error; }
+      else { pill.className = "pill pill--ok"; pill.textContent = "saved " + fmt(r.bytes); }
+    });
+    if (data.error){
+      const li = document.createElement("li");
+      li.innerHTML = `<div class="nm">Upload failed</div><span class="pill pill--err">${data.error}</span>`;
+      list.appendChild(li);
+    }
+  }catch(err){
+    const li = document.createElement("li");
+    li.innerHTML = `<div class="nm">Network error</div><span class="pill pill--err">${err.message}</span>`;
+    list.appendChild(li);
+  }finally{
+    sendBtn.disabled = false;
+  }
+};
+
+paint();
+</script>
+</body>
+</html>
