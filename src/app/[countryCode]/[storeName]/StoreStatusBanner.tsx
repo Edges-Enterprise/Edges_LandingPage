@@ -26,7 +26,7 @@ export default function StoreStatusBanner({
         "The store owner needs to add their WhatsApp number in"}{" "}
       <a
         href={`/${countryCode || "ng"}/dashboard/settings`}
-        style={{ color: "#A16207", fontWeight: 600, textDecoration: "underline" }}
+        className="store-caution-link"
       >
         {t?.dashboardSettings || "Dashboard Settings"}
       </a>{" "}
@@ -42,13 +42,38 @@ export default function StoreStatusBanner({
 
   return (
     <div
-      style={{
-        background: "linear-gradient(135deg, #FEF3C7, #FDE68A)",
-        borderBottom: "2px solid #F59E0B",
-        padding: "0.85rem 1.5rem",
-        textAlign: "center",
-      }}
+      className="store-caution"
+      style={{ padding: "0.85rem 1.5rem", textAlign: "center" }}
     >
+      <style>{`
+        /* The banner keeps its "caution" read (a warm accent) but takes its
+           palette from the store's own theme — brand colour, surfaces and text
+           — and blurs what scrolls under it, so it blends with the storefront
+           instead of sitting on a fixed amber block. The storefront theme
+           paints every div with an opaque --bg (store-theme.css), so the
+           banner's own descendants are forced transparent first and the warm
+           tint is re-applied to the bar itself. */
+        body.storefront-theme .store-caution,
+        body.storefront-theme .store-caution div,
+        body.storefront-theme .store-caution p {
+          background-color: transparent !important;
+        }
+        body.storefront-theme .store-caution {
+          background: linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--yellow) 13%, transparent),
+            color-mix(in srgb, var(--brand-color) 7%, transparent)
+          ) !important;
+          -webkit-backdrop-filter: blur(16px) saturate(1.4);
+          backdrop-filter: blur(16px) saturate(1.4);
+          border-bottom: 1px solid color-mix(in srgb, var(--yellow) 32%, transparent);
+        }
+        .store-caution-link {
+          color: var(--brand-color);
+          font-weight: 600;
+          text-decoration: underline;
+        }
+      `}</style>
       <div
         style={{
           display: "flex",
@@ -59,11 +84,11 @@ export default function StoreStatusBanner({
         }}
       >
         <span style={{ fontSize: "1.2rem" }}>⚠️</span>
-        <span style={{ fontWeight: 600, color: "#92400E", fontSize: "0.9rem" }}>
+        <span style={{ fontWeight: 600, color: "var(--text)", fontSize: "0.9rem" }}>
           {storeStatus.reason}
         </span>
       </div>
-      <p style={{ fontSize: "0.78rem", color: "#A16207", margin: "4px 0 0" }}>
+      <p style={{ fontSize: "0.78rem", color: "var(--muted)", margin: "4px 0 0" }}>
         {detail}
       </p>
     </div>

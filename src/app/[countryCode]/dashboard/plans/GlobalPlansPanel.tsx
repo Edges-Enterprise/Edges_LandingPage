@@ -25,9 +25,10 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { getGlobalPlans } from "@/actions/reseller/plans/getGlobalPlans";
-import type {
-  GlobalPlanCountry,
-  GlobalPlanFacets,
+import {
+  GLOBAL_PLANS_PAGE_SIZE,
+  type GlobalPlanCountry,
+  type GlobalPlanFacets,
 } from "@/actions/reseller/plans/globalPlansTypes";
 import { togglePlan } from "@/actions/reseller/plans/togglePlan";
 import { updatePlanConfig } from "@/actions/reseller/plans/updatePlanConfig";
@@ -39,8 +40,8 @@ import { formatPrice } from "@/lib/currency/currency";
 import { countryFlag } from "@/lib/storefront/countryLabel";
 import ThemeSelect from "../ThemeSelect";
 
-/** Rows per page — must match the action's page size. */
-const PAGE_SIZE = 32;
+/** Rows per page — the world list pages 10 at a time behind Previous / Next. */
+const PAGE_SIZE = GLOBAL_PLANS_PAGE_SIZE;
 
 interface GlobalPlansPanelProps {
   countryCode: string;
@@ -96,16 +97,18 @@ export default function GlobalPlansPanel({
   );
   const [facets] = useState<GlobalPlanFacets | null>(initialFacets ?? null);
   const [loading, setLoading] = useState(!seeded);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [activeCountry, setActiveCountry] = useState<string>("all");
   const [activeNetwork, setActiveNetwork] = useState<string>("all");
   // The search box updates immediately; the query behind it is debounced.
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  // Countries are shown 20 at a time behind Back/Next. The whole (small) list is
-  // already in memory, so paging is instant — no fetch, no spinner.
+  // The 1-based page of plans on screen. The world list pages 10 at a time
+  // behind Previous / Next rather than infinite-scrolling, so the row count on
+  // screen is bounded.
+  const [planPage, setPlanPage] = useState(0);
+  // Countries are shown 9 at a time (a 3x3 grid) behind Previous / Next. The
+  // whole (small) list is already in memory, so paging is instant.
   const [countryPage, setCountryPage] = useState(0);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
   // Mobile collapses a plan to name + toggle; the rest opens in a panel.
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -153,41 +156,32 @@ export default function GlobalPlansPanel({
     [],
   );
 
-  // One in-flight page request at a time; a scroll tick that fires while a page
-  // is loading is dropped rather than queued (the sentinel re-fires).
-  const inFlight = useRef(false);
+  // Only the newest request applies its result, so a slow response from a
+  // previous scope cannot overwrite a newer page.
   const reqSeq = useRef(0);
 
   /**
-   * Fetch one page of plans. `replace` resets the list (a scope change or a
-   * refresh); otherwise the page is appended (infinite scroll).
-   *
-   * A `replace` is never dropped: switching country while a fetch is in flight
-   * must not leave the previous country's rows on screen. Each call takes a
-   * sequence number and only the newest applies its result, so a slow response
-   * cannot overwrite a newer scope.
+   * Fetch one page of plans and replace the list. The world list pages 10 at a
+   * time, so a page change is a fetch (not an append). Each call takes a
+   * sequence number and only the newest applies its result, so switching scope
+   * or page while a fetch is in flight cannot leave the previous rows on
+   * screen.
    */
   const fetchPage = useCallback(
     async (opts: {
-      offset: number;
-      replace: boolean;
+      page: number;
       country: string;
       network: string;
       term: string;
     }) => {
-      if (!opts.replace) {
-        if (inFlight.current) return;
-        inFlight.current = true;
-      }
       const seq = ++reqSeq.current;
-      if (opts.replace) setLoading(true);
-      else setLoadingMore(true);
+      setLoading(true);
 
       const res = await getGlobalPlans({
         country: opts.country,
         network: opts.network,
         search: opts.term,
-        offset: opts.offset,
+        offset: opts.page * PAGE_SIZE,
         limit: PAGE_SIZE,
       });
 
@@ -195,19 +189,11 @@ export default function GlobalPlansPanel({
         if (res.success && res.data) {
           const page = res.data;
           setTotal(page.total);
-          setPlans((prev) =>
-            opts.replace ? page.plans : [...prev, ...page.plans],
-          );
+          setPlans(page.plans);
         } else {
           flash("error", res.error || "Unable to load global plans");
         }
-      }
-
-      if (opts.replace) {
         setLoading(false);
-      } else {
-        setLoadingMore(false);
-        inFlight.current = false;
       }
     },
     [flash],
@@ -230,48 +216,35 @@ export default function GlobalPlansPanel({
         return;
       }
     }
+    setPlanPage(0);
     setCountryPage(0);
     void fetchPage({
-      offset: 0,
-      replace: true,
+      page: 0,
       country: activeCountry,
       network: activeNetwork,
       term: search,
     });
   }, [activeCountry, activeNetwork, search, seeded, fetchPage]);
 
-  // Infinite scroll: pull the next page as the sentinel nears the viewport, so
-  // it is already loaded by the time the user reaches the bottom.
-  const hasMore = plans.length < total;
-  useEffect(() => {
-    if (!hasMore || loading) return;
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          void fetchPage({
-            offset: plans.length,
-            replace: false,
-            country: activeCountry,
-            network: activeNetwork,
-            term: search,
-          });
-        }
-      },
-      { rootMargin: "600px 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [
-    hasMore,
-    loading,
-    plans.length,
-    activeCountry,
-    activeNetwork,
-    search,
-    fetchPage,
-  ]);
+  // Page count for the Previous / Next pager. `total` is the true row count
+  // behind the filter, so the pager spans the whole catalog, not just the page
+  // already loaded.
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const goToPlanPage = useCallback(
+    (next: number) => {
+      const clamped = Math.max(0, Math.min(pageCount - 1, next));
+      if (clamped === planPage) return;
+      setPlanPage(clamped);
+      void fetchPage({
+        page: clamped,
+        country: activeCountry,
+        network: activeNetwork,
+        term: search,
+      });
+    },
+    [pageCount, planPage, fetchPage, activeCountry, activeNetwork, search],
+  );
 
   const loadCatalogSettings = useCallback(async () => {
     const res = await getCatalogSettings();
@@ -318,10 +291,10 @@ export default function GlobalPlansPanel({
   const fmt = (amount: number, currency?: string) =>
     formatPrice(amount, currency || localCurrency);
 
-  // ---- Countries: 20 per page behind Back / Next --------------------------
+  // ---- Countries: a 3x3 grid (9 per page) behind Previous / Next ----------
   // The full (small) country list is in memory from the facets, so paging is a
   // plain slice — no fetch, no spinner.
-  const COUNTRY_PAGE_SIZE = 20;
+  const COUNTRY_PAGE_SIZE = 9;
   const countryOptions = useMemo(
     () => ["all", ...countries.map((c) => c.country)],
     [countries],
@@ -538,12 +511,11 @@ export default function GlobalPlansPanel({
         setDefaultMarkupType(bulkType);
         setDefaultMarkupValue(value);
       }
-      // Re-read the first page of the current scope so the cards reflect the
+      // Re-read the current page of the current scope so the cards reflect the
       // new markup. The write itself was server-side; only the loaded page is
       // refreshed, not the whole catalog.
       await fetchPage({
-        offset: 0,
-        replace: true,
+        page: planPage,
         country: activeCountry,
         network: activeNetwork,
         term: search,
@@ -687,7 +659,7 @@ export default function GlobalPlansPanel({
         </div>
       )}
 
-      {/* Country picker: 20 options per page, behind Previous / Next */}
+      {/* Country picker: a 3x3 grid (9 per page) behind Previous / Next */}
       <div
         style={{
           background: "var(--card)",
@@ -707,7 +679,7 @@ export default function GlobalPlansPanel({
             {countryPage + 1} / {countryPageCount}
           </span>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+        <div className="global-country-grid">
           {countryPageItems.map((cc) => {
             const isAll = cc === "all";
             const count = isAll
@@ -720,6 +692,15 @@ export default function GlobalPlansPanel({
                 onClick={() => onSelectCountry(cc)}
                 style={{
                   ...tabStyle,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  width: "100%",
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                   background: isActive ? "var(--brand-color)" : "var(--bg2)",
                   color: isActive ? "#FDF8F3" : "var(--muted)",
                   border: isActive ? "none" : "1px solid var(--border)",
@@ -876,10 +857,25 @@ export default function GlobalPlansPanel({
               ariaLabel={t?.applyTo || "Apply To"}
               style={selectStyle}
               options={[
-                { value: "all", label: t?.allCountries || "All Countries" },
+                {
+                  value: "all",
+                  label: (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span aria-hidden>🌍</span>
+                      {t?.allCountries || "All Countries"}
+                    </span>
+                  ),
+                  text: t?.allCountries || "All Countries",
+                },
                 ...countries.map((c) => ({
                   value: c.country,
-                  label: c.country.toUpperCase(),
+                  label: (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span aria-hidden>{countryFlag(c.country)}</span>
+                      {c.country.toUpperCase()}
+                    </span>
+                  ),
+                  text: c.country.toUpperCase(),
                 })),
               ]}
             />
@@ -1273,25 +1269,53 @@ export default function GlobalPlansPanel({
             );
           })
         )}
-        {!loading && hasMore && (
+        {!loading && visiblePlans.length > 0 && (
           <div
-            ref={sentinelRef}
-            style={{ display: "flex", justifyContent: "center", padding: "1rem" }}
-          >
-            <Loader2 size={18} style={{ animation: "spin 1s linear infinite", color: "var(--dim)" }} />
-          </div>
-        )}
-        {!loading && !hasMore && visiblePlans.length > 0 && (
-          <p
             style={{
-              textAlign: "center",
-              color: "var(--dim)",
-              fontSize: "0.78rem",
-              padding: "0.5rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "0.6rem",
+              padding: "0.5rem 0",
+              flexWrap: "wrap",
             }}
           >
-            {t?.allPlansShown || "All plans shown"}
-          </p>
+            <button
+              onClick={() => goToPlanPage(planPage - 1)}
+              disabled={planPage === 0 || loading}
+              aria-label={t?.previous || "Previous"}
+              style={{
+                ...countryPagerBtn,
+                opacity: planPage === 0 || loading ? 0.4 : 1,
+                cursor:
+                  planPage === 0 || loading ? "not-allowed" : "pointer",
+              }}
+            >
+              <ChevronLeft size={16} />
+              {t?.previous || "Previous"}
+            </button>
+            <span
+              style={{ fontSize: "0.75rem", color: "var(--muted)" }}
+            >
+              {t?.page || "Page"} {planPage + 1} / {pageCount}
+            </span>
+            <button
+              onClick={() => goToPlanPage(planPage + 1)}
+              disabled={planPage >= pageCount - 1 || loading}
+              aria-label={t?.next || "Next"}
+              style={{
+                ...countryPagerBtn,
+                opacity: planPage >= pageCount - 1 || loading ? 0.4 : 1,
+                cursor:
+                  planPage >= pageCount - 1 || loading
+                    ? "not-allowed"
+                    : "pointer",
+              }}
+            >
+              {t?.next || "Next"}
+              <ChevronRight size={16} />
+            </button>
+          </div>
         )}
       </div>
 
@@ -1344,6 +1368,12 @@ export default function GlobalPlansPanel({
           to {
             transform: rotate(360deg);
           }
+        }
+        /* Country picker: a fixed 3x3 grid (9 per page). */
+        .global-country-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.5rem;
         }
         /* Desktop: the card is a single row — info on the left, the details
            wrapper (display: contents) laid out inline beside it, no chevron. */
@@ -1495,6 +1525,15 @@ export default function GlobalPlansPanel({
         }
         /* Mobile: name + toggle + chevron; the rest opens in the panel. */
         @media (max-width: 767px) {
+          /* Country grid stays 3x3 on phones; tighten the cells to fit. */
+          .global-country-grid {
+            gap: 0.35rem;
+          }
+          .global-country-grid button {
+            padding: 0.4rem 0.3rem !important;
+            font-size: 0.68rem !important;
+            letter-spacing: 0 !important;
+          }
           .global-plan-wholesale {
             display: none;
           }

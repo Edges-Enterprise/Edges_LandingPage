@@ -349,17 +349,65 @@ export default function StoreHeader({
       {/* ─── Install App Banner ─────────────────────────── */}
       {showInstallBanner && apkUrl && (
         <div
+          className="install-banner"
           style={{
             position: "sticky",
             top: 0,
             zIndex: 30,
-            background: `linear-gradient(135deg, ${brandColor}, ${brandColor}dd)`,
             padding: "0.6rem 1rem",
-            boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
             animation: "slideDown 0.65s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
           <style>{`
+            /* Glass "crystal" bar: a translucent brand tint over a blur of the
+               content scrolling beneath it, so it blends with the store's
+               branding instead of sitting on an opaque brand block. The
+               storefront theme paints every div with an opaque --bg
+               (store-theme.css), so the banner's own descendants are forced
+               transparent and the tint is re-applied to the bar and its chips
+               with higher specificity. */
+            body.storefront-theme .install-banner,
+            body.storefront-theme .install-banner div,
+            body.storefront-theme .install-banner a {
+              background-color: transparent !important;
+            }
+            body.storefront-theme .install-banner {
+              background: linear-gradient(
+                135deg,
+                rgba(var(--brand-color-rgb, 201, 138, 84), 0.18),
+                rgba(var(--brand-color-rgb, 201, 138, 84), 0.07)
+              ) !important;
+              -webkit-backdrop-filter: blur(18px) saturate(1.5);
+              backdrop-filter: blur(18px) saturate(1.5);
+              border-bottom: 1px solid rgba(var(--brand-color-rgb, 201, 138, 84), 0.28);
+              box-shadow: 0 6px 24px rgba(var(--brand-color-rgb, 201, 138, 84), 0.14);
+            }
+            body.storefront-theme[data-theme="light"] .install-banner {
+              background: linear-gradient(
+                135deg,
+                rgba(var(--brand-color-rgb, 201, 138, 84), 0.14),
+                rgba(var(--brand-color-rgb, 201, 138, 84), 0.05)
+              ) !important;
+              border-bottom: 1px solid rgba(var(--brand-color-rgb, 201, 138, 84), 0.22);
+            }
+            body.storefront-theme .install-banner .install-banner-chip {
+              background-color: rgba(var(--brand-color-rgb, 201, 138, 84), 0.16) !important;
+              border: 1px solid rgba(var(--brand-color-rgb, 201, 138, 84), 0.26);
+            }
+            body.storefront-theme .install-banner .install-banner-button {
+              background-color: rgba(var(--brand-color-rgb, 201, 138, 84), 0.22) !important;
+              border: 1px solid rgba(var(--brand-color-rgb, 201, 138, 84), 0.40);
+            }
+            body.storefront-theme .install-banner .install-banner-button:hover {
+              background-color: rgba(var(--brand-color-rgb, 201, 138, 84), 0.32) !important;
+            }
+            body.storefront-theme .install-banner .install-banner-dismiss {
+              background-color: rgba(var(--brand-color-rgb, 201, 138, 84), 0.12) !important;
+              border: 1px solid rgba(var(--brand-color-rgb, 201, 138, 84), 0.24);
+            }
+            body.storefront-theme .install-banner .install-banner-dismiss:hover {
+              background-color: rgba(var(--brand-color-rgb, 201, 138, 84), 0.20) !important;
+            }
             @keyframes slideDown {
               0% { transform: translateY(-100%); opacity: 0; }
               60% { transform: translateY(4px); opacity: 1; }
@@ -399,16 +447,15 @@ export default function StoreHeader({
               }}
             >
               <div
+                className="install-banner-chip"
                 style={{
                   width: 40,
                   height: 40,
                   borderRadius: 10,
-                  background: "rgba(255,255,255,0.2)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   flexShrink: 0,
-                  border: "1px solid rgba(255,255,255,0.25)",
                 }}
               >
                 {storeData.application.logo_url ? (
@@ -463,14 +510,12 @@ export default function StoreHeader({
                 href={apkUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="banner-button"
+                className="banner-button install-banner-button"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
                   padding: "0.5rem 1.2rem",
-                  background: "rgba(255,255,255,0.25)",
-                  border: "1.5px solid rgba(255,255,255,0.4)",
                   borderRadius: 10,
                   color: "var(--text)",
                   fontWeight: 700,
@@ -483,11 +528,9 @@ export default function StoreHeader({
                   whiteSpace: "nowrap",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.35)";
                   e.currentTarget.style.transform = "scale(1.02)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.25)";
                   e.currentTarget.style.transform = "scale(1)";
                 }}
               >
@@ -496,9 +539,8 @@ export default function StoreHeader({
               </a>
               <button
                 onClick={dismissBanner}
+                className="install-banner-dismiss"
                 style={{
-                  background: "rgba(255,255,255,0.15)",
-                  border: "1px solid rgba(255,255,255,0.2)",
                   borderRadius: 8,
                   width: 32,
                   height: 32,
@@ -507,17 +549,15 @@ export default function StoreHeader({
                   justifyContent: "center",
                   cursor: "pointer",
                   color: "var(--text)",
-                  opacity: 0.7,
+                  opacity: 0.8,
                   transition: "all 0.2s ease",
                   flexShrink: 0,
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.opacity = "1";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.25)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.opacity = "0.7";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.15)";
+                  e.currentTarget.style.opacity = "0.8";
                 }}
               >
                 <XCircle size={18} />

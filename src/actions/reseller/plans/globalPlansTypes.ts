@@ -6,7 +6,7 @@
 import type { PlanWithConfig } from "@/types/reseller/plans";
 
 /** Rows per page for the world plan list. */
-export const GLOBAL_PLANS_PAGE_SIZE = 32;
+export const GLOBAL_PLANS_PAGE_SIZE = 10;
 
 export interface GetGlobalPlansParams {
   /** Destination country (lowercase), optional. "all" or omitted = every country. */
