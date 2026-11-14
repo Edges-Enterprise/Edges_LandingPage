@@ -28,6 +28,41 @@
   --m-anchor: 0.5;
 }
 
+/* The ad floats over the dashboard rather than sitting in its flow: a
+   full-screen scrim (dimmed, click-through-to-dismiss) that centres the card.
+   The scrim is fixed, so the page underneath keeps its own scroll position and
+   the card never pushes the overview down. */
+.campaign-ad-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  /* Scroll instead of clip: on a short viewport (e.g. landscape phone) the card
+     is taller than the screen, so the overlay scrolls to keep the mascot's head
+     and the CTA reachable. The card's own `margin: auto` does the centring. */
+  overflow-y: auto;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  animation: campaign-ad-fade 0.25s ease both;
+}
+
+@keyframes campaign-ad-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .campaign-ad-overlay {
+    animation: none;
+  }
+}
+
 /* The wrapper is the stage: it reserves the head-room the mascot breaks into
    (a % padding resolves against the wrapper width, so it scales with the card)
    and the room the CTA overhangs below. */
@@ -37,8 +72,10 @@
      leave a 12px gutter on each side so it never overflows a narrow phone.
      The card scales from its own width (all type is in cqw), so this one
      number sizes the whole thing. */
-  width: min(300px, calc(100% - 24px));
-  margin-inline: auto;
+  width: min(270px, calc(100% - 24px));
+  /* `auto` on both axes centres the card in the overlay's flex box, and lets it
+     scroll (rather than clip) when it is taller than a short viewport. */
+  margin: auto;
   /* The mascot's glow spills a little past the card; clip it horizontally so
      a phone never gets a sideways scroll. `clip` (not `hidden`) leaves the
      vertical axis visible, so the head and the CTA still break out. */

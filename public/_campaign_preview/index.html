@@ -12,133 +12,184 @@
   }
   *{box-sizing:border-box}
   body{
-    margin:0;padding:44px 24px 72px;
+    margin:0;
     font-family:var(--font-sans);
     background:radial-gradient(circle at 20% 8%, #2a1a0d, #120a04 62%);
     color:#F5E9D9;min-height:100vh;
   }
-  .wrap{max-width:1240px;margin:0 auto}
-  h1{font-family:var(--font-display);font-weight:800;margin:0 0 6px;font-size:1.9rem}
-  .lede{max-width:880px;color:#C9AC92;font-size:.95rem;line-height:1.55;margin:0 0 8px}
-  .rate{margin:0 0 30px;font-size:.82rem;color:#9c826b}
-  .rate b{color:#E7C9A6}
-  .row{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start}
-  .cell{width:100%;max-width:420px}
-  .cell h2{
-    font-size:.78rem;font-weight:700;letter-spacing:.14em;
-    text-transform:uppercase;color:#B89880;margin:0 0 6px;
+
+  /* ---- Mock dashboard behind the ad, so the overlay reads as an overlay ---- */
+  .mock{display:flex;min-height:100vh}
+  .mock-side{
+    width:240px;flex-shrink:0;border-right:1px solid rgba(201,138,84,.12);
+    padding:20px 16px;display:flex;flex-direction:column;gap:12px;
   }
-  .note{color:#8f735c;font-size:.72rem;margin-top:8px;min-height:2.2em}
-  .err{color:#ffb4a2}
+  .mock-side .bar{height:12px;border-radius:6px;background:rgba(245,233,217,.10)}
+  .mock-side .bar.brand{background:rgba(201,138,84,.35);width:60%}
+  .mock-main{flex:1;min-width:0;padding:20px 24px}
+  .mock-main h1{font-family:var(--font-display);font-weight:800;margin:0 0 4px;font-size:1.5rem}
+  .mock-main p{margin:0 0 18px;color:#9c826b;font-size:.85rem}
+  .mock-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:18px}
+  .mock-card{height:92px;border-radius:14px;background:rgba(245,233,217,.06);border:1px solid rgba(201,138,84,.14)}
+  .mock-panel{height:260px;border-radius:16px;background:rgba(245,233,217,.05);border:1px solid rgba(201,138,84,.14)}
+  @media (max-width:767px){ .mock-side{display:none} }
+
+  /* ---- Dev toolbar: sits ABOVE the ad so a store can be picked while it shows ---- */
+  .devbar{
+    position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:1000;
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;
+    padding:8px 12px;border-radius:999px;
+    background:rgba(18,10,4,.86);border:1px solid rgba(201,138,84,.3);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    font-size:.78rem;color:#E7C9A6;max-width:calc(100% - 20px);
+  }
+  .devbar select,.devbar button{
+    font:inherit;color:#F5E9D9;background:rgba(245,233,217,.08);
+    border:1px solid rgba(201,138,84,.35);border-radius:8px;padding:4px 9px;cursor:pointer;
+  }
+  .devbar .rate{color:#9c826b}
+  .devbar .err{color:#ffb4a2}
+  .devbar .reopen{background:rgba(201,138,84,.9);border-color:transparent;color:#1a0f06;font-weight:700}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Mascot campaign card — live preview</h1>
-  <p class="lede">
-    The mascot becomes the card: its head breaks above the top edge and its body
-    dissolves into the square glass panel where the copy sits. The headline is
-    always the base reward, <b>$10</b>; directly beneath it the same reward is
-    converted into the reseller's currency, live. The palette follows each
-    store's brand colour. No logo, no product name. The top border feathers into the mascot, and the amount is flared. The button deep-links into the app, falling back to the download.
-  </p>
-  <p class="rate" id="rateLine">Fetching the live USD rate…</p>
-  <div class="row" id="row"></div>
+
+<!-- The dashboard the ad covers. -->
+<div class="mock">
+  <aside class="mock-side">
+    <div class="bar brand"></div><div class="bar"></div><div class="bar"></div>
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+  </aside>
+  <main class="mock-main">
+    <h1>Overview</h1>
+    <p>Your dashboard, in flow behind the ad.</p>
+    <div class="mock-grid">
+      <div class="mock-card"></div><div class="mock-card"></div>
+      <div class="mock-card"></div><div class="mock-card"></div>
+    </div>
+    <div class="mock-panel"></div>
+  </main>
+</div>
+
+<!-- Dev toolbar (above the ad): pick a store, re-open the ad, see the rate. -->
+<div class="devbar">
+  <label>Store <select id="store"></select></label>
+  <button class="reopen" id="reopen" hidden>Show ad again</button>
+  <span class="rate" id="rateLine">Fetching the live USD rate…</span>
 </div>
 
 <script>
   const USD_REWARD = 10;
   const STORES = [
-    { cc:"NG", currency:"NGN", locale:"en-NG", brand:"#C98A54", mark:"E" },
-    { cc:"GH", currency:"GHS", locale:"en-GH", brand:"#0879E9", mark:"A" },
-    { cc:"KE", currency:"KES", locale:"en-KE", brand:"#792BD5", mark:"K" },
-    { cc:"ZA", currency:"ZAR", locale:"en-ZA", brand:"#0E7C66", mark:"S" },
-    { cc:"IN", currency:"INR", locale:"en-IN", brand:"#C2185B", mark:"R" },
-    { cc:"US", currency:"USD", locale:"en-US", brand:"#00A95C", mark:"G" }
+    { cc:"NG", currency:"NGN", locale:"en-NG", brand:"#C98A54" },
+    { cc:"GH", currency:"GHS", locale:"en-GH", brand:"#0879E9" },
+    { cc:"KE", currency:"KES", locale:"en-KE", brand:"#792BD5" },
+    { cc:"ZA", currency:"ZAR", locale:"en-ZA", brand:"#0E7C66" },
+    { cc:"IN", currency:"INR", locale:"en-IN", brand:"#C2185B" },
+    { cc:"US", currency:"USD", locale:"en-US", brand:"#00A95C" }
   ];
   const FALLBACK = { NGN:1600, GHS:15.2, KES:129, ZAR:18.3, INR:83.4, USD:1 };
   const fmt = (v,c,l) => new Intl.NumberFormat(l,{style:"currency",currency:c,maximumFractionDigits:2}).format(v);
 
-  function card(store, rate, live) {
+  let rates = FALLBACK;
+
+  /** The card exactly as the React component renders it, wrapped in the scrim. */
+  function overlayMarkup(store) {
+    const rate = rates[store.currency] ?? FALLBACK[store.currency] ?? 1;
     const isUsd = store.currency === "USD";
     const local = isUsd ? null : USD_REWARD * rate;
     const conversion = local === null ? "" : `
-          <p class="campaign-conversion">
-            <span class="campaign-conversion__value">${fmt(local, store.currency, store.locale)}</span>
-            <span class="campaign-conversion__caption">at today's rate &middot; ${store.currency}</span>
-          </p>`;
+        <p class="campaign-conversion">
+          <span class="campaign-conversion__value">${fmt(local, store.currency, store.locale)}</span>
+          <span class="campaign-conversion__caption">at today's rate &middot; ${store.currency}</span>
+        </p>`;
     return `
-  <div class="cell">
-    <h2>${store.cc} &middot; ${store.currency}</h2>
-    <div class="first-deposit-campaign" style="--brand-color:${store.brand}">
-      <article class="goat-campaign-card">
-        <button type="button" class="campaign-close" aria-label="Dismiss"><span aria-hidden="true">&#215;</span></button>
-        <div class="campaign-panel" aria-hidden="true">
-          <div class="campaign-atmosphere"></div>
-          <div class="campaign-orb campaign-orb--one"></div>
-          <div class="campaign-orb campaign-orb--two"></div>
-        </div>
-        <div class="campaign-mascot" aria-hidden="true" style="--mascot-url:url(/campaign/goat-mascot.webp)">
-          <div class="campaign-mascot__glow"></div>
-          <img class="campaign-mascot__image" src="/campaign/goat-mascot.webp" alt="">
-          <span class="campaign-mascot__grade"></span>
-        </div>
-        <div class="campaign-content">
-          <span class="campaign-eyebrow">LIMITED-TIME OFFER</span>
-          <h2 class="campaign-title">
-            <span class="campaign-title__line">DEPOSIT IN THE APP.</span>
-            <span class="campaign-hero">
-              <span class="campaign-hero__word">GET</span>
-              <span class="campaign-amount-wrap">
-                <span class="campaign-flare" aria-hidden="true"></span>
-                <span class="campaign-amount">$10</span>
-                <i class="campaign-spark campaign-spark--a" aria-hidden="true"></i>
-                <i class="campaign-spark campaign-spark--b" aria-hidden="true"></i>
-                <i class="campaign-spark campaign-spark--c" aria-hidden="true"></i>
-              </span>
-              <span class="campaign-hero__word">FREE.</span>
-            </span>
-          </h2>
-          ${conversion}
-          <div class="campaign-benefits">
-            <div class="campaign-benefit">&#9889; Instant top-up</div>
-            <div class="campaign-benefit">&#127873; Bonus credit</div>
-            <div class="campaign-benefit">&#128274; Secure deposit</div>
+    <div class="campaign-ad-overlay">
+      <div class="first-deposit-campaign" style="--brand-color:${store.brand}">
+        <article class="goat-campaign-card">
+          <button type="button" class="campaign-close" aria-label="Dismiss"><span aria-hidden="true">&#215;</span></button>
+          <div class="campaign-panel" aria-hidden="true">
+            <div class="campaign-atmosphere"></div>
+            <div class="campaign-orb campaign-orb--one"></div>
+            <div class="campaign-orb campaign-orb--two"></div>
           </div>
-          <button class="campaign-cta"><span class="campaign-cta__label">Deposit now</span> <span class="campaign-cta__arrow">&#8594;</span></button>
-        </div>
-      </article>
-    </div>
-    <div class="note">${isUsd ? "Wallet is USD &mdash; no conversion line." : (live ? "Live rate applied." : "Sample rate (live API unreachable).")}</div>
-  </div>`;
+          <div class="campaign-mascot" aria-hidden="true" style="--mascot-url:url(/campaign/goat-mascot.webp)">
+            <div class="campaign-mascot__glow"></div>
+            <img class="campaign-mascot__image" src="/campaign/goat-mascot.webp" alt="">
+            <span class="campaign-mascot__grade"></span>
+          </div>
+          <div class="campaign-content">
+            <span class="campaign-eyebrow">LIMITED-TIME OFFER</span>
+            <h2 class="campaign-title">
+              <span class="campaign-title__line">DEPOSIT IN THE APP.</span>
+              <span class="campaign-hero">
+                <span class="campaign-hero__word">GET</span>
+                <span class="campaign-amount-wrap">
+                  <span class="campaign-flare" aria-hidden="true"></span>
+                  <span class="campaign-amount">$10</span>
+                  <i class="campaign-spark campaign-spark--a" aria-hidden="true"></i>
+                  <i class="campaign-spark campaign-spark--b" aria-hidden="true"></i>
+                  <i class="campaign-spark campaign-spark--c" aria-hidden="true"></i>
+                </span>
+                <span class="campaign-hero__word">FREE.</span>
+              </span>
+            </h2>
+            ${conversion}
+            <div class="campaign-benefits">
+              <div class="campaign-benefit">&#9889; Instant top-up</div>
+              <div class="campaign-benefit">&#127873; Bonus credit</div>
+              <div class="campaign-benefit">&#128274; Secure deposit</div>
+            </div>
+            <button class="campaign-cta"><span class="campaign-cta__label">Deposit now</span> <span class="campaign-cta__arrow">&#8594;</span></button>
+          </div>
+        </article>
+      </div>
+    </div>`;
   }
 
-  function render(rates, live) {
-    document.getElementById("row").innerHTML =
-      STORES.map((s) => card(s, rates[s.currency] ?? FALLBACK[s.currency] ?? 1, live)).join("");
+  let current = null;
+  function showAd() {
+    if (current) current.remove();
+    const store = STORES[Number(document.getElementById("store").value) || 0];
+    const tpl = document.createElement("div");
+    tpl.innerHTML = overlayMarkup(store).trim();
+    current = tpl.firstElementChild;
+    document.body.appendChild(current);
+    document.getElementById("reopen").hidden = true;
   }
 
-  // Dismissal demo: the X, or a tap anywhere outside the card, hides the cell.
+  function dismissAd() {
+    if (current) current.remove();
+    current = null;
+    document.getElementById("reopen").hidden = false;
+  }
+
+  // The X dismisses; so does a click on the scrim (anywhere outside the card).
   document.addEventListener("click", (e) => {
-    const cell = e.target.closest(".cell");
-    if (!cell) return;
+    if (!current || !current.contains(e.target)) return;
     if (e.target.closest(".campaign-close") || !e.target.closest(".goat-campaign-card")) {
-      cell.style.display = "none";
+      dismissAd();
     }
   });
+
+  document.getElementById("store").innerHTML =
+    STORES.map((s, i) => `<option value="${i}">${s.cc} &middot; ${s.currency}</option>`).join("");
+  document.getElementById("store").addEventListener("change", showAd);
+  document.getElementById("reopen").addEventListener("click", showAd);
+
+  // Show the ad over the mock dashboard straight away, like the dashboard does.
+  showAd();
 
   fetch("https://api.exchangerate-api.com/v4/latest/USD", { cache:"no-store" })
     .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then((data) => {
-      render(data && data.rates ? data.rates : {}, true);
+      if (data && data.rates) { rates = data.rates; showAd(); }
       const stamp = data.date ? ` (published ${data.date})` : "";
-      document.getElementById("rateLine").innerHTML =
-        `Live USD rates from <b>exchangerate-api.com</b>${stamp} &mdash; the same source the dashboard uses.`;
+      document.getElementById("rateLine").innerHTML = `Live rates${stamp}`;
     })
-    .catch((e) => {
-      render(FALLBACK, false);
+    .catch(() => {
       document.getElementById("rateLine").innerHTML =
-        `<span class="err">Could not reach the live rate API (${e.message}).</span> Showing sample rates.`;
+        `<span class="err">Rate API unreachable — sample rates.</span>`;
     });
 </script>
 </body>

@@ -147,33 +147,35 @@ export default function FirstDepositCampaignCard({
       : undefined;
 
   return (
-    <div
-      ref={rootRef}
-      className="first-deposit-campaign"
-      style={
-        brandColor
-          ? ({ "--brand-color": brandColor } as React.CSSProperties)
-          : undefined
-      }
-    >
-      <CampaignCard
-        config={{
-          theme,
-          eyebrow: t.eyebrow || "LIMITED-TIME OFFER",
-          headline: t.headline || "DEPOSIT IN THE APP.",
-          headlineAccent: t.headlineAccent || "GET {amount} FREE.",
-          amount: usdText,
-          conversion,
-          benefits: [
-            t.benefit1 || "⚡ Instant top-up",
-            t.benefit2 || "🎁 Bonus credit",
-            t.benefit3 || "🔒 Secure deposit",
-          ],
-          cta: t.cta || "Deposit now",
-          onCta: openApp,
-          onClose: dismiss,
-        }}
-      />
+    <div className="campaign-ad-overlay">
+      <div
+        ref={rootRef}
+        className="first-deposit-campaign"
+        style={
+          brandColor
+            ? ({ "--brand-color": brandColor } as React.CSSProperties)
+            : undefined
+        }
+      >
+        <CampaignCard
+          config={{
+            theme,
+            eyebrow: t.eyebrow || "LIMITED-TIME OFFER",
+            headline: t.headline || "DEPOSIT IN THE APP.",
+            headlineAccent: t.headlineAccent || "GET {amount} FREE.",
+            amount: usdText,
+            conversion,
+            benefits: [
+              t.benefit1 || "⚡ Instant top-up",
+              t.benefit2 || "🎁 Bonus credit",
+              t.benefit3 || "🔒 Secure deposit",
+            ],
+            cta: t.cta || "Deposit now",
+            onCta: openApp,
+            onClose: dismiss,
+          }}
+        />
+      </div>
     </div>
   );
 }
