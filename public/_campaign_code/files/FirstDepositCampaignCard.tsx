@@ -3,11 +3,18 @@
 // The live campaign card, shown as a non-blocking overlay over the reseller
 // dashboard. It is a floating banner, not a modal: nothing is dimmed or
 // blurred, the page behind stays fully visible and interactive (the layer
-// around the card is click-through), and the ONLY way to dismiss it is the
-// card's own X. The card headline always states the base reward in USD ($10) as
-// the big flared hero; the reseller's own currency equivalent sits directly
-// beneath it, converted at the live FX rate. The card renders only while the
-// reseller is still eligible (i.e. has not yet made an app-initiated deposit).
+// around the card is click-through), and the only control that hides it is the
+// card's own X.
+//
+// Dismissal is view-scoped, not permanent: the X hides the card for the current
+// page view only, so it returns on the next refresh or remount. The card is
+// retired for good only by the deposit itself (the server then reports
+// `eligible: false`), never by the X.
+//
+// The card headline always states the base reward in USD ($10) as the big
+// flared hero; the reseller's own currency equivalent sits directly beneath it,
+// converted at the live FX rate. The card renders only while the reseller is
+// still eligible (i.e. has not yet made an app-initiated deposit).
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -47,9 +54,6 @@ interface FirstDepositCampaignCardProps {
 
 /** The base reward, always shown as USD. */
 const USD_REWARD = 10;
-
-/** Remembers that the reseller dismissed the card, so it stays closed. */
-const DISMISS_KEY = "edges:first-deposit-campaign:dismissed";
 
 export default function FirstDepositCampaignCard({
   brandColor,
@@ -94,22 +98,12 @@ export default function FirstDepositCampaignCard({
     };
   }, []);
 
-  // Honour a previous dismissal (this browser only).
-  useEffect(() => {
-    try {
-      if (window.localStorage.getItem(DISMISS_KEY) === "1") setDismissed(true);
-    } catch {
-      /* localStorage can throw in private mode — treat as not dismissed. */
-    }
-  }, []);
-
+  // Hiding the card is temporary: it lasts for this page view only, so the ad
+  // returns on the next refresh or remount. It is only retired for good when
+  // the deposit is actually made — which the server reports as `eligible:
+  // false` above — never by the X.
   const dismiss = useCallback(() => {
     setDismissed(true);
-    try {
-      window.localStorage.setItem(DISMISS_KEY, "1");
-    } catch {
-      /* ignore */
-    }
   }, []);
 
   // Render nothing until we know eligibility, and nothing once claimed or
