@@ -880,3 +880,8 @@ Test logic with `deno test src/lib/onboarding/` (install deno via
   statically. Static server on port 12000; Next dev on 12001. The
   `_campaign_preview` path collides with the `[countryCode]` route under Next,
   so view it through the plain static server, not the Next dev server.
+- Source viewer (dev aid): `/public/_campaign_code/index.html` lists the card's
+  four files with copy/download buttons, reading them from
+  `/public/_campaign_code/files/`. Those copies are SNAPSHOTS — after editing
+  any of the four source files, re-copy them:
+  `cp src/components/campaign/{CampaignCard.tsx,FirstDepositCampaignCard.tsx,campaign-card.css} src/actions/reseller/campaigns/firstDepositCampaign.ts public/_campaign_code/files/`

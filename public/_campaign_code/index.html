@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Campaign card — source code for manual fix</title>
+<style>
+  :root{
+    --bg:#0e0b08; --panel:#171310; --panel2:#1f1a15; --border:#33291f;
+    --text:#F5E9D9; --dim:#b7a08a; --accent:#C98A54; --ok:#4ade80; --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:'Instrument Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;padding:32px 20px 80px;font-family:var(--sans);color:var(--text);
+    background:radial-gradient(circle at 18% 6%, #2a1a0d, #0e0b08 60%);min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-weight:800;margin:0 0 6px;font-size:1.6rem;letter-spacing:-.01em}
+  .lede{color:var(--dim);font-size:.92rem;line-height:1.55;max-width:900px;margin:0 0 10px}
+  .lede code{font-family:var(--mono);font-size:.85em;background:#241c15;padding:1px 5px;border-radius:5px;color:var(--accent)}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:18px 0 22px}
+  .btn{
+    display:inline-flex;align-items:center;gap:7px;cursor:pointer;font:600 .82rem/1 var(--sans);
+    padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);
+    transition:transform .12s ease,border-color .12s ease,background .12s ease;
+  }
+  .btn:hover{transform:translateY(-1px);border-color:var(--accent)}
+  .btn--primary{background:linear-gradient(180deg,#e6b184,#C98A54);color:#2a1a0d;border-color:#e6b184}
+  .btn.copied{background:linear-gradient(180deg,#86efac,#4ade80);color:#052e16;border-color:#86efac}
+  .file{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;margin:0 0 18px;overflow:hidden;
+  }
+  .file__head{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between;
+    padding:12px 14px;background:var(--panel2);border-bottom:1px solid var(--border);
+  }
+  .file__path{font-family:var(--mono);font-size:.82rem;color:var(--accent);word-break:break-all}
+  .file__meta{color:var(--dim);font-size:.72rem;font-family:var(--mono)}
+  .file__actions{display:flex;gap:8px}
+  pre{
+    margin:0;padding:16px;overflow:auto;max-height:70vh;background:#120e0a;
+    font-family:var(--mono);font-size:.78rem;line-height:1.6;tab-size:2;
+  }
+  pre code{color:#e8dccb;white-space:pre}
+  .note{color:var(--dim);font-size:.78rem;margin:6px 0 0}
+  .ok{color:var(--ok)}
+  a{color:var(--accent)}
+  /* tiny syntax palette (applied by the highlighter) */
+  .tok-com{color:#7d6b58;font-style:italic}
+  .tok-str{color:#c3e88d}
+  .tok-key{color:#82aaff}
+  .tok-num{color:#f78c6c}
+  .tok-fn{color:#ffcb6b}
+  .tok-pun{color:#89ddff}
+  .tok-prop{color:#c792ea}
+  @media print{ body{background:#fff;color:#000} .bar,.file__actions{display:none} pre{background:#fff;color:#000;max-height:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Campaign card — source for manual fix</h1>
+  <p class="lede">
+    Every file that makes the mascot-morph campaign card work, exactly as it is on disk right now.
+    Edit any of them locally, then drop your changed file(s) back and I will adapt the rest to match.
+    Files are also served raw (so <code>curl</code>/download works) under
+    <code>/_campaign_code/files/&lt;name&gt;</code>.
+  </p>
+  <div class="bar">
+    <button class="btn btn--primary" id="dlAll">Download all files</button>
+    <button class="btn" id="copyAll">Copy all (concatenated)</button>
+    <a class="btn" href="/_campaign_preview/" target="_blank" rel="noopener">Open live preview ↗</a>
+    <span class="file__meta" id="status"></span>
+  </div>
+
+  <div id="files"></div>
+
+  <p class="note">
+    Raw file endpoints:
+    <a href="/_campaign_code/files/CampaignCard.tsx" download>CampaignCard.tsx</a> ·
+    <a href="/_campaign_code/files/FirstDepositCampaignCard.tsx" download>FirstDepositCampaignCard.tsx</a> ·
+    <a href="/_campaign_code/files/campaign-card.css" download>campaign-card.css</a> ·
+    <a href="/_campaign_code/files/firstDepositCampaign.ts" download>firstDepositCampaign.ts</a>
+  </p>
+</div>
+
+<script>
+const FILES = [
+  { name: "CampaignCard.tsx", path: "src/components/campaign/CampaignCard.tsx", lang: "tsx" },
+  { name: "FirstDepositCampaignCard.tsx", path: "src/components/campaign/FirstDepositCampaignCard.tsx", lang: "tsx" },
+  { name: "campaign-card.css", path: "src/components/campaign/campaign-card.css", lang: "css" },
+  { name: "firstDepositCampaign.ts", path: "src/actions/reseller/campaigns/firstDepositCampaign.ts", lang: "ts" },
+];
+
+const esc = (s) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+/** Minimal, dependency-free highlighter. ONE pass, so nothing captured is ever
+ *  re-scanned — the leftmost alternative wins, which keeps a `'` inside a
+ *  comment from being read as the start of a string, and a `//` inside a
+ *  string from being read as a comment. Whitespace between matches is left
+ *  untouched by String.replace, so the text stays byte-identical. */
+const TOKEN_RE = new RegExp([
+  "(\\/\\*[\\s\\S]*?\\*\\/)",                       // 1 block comment
+  "(\\/\\/[^\\n]*)",                                // 2 line comment
+  '("(?:\\\\.|[^"\\\\])*")',                        // 3 double string
+  "('(?:\\\\.|[^'\\\\])*')",                        // 4 single string
+  "(`(?:\\\\.|[^`\\\\])*`)",                        // 5 template literal
+  "(--[A-Za-z0-9-]+)",                              // 6 css custom property
+  "(@[a-z-]+)",                                     // 7 at-rule
+  "([A-Za-z_$][\\w$]*)(?=\\s*\\()",                 // 8 call
+  "\\b(import|from|export|default|function|return|const|let|var|if|else|type|interface|extends|new|as|null|undefined|true|false|async|await|this|class|in|of|typeof|void)\\b", // 9 keyword
+  "\\b(\\d+(?:\\.\\d+)?(?:cqw|px|rem|em|%)?)\\b",   // 10 number
+].join("|"), "g");
+
+function highlight(code){
+  return esc(code).replace(TOKEN_RE, (m, comB, comL, strD, strS, strT, prop, at, fn, key, num) => {
+    if (comB || comL) return `<span class="tok-com">${m}</span>`;
+    if (strD || strS || strT) return `<span class="tok-str">${m}</span>`;
+    if (prop) return `<span class="tok-prop">${m}</span>`;
+    if (at) return `<span class="tok-key">${m}</span>`;
+    if (fn) return `<span class="tok-fn">${m}</span>`;
+    if (key) return `<span class="tok-key">${m}</span>`;
+    if (num) return `<span class="tok-num">${m}</span>`;
+    return m;
+  });
+}
+
+function render(container, file, code){
+  const wrap = document.createElement("div");
+  wrap.className = "file";
+  const lines = code.split("\n").length;
+  const bytes = new Blob([code]).size;
+  wrap.innerHTML = `
+    <div class="file__head">
+      <div>
+        <div class="file__path">${esc(file.path)}</div>
+        <div class="file__meta">${lines} lines · ${bytes} bytes</div>
+      </div>
+      <div class="file__actions">
+        <button class="btn" data-copy>Copy</button>
+        <button class="btn" data-dl>Download</button>
+      </div>
+    </div>
+    <pre><code>${highlight(code, file.lang)}</code></pre>`;
+  const btnCopy = wrap.querySelector("[data-copy]");
+  const btnDl = wrap.querySelector("[data-dl]");
+  btnCopy.onclick = async () => {
+    try { await navigator.clipboard.writeText(code); }
+    catch { const t=document.createElement("textarea"); t.value=code; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+    btnCopy.textContent = "Copied ✓"; btnCopy.classList.add("copied");
+    setTimeout(() => { btnCopy.textContent = "Copy"; btnCopy.classList.remove("copied"); }, 1400);
+  };
+  btnDl.onclick = () => download(file.name, code);
+  container.appendChild(wrap);
+}
+
+function download(name, text){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+let loaded = [];
+async function boot(){
+  const container = document.getElementById("files");
+  const status = document.getElementById("status");
+  for (const f of FILES){
+    try{
+      const res = await fetch(`/_campaign_code/files/${f.name}?t=${Date.now()}`, { cache:"no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const code = await res.text();
+      loaded.push({ ...f, code });
+      render(container, f, code);
+    }catch(e){
+      const d=document.createElement("div"); d.className="file";
+      d.innerHTML=`<div class="file__head"><div class="file__path">${esc(f.path)}</div><div class="file__meta">failed: ${esc(e.message)}</div></div>`;
+      container.appendChild(d);
+    }
+  }
+  status.textContent = `${loaded.length}/${FILES.length} files loaded`;
+}
+
+document.getElementById("dlAll").onclick = () => loaded.forEach(f => download(f.name, f.code));
+document.getElementById("copyAll").onclick = async (e) => {
+  const all = loaded.map(f => `/* ===== ${f.path} ===== */\n${f.code}`).join("\n\n");
+  try { await navigator.clipboard.writeText(all); }
+  catch { const t=document.createElement("textarea"); t.value=all; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); }
+  const b=e.currentTarget; b.textContent="Copied ✓"; b.classList.add("copied");
+  setTimeout(()=>{ b.textContent="Copy all (concatenated)"; b.classList.remove("copied"); }, 1600);
+};
+boot();
+</script>
+</body>
+</html>
