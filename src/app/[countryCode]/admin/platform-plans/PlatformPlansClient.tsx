@@ -11,16 +11,25 @@
 //      provider and plan levels apply, because there is no FX to mark up — and
 //      the per-plan row lives in the catalog below, where it is set against a
 //      real plan instead of a pasted id.
-//   2. Plan catalog — Provider | Plan | Cost as the row; every other field and
-//      the per-plan platform markup (the lever that raises a Lizzysub/Accragh
-//      cost at home) open in the row's dropdown.
+//   2. Plan catalog — the plans-list card UI: each plan is a card whose
+//      collapsed row is flag + name + badges + toggle, with the rest of its
+//      details and the per-plan platform markup (the lever that raises a
+//      Lizzysub/Accragh cost at home) opening in a dropdown on mobile and
+//      shown inline on desktop. The list infinite-scrolls.
 //
 // Adding a new plan is deliberately NOT here (deferred item 9): Lizzysub and
 // Accragh plans are seeded by SQL.
 
-import { Fragment, useState, useTransition } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import { Check, ChevronDown, Loader2, Pencil } from "lucide-react";
 import ThemeSelect from "@/app/[countryCode]/dashboard/ThemeSelect";
+import { countryFlag } from "@/lib/storefront/countryLabel";
 import {
   deletePlatformMarkup,
   listPlatformMarkups,
@@ -138,15 +147,23 @@ export default function PlatformPlansClient({
   const [markupType, setMarkupType] = useState<MarkupType>("percentage");
   const [markupValue, setMarkupValue] = useState("12");
 
-  // Plan search
+  // Plan search + infinite scroll
   const [provider, setProvider] = useState("");
   const [countryCode, setCountryCode] = useState("");
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pendingSearch, setPendingSearch] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const pageSize = 50;
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // One in-flight page request at a time; a scroll tick while one is loading is
+  // dropped (the sentinel re-fires). A `replace` is never dropped.
+  const inFlight = useRef(false);
+  const reqSeq = useRef(0);
 
   // Catalog row dropdown + its per-plan markup editor
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [planMarkupType, setPlanMarkupType] = useState<MarkupType>("percentage");
   const [planMarkupValue, setPlanMarkupValue] = useState("");
 
@@ -159,21 +176,97 @@ export default function PlatformPlansClient({
     });
   };
 
-  const runSearch = (nextPage: number) => {
-    startTransition(async () => {
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  /**
+   * Fetch one page of plans. `replace` resets the list (a new filter search);
+   * otherwise the page is appended (infinite scroll). Each call takes a
+   * sequence number and only the newest applies its result, so a slow response
+   * cannot overwrite a newer filter.
+   */
+  const fetchPage = useCallback(
+    async (opts: {
+      offset: number;
+      replace: boolean;
+      provider: string;
+      countryCode: string;
+      search: string;
+    }) => {
+      if (!opts.replace) {
+        if (inFlight.current) return;
+        inFlight.current = true;
+      }
+      const seq = ++reqSeq.current;
+      if (opts.replace) setPendingSearch(true);
+      else setLoadingMore(true);
+
       const res = await searchPlatformPlans({
-        provider: provider || undefined,
-        countryCode: countryCode || undefined,
-        search: search || undefined,
-        page: nextPage,
+        provider: opts.provider || undefined,
+        countryCode: opts.countryCode || undefined,
+        search: opts.search || undefined,
+        page: opts.offset / pageSize,
         pageSize,
       });
-      setPlans(res.plans);
-      setTotal(res.total);
-      setPage(nextPage);
-      setExpandedPlanId(null);
+
+      if (seq === reqSeq.current) {
+        setPlans((prev) =>
+          opts.replace ? res.plans : [...prev, ...res.plans],
+        );
+        setTotal(res.total);
+      }
+
+      if (opts.replace) {
+        setPendingSearch(false);
+        setExpandedPlanId(null);
+        setEditingPlanId(null);
+      } else {
+        setLoadingMore(false);
+        inFlight.current = false;
+      }
+    },
+    [],
+  );
+
+  // A filter change (provider / country) or a Search click reloads from page 1.
+  const runSearch = () => {
+    void fetchPage({
+      offset: 0,
+      replace: true,
+      provider,
+      countryCode,
+      search,
     });
   };
+
+  // Infinite scroll: pull the next page as the sentinel nears the viewport.
+  const hasMore = plans.length < total;
+  useEffect(() => {
+    if (!hasMore || pendingSearch) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          void fetchPage({
+            offset: plans.length,
+            replace: false,
+            provider,
+            countryCode,
+            search,
+          });
+        }
+      },
+      { rootMargin: "600px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, pendingSearch, plans.length, provider, countryCode, search, fetchPage]);
 
   const onSaveMarkup = () => {
     startTransition(async () => {
@@ -229,8 +322,17 @@ export default function PlatformPlansClient({
           ? `Platform markup saved for ${plan.name}.`
           : res.error ?? "Failed",
       );
+      if (res.success) setEditingPlanId(null);
       refreshMarkups();
     });
+  };
+
+  /** Open the per-plan editor, seeded from the plan's current markup. */
+  const startEditPlanMarkup = (plan: PlatformPlanRow) => {
+    const existing = planMarkupFor(plan.id);
+    setEditingPlanId(plan.id);
+    setPlanMarkupType(existing?.markup_type ?? "percentage");
+    setPlanMarkupValue(existing ? String(existing.markup_value) : "");
   };
 
   const onTogglePlan = (plan: PlatformPlanRow) => {
@@ -249,11 +351,17 @@ export default function PlatformPlansClient({
     });
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-
   return (
     <div className="pp-page">
       <style>{`
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
         .pp-page {
           padding: 1.5rem;
           max-width: 1100px;
@@ -282,29 +390,118 @@ export default function PlatformPlansClient({
           flex-wrap: wrap;
           justify-content: flex-end;
         }
-        /* Catalog: the row is Provider | Plan | Cost; the chevron opens the
-           rest, including the per-plan markup editor. */
-        .pp-catalog-row {
-          cursor: pointer;
+        /* Catalog: the plans-list card UI. Each plan is a card; on desktop the
+           details wrapper is display: contents, so the card is a single row
+           (name + badges + toggle on the left, markup/price/profit inline) and
+           no chevron renders. On mobile it collapses to flag + name + toggle +
+           chevron and the details open in a dropdown. */
+        .pp-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.6rem;
+          margin-top: 14px;
         }
-        .pp-catalog-row:hover td {
+        .pp-card {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 1rem 1.25rem;
+          transition: all 0.2s;
+        }
+        .pp-card-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+        }
+        .pp-card-info {
+          flex: 1;
+          min-width: 180px;
+        }
+        .pp-card-title {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          flex-wrap: wrap;
+        }
+        .pp-card-details {
+          display: contents;
+        }
+        .pp-card-chevron {
+          display: none;
+        }
+        /* Desktop keeps the plan name and never shows the flag; the flag is a
+           mobile-only leading affordance. */
+        .pp-card-flag {
+          display: none;
+        }
+        .pp-card-edit-inline {
+          display: none !important;
+        }
+        .pp-card-edit-desktop {
+          display: inline-flex !important;
+        }
+        .pp-card-cost-line {
+          display: block;
+        }
+        .pp-badge {
+          font-size: 0.68rem;
+          color: var(--muted);
           background: var(--bg2);
+          border: 1px solid var(--border);
+          padding: 1px 7px;
+          border-radius: 100px;
+          white-space: nowrap;
         }
-        .pp-chevron {
+        .pp-toggle {
+          width: 40px;
+          height: 22px;
+          border-radius: 11px;
+          border: none;
+          position: relative;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: background 0.15s;
+        }
+        .pp-toggle.is-on {
+          background: #6EBD8A;
+        }
+        .pp-toggle.is-off {
+          background: var(--dim);
+        }
+        .pp-icon-btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          color: var(--muted);
-        }
-        .pp-detail-cell {
           background: var(--bg2);
-          border-top: 1px solid var(--border);
-          padding: 0 !important;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          color: var(--muted);
+          padding: 0.3rem;
+          cursor: pointer;
         }
-        .pp-detail {
-          padding: 0.9rem 1rem 1.1rem;
-          display: grid;
-          gap: 1rem;
+        .pp-icon-btn:hover {
+          color: var(--text);
+        }
+        .pp-stat {
+          text-align: right;
+        }
+        .pp-stat-label {
+          font-size: 0.66rem;
+          color: var(--dim);
+        }
+        .pp-stat-value {
+          font-size: 0.82rem;
+          color: var(--text);
+          font-weight: 600;
+        }
+        .pp-list-footer {
+          display: flex;
+          justify-content: center;
+          padding: 1rem;
+          color: var(--dim);
+          font-size: 0.78rem;
         }
         .pp-detail-grid {
           display: grid;
@@ -324,7 +521,7 @@ export default function PlatformPlansClient({
           border: 1px solid var(--border);
           border-radius: 10px;
           padding: 0.85rem;
-          background: var(--card);
+          background: var(--bg2);
         }
         .pp-markup-controls {
           display: grid;
@@ -347,6 +544,62 @@ export default function PlatformPlansClient({
           }
           .pp-actions {
             justify-content: flex-start;
+          }
+          /* Mobile: the collapsed row is flag + name + toggle + chevron; the
+             rest opens in the dropdown. */
+          .pp-card-cost-line {
+            display: none;
+          }
+          .pp-card-details {
+            display: none;
+          }
+          .pp-card--expanded .pp-card-details {
+            display: block;
+            flex-basis: 100%;
+          }
+          .pp-card--expanded .pp-card-cost-line {
+            display: block;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+          }
+          .pp-card-edit-inline {
+            display: inline-flex !important;
+          }
+          .pp-card-edit-desktop {
+            display: none !important;
+          }
+          .pp-card-title {
+            flex-wrap: nowrap;
+          }
+          .pp-card-title h3 {
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          /* Mobile: the flag replaces the name when expanded, so the flag sits
+             left of the badges and grows to pin the toggle and chevron right. */
+          .pp-card-flag {
+            display: none;
+          }
+          .pp-card--expanded .pp-card-flag {
+            display: inline-flex;
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          .pp-card--expanded .pp-card-name {
+            display: none;
+          }
+          .pp-card-chevron {
+            display: inline-flex;
+            align-items: center;
+            color: var(--dim);
+            transition: transform 0.2s;
+          }
+          .pp-card--expanded .pp-card-chevron {
+            transform: rotate(180deg);
+          }
+          .pp-card-toggle.is-off {
+            background: #EF4444;
           }
         }
       `}</style>
@@ -532,8 +785,8 @@ export default function PlatformPlansClient({
           Plan catalog
         </h2>
         <p style={{ color: "var(--muted)", fontSize: "0.8rem", marginBottom: 14 }}>
-          Each row is just the provider, the plan and its raw cost. Open a row
-          for the rest of its details, to enable or disable it, and to set the
+          Each card shows the plan and its raw cost, with a switch to enable or
+          disable it. Open a card for the rest of its details and to set the
           platform markup that raises its cost for the reseller. Disabling hides
           a plan from every store. Adding a new plan is done by SQL for now.
         </p>
@@ -568,12 +821,15 @@ export default function PlatformPlansClient({
               value={search}
               placeholder="name or plan id"
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") runSearch();
+              }}
             />
           </label>
         </div>
 
-        <button style={btnStyle} onClick={() => runSearch(0)} disabled={pending}>
-          {pending ? "Searching…" : "Search"}
+        <button style={btnStyle} onClick={runSearch} disabled={pendingSearch}>
+          {pendingSearch ? "Searching…" : "Search"}
         </button>
 
         <div
@@ -583,253 +839,300 @@ export default function PlatformPlansClient({
             fontSize: "0.78rem",
           }}
         >
-          {total} plan{total === 1 ? "" : "s"} — page {page + 1} of {totalPages}
+          {total.toLocaleString()} plan{total === 1 ? "" : "s"} — showing{" "}
+          {plans.length.toLocaleString()}
         </div>
 
-        <div className="pp-table-wrap">
-          <table
-            style={{
-              width: "100%",
-              marginTop: 8,
-              borderCollapse: "collapse",
-              fontSize: "0.8rem",
-            }}
-          >
-            <thead>
-              <tr style={{ color: "var(--muted)", textAlign: "left" }}>
-                <th style={{ padding: "6px 4px" }}>Provider</th>
-                <th style={{ padding: "6px 4px" }}>Plan</th>
-                <th style={{ padding: "6px 4px" }}>Cost</th>
-                <th style={{ padding: "6px 4px", width: 40 }} />
-              </tr>
-            </thead>
-            <tbody>
-              {plans.length === 0 && (
-                <tr>
-                  <td colSpan={4} style={{ padding: 10, color: "var(--dim)" }}>
-                    No plans match.
-                  </td>
-                </tr>
-              )}
-              {plans.map((plan) => {
-                const isExpanded = expandedPlanId === plan.id;
-                const planMarkup = planMarkupFor(plan.id);
-                return (
-                  <Fragment key={plan.id}>
-                    <tr
-                      className="pp-catalog-row"
-                      onClick={() =>
-                        setExpandedPlanId(isExpanded ? null : plan.id)
-                      }
-                      aria-expanded={isExpanded}
+        <div className="pp-list">
+          {plans.length === 0 && (
+            <div
+              className="pp-card"
+              style={{ textAlign: "center", color: "var(--dim)" }}
+            >
+              No plans match.
+            </div>
+          )}
+          {plans.map((plan) => {
+            const isExpanded = expandedPlanId === plan.id;
+            const isEditing = editingPlanId === plan.id;
+            const planMarkup = planMarkupFor(plan.id);
+            return (
+              <div
+                key={plan.id}
+                className={`pp-card${isExpanded ? " pp-card--expanded" : ""}`}
+                style={{ opacity: plan.is_active ? 1 : 0.6 }}
+              >
+                <div className="pp-card-row">
+                  {/* Plan info */}
+                  <div className="pp-card-info">
+                    <div
+                      className="pp-card-title"
+                      role={isMobile ? "button" : undefined}
+                      tabIndex={isMobile ? 0 : undefined}
+                      aria-expanded={isMobile ? isExpanded : undefined}
+                      aria-label={isMobile ? plan.name : undefined}
+                      onClick={() => {
+                        if (!isMobile) return;
+                        setExpandedPlanId(isExpanded ? null : plan.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (!isMobile) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setExpandedPlanId(isExpanded ? null : plan.id);
+                        }
+                      }}
                     >
-                      <td style={{ padding: "8px 4px" }}>{plan.provider}</td>
-                      <td style={{ padding: "8px 4px" }}>{plan.name}</td>
-                      <td style={{ padding: "8px 4px" }}>
-                        {formatAmount(plan.base_price, plan.currency)}
-                      </td>
-                      <td style={{ padding: "8px 4px", textAlign: "right" }}>
-                        <span className="pp-chevron" aria-hidden="true">
-                          {isExpanded ? (
-                            <ChevronUp size={16} />
-                          ) : (
-                            <ChevronDown size={16} />
-                          )}
+                      <span className="pp-card-flag" aria-hidden="true">
+                        {countryFlag(plan.country_code || "")}
+                      </span>
+                      <h3
+                        className="pp-card-name"
+                        style={{
+                          fontWeight: 600,
+                          color: "var(--text)",
+                          fontSize: "0.95rem",
+                        }}
+                      >
+                        {plan.name}
+                      </h3>
+                      <span className="pp-badge">{plan.provider}</span>
+                      <span className="pp-badge">
+                        {(plan.country_code || "").toUpperCase()}
+                      </span>
+                      {plan.network && (
+                        <span className="pp-badge">{plan.network}</span>
+                      )}
+                      {plan.price_type === "RANGE" && (
+                        <span
+                          className="pp-badge"
+                          style={{ color: "var(--brand-color)", fontWeight: 600 }}
+                        >
+                          Range
                         </span>
-                      </td>
-                    </tr>
-                    {isExpanded && (
-                      <tr>
-                        <td colSpan={4} className="pp-detail-cell">
-                          <div className="pp-detail">
-                            <div className="pp-detail-grid">
-                              <div>
-                                <span className="pp-detail-label">
-                                  Provider plan ID
-                                </span>
-                                {plan.provider_plan_id}
-                              </div>
-                              <div>
-                                <span className="pp-detail-label">Country</span>
-                                {plan.country_code.toUpperCase()}
-                              </div>
-                              <div>
-                                <span className="pp-detail-label">Network</span>
-                                {plan.network ?? "—"}
-                              </div>
-                              <div>
-                                <span className="pp-detail-label">Category</span>
-                                {plan.category}
-                              </div>
-                              <div>
-                                <span className="pp-detail-label">
-                                  Price type
-                                </span>
-                                {plan.price_type ?? "fixed"}
-                              </div>
-                              <div>
-                                <span className="pp-detail-label">Currency</span>
-                                {plan.currency}
-                              </div>
-                              <div>
-                                <span className="pp-detail-label">Status</span>
-                                <span
-                                  style={{
-                                    color: plan.is_active
-                                      ? "var(--green)"
-                                      : "var(--dim)",
-                                  }}
-                                >
-                                  {plan.is_active ? "Active" : "Inactive"}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="pp-detail-label">
-                                  Reseller sees (home)
-                                </span>
-                                {homeBasisLabel(plan, planMarkup)}
-                              </div>
-                            </div>
+                      )}
+                      <button
+                        className={`pp-toggle ${plan.is_active ? "is-on" : "is-off"}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Toggling a plan opens its details on mobile.
+                          if (isMobile) setExpandedPlanId(plan.id);
+                          onTogglePlan(plan);
+                        }}
+                        aria-pressed={plan.is_active}
+                        aria-label={plan.is_active ? "Disable plan" : "Enable plan"}
+                      >
+                        <div
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: "50%",
+                            background: "#fff",
+                            position: "absolute",
+                            top: 2,
+                            left: plan.is_active ? 20 : 2,
+                            transition: "left 0.15s",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                          }}
+                        />
+                      </button>
+                      <span className="pp-card-chevron" aria-hidden="true">
+                        <ChevronDown size={16} />
+                      </span>
+                    </div>
+                    <div className="pp-card-cost-line">
+                      <p
+                        style={{
+                          fontSize: "0.78rem",
+                          color: "var(--dim)",
+                          marginTop: 3,
+                        }}
+                      >
+                        Cost:{" "}
+                        <strong style={{ color: "var(--text)" }}>
+                          {formatAmount(plan.base_price, plan.currency)}
+                        </strong>
+                      </p>
+                      {/* Mobile: edit the markup while the card is open. */}
+                      {plan.is_active && !isEditing && isExpanded && (
+                        <button
+                          className="pp-card-edit-inline pp-icon-btn"
+                          onClick={() => startEditPlanMarkup(plan)}
+                          title="Edit markup"
+                          aria-label="Edit markup"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
-                            <div className="pp-markup-box">
-                              <div
-                                style={{
-                                  fontWeight: 600,
-                                  fontSize: "0.82rem",
-                                  marginBottom: 2,
-                                }}
-                              >
-                                Platform markup (this plan)
-                              </div>
-                              <p
-                                style={{
-                                  color: "var(--muted)",
-                                  fontSize: "0.75rem",
-                                  marginBottom: 10,
-                                }}
-                              >
-                                Raises this plan&apos;s cost for the reseller at
-                                home. Percentage is applied to the raw cost
-                                (Lizzysub NGN, Accragh GHS); a fixed amount is
-                                applied in USD. Leave it clear to sell at raw
-                                cost.
-                              </p>
-                              <div className="pp-markup-controls">
-                                <label
-                                  style={{
-                                    fontSize: "0.75rem",
-                                    color: "var(--muted)",
-                                  }}
-                                >
-                                  Type
-                                  <ThemeSelect
-                                    value={planMarkupType}
-                                    onChange={(v) =>
-                                      setPlanMarkupType(v as MarkupType)
-                                    }
-                                    options={[
-                                      {
-                                        value: "percentage",
-                                        label: "Percentage",
-                                      },
-                                      { value: "fixed", label: "Fixed amount" },
-                                    ]}
-                                    ariaLabel="Plan markup type"
-                                    style={{ ...inputStyle, marginTop: 4 }}
-                                  />
-                                </label>
-                                <label
-                                  style={{
-                                    fontSize: "0.75rem",
-                                    color: "var(--muted)",
-                                  }}
-                                >
-                                  Value
-                                  <input
-                                    style={{ ...inputStyle, marginTop: 4 }}
-                                    inputMode="decimal"
-                                    placeholder={
-                                      planMarkup
-                                        ? String(planMarkup.markup_value)
-                                        : "0"
-                                    }
-                                    value={planMarkupValue}
-                                    onChange={(e) =>
-                                      setPlanMarkupValue(e.target.value)
-                                    }
-                                  />
-                                </label>
-                              </div>
-                              <div className="pp-inline-actions">
-                                <button
-                                  style={btnStyle}
-                                  onClick={() => onSavePlanMarkup(plan)}
-                                  disabled={pending}
-                                >
-                                  Save markup
-                                </button>
-                                {planMarkup && (
-                                  <button
-                                    style={ghostBtnStyle}
-                                    onClick={() => onDeleteMarkup(planMarkup)}
-                                    disabled={pending}
-                                  >
-                                    Clear markup
-                                  </button>
-                                )}
-                                <button
-                                  style={ghostBtnStyle}
-                                  onClick={() => onTogglePlan(plan)}
-                                  disabled={pending}
-                                >
-                                  {plan.is_active
-                                    ? "Disable plan"
-                                    : "Enable plan"}
-                                </button>
-                              </div>
-                              {planMarkup && (
-                                <p
-                                  style={{
-                                    marginTop: 8,
-                                    fontSize: "0.72rem",
-                                    color: planMarkup.enabled
-                                      ? "var(--muted)"
-                                      : "var(--dim)",
-                                  }}
-                                >
-                                  Current: {planMarkup.markup_type}{" "}
-                                  {planMarkup.markup_value}
-                                  {planMarkup.enabled ? "" : " (disabled)"}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
+                  {/* Details — inline on desktop, dropdown on mobile */}
+                  <div className="pp-card-details">
+                    {isEditing ? (
+                      <div className="pp-markup-box">
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: "0.82rem",
+                            marginBottom: 2,
+                          }}
+                        >
+                          Platform markup (this plan)
+                        </div>
+                        <p
+                          style={{
+                            color: "var(--muted)",
+                            fontSize: "0.75rem",
+                            marginBottom: 10,
+                          }}
+                        >
+                          Raises this plan&apos;s cost for the reseller at home.
+                          Percentage is applied to the raw cost (Lizzysub NGN,
+                          Accragh GHS); a fixed amount is applied in USD. Leave
+                          it clear to sell at raw cost.
+                        </p>
+                        <div className="pp-markup-controls">
+                          <label
+                            style={{ fontSize: "0.75rem", color: "var(--muted)" }}
+                          >
+                            Type
+                            <ThemeSelect
+                              value={planMarkupType}
+                              onChange={(v) =>
+                                setPlanMarkupType(v as MarkupType)
+                              }
+                              options={[
+                                { value: "percentage", label: "Percentage" },
+                                { value: "fixed", label: "Fixed amount" },
+                              ]}
+                              ariaLabel="Plan markup type"
+                              style={{ ...inputStyle, marginTop: 4 }}
+                            />
+                          </label>
+                          <label
+                            style={{ fontSize: "0.75rem", color: "var(--muted)" }}
+                          >
+                            Value
+                            <input
+                              style={{ ...inputStyle, marginTop: 4 }}
+                              inputMode="decimal"
+                              autoFocus
+                              placeholder={
+                                planMarkup
+                                  ? String(planMarkup.markup_value)
+                                  : "0"
+                              }
+                              value={planMarkupValue}
+                              onChange={(e) =>
+                                setPlanMarkupValue(e.target.value)
+                              }
+                            />
+                          </label>
+                        </div>
+                        <div className="pp-inline-actions">
+                          <button
+                            style={btnStyle}
+                            onClick={() => onSavePlanMarkup(plan)}
+                            disabled={pending}
+                          >
+                            Save markup
+                          </button>
+                          {planMarkup && (
+                            <button
+                              style={ghostBtnStyle}
+                              onClick={() => onDeleteMarkup(planMarkup)}
+                              disabled={pending}
+                            >
+                              Clear markup
+                            </button>
+                          )}
+                          <button
+                            style={ghostBtnStyle}
+                            onClick={() => setEditingPlanId(null)}
+                            disabled={pending}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.9rem",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div className="pp-stat">
+                          <p className="pp-stat-label">Provider</p>
+                          <p className="pp-stat-value">{plan.provider}</p>
+                        </div>
+                        <div className="pp-stat">
+                          <p className="pp-stat-label">Provider plan ID</p>
+                          <p className="pp-stat-value">{plan.provider_plan_id}</p>
+                        </div>
+                        <div className="pp-stat">
+                          <p className="pp-stat-label">Country</p>
+                          <p className="pp-stat-value">
+                            {(plan.country_code || "").toUpperCase()}
+                          </p>
+                        </div>
+                        <div className="pp-stat">
+                          <p className="pp-stat-label">Network</p>
+                          <p className="pp-stat-value">{plan.network ?? "—"}</p>
+                        </div>
+                        <div className="pp-stat">
+                          <p className="pp-stat-label">Category</p>
+                          <p className="pp-stat-value">{plan.category}</p>
+                        </div>
+                        <div className="pp-stat">
+                          <p className="pp-stat-label">Price type</p>
+                          <p className="pp-stat-value">
+                            {plan.price_type ?? "fixed"}
+                          </p>
+                        </div>
+                        <div className="pp-stat">
+                          <p className="pp-stat-label">Reseller sees (home)</p>
+                          <p className="pp-stat-value">
+                            {homeBasisLabel(plan, planMarkup)}
+                          </p>
+                        </div>
+                        {plan.is_active && (
+                          <button
+                            className="pp-card-edit-desktop pp-icon-btn"
+                            onClick={() => startEditPlanMarkup(plan)}
+                            title="Edit markup"
+                            aria-label="Edit markup"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                      </div>
                     )}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-          <button
-            style={ghostBtnStyle}
-            onClick={() => runSearch(Math.max(0, page - 1))}
-            disabled={pending || page === 0}
-          >
-            Previous
-          </button>
-          <button
-            style={ghostBtnStyle}
-            onClick={() => runSearch(page + 1)}
-            disabled={pending || page + 1 >= totalPages}
-          >
-            Next
-          </button>
-        </div>
+        {hasMore && (
+          <div ref={sentinelRef} className="pp-list-footer">
+            {loadingMore ? (
+              <Loader2
+                size={18}
+                style={{ animation: "spin 1s linear infinite" }}
+              />
+            ) : (
+              "Scroll for more"
+            )}
+          </div>
+        )}
+        {!hasMore && plans.length > 0 && (
+          <p className="pp-list-footer">All plans shown</p>
+        )}
       </section>
     </div>
   );

@@ -719,25 +719,40 @@ feature yet, and the real pages live in **two** route trees.
   provider, or open one plan and set its per-plan row. Levels REPLACE, they do
   not stack (see `_shared/currency/markup.ts`): cross-border resolves country
   then default (12%); home resolves plan then provider, then nothing.
-- **The Plan catalog row is collapsed to Provider / Plan / Cost.** Everything
-  else — provider-plan id, country, network, category, price type, currency,
-  status, the reseller's home basis, and the per-plan markup editor
-  (type + value, Save/Clear) and Enable/Disable plan — opens in the row's
-  dropdown (`Fragment` + an extra `<tr>` with a full-width `pp-detail-cell`).
-  Expanding is exclusive (one row at a time) and resets on a new search/page.
-  The home basis is rendered by `homeBasisLabel`: `49 NGN` at raw cost,
-  `53.9 NGN (raw + 10%)` for a percentage plan markup, `49 NGN + 100 USD` for
-  a fixed one (a fixed markup is USD and cannot be added to a local cost
-  without the rate, so it is shown as raw + USD rather than invented).
+- **The Plan catalog is the dashboard's plans-list card UI, and it
+  infinite-scrolls.** Each plan is a card (`pp-card`) mirroring
+  `GlobalPlansPanel.tsx` / `PlansClient.tsx`: a collapsed row of flag (mobile)
+  + name + provider/country/network/Range badges + a real toggle switch + a
+  chevron, with a cost line under the name. On desktop the details wrapper is
+  `display: contents`, so the card is a single row — the detail stats
+  (provider-plan id, country, network, category, price type, the reseller's
+  home basis) and the edit pencil sit inline — and no chevron renders. On
+  mobile (≤767px) the card collapses to flag + name + toggle + chevron, the
+  cost line hides, and tapping the row (or using the toggle, which also
+  auto-opens it, `stopPropagation`ed) reveals the details; the flag replaces
+  the name in the leading slot when expanded so the toggle and chevron stay
+  pinned right. Expanding is exclusive (one card at a time).
+  **The per-plan markup editor** (type + value, Save/Clear/Cancel) opens from
+  the pencil and is seeded from the plan's current markup
+  (`startEditPlanMarkup`). The home basis is rendered by `homeBasisLabel`:
+  `49 NGN` at raw cost, `53.9 NGN (raw + 10%)` for a percentage plan markup,
+  `49 NGN + 100 USD` for a fixed one (a fixed markup is USD and cannot be added
+  to a local cost without the rate, so it is shown as raw + USD rather than
+  invented).
+  **Scrolling** replaces the old Previous/Next pager: an `IntersectionObserver`
+  sentinel (`rootMargin: 600px`) appends the next 50 via `fetchPage`, one
+  in-flight page at a time (`inFlight` ref) with newest-wins sequencing
+  (`reqSeq` ref); `hasMore = plans.length < total`. The Search button (and
+  Enter in the search box) reloads from page 1 via `fetchPage({ replace: true })`.
 - **Adding a new plan is deliberately out of scope** (deferred item 9): the
   person said Lizzysub/Accragh plans are added by SQL. Do not add a "new plan"
   form here without picking the pin up.
-- The page is **responsive** now: the markup table (six columns) and the
-  catalog table (four columns) sit inside a `.pp-table-wrap`
-  (`overflow-x: auto`, table `min-width: 520px`) so they scroll sideways on
-  phones instead of forcing the page wide; the two form grids
+- The page is **responsive** now: the markup table (six columns) sits inside a
+  `.pp-table-wrap` (`overflow-x: auto`, table `min-width: 520px`) so it scrolls
+  sideways on phones instead of forcing the page wide; the catalog is now the
+  card list (not a table), so it needs no sideways scroll; the two form grids
   collapse to one column and the row action buttons flex-wrap under 767px. If
-  you add a third table, wrap it the same way — an unwrapped wide table is what
+  you add a wide table, wrap it the same way — an unwrapped wide table is what
   makes `document.scrollWidth > clientWidth` (the page overflows sideways).
 - **The `.theme-select-*` rules live in `reseller.css`, not
   `dashboard-theme.css`.** They were moved because this admin page renders
