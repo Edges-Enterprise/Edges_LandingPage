@@ -561,7 +561,7 @@ export default function GlobalPlansPanel({
 
     const pretty = bulkType === "percentage" ? `${value}%` : fmt(value);
     const scopeLabel =
-      `${bulkCountry === "all" ? (t?.allCountries || "all countries") : bulkCountry.toUpperCase()}` +
+      `${bulkCountry === "all" ? (t?.allCountries || "All") : bulkCountry.toUpperCase()}` +
       ` / ${bulkNetwork === "all" ? (t?.allNetworks || "all networks") : bulkNetwork}`;
     const confirmMessage = bulkIsStoreWide
       ? `Apply a ${pretty} markup to every plan in every country and network? This sets your store-wide default markup.`
@@ -707,7 +707,7 @@ export default function GlobalPlansPanel({
                 }}
               >
                 {isAll ? (
-                  t?.allCountries || "All Countries"
+                  t?.allCountries || "All"
                 ) : (
                   <>
                     <span aria-hidden style={{ marginRight: 6 }}>
@@ -837,7 +837,7 @@ export default function GlobalPlansPanel({
             {bulkIsStoreWide
               ? t?.storeWideHint ||
                 "All countries + all networks sets your store-wide default markup"
-              : `${bulkCountry === "all" ? t?.allCountries || "All Countries" : bulkCountry.toUpperCase()} / ${
+              : `${bulkCountry === "all" ? t?.allCountries || "All" : bulkCountry.toUpperCase()} / ${
                   bulkNetwork === "all" ? t?.allNetworks || "All Networks" : bulkNetwork
                 }`}
           </span>
@@ -862,10 +862,10 @@ export default function GlobalPlansPanel({
                   label: (
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <span aria-hidden>🌍</span>
-                      {t?.allCountries || "All Countries"}
+                      {t?.allCountries || "All"}
                     </span>
                   ),
-                  text: t?.allCountries || "All Countries",
+                  text: t?.allCountries || "All",
                 },
                 ...countries.map((c) => ({
                   value: c.country,
