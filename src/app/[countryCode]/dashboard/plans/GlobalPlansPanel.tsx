@@ -43,6 +43,14 @@ import ThemeSelect from "../ThemeSelect";
 /** Rows per page — the world list pages 10 at a time behind Previous / Next. */
 const PAGE_SIZE = GLOBAL_PLANS_PAGE_SIZE;
 
+/**
+ * Label for the "every country" scope, used by the country picker tile, the
+ * Apply-To dropdown and the bulk scope summary. Deliberately local: only this
+ * panel shortens it to "All", so it must not live in the shared plans message
+ * file, which the local (single-country) view also reads.
+ */
+const ALL_COUNTRIES_LABEL = "All";
+
 interface GlobalPlansPanelProps {
   countryCode: string;
   config: CountryConfig;
@@ -561,7 +569,7 @@ export default function GlobalPlansPanel({
 
     const pretty = bulkType === "percentage" ? `${value}%` : fmt(value);
     const scopeLabel =
-      `${bulkCountry === "all" ? (t?.allCountries || "All") : bulkCountry.toUpperCase()}` +
+      `${bulkCountry === "all" ? (ALL_COUNTRIES_LABEL) : bulkCountry.toUpperCase()}` +
       ` / ${bulkNetwork === "all" ? (t?.allNetworks || "all networks") : bulkNetwork}`;
     const confirmMessage = bulkIsStoreWide
       ? `Apply a ${pretty} markup to every plan in every country and network? This sets your store-wide default markup.`
@@ -707,7 +715,7 @@ export default function GlobalPlansPanel({
                 }}
               >
                 {isAll ? (
-                  t?.allCountries || "All"
+                  ALL_COUNTRIES_LABEL
                 ) : (
                   <>
                     <span aria-hidden style={{ marginRight: 6 }}>
@@ -837,7 +845,7 @@ export default function GlobalPlansPanel({
             {bulkIsStoreWide
               ? t?.storeWideHint ||
                 "All countries + all networks sets your store-wide default markup"
-              : `${bulkCountry === "all" ? t?.allCountries || "All" : bulkCountry.toUpperCase()} / ${
+              : `${bulkCountry === "all" ? ALL_COUNTRIES_LABEL : bulkCountry.toUpperCase()} / ${
                   bulkNetwork === "all" ? t?.allNetworks || "All Networks" : bulkNetwork
                 }`}
           </span>
@@ -862,10 +870,10 @@ export default function GlobalPlansPanel({
                   label: (
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <span aria-hidden>🌍</span>
-                      {t?.allCountries || "All"}
+                      {ALL_COUNTRIES_LABEL}
                     </span>
                   ),
-                  text: t?.allCountries || "All",
+                  text: ALL_COUNTRIES_LABEL,
                 },
                 ...countries.map((c) => ({
                   value: c.country,
