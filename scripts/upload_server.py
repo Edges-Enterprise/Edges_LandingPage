@@ -17,10 +17,12 @@ and treat anything received as untrusted until reviewed.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import re
 import time
+import zipfile
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlparse
 
@@ -37,7 +39,7 @@ DEST = {
     "campaign-card.css": "src/components/campaign/campaign-card.css",
     "firstDepositCampaign.ts": "src/actions/reseller/campaigns/firstDepositCampaign.ts",
 }
-SAFE_EXT = {".ts", ".tsx", ".css", ".json", ".md", ".txt", ".patch", ".diff"}
+SAFE_EXT = {".ts", ".tsx", ".css", ".json", ".md", ".txt", ".patch", ".diff", ".zip"}
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
@@ -56,15 +58,62 @@ def target_for(name: str) -> str | None:
     return os.path.join(INBOX, name) if ext in SAFE_EXT else None
 
 
+def _extract_zip(name: str, data: bytes) -> dict:
+    """Extract a zip into .uploads/<name>.extracted/, then route each member.
+
+    Only allowlisted members are routed: a known campaign filename goes to its
+    real source path, any other allowlisted extension goes to the extracted
+    folder. Path separators are flattened, so a zip cannot escape the tree.
+    """
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    outdir = os.path.join(INBOX, f"{name}.{stamp}.extracted")
+    os.makedirs(outdir, exist_ok=True)
+    members: list[dict] = []
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        for info in zf.infolist():
+            if info.is_dir():
+                continue
+            base = os.path.basename(info.filename)
+            if not base or base.startswith(".") or not NAME_RE.match(base):
+                continue
+            ext = os.path.splitext(base)[1].lower()
+            if ext not in SAFE_EXT or ext == ".zip":
+                continue
+            payload = zf.read(info)
+            if base in DEST:
+                dest = os.path.join(ROOT, DEST[base])
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                with open(dest, "wb") as fh:
+                    fh.write(payload)
+                saved = os.path.relpath(dest, ROOT)
+            else:
+                dest = os.path.join(outdir, base)
+                with open(dest, "wb") as fh:
+                    fh.write(payload)
+                saved = os.path.relpath(dest, ROOT)
+            members.append(
+                {
+                    "name": base,
+                    "saved": saved,
+                    "bytes": len(payload),
+                    "sha256": hashlib.sha256(payload).hexdigest()[:16],
+                }
+            )
+    return {"name": name, "extracted_to": os.path.relpath(outdir, ROOT), "members": members}
+
+
 def save(name: str, data: bytes) -> dict:
     dest = target_for(name)
     if dest is None:
         return {"name": name, "error": "rejected: name not allowlisted"}
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
     os.makedirs(INBOX, exist_ok=True)
-    with open(dest, "wb") as fh:
-        fh.write(data)
+    # Keep the original archive/payload verbatim in the inbox first.
     with open(os.path.join(INBOX, name), "wb") as fh:
+        fh.write(data)
+    if name.lower().endswith(".zip"):
+        return _extract_zip(name, data)
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    with open(dest, "wb") as fh:
         fh.write(data)
     return {
         "name": name,
