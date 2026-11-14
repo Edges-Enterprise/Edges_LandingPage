@@ -1,13 +1,16 @@
 // src/components/campaign/FirstDepositCampaignCard.tsx
 //
-// The live campaign card shown at the top of the reseller dashboard. The card
-// headline always states the base reward in USD ($10) as the big flared hero;
-// the reseller's own currency equivalent sits directly beneath it, converted
-// at the live FX rate. The card renders only while the reseller is still
-// eligible (i.e. has not yet made an app-initiated deposit).
+// The live campaign card, shown as a non-blocking overlay over the reseller
+// dashboard. It is a floating banner, not a modal: nothing is dimmed or
+// blurred, the page behind stays fully visible and interactive (the layer
+// around the card is click-through), and the ONLY way to dismiss it is the
+// card's own X. The card headline always states the base reward in USD ($10) as
+// the big flared hero; the reseller's own currency equivalent sits directly
+// beneath it, converted at the live FX rate. The card renders only while the
+// reseller is still eligible (i.e. has not yet made an app-initiated deposit).
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import CampaignCard, { CampaignTheme } from "./CampaignCard";
 import { getFirstDepositCampaignState } from "@/actions/reseller/campaigns/firstDepositCampaign";
 import { formatCurrency } from "@/lib/utils/helpers";
@@ -66,7 +69,6 @@ export default function FirstDepositCampaignCard({
     appScheme: string | null;
   } | null>(null);
   const [dismissed, setDismissed] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -110,18 +112,6 @@ export default function FirstDepositCampaignCard({
     }
   }, []);
 
-  // A tap anywhere outside the card also dismisses it.
-  useEffect(() => {
-    if (dismissed) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        dismiss();
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [dismissed, dismiss]);
-
   // Render nothing until we know eligibility, and nothing once claimed or
   // dismissed.
   if (!state || !state.eligible || dismissed) return null;
@@ -163,7 +153,6 @@ export default function FirstDepositCampaignCard({
   return (
     <div className="campaign-ad-overlay">
       <div
-        ref={rootRef}
         className="first-deposit-campaign"
         style={
           brandColor

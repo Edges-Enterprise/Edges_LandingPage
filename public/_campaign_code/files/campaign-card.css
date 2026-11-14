@@ -22,28 +22,29 @@
    Declared on both the wrapper (reserves head-room) and the card. */
 .first-deposit-campaign,
 .goat-campaign-card {
-  --m-w: 92;
+  --m-w: 72;
   --m-ratio: 1.0433;
   --m-anchor: 0.5;
 }
 
 /* The ad floats over the dashboard rather than sitting in its flow: a
-   full-screen scrim (dimmed, click-through-to-dismiss) that centres the card.
-   The scrim is fixed, so the page underneath keeps its own scroll position and
-   the card never pushes the overview down. */
+   transparent, click-through layer that centres the card. Nothing is dimmed or
+   blurred — the page behind stays fully visible and fully usable (the layer is
+   `pointer-events: none`, and only the card itself re-enables them). The layer
+   is fixed, so the page underneath keeps its own scroll position and the card
+   never pushes the overview down. */
 .campaign-ad-overlay {
   position: fixed;
   inset: 0;
   z-index: 900;
   display: flex;
-  /* Scroll instead of clip: on a short viewport (e.g. landscape phone) the card
-     is taller than the screen, so the overlay scrolls to keep the mascot's head
-     and the CTA reachable. The card's own `margin: auto` does the centring. */
-  overflow-y: auto;
+  /* Non-blocking: every pointer/scroll event passes straight through to the
+     page behind. The card turns events back on for itself. */
+  pointer-events: none;
+  /* Nothing to scroll here — the layer is click-through, so a scrollbar on it
+     would be unusable. The card owns any overflow instead (see below). */
+  overflow: hidden;
   padding: 1rem;
-  background: rgba(0, 0, 0, 0.5);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
   animation: campaign-ad-fade 0.25s ease both;
 }
 
@@ -67,19 +68,25 @@
    and the room the CTA overhangs below. */
 .first-deposit-campaign {
   position: relative;
+  /* The layer around the card is click-through; the card itself takes events
+     back, so the ad is interactive while the page behind stays usable. */
+  pointer-events: auto;
   /* Same responsive rule as the welcome modal: cap on desktop, and always
      leave a 12px gutter on each side so it never overflows a narrow phone.
      The card scales from its own width (all type is in cqw), so this one
      number sizes the whole thing. */
   width: min(270px, calc(100% - 24px));
-  /* `auto` on both axes centres the card in the overlay's flex box, and lets it
-     scroll (rather than clip) when it is taller than a short viewport. */
+  /* `auto` on both axes centres the card in the overlay's flex box. The card
+     is the scroll container when it is taller than the viewport (the overlay
+     cannot be: it is click-through), so the mascot's head and the CTA stay
+     reachable on a short viewport. */
   margin: auto;
+  max-height: calc(100dvh - 2rem);
   /* The mascot's glow spills a little past the card; clip it horizontally so
      a phone never gets a sideways scroll. `clip` (not `hidden`) leaves the
-     vertical axis visible, so the head and the CTA still break out. */
+     vertical axis for the scroll above. */
   overflow-x: clip;
-  overflow-y: visible;
+  overflow-y: auto;
   /* The half of the CTA that hangs below the card lives INSIDE the wrapper's
      own box (padding, not margin), so a parent with overflow:hidden or
      rounded clipping can't cut the button off. */
