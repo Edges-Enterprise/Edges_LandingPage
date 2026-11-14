@@ -709,13 +709,33 @@ feature yet, and the real pages live in **two** route trees.
   empty for reads and silently fails for writes.
 - It sets platform markup at **default / country / provider / plan** (upsert on
   the `(scope, scope_key)` unique index) and **enables/disables** a plan
-  (`is_active`, which every catalog read already filters).
+  (`is_active`, which every catalog read already filters). The general
+  **Platform markup** form offers only **default / country / provider**
+  (`FormScope = Exclude<MarkupScope, "plan">`); the **plan** level is set
+  inline in the catalog dropdown, next to the real plan it targets, instead of
+  a pasted id.
+- **Platform markup is the lever that raises a Lizzysub/Accragh cost** at home:
+  set Provider = `lizzysub` (or `accragh`) to lift every plan from that
+  provider, or open one plan and set its per-plan row. Levels REPLACE, they do
+  not stack (see `_shared/currency/markup.ts`): cross-border resolves country
+  then default (12%); home resolves plan then provider, then nothing.
+- **The Plan catalog row is collapsed to Provider / Plan / Cost.** Everything
+  else — provider-plan id, country, network, category, price type, currency,
+  status, the reseller's home basis, and the per-plan markup editor
+  (type + value, Save/Clear) and Enable/Disable plan — opens in the row's
+  dropdown (`Fragment` + an extra `<tr>` with a full-width `pp-detail-cell`).
+  Expanding is exclusive (one row at a time) and resets on a new search/page.
+  The home basis is rendered by `homeBasisLabel`: `49 NGN` at raw cost,
+  `53.9 NGN (raw + 10%)` for a percentage plan markup, `49 NGN + 100 USD` for
+  a fixed one (a fixed markup is USD and cannot be added to a local cost
+  without the rate, so it is shown as raw + USD rather than invented).
 - **Adding a new plan is deliberately out of scope** (deferred item 9): the
   person said Lizzysub/Accragh plans are added by SQL. Do not add a "new plan"
   form here without picking the pin up.
-- The page is **responsive** now: both six-column tables sit inside a
-  `.pp-table-wrap` (`overflow-x: auto`, table `min-width: 560px`) so they scroll
-  sideways on phones instead of forcing the page wide; the two form grids
+- The page is **responsive** now: the markup table (six columns) and the
+  catalog table (four columns) sit inside a `.pp-table-wrap`
+  (`overflow-x: auto`, table `min-width: 520px`) so they scroll sideways on
+  phones instead of forcing the page wide; the two form grids
   collapse to one column and the row action buttons flex-wrap under 767px. If
   you add a third table, wrap it the same way — an unwrapped wide table is what
   makes `document.scrollWidth > clientWidth` (the page overflows sideways).

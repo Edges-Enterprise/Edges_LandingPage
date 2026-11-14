@@ -5,16 +5,21 @@
 // Platform-admin UI. Two panels:
 //
 //   1. Platform markup — set the platform's own cut at default / country /
-//      provider / plan. Levels REPLACE, they do not stack (see
-//      `_shared/currency/markup.ts`). At HOME (plan cost currency == store
-//      currency) only the plan and provider rows apply; cross-border uses
-//      country then default.
-//   2. Plan catalog — search, then enable/disable a plan (`is_active`).
+//      provider. Levels REPLACE, they do not stack (see
+//      `_shared/currency/markup.ts`). Cross-border plans resolve country then
+//      default; at HOME (plan cost currency == store currency) only the
+//      provider and plan levels apply, because there is no FX to mark up — and
+//      the per-plan row lives in the catalog below, where it is set against a
+//      real plan instead of a pasted id.
+//   2. Plan catalog — Provider | Plan | Cost as the row; every other field and
+//      the per-plan platform markup (the lever that raises a Lizzysub/Accragh
+//      cost at home) open in the row's dropdown.
 //
 // Adding a new plan is deliberately NOT here (deferred item 9): Lizzysub and
 // Accragh plans are seeded by SQL.
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import ThemeSelect from "@/app/[countryCode]/dashboard/ThemeSelect";
 import {
   deletePlatformMarkup,
@@ -28,11 +33,13 @@ import {
   type PlatformPlanRow,
 } from "@/app/actions/platform-plans";
 
-const SCOPE_LABEL: Record<MarkupScope, string> = {
+/** The levels the general markup card sets; per-plan is in the catalog. */
+type FormScope = Exclude<MarkupScope, "plan">;
+
+const SCOPE_LABEL: Record<FormScope, string> = {
   default: "Default (every plan)",
   country: "Country",
   provider: "Provider",
-  plan: "Plan",
 };
 
 const PROVIDERS = ["lizzysub", "accragh", "zendit"];
@@ -83,6 +90,36 @@ const ghostBtnStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+/** The raw cost after a percentage markup — the home basis the reseller sees. */
+function homePriceAfter(base: number, type: MarkupType, value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return base;
+  return type === "percentage" ? base * (1 + value / 100) : base;
+}
+
+function formatAmount(value: number, currency: string): string {
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`;
+}
+
+/**
+ * The reseller's home basis for one plan. A percentage markup raises the raw
+ * cost in its own currency; a fixed markup is USD, so it cannot be added to a
+ * local cost without the rate — it is shown as raw cost plus the USD amount.
+ */
+function homeBasisLabel(
+  plan: PlatformPlanRow,
+  markup: MarkupRow | undefined,
+): string {
+  const raw = formatAmount(plan.base_price, plan.currency);
+  if (!markup || !markup.enabled) return raw;
+  if (markup.markup_type === "percentage") {
+    return `${formatAmount(
+      homePriceAfter(plan.base_price, "percentage", markup.markup_value),
+      plan.currency,
+    )} (raw + ${markup.markup_value}%)`;
+  }
+  return `${raw} + ${markup.markup_value} USD`;
+}
+
 export default function PlatformPlansClient({
   adminEmail,
   initialMarkups,
@@ -95,8 +132,8 @@ export default function PlatformPlansClient({
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
 
-  // Markup form
-  const [scope, setScope] = useState<MarkupScope>("default");
+  // General markup form (default / country / provider)
+  const [scope, setScope] = useState<FormScope>("default");
   const [scopeKey, setScopeKey] = useState("*");
   const [markupType, setMarkupType] = useState<MarkupType>("percentage");
   const [markupValue, setMarkupValue] = useState("12");
@@ -107,6 +144,14 @@ export default function PlatformPlansClient({
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const pageSize = 50;
+
+  // Catalog row dropdown + its per-plan markup editor
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
+  const [planMarkupType, setPlanMarkupType] = useState<MarkupType>("percentage");
+  const [planMarkupValue, setPlanMarkupValue] = useState("");
+
+  const planMarkupFor = (planId: string): MarkupRow | undefined =>
+    markups.find((m) => m.scope === "plan" && m.scope_key === planId);
 
   const refreshMarkups = () => {
     startTransition(async () => {
@@ -126,6 +171,7 @@ export default function PlatformPlansClient({
       setPlans(res.plans);
       setTotal(res.total);
       setPage(nextPage);
+      setExpandedPlanId(null);
     });
   };
 
@@ -165,6 +211,28 @@ export default function PlatformPlansClient({
     });
   };
 
+  const onSavePlanMarkup = (plan: PlatformPlanRow) => {
+    if (planMarkupValue.trim() === "") {
+      setMessage("Enter a markup value first.");
+      return;
+    }
+    startTransition(async () => {
+      const res = await savePlatformMarkup({
+        scope: "plan",
+        scopeKey: plan.id,
+        markupType: planMarkupType,
+        markupValue: Number(planMarkupValue),
+        enabled: true,
+      });
+      setMessage(
+        res.success
+          ? `Platform markup saved for ${plan.name}.`
+          : res.error ?? "Failed",
+      );
+      refreshMarkups();
+    });
+  };
+
   const onTogglePlan = (plan: PlatformPlanRow) => {
     startTransition(async () => {
       const res = await setPlanActive(plan.id, !plan.is_active);
@@ -191,16 +259,16 @@ export default function PlatformPlansClient({
           max-width: 1100px;
           margin: 0 auto;
         }
-        /* The markup and catalog tables carry six columns each. Below the
-           tablet breakpoint they scroll sideways rather than crushing the
-           columns or forcing the page wider than the viewport. */
+        /* The markup table carries six columns. Below the tablet breakpoint it
+           scrolls sideways rather than crushing the columns or forcing the page
+           wider than the viewport. */
         .pp-table-wrap {
           width: 100%;
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
         }
         .pp-table-wrap table {
-          min-width: 560px;
+          min-width: 520px;
         }
         .pp-grid {
           display: grid;
@@ -213,6 +281,62 @@ export default function PlatformPlansClient({
           gap: 6px;
           flex-wrap: wrap;
           justify-content: flex-end;
+        }
+        /* Catalog: the row is Provider | Plan | Cost; the chevron opens the
+           rest, including the per-plan markup editor. */
+        .pp-catalog-row {
+          cursor: pointer;
+        }
+        .pp-catalog-row:hover td {
+          background: var(--bg2);
+        }
+        .pp-chevron {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--muted);
+        }
+        .pp-detail-cell {
+          background: var(--bg2);
+          border-top: 1px solid var(--border);
+          padding: 0 !important;
+        }
+        .pp-detail {
+          padding: 0.9rem 1rem 1.1rem;
+          display: grid;
+          gap: 1rem;
+        }
+        .pp-detail-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+          gap: 10px 18px;
+          font-size: 0.8rem;
+        }
+        .pp-detail-label {
+          color: var(--muted);
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          display: block;
+          margin-bottom: 2px;
+        }
+        .pp-markup-box {
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 0.85rem;
+          background: var(--card);
+        }
+        .pp-markup-controls {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 10px;
+          align-items: end;
+        }
+        .pp-inline-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 10px;
         }
         @media (max-width: 767px) {
           .pp-page {
@@ -256,9 +380,15 @@ export default function PlatformPlansClient({
           Platform markup
         </h2>
         <p style={{ color: "var(--muted)", fontSize: "0.8rem", marginBottom: 14 }}>
-          Levels replace each other; they do not stack. At home (a plan whose
-          cost currency equals the store&apos;s) only the plan and provider
-          rows apply. Cross-border uses the country row, then the default.
+          The platform&apos;s own cut, added on top of the raw provider cost.
+          Levels replace each other; they do not stack. Cross-border plans
+          resolve the country row, then the default. At home (a plan whose cost
+          currency equals the store&apos;s, e.g. a Lizzysub NGN plan in an NG
+          store) only the Provider and Plan levels apply, because there is no
+          FX to mark up. So this is the lever that raises the Lizzysub or
+          Accragh cost: set Provider = lizzysub (or accragh) to lift every plan
+          from that provider, or open a single plan in the catalog below and
+          set its per-plan markup.
         </p>
 
         <div className="pp-grid">
@@ -267,12 +397,12 @@ export default function PlatformPlansClient({
             <ThemeSelect
               value={scope}
               onChange={(v) => {
-                const next = v as MarkupScope;
+                const next = v as FormScope;
                 setScope(next);
                 if (next === "default") setScopeKey("*");
                 else setScopeKey("");
               }}
-              options={(["default", "country", "provider", "plan"] as MarkupScope[]).map(
+              options={(["default", "country", "provider"] as FormScope[]).map(
                 (s) => ({ value: s, label: SCOPE_LABEL[s] }),
               )}
               ariaLabel="Markup scope"
@@ -291,8 +421,6 @@ export default function PlatformPlansClient({
                   ? "ng"
                   : scope === "provider"
                   ? "lizzysub"
-                  : scope === "plan"
-                  ? "plan id (uuid)"
                   : "*"
               }
               onChange={(e) => setScopeKey(e.target.value)}
@@ -404,8 +532,10 @@ export default function PlatformPlansClient({
           Plan catalog
         </h2>
         <p style={{ color: "var(--muted)", fontSize: "0.8rem", marginBottom: 14 }}>
-          Search and enable or disable a plan. Disabling hides it from every
-          store. Adding a new plan is done by SQL for now.
+          Each row is just the provider, the plan and its raw cost. Open a row
+          for the rest of its details, to enable or disable it, and to set the
+          platform markup that raises its cost for the reseller. Disabling hides
+          a plan from every store. Adding a new plan is done by SQL for now.
         </p>
 
         <div className="pp-grid" style={{ marginBottom: 12 }}>
@@ -469,55 +599,217 @@ export default function PlatformPlansClient({
               <tr style={{ color: "var(--muted)", textAlign: "left" }}>
                 <th style={{ padding: "6px 4px" }}>Provider</th>
                 <th style={{ padding: "6px 4px" }}>Plan</th>
-                <th style={{ padding: "6px 4px" }}>Country</th>
                 <th style={{ padding: "6px 4px" }}>Cost</th>
-                <th style={{ padding: "6px 4px" }}>Status</th>
-                <th style={{ padding: "6px 4px" }} />
+                <th style={{ padding: "6px 4px", width: 40 }} />
               </tr>
             </thead>
             <tbody>
               {plans.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: 10, color: "var(--dim)" }}>
+                  <td colSpan={4} style={{ padding: 10, color: "var(--dim)" }}>
                     No plans match.
                   </td>
                 </tr>
               )}
-              {plans.map((plan) => (
-                <tr key={plan.id} style={{ borderTop: "1px solid var(--border)" }}>
-                  <td style={{ padding: "8px 4px" }}>{plan.provider}</td>
-                  <td style={{ padding: "8px 4px" }}>
-                    <div>{plan.name}</div>
-                    <div style={{ color: "var(--dim)", fontSize: "0.72rem" }}>
-                      {plan.provider_plan_id}
-                    </div>
-                  </td>
-                  <td style={{ padding: "8px 4px" }}>
-                    {plan.country_code.toUpperCase()}
-                  </td>
-                  <td style={{ padding: "8px 4px" }}>
-                    {plan.base_price} {plan.currency}
-                  </td>
-                  <td style={{ padding: "8px 4px" }}>
-                    <span
-                      style={{
-                        color: plan.is_active ? "var(--green)" : "var(--dim)",
-                      }}
+              {plans.map((plan) => {
+                const isExpanded = expandedPlanId === plan.id;
+                const planMarkup = planMarkupFor(plan.id);
+                return (
+                  <Fragment key={plan.id}>
+                    <tr
+                      className="pp-catalog-row"
+                      onClick={() =>
+                        setExpandedPlanId(isExpanded ? null : plan.id)
+                      }
+                      aria-expanded={isExpanded}
                     >
-                      {plan.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td style={{ padding: "8px 4px", textAlign: "right" }}>
-                    <button
-                      style={ghostBtnStyle}
-                      onClick={() => onTogglePlan(plan)}
-                      disabled={pending}
-                    >
-                      {plan.is_active ? "Disable" : "Enable"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                      <td style={{ padding: "8px 4px" }}>{plan.provider}</td>
+                      <td style={{ padding: "8px 4px" }}>{plan.name}</td>
+                      <td style={{ padding: "8px 4px" }}>
+                        {formatAmount(plan.base_price, plan.currency)}
+                      </td>
+                      <td style={{ padding: "8px 4px", textAlign: "right" }}>
+                        <span className="pp-chevron" aria-hidden="true">
+                          {isExpanded ? (
+                            <ChevronUp size={16} />
+                          ) : (
+                            <ChevronDown size={16} />
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={4} className="pp-detail-cell">
+                          <div className="pp-detail">
+                            <div className="pp-detail-grid">
+                              <div>
+                                <span className="pp-detail-label">
+                                  Provider plan ID
+                                </span>
+                                {plan.provider_plan_id}
+                              </div>
+                              <div>
+                                <span className="pp-detail-label">Country</span>
+                                {plan.country_code.toUpperCase()}
+                              </div>
+                              <div>
+                                <span className="pp-detail-label">Network</span>
+                                {plan.network ?? "—"}
+                              </div>
+                              <div>
+                                <span className="pp-detail-label">Category</span>
+                                {plan.category}
+                              </div>
+                              <div>
+                                <span className="pp-detail-label">
+                                  Price type
+                                </span>
+                                {plan.price_type ?? "fixed"}
+                              </div>
+                              <div>
+                                <span className="pp-detail-label">Currency</span>
+                                {plan.currency}
+                              </div>
+                              <div>
+                                <span className="pp-detail-label">Status</span>
+                                <span
+                                  style={{
+                                    color: plan.is_active
+                                      ? "var(--green)"
+                                      : "var(--dim)",
+                                  }}
+                                >
+                                  {plan.is_active ? "Active" : "Inactive"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="pp-detail-label">
+                                  Reseller sees (home)
+                                </span>
+                                {homeBasisLabel(plan, planMarkup)}
+                              </div>
+                            </div>
+
+                            <div className="pp-markup-box">
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                  fontSize: "0.82rem",
+                                  marginBottom: 2,
+                                }}
+                              >
+                                Platform markup (this plan)
+                              </div>
+                              <p
+                                style={{
+                                  color: "var(--muted)",
+                                  fontSize: "0.75rem",
+                                  marginBottom: 10,
+                                }}
+                              >
+                                Raises this plan&apos;s cost for the reseller at
+                                home. Percentage is applied to the raw cost
+                                (Lizzysub NGN, Accragh GHS); a fixed amount is
+                                applied in USD. Leave it clear to sell at raw
+                                cost.
+                              </p>
+                              <div className="pp-markup-controls">
+                                <label
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    color: "var(--muted)",
+                                  }}
+                                >
+                                  Type
+                                  <ThemeSelect
+                                    value={planMarkupType}
+                                    onChange={(v) =>
+                                      setPlanMarkupType(v as MarkupType)
+                                    }
+                                    options={[
+                                      {
+                                        value: "percentage",
+                                        label: "Percentage",
+                                      },
+                                      { value: "fixed", label: "Fixed amount" },
+                                    ]}
+                                    ariaLabel="Plan markup type"
+                                    style={{ ...inputStyle, marginTop: 4 }}
+                                  />
+                                </label>
+                                <label
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    color: "var(--muted)",
+                                  }}
+                                >
+                                  Value
+                                  <input
+                                    style={{ ...inputStyle, marginTop: 4 }}
+                                    inputMode="decimal"
+                                    placeholder={
+                                      planMarkup
+                                        ? String(planMarkup.markup_value)
+                                        : "0"
+                                    }
+                                    value={planMarkupValue}
+                                    onChange={(e) =>
+                                      setPlanMarkupValue(e.target.value)
+                                    }
+                                  />
+                                </label>
+                              </div>
+                              <div className="pp-inline-actions">
+                                <button
+                                  style={btnStyle}
+                                  onClick={() => onSavePlanMarkup(plan)}
+                                  disabled={pending}
+                                >
+                                  Save markup
+                                </button>
+                                {planMarkup && (
+                                  <button
+                                    style={ghostBtnStyle}
+                                    onClick={() => onDeleteMarkup(planMarkup)}
+                                    disabled={pending}
+                                  >
+                                    Clear markup
+                                  </button>
+                                )}
+                                <button
+                                  style={ghostBtnStyle}
+                                  onClick={() => onTogglePlan(plan)}
+                                  disabled={pending}
+                                >
+                                  {plan.is_active
+                                    ? "Disable plan"
+                                    : "Enable plan"}
+                                </button>
+                              </div>
+                              {planMarkup && (
+                                <p
+                                  style={{
+                                    marginTop: 8,
+                                    fontSize: "0.72rem",
+                                    color: planMarkup.enabled
+                                      ? "var(--muted)"
+                                      : "var(--dim)",
+                                  }}
+                                >
+                                  Current: {planMarkup.markup_type}{" "}
+                                  {planMarkup.markup_value}
+                                  {planMarkup.enabled ? "" : " (disabled)"}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
