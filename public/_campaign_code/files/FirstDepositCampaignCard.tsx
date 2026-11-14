@@ -7,7 +7,7 @@
 // eligible (i.e. has not yet made an app-initiated deposit).
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import CampaignCard, { CampaignTheme } from "./CampaignCard";
 import { getFirstDepositCampaignState } from "@/actions/reseller/campaigns/firstDepositCampaign";
 import { formatCurrency } from "@/lib/utils/helpers";
@@ -45,6 +45,9 @@ interface FirstDepositCampaignCardProps {
 /** The base reward, always shown as USD. */
 const USD_REWARD = 10;
 
+/** Remembers that the reseller dismissed the card, so it stays closed. */
+const DISMISS_KEY = "edges:first-deposit-campaign:dismissed";
+
 export default function FirstDepositCampaignCard({
   brandColor,
   theme = "brand",
@@ -62,6 +65,8 @@ export default function FirstDepositCampaignCard({
     packageName: string | null;
     appScheme: string | null;
   } | null>(null);
+  const [dismissed, setDismissed] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -73,8 +78,39 @@ export default function FirstDepositCampaignCard({
     };
   }, []);
 
-  // Render nothing until we know eligibility, and nothing once claimed.
-  if (!state || !state.eligible) return null;
+  // Honour a previous dismissal (this browser only).
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(DISMISS_KEY) === "1") setDismissed(true);
+    } catch {
+      /* localStorage can throw in private mode — treat as not dismissed. */
+    }
+  }, []);
+
+  const dismiss = useCallback(() => {
+    setDismissed(true);
+    try {
+      window.localStorage.setItem(DISMISS_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // A tap anywhere outside the card also dismisses it.
+  useEffect(() => {
+    if (dismissed) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        dismiss();
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [dismissed, dismiss]);
+
+  // Render nothing until we know eligibility, and nothing once claimed or
+  // dismissed.
+  if (!state || !state.eligible || dismissed) return null;
 
   const t = translations || {};
 
@@ -112,6 +148,7 @@ export default function FirstDepositCampaignCard({
 
   return (
     <div
+      ref={rootRef}
       className="first-deposit-campaign"
       style={
         brandColor
@@ -134,6 +171,7 @@ export default function FirstDepositCampaignCard({
           ],
           cta: t.cta || "Deposit now",
           onCta: openApp,
+          onClose: dismiss,
         }}
       />
     </div>

@@ -23,7 +23,7 @@
   .rate{margin:0 0 30px;font-size:.82rem;color:#9c826b}
   .rate b{color:#E7C9A6}
   .row{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start}
-  .cell{width:300px}
+  .cell{width:100%;max-width:420px}
   .cell h2{
     font-size:.78rem;font-weight:700;letter-spacing:.14em;
     text-transform:uppercase;color:#B89880;margin:0 0 6px;
@@ -72,6 +72,7 @@
     <h2>${store.cc} &middot; ${store.currency}</h2>
     <div class="first-deposit-campaign" style="--brand-color:${store.brand}">
       <article class="goat-campaign-card">
+        <button type="button" class="campaign-close" aria-label="Dismiss"><span aria-hidden="true">&#215;</span></button>
         <div class="campaign-panel" aria-hidden="true">
           <div class="campaign-atmosphere"></div>
           <div class="campaign-orb campaign-orb--one"></div>
@@ -116,6 +117,15 @@
     document.getElementById("row").innerHTML =
       STORES.map((s) => card(s, rates[s.currency] ?? FALLBACK[s.currency] ?? 1, live)).join("");
   }
+
+  // Dismissal demo: the X, or a tap anywhere outside the card, hides the cell.
+  document.addEventListener("click", (e) => {
+    const cell = e.target.closest(".cell");
+    if (!cell) return;
+    if (e.target.closest(".campaign-close") || !e.target.closest(".goat-campaign-card")) {
+      cell.style.display = "none";
+    }
+  });
 
   fetch("https://api.exchangerate-api.com/v4/latest/USD", { cache:"no-store" })
     .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })

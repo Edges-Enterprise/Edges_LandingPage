@@ -33,13 +33,21 @@
    and the room the CTA overhangs below. */
 .first-deposit-campaign {
   position: relative;
-  width: 100%;
-  max-width: 340px;
+  /* Same responsive rule as the welcome modal: cap on desktop, and always
+     leave a 12px gutter on each side so it never overflows a narrow phone.
+     The card scales from its own width (all type is in cqw), so this one
+     number sizes the whole thing. */
+  width: min(300px, calc(100% - 24px));
   margin-inline: auto;
+  /* The mascot's glow spills a little past the card; clip it horizontally so
+     a phone never gets a sideways scroll. `clip` (not `hidden`) leaves the
+     vertical axis visible, so the head and the CTA still break out. */
+  overflow-x: clip;
+  overflow-y: visible;
   /* The half of the CTA that hangs below the card lives INSIDE the wrapper's
      own box (padding, not margin), so a parent with overflow:hidden or
      rounded clipping can't cut the button off. */
-  padding-bottom: 3.6rem;
+  padding-bottom: 3rem;
   perspective: 1500px;
 }
 
@@ -55,7 +63,7 @@
   position: absolute;
   left: 12%;
   right: 12%;
-  bottom: 3.1rem;
+  bottom: 2.5rem;
   height: 34px;
   z-index: -1;
   border-radius: 50%;
@@ -114,12 +122,14 @@
     transparent 100%
   );
 
-  /* Glass tint — translucent, so the page behind shows through the frost. */
+  /* Glass tint — mostly opaque so the panel reads as frosted glass (like the
+     welcome modal), not a see-through tint; the blur still frosts the page
+     behind it. */
   --glass-fill: linear-gradient(
     168deg,
-    color-mix(in srgb, var(--primary) 22%, transparent) 0%,
-    color-mix(in srgb, var(--secondary) 26%, transparent) 52%,
-    color-mix(in srgb, var(--secondary) 34%, transparent) 100%
+    color-mix(in srgb, var(--primary) 72%, transparent) 0%,
+    color-mix(in srgb, var(--secondary) 80%, transparent) 52%,
+    color-mix(in srgb, var(--secondary) 88%, transparent) 100%
   );
 
   position: relative;
@@ -150,6 +160,49 @@
   .goat-campaign-card:hover {
     transform: rotateX(0deg) rotateY(0deg) translateY(-6px);
   }
+}
+
+/* ==========================================
+   CLOSE (X) — dismisses the card
+========================================== */
+
+.goat-campaign-card .campaign-close {
+  position: absolute;
+  top: 2.5cqw;
+  right: 2.5cqw;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 9cqw;
+  height: 9cqw;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: 1px solid var(--pill-border);
+  border-radius: 50%;
+  background: var(--pill-bg);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: var(--text);
+  font-family: var(--card-font-sans);
+  font-size: 5.4cqw;
+  line-height: 1;
+  cursor: pointer;
+  text-shadow: var(--text-halo);
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease;
+}
+
+.goat-campaign-card .campaign-close:hover {
+  transform: scale(1.08);
+  background: rgba(0, 0, 0, 0.52);
+}
+
+.goat-campaign-card .campaign-close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 
 /* ==========================================
@@ -917,6 +970,19 @@
 /* ==========================================
    RESPONSIVE + ACCESSIBILITY
 ========================================== */
+
+/* The card sizes itself with `width: min(300px, calc(100% - 24px))` and scales
+   from its own width (all type is in cqw), so no per-breakpoint overrides are
+   needed; the padding below the card just trims a little on small screens. */
+@media (max-width: 480px) {
+  .first-deposit-campaign {
+    padding-bottom: 2.6rem;
+  }
+
+  .first-deposit-campaign::after {
+    bottom: 2.2rem;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .goat-campaign-card,

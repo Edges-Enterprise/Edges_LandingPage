@@ -43,6 +43,8 @@ export interface CampaignConfig {
   cta: string;
   /** Called when the CTA is activated. */
   onCta?: () => void;
+  /** When set, a close (X) control is shown at the card's top-right. */
+  onClose?: () => void;
   /** Optional href; when set the CTA renders as a link. */
   ctaHref?: string;
   /** Colour identity. "brand" derives from the store's --brand-color. */
@@ -71,6 +73,7 @@ export default function CampaignCard({
     benefits = [],
     cta,
     onCta,
+    onClose,
     ctaHref,
     theme = "brand",
     mascotSrc = "/campaign/goat-mascot.webp",
@@ -102,6 +105,17 @@ export default function CampaignCard({
     <article
       className={`goat-campaign-card${themeClass}${className ? ` ${className}` : ""}`}
     >
+      {onClose && (
+        <button
+          type="button"
+          className="campaign-close"
+          aria-label="Dismiss"
+          onClick={onClose}
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      )}
+
       {/* The mascot's body: a glass dome with no top edge or top border. */}
       <div className="campaign-panel" aria-hidden="true">
         <div className="campaign-atmosphere" />
