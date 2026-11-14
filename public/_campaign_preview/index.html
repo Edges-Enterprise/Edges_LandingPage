@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mascot campaign card — live preview</title>
+<link rel="stylesheet" href="/campaign/preview.css">
+<style>
+  :root{
+    --font-display:'Playfair Display',Georgia,serif;
+    --font-sans:'Instrument Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;padding:44px 24px 72px;
+    font-family:var(--font-sans);
+    background:radial-gradient(circle at 20% 8%, #2a1a0d, #120a04 62%);
+    color:#F5E9D9;min-height:100vh;
+  }
+  .wrap{max-width:1240px;margin:0 auto}
+  h1{font-family:var(--font-display);font-weight:800;margin:0 0 6px;font-size:1.9rem}
+  .lede{max-width:880px;color:#C9AC92;font-size:.95rem;line-height:1.55;margin:0 0 8px}
+  .rate{margin:0 0 30px;font-size:.82rem;color:#9c826b}
+  .rate b{color:#E7C9A6}
+  .row{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start}
+  .cell{width:300px}
+  .cell h2{
+    font-size:.78rem;font-weight:700;letter-spacing:.14em;
+    text-transform:uppercase;color:#B89880;margin:0 0 6px;
+  }
+  .note{color:#8f735c;font-size:.72rem;margin-top:8px;min-height:2.2em}
+  .err{color:#ffb4a2}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Mascot campaign card — live preview</h1>
+  <p class="lede">
+    The mascot becomes the card: its head breaks above the top edge and its body
+    dissolves into the square glass panel where the copy sits. The headline is
+    always the base reward, <b>$10.00</b>; directly beneath it the same reward is
+    converted into the reseller's currency, live. The palette follows each
+    store's brand colour. No logo, no product name. The top border feathers into the mascot, and the amount is flared. The button deep-links into the app, falling back to the download.
+  </p>
+  <p class="rate" id="rateLine">Fetching the live USD rate…</p>
+  <div class="row" id="row"></div>
+</div>
+
+<script>
+  const USD_REWARD = 10;
+  const STORES = [
+    { cc:"NG", currency:"NGN", locale:"en-NG", brand:"#C98A54", mark:"E" },
+    { cc:"GH", currency:"GHS", locale:"en-GH", brand:"#0879E9", mark:"A" },
+    { cc:"KE", currency:"KES", locale:"en-KE", brand:"#792BD5", mark:"K" },
+    { cc:"ZA", currency:"ZAR", locale:"en-ZA", brand:"#0E7C66", mark:"S" },
+    { cc:"IN", currency:"INR", locale:"en-IN", brand:"#C2185B", mark:"R" },
+    { cc:"US", currency:"USD", locale:"en-US", brand:"#00A95C", mark:"G" }
+  ];
+  const FALLBACK = { NGN:1600, GHS:15.2, KES:129, ZAR:18.3, INR:83.4, USD:1 };
+  const fmt = (v,c,l) => new Intl.NumberFormat(l,{style:"currency",currency:c,maximumFractionDigits:2}).format(v);
+
+  function card(store, rate, live) {
+    const isUsd = store.currency === "USD";
+    const local = isUsd ? null : USD_REWARD * rate;
+    const conversion = local === null ? "" : `
+          <p class="campaign-conversion">
+            <span class="campaign-conversion__value">${fmt(local, store.currency, store.locale)}</span>
+            <span class="campaign-conversion__caption">at today's rate &middot; ${store.currency}</span>
+          </p>`;
+    return `
+  <div class="cell">
+    <h2>${store.cc} &middot; ${store.currency}</h2>
+    <div class="first-deposit-campaign" style="--brand-color:${store.brand}">
+      <article class="goat-campaign-card">
+        <div class="campaign-panel" aria-hidden="true">
+          <div class="campaign-atmosphere"></div>
+          <div class="campaign-orb campaign-orb--one"></div>
+          <div class="campaign-orb campaign-orb--two"></div>
+        </div>
+        <div class="campaign-mascot" aria-hidden="true" style="--mascot-url:url(/campaign/goat-mascot.webp)">
+          <div class="campaign-mascot__glow"></div>
+          <img class="campaign-mascot__image" src="/campaign/goat-mascot.webp" alt="">
+          <span class="campaign-mascot__grade"></span>
+        </div>
+        <div class="campaign-content">
+          <span class="campaign-eyebrow">LIMITED-TIME OFFER</span>
+          <h2 class="campaign-title">DEPOSIT IN THE APP.<br><span>GET $10.00 FREE.</span></h2>
+          ${conversion}
+          <div class="campaign-benefits">
+            <div class="campaign-benefit">&#9889; Instant top-up</div>
+            <div class="campaign-benefit">&#127873; Bonus credit</div>
+            <div class="campaign-benefit">&#128274; Secure deposit</div>
+          </div>
+          <button class="campaign-cta">Deposit now <span>&#8594;</span></button>
+        </div>
+      </article>
+    </div>
+    <div class="note">${isUsd ? "Wallet is USD &mdash; no conversion line." : (live ? "Live rate applied." : "Sample rate (live API unreachable).")}</div>
+  </div>`;
+  }
+
+  function render(rates, live) {
+    document.getElementById("row").innerHTML =
+      STORES.map((s) => card(s, rates[s.currency] ?? FALLBACK[s.currency] ?? 1, live)).join("");
+  }
+
+  fetch("https://api.exchangerate-api.com/v4/latest/USD", { cache:"no-store" })
+    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then((data) => {
+      render(data && data.rates ? data.rates : {}, true);
+      const stamp = data.date ? ` (published ${data.date})` : "";
+      document.getElementById("rateLine").innerHTML =
+        `Live USD rates from <b>exchangerate-api.com</b>${stamp} &mdash; the same source the dashboard uses.`;
+    })
+    .catch((e) => {
+      render(FALLBACK, false);
+      document.getElementById("rateLine").innerHTML =
+        `<span class="err">Could not reach the live rate API (${e.message}).</span> Showing sample rates.`;
+    });
+</script>
+</body>
+</html>

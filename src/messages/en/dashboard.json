@@ -41,5 +41,15 @@
   "shareStoreTitle": "Share your store",
   "shareStoreText": "Check out my store on {store} — order data, airtime and more!",
   "copyLink": "Copy link",
-  "copied": "Copied to clipboard"
+  "copied": "Copied to clipboard",
+  "campaign": {
+    "eyebrow": "LIMITED-TIME OFFER",
+    "headline": "DEPOSIT IN THE APP.",
+    "headlineAccent": "GET {amount} FREE.",
+    "benefit1": "⚡ Instant top-up",
+    "benefit2": "🎁 Bonus credit",
+    "benefit3": "🔒 Secure deposit",
+    "cta": "Deposit now",
+    "conversionCaption": "at today's rate"
+  }
 }

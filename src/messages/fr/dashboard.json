@@ -41,5 +41,15 @@
   "shareStoreTitle": "Partagez votre boutique",
   "shareStoreText": "Découvrez ma boutique {store} — data, crédit et plus encore !",
   "copyLink": "Copier le lien",
-  "copied": "Copié dans le presse-papiers"
+  "copied": "Copié dans le presse-papiers",
+  "campaign": {
+    "eyebrow": "LIMITED-TIME OFFER",
+    "headline": "DEPOSIT IN THE APP.",
+    "headlineAccent": "GET {amount} FREE.",
+    "benefit1": "⚡ Instant top-up",
+    "benefit2": "🎁 Bonus credit",
+    "benefit3": "🔒 Secure deposit",
+    "cta": "Deposit now",
+    "conversionCaption": "at today's rate"
+  }
 }

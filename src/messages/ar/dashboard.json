@@ -41,5 +41,15 @@
   "shareStoreTitle": "شارك متجرك",
   "shareStoreText": "تفقد متجري {store} — اشترِ البيانات والرصيد والمزيد!",
   "copyLink": "نسخ الرابط",
-  "copied": "تم النسخ إلى الحافظة"
+  "copied": "تم النسخ إلى الحافظة",
+  "campaign": {
+    "eyebrow": "LIMITED-TIME OFFER",
+    "headline": "DEPOSIT IN THE APP.",
+    "headlineAccent": "GET {amount} FREE.",
+    "benefit1": "⚡ Instant top-up",
+    "benefit2": "🎁 Bonus credit",
+    "benefit3": "🔒 Secure deposit",
+    "cta": "Deposit now",
+    "conversionCaption": "at today's rate"
+  }
 }

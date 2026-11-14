@@ -11,11 +11,10 @@
 //      provider and plan levels apply, because there is no FX to mark up — and
 //      the per-plan row lives in the catalog below, where it is set against a
 //      real plan instead of a pasted id.
-//   2. Plan catalog — the plans-list card UI: each plan is a card whose
-//      collapsed row is flag + name + badges + toggle, with the rest of its
-//      details and the per-plan platform markup (the lever that raises a
-//      Lizzysub/Accragh cost at home) opening in a dropdown on mobile and
-//      shown inline on desktop. The list infinite-scrolls.
+//   2. Plan catalog — each plan is a card whose collapsed title is
+//      Provider | Plan | Cost, with the rest of its details and the per-plan
+//      platform markup (the lever that raises a Lizzysub/Accragh cost at home)
+//      opening in a dropdown. The list infinite-scrolls.
 //
 // Adding a new plan is deliberately NOT here (deferred item 9): Lizzysub and
 // Accragh plans are seeded by SQL.
@@ -194,7 +193,6 @@ export default function PlatformPlansClient({
   const [search, setSearch] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
   const [pendingSearch, setPendingSearch] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const pageSize = 50;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   // One in-flight page request at a time; a scroll tick while one is loading is
@@ -216,14 +214,6 @@ export default function PlatformPlansClient({
       setMarkups(await listPlatformMarkups());
     });
   };
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
 
   /**
    * Fetch one page of plans. `replace` resets the list (a new filter search);
@@ -470,20 +460,44 @@ export default function PlatformPlansClient({
           gap: 0.75rem;
           flex-wrap: wrap;
         }
+        /* The details are a dropdown at every width: the collapsed row is the
+           Provider | Plan | Cost title plus the toggle and chevron, and the
+           rest opens underneath. */
         .pp-card-details {
-          display: contents;
-        }
-        .pp-card-chevron {
           display: none;
         }
-        .pp-card-edit-inline {
-          display: none !important;
-        }
-        .pp-card-edit-desktop {
-          display: inline-flex !important;
-        }
-        .pp-card-cost-line {
+        .pp-card--expanded .pp-card-details {
           display: block;
+          flex-basis: 100%;
+          margin-top: 0.85rem;
+          padding-top: 0.85rem;
+          border-top: 1px solid var(--border);
+        }
+        .pp-card-chevron {
+          display: inline-flex;
+          align-items: center;
+          color: var(--dim);
+          transition: transform 0.2s;
+        }
+        .pp-card--expanded .pp-card-chevron {
+          transform: rotate(180deg);
+        }
+        .pp-card-cost {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: var(--brand-color);
+          white-space: nowrap;
+        }
+        .pp-card-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.4rem;
+          margin-bottom: 0.7rem;
+        }
+        .pp-card-wholesale {
+          font-size: 0.78rem;
+          color: var(--dim);
+          margin: 0 0 0.75rem;
         }
         .pp-badge {
           font-size: 0.7rem;
@@ -492,6 +506,13 @@ export default function PlatformPlansClient({
           padding: 0.15rem 0.5rem;
           border-radius: 4px;
           white-space: nowrap;
+        }
+        .pp-badge--provider {
+          text-transform: capitalize;
+          color: var(--brand-color);
+          border: 1px solid color-mix(in srgb, var(--brand-color) 35%, transparent);
+          background: color-mix(in srgb, var(--brand-color) 12%, transparent);
+          font-weight: 600;
         }
         .pp-toggle {
           width: 40px;
@@ -550,45 +571,17 @@ export default function PlatformPlansClient({
           .pp-actions {
             justify-content: flex-start;
           }
-          /* Mobile: the collapsed row is name + toggle + chevron; the rest
-             opens in the dropdown. */
-          .pp-card-cost-line {
-            display: none;
-          }
-          .pp-card-details {
-            display: none;
-          }
-          .pp-card--expanded .pp-card-details {
-            display: block;
-            flex-basis: 100%;
-          }
-          .pp-card--expanded .pp-card-cost-line {
-            display: block;
-            margin-top: 0.75rem;
-            padding-top: 0.75rem;
-            border-top: 1px solid var(--border);
-          }
-          .pp-card-edit-inline {
-            display: inline-flex !important;
-          }
-          .pp-card-edit-desktop {
-            display: none !important;
-          }
+          /* Mobile: the title row keeps Provider | Plan | Cost on one line,
+             with the cost allowed to shrink; the rest stays in the dropdown. */
           .pp-card-title {
             flex-wrap: nowrap;
           }
           .pp-card-title h3 {
             flex: 1 1 auto;
             min-width: 0;
-          }
-          .pp-card-chevron {
-            display: inline-flex;
-            align-items: center;
-            color: var(--dim);
-            transition: transform 0.2s;
-          }
-          .pp-card--expanded .pp-card-chevron {
-            transform: rotate(180deg);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
           }
           .pp-toggle.is-off {
             background: #EF4444;
@@ -867,22 +860,25 @@ export default function PlatformPlansClient({
                   <div className="pp-card-info">
                     <div
                       className="pp-card-title"
-                      role={isMobile ? "button" : undefined}
-                      tabIndex={isMobile ? 0 : undefined}
-                      aria-expanded={isMobile ? isExpanded : undefined}
-                      aria-label={isMobile ? plan.name : undefined}
-                      onClick={() => {
-                        if (!isMobile) return;
-                        setExpandedPlanId(isExpanded ? null : plan.id);
-                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      aria-label={`${plan.provider} ${plan.name}`}
+                      onClick={() =>
+                        setExpandedPlanId(isExpanded ? null : plan.id)
+                      }
                       onKeyDown={(e) => {
-                        if (!isMobile) return;
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           setExpandedPlanId(isExpanded ? null : plan.id);
                         }
                       }}
                     >
+                      {/* Title = Provider | Plan | Cost. Everything else lives
+                          in the dropdown below. */}
+                      <span className="pp-badge pp-badge--provider">
+                        {plan.provider}
+                      </span>
                       <h3
                         className="pp-card-name"
                         style={{
@@ -893,27 +889,13 @@ export default function PlatformPlansClient({
                       >
                         {plan.name}
                       </h3>
-                      <span className="pp-badge">{plan.provider}</span>
-                      <span className="pp-badge">
-                        {(plan.country_code || "").toUpperCase()}
+                      <span className="pp-card-cost">
+                        {formatAmount(plan.base_price, plan.currency)}
                       </span>
-                      {plan.network && (
-                        <span className="pp-badge">{plan.network}</span>
-                      )}
-                      {plan.price_type === "RANGE" && (
-                        <span
-                          className="pp-badge"
-                          style={{ color: "var(--brand-color)", fontWeight: 600 }}
-                        >
-                          Range
-                        </span>
-                      )}
                       <button
                         className={`pp-toggle ${plan.is_active ? "is-on" : "is-off"}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          // Toggling a plan opens its details on mobile.
-                          if (isMobile) setExpandedPlanId(plan.id);
                           onTogglePlan(plan);
                         }}
                         aria-pressed={plan.is_active}
@@ -937,36 +919,39 @@ export default function PlatformPlansClient({
                         <ChevronDown size={16} />
                       </span>
                     </div>
-                    <div className="pp-card-cost-line">
-                      <p
-                        style={{
-                          fontSize: "0.78rem",
-                          color: "var(--dim)",
-                          marginTop: 3,
-                        }}
-                      >
-                        Wholesale:{" "}
-                        <strong style={{ color: "var(--text)" }}>
-                          {formatAmount(plan.base_price, plan.currency)}
-                        </strong>
-                      </p>
-                      {/* Mobile: edit the markup while the card is open. */}
-                      {plan.is_active && !isEditing && isExpanded && (
-                        <button
-                          className="pp-card-edit-inline"
-                          style={btnIconStyle}
-                          onClick={() => startEditPlanMarkup(plan)}
-                          title="Edit markup"
-                          aria-label="Edit markup"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                      )}
-                    </div>
                   </div>
 
-                  {/* Details — inline on desktop, dropdown on mobile */}
+                  {/* Details — always a dropdown, so the title row stays a
+                      clean Provider | Plan | Cost line. */}
                   <div className="pp-card-details">
+                    <div className="pp-card-meta">
+                      <span className="pp-badge">
+                        {(plan.country_code || "").toUpperCase() || "—"}
+                      </span>
+                      {plan.network && (
+                        <span className="pp-badge">{plan.network}</span>
+                      )}
+                      {plan.category && (
+                        <span className="pp-badge">{plan.category}</span>
+                      )}
+                      {plan.price_type === "RANGE" && (
+                        <span
+                          className="pp-badge"
+                          style={{ color: "var(--brand-color)", fontWeight: 600 }}
+                        >
+                          Range
+                        </span>
+                      )}
+                      <span className="pp-badge">
+                        {plan.provider_plan_id}
+                      </span>
+                    </div>
+                    <p className="pp-card-wholesale">
+                      Wholesale cost:{" "}
+                      <strong style={{ color: "var(--text)" }}>
+                        {formatAmount(plan.base_price, plan.currency)}
+                      </strong>
+                    </p>
                     {isEditing ? (
                       <div
                         style={{
@@ -1093,7 +1078,6 @@ export default function PlatformPlansClient({
                         </div>
                         {plan.is_active && (
                           <button
-                            className="pp-card-edit-desktop"
                             style={btnIconStyle}
                             onClick={() => startEditPlanMarkup(plan)}
                             title="Edit markup"

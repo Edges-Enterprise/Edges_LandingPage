@@ -847,3 +847,36 @@ Test logic with `deno test src/lib/onboarding/` (install deno via
 `/tmp/deno-g/node_modules/.bin/deno`). `next lint` is broken repo-wide
 (ESLint config throws `Converting circular structure to JSON`) — use
 `npx tsc --noEmit` for a fast gate.
+
+## Campaign card (reseller dashboard)
+
+- First-deposit promo card lives in `src/components/campaign/`
+  (`CampaignCard.tsx` + `campaign-card.css`, brand-adaptive wrapper
+  `FirstDepositCampaignCard.tsx`), mounted at the top of
+  `src/app/[countryCode]/dashboard/DashboardClient.tsx` for resellers only.
+- Reward model: headline always shows the base **USD $10**; the reseller's own
+  currency equivalent renders directly beneath it via the `conversion` prop.
+- FX: the conversion uses `getUsdToLocalRate()` from
+  `src/lib/currency/exchangeRate.ts` (provider `api.exchangerate-api.com/v4`,
+  1-hour cache). This is the single rate source — do not add a second.
+- Card styling uses container-query units (`cqw`) sized off the
+  `.first-deposit-campaign` wrapper, so it scales as one unit at any width.
+  The wrapper owns `perspective` + `container-type`; the card holds the tilt.
+- Mascot asset: `public/campaign/goat-mascot.webp`.
+- The mascot IS the card: its neck (image y≈26%) is pinned to the card's top
+  edge and the panel behind the copy is the mascot's body — the panel has no
+  top border. The mascot PNG is re-tinted to the reseller's brand by a
+  `mix-blend-mode: color` layer (`.campaign-mascot__grade`) masked to the
+  mascot's own alpha, so one asset recolours per brand.
+- The CTA is glass (frosted/translucent) and sits full-bleed ON the card's
+  bottom border. The CTA taps into the reseller app: Android uses an
+  `intent://` deep link with `browser_fallback_url` = the APK; iOS tries the
+  `edges-network://` scheme then falls back to the APK; desktop opens the APK.
+  `getFirstDepositCampaignState()` supplies `apkUrl` (latest `global_app_builds`
+  row), `packageName` (`global_reseller_app_configs.config`) and `appScheme`.
+- No reseller logo/brand mark is shown on the card — brand identity is carried
+  by the colour grade and the reseller's `--brand-color` palette alone.
+- Live preview (dev aid): `/public/_campaign_preview/index.html`, served
+  statically. Static server on port 12000; Next dev on 12001. The
+  `_campaign_preview` path collides with the `[countryCode]` route under Next,
+  so view it through the plain static server, not the Next dev server.

@@ -7,6 +7,7 @@ import RevenueChart from "./RevenueChart";
 import ActivityFeed from "./ActivityFeed";
 import ActivityDetailsModal, { ActivityItem } from "./ActivityDetailsModal";
 import QuickActions from "./QuickActions";
+import FirstDepositCampaignCard from "@/components/campaign/FirstDepositCampaignCard";
 import { CountryConfig } from "@/config/countries";
 
 interface DashboardClientProps {
@@ -81,6 +82,13 @@ export default function DashboardClient({
 
   return (
     <div>
+      {/* First-deposit campaign — resellers only, hidden once the bonus is
+          claimed via an app-initiated deposit. */}
+      <FirstDepositCampaignCard
+        brandColor={data.brand_color}
+        translations={t?.campaign}
+      />
+
       {/* Quick Actions */}
       <div data-tour="overview_actions">
         <QuickActions
