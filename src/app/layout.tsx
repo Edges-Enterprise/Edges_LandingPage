@@ -73,7 +73,7 @@ export const metadata: Metadata = {
     distribution: "Global",
     rating: "General",
     contactphone: "+2347057517841",
-    contactemail: "edgesenterprise@outlook.com",
+    contactemail: "edgesnetwork@gmail.com",
   },
 };
 
@@ -268,7 +268,7 @@ export default async function RootLayout({
 //     distribution: "Global",
 //     rating: "General",
 //     contactphone: "+2347057517841",
-//     contactemail: "edgesenterprise@outlook.com",
+//     contactemail: "edgesnetwork@gmail.com",
 //   },
 // };
 

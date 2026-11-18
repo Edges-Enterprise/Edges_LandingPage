@@ -149,15 +149,15 @@ export const privacyPolicy = `
 Edges Network
 Last Updated: July 10, 2025
 
-At Edges Network, developed by Edges Enterprise, your privacy and data protection are of utmost importance to us. This Privacy Policy explains the types of data we collect, how we use it, and your rights regarding your information.
+At Edges Network, your privacy and data protection are of utmost importance to us. This Privacy Policy explains the types of data we collect, how we use it, and your rights regarding your information.
 By using our app, you acknowledge and consent to the practices described herein.
 
 1. Consent
 By accessing or using the Edges Network mobile application, you agree to this Privacy Policy. If you do not agree with our policies or practices, please do not use the application.
 
 2. Who We Are
-Edges Network is a mobile data reselling platform operated by Edges Enterprise, a technology company based in Nigeria. We provide secure, affordable, and fast mobile data services to users across Nigeria.
-• 📧 Contact Email: edgesenterprise@outlook.com
+Edges Network is a mobile data reselling platform based in Nigeria. We provide secure, affordable, and fast mobile data services to users across Nigeria.
+• 📧 Contact Email: edgesnetwork@gmail.com
 
 3. Information We Collect
 We collect personal and technical information to ensure secure transactions and improve your user experience.
@@ -218,7 +218,7 @@ We respect your privacy rights under GDPR and other global standards. You have t
 • Restriction: Request we limit how we use your data
 • Objection: Object to processing under certain conditions
 • Portability: Request transfer of your data to another platform
-📩 To exercise these rights, contact: edgesenterprise@outlook.com
+📩 To exercise these rights, contact: edgesnetwork@gmail.com
 We respond within 30 days of verified requests.
 
 10. Children’s Privacy
@@ -232,28 +232,51 @@ We may revise this Privacy Policy periodically to reflect:
 • Enhancements in data protection practices
 You will be notified of major changes via the app or official communication channels.
 
-12. Contact Us
+12. Account Deletion
+You can request deletion of your Edges Network account and the personal data associated with it at any time. There are two ways to do this:
+a. In the app
+• Open the app and go to Settings → Delete Account.
+• Confirm the request. Your account and associated personal data are scheduled for deletion.
+b. By email
+• Send an email from the address registered to your account to edgesnetwork@gmail.com with the subject “Account Deletion Request”.
+• Include your registered phone number so we can locate your account.
+• We may ask you to confirm the request before we proceed.
+
+What we delete:
+• Your profile details (name, phone number, email address)
+• Your transaction and purchase history associated with the account
+• Your wallet records and saved preferences
+• Your saved transaction PIN
+
+What we may retain:
+• Records we are required to keep by Nigerian law, such as financial and transaction records for tax and anti-fraud purposes. These are retained for the period the law requires, then deleted.
+
+How long it takes:
+• We action verified requests within 30 days and confirm by email once completed.
+• Deletion is permanent. Once your account is deleted you cannot recover it, and any remaining wallet balance is forfeited.
+
+13. Contact Us
 For any privacy-related concerns or questions:
-Edges Enterprise
-📧 Email: edgesenterprise@outlook.com
+Edges Network
+📧 Email: edgesnetwork@gmail.com
 
 © 2025 Edges Network — All Rights Reserved
-Developed by Edges Enterprise
+Developed by Edges Network
 `;
 
 export const termsAndConditions = `
 Edges Network
 Effective Date: July 10, 2025
 
-Welcome to Edges Network, a mobile data reselling platform operated by Edges Enterprise.
+Welcome to Edges Network, a mobile data reselling platform.
 These Terms and Conditions govern your access to and use of our mobile application and services.
 By accessing or using the platform, you agree to be bound by these Terms.
 If you do not agree, do not use our services.
 
 1. About Us
-Edges Network is developed and operated by Edges Enterprise, a Nigerian-based technology company offering secure, affordable, and fast mobile data services nationwide.
+Edges Network is a Nigerian-based technology company offering secure, affordable, and fast mobile data services nationwide.
 
-• 📧 Email: edgesenterprise@outlook.com
+• 📧 Email: edgesnetwork@gmail.com
 
 • 📱 WhatsApp: +2347057517841 | +2347015888155
 
@@ -318,7 +341,7 @@ You waive any right to dispute such actions. Continued use of the platform impli
 You are financially and legally liable for any damage, fraud, or misuse tied to your account. This includes:
 • Reputational or financial damage caused to Edges Network or its users.
 • Misleading or overpricing our services to other users.
-• Operating a resale business without written approval from Edges Enterprise.
+• Operating a resale business without written approval from Edges Network.
 
 12. No Guarantees or Refunds
 • All services are provided “as-is” and “as-available”.
@@ -326,7 +349,7 @@ You are financially and legally liable for any damage, fraud, or misuse tied to 
 • Once a transaction is completed and service is delivered, no refunds or replacements will be issued.
 
 13. Indemnification
-You agree to indemnify and hold harmless Edges Enterprise, its affiliates, subsidiaries, sub-subsidiaries and employees against any claims, damages, losses, or legal expenses arising from:
+You agree to indemnify and hold harmless Edges Network, its affiliates, subsidiaries, sub-subsidiaries and employees against any claims, damages, losses, or legal expenses arising from:
 • Your use or misuse of the platform
 • Your violation of these Terms
 • Your infringement of third-party rights
@@ -342,10 +365,10 @@ These Terms are governed by the laws of the Federal Republic of Nigeria. Any dis
 
 17. Contact Us
 For support or inquiries:
-• 📧 Email: edgesenterprise@outlook.com
+• 📧 Email: edgesnetwork@gmail.com
 
 • 📱 WhatsApp: +2347057517841 | +2347015888155
 
 © 2025 Edges Network — All Rights Reserved
-Developed by Edges Enterprise
+Developed by Edges Network
 `;

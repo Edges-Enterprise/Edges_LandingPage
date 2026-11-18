@@ -35,7 +35,7 @@ export function SupportClient() {
   };
 
   const handleEmailContact = () => {
-    const email = "edgesenterprise@outlook.com";
+    const email = "edgesnetwork@gmail.com";
     const subject = encodeURIComponent(title || "Customer Support Request");
     const body = encodeURIComponent(
       description || "Hello, I need assistance from Edges Network."

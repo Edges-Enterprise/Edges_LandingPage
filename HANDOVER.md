@@ -2887,7 +2887,9 @@ verified; step 6, the live smoke test, is OPEN):
   app. Neither repo here references those names, so check the mobile app's
   `.env`/source; if bundled, rotate and move the calls server-side. (b) A
   secret exists literally named `edgesenterprise@outlook.com` — probably a
-  mistyped `secrets set`; remove with `supabase secrets unset`.
+  mistyped `secrets set`; remove with `supabase secrets unset`. (Note:
+  the old `edgesenterprise@outlook.com` contact address was replaced with
+  `edgesnetwork@gmail.com` in the legal copy on 2026-11-18 — see below.)
 
 ### Findings + delivery from this session (1.d.iv.zo — Zendit webhook, code DONE 2026-10-06)
 

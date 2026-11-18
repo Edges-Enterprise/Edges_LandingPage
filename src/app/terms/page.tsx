@@ -26,16 +26,16 @@ export default function Terms() {
       }
 
       // Render email as a clickable link
-      if (trimmedLine.includes("edgesenterprise@outlook.com")) {
-        const parts = trimmedLine.split("edgesenterprise@outlook.com");
+      if (trimmedLine.includes("edgesnetwork@gmail.com")) {
+        const parts = trimmedLine.split("edgesnetwork@gmail.com");
         return (
           <p key={index} className="text-xs text-gray-300 mb-2">
             {parts[0]}
             <a
-              href="mailto:edgesenterprise@outlook.com"
+              href="mailto:edgesnetwork@gmail.com"
               className="underline text-blue-400 hover:text-blue-300"
             >
-              edgesenterprise@outlook.com
+              edgesnetwork@gmail.com
             </a>
             {parts[1]}
           </p>
