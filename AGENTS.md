@@ -983,3 +983,46 @@ waitlist BVN usually fails. Find a pending row that passes, then write the resul
 Applied to BelovedTopup (`2fb2050f-fd28-4ec9-af05-3ceee5236b85`): BVN
 `22399164978` (waitlist "Abubakar Auwal"), PalmPay `6652526903`. Its earlier
 burned row "Bashir Zakari" was released back to `pending`.
+
+### Deposits: the country-code app's `global_*` tables (fixed)
+
+Two different Xixapay webhook routes exist and they do **not** see the same tables:
+
+| Route | Registered with Xixapay? | Reads |
+|---|---|---|
+| `/api/xixa-account/webhook` | **yes** (`XIXA_RSVD_ACCT_WEBHOOK_URL`) | `reseller_virtual_accounts`, `reseller_customer_virtual_accounts`, `virtual_accounts`, satellite apps |
+| `/api/webhooks/xixapay` | no | `global_customer_virtual_accounts` only |
+
+The `[countryCode]` app stores every reseller VA in `global_virtual_accounts`
+and every balance in `global_wallets`. Neither route queried those, so a transfer
+into any reseller's persistent account matched nothing, fell through to the
+satellite apps, and returned `404 Account not found in any app`. The money
+reached the Xixapay wallet and `xixapay_wallet_ledger`, but never the reseller's
+balance — no `global_transactions` row, no notification, no visible error.
+
+`processForGlobalReseller()` in `src/app/api/xixa-account/webhook/route.ts`
+(STEP 5.5, after the legacy reseller-store branch) closes this: it matches
+`receiver.account_number` against `global_virtual_accounts`, credits
+`global_wallets`, writes a `completed` `global_transactions` credit, and inserts
+a `global_notifications` row. It is idempotent on `EDGE_<transaction_id>` in
+`global_transactions`, so Xixapay retries cannot double-credit.
+
+**Diagnosing a "deposit not showing" report:** query `xixapay_wallet_ledger`
+first. That row is written *before* attribution, so its presence proves the
+webhook fired and the money arrived; `raw_payload.receiver.account_number`
+identifies the store. Absence means the webhook never reached the app.
+Xixapay exposes no transaction-history endpoint, so this ledger is the only
+evidence trail on our side.
+
+**Fee is not the problem.** `calculateXixapayFee` is a fixed amount per bracket,
+not a percentage: ₦100 falls in `100–299` → ₦10 → **₦90 net**. A ₦100 deposit
+landing as "ninety something" is correct.
+
+**Test a webhook without touching real money:** create a throwaway
+`global_reseller_applications` row (the VA FK requires one), a
+`global_virtual_accounts` row and a `global_wallets` row for it, then POST a
+payload signed with
+`HMAC-SHA256(XIXAPAY_SECRET_KEY, rawBody)` in the `xixapay` header. Pick an
+account number that does **not** exist in the legacy `reseller_virtual_accounts`
+table — otherwise the earlier branch claims the payload first and credits that
+legacy wallet instead.

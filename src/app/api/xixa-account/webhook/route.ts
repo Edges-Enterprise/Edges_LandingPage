@@ -420,6 +420,158 @@ async function processResellerDeposit(
   });
 }
 
+// ─── Country-code (global_*) reseller deposit processor ──────────────────────
+// The `[countryCode]` app keeps its reseller virtual accounts in
+// `global_virtual_accounts`, not the legacy `reseller_virtual_accounts`
+// the branch above reads. Without this, a transfer into any reseller's
+// persistent account matched nothing, fell through to the satellite
+// apps, and was answered with a 404 — the money reached the Xixapay
+// wallet and the ledger, but never the reseller's balance.
+async function processForGlobalReseller(
+  payload: XixaPayPayload,
+): Promise<NextResponse | null> {
+  const { transaction_id, amount_paid, receiver, customer, sender } = payload;
+  const reference = `EDGE_${transaction_id}`;
+  const admin = createAdminClient();
+
+  const { data: account, error: accountError } = await admin
+    .from("global_virtual_accounts")
+    .select("reseller_id, account_number")
+    .eq("account_number", receiver.account_number)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (accountError || !account) return null;
+
+  // Xixapay retries; a row already recorded for this reference means the
+  // balance was credited on a previous delivery and must not move again.
+  const { data: existing } = await admin
+    .from("global_transactions")
+    .select("id")
+    .eq("reference", reference)
+    .maybeSingle();
+
+  if (existing) {
+    console.log("[Global Reseller] Already processed:", reference);
+    return NextResponse.json({ message: "Already processed" });
+  }
+
+  const grossAmount = parseFloat(amount_paid);
+  const platformFees = calculateFees(grossAmount);
+  const finalNetAmount = grossAmount - platformFees;
+
+  const { data: wallet, error: walletError } = await admin
+    .from("global_wallets")
+    .select("id, balance")
+    .eq("reseller_id", account.reseller_id)
+    .maybeSingle();
+
+  if (walletError) {
+    console.error("[Global Reseller] Wallet lookup failed:", walletError);
+    return NextResponse.json({ error: "Wallet lookup failed" }, { status: 500 });
+  }
+
+  const currentBalance = parseFloat(wallet?.balance ?? "0");
+  const newBalance = currentBalance + finalNetAmount;
+
+  if (wallet) {
+    const { error: balanceError } = await admin
+      .from("global_wallets")
+      .update({ balance: newBalance, updated_at: new Date().toISOString() })
+      .eq("id", wallet.id);
+
+    if (balanceError) {
+      console.error("[Global Reseller] Balance update failed:", balanceError);
+      return NextResponse.json(
+        { error: "Balance update failed" },
+        { status: 500 },
+      );
+    }
+  } else {
+    const { error: insertError } = await admin
+      .from("global_wallets")
+      .insert({
+        reseller_id: account.reseller_id,
+        balance: finalNetAmount,
+        currency: "NGN",
+      });
+
+    if (insertError) {
+      console.error("[Global Reseller] Wallet creation failed:", insertError);
+      return NextResponse.json(
+        { error: "Wallet creation failed" },
+        { status: 500 },
+      );
+    }
+  }
+
+  const { error: txError } = await admin.from("global_transactions").insert({
+    reseller_id: account.reseller_id,
+    wallet_id: wallet?.id ?? null,
+    type: "credit",
+    amount: finalNetAmount,
+    description: "Wallet funding via xixapay",
+    status: "completed",
+    reference,
+    payment_gateway: "xixapay",
+    metadata: {
+      source: "virtual_account",
+      gateway: "xixapay",
+      currency: "NGN",
+      gross_amount: grossAmount,
+      platform_fee: platformFees,
+      provider_reference: transaction_id,
+      sender: sender ? { name: sender.name, bank: sender.bank } : undefined,
+      customer: customer
+        ? { name: customer.name, email: customer.email }
+        : undefined,
+      receiver_account: receiver.account_number,
+      previous_balance: currentBalance,
+      new_balance: newBalance,
+    },
+  });
+
+  if (txError) {
+    console.error("[Global Reseller] Transaction insert failed:", txError);
+    return NextResponse.json(
+      { error: "Failed to record transaction" },
+      { status: 500 },
+    );
+  }
+
+  const { error: notifError } = await admin
+    .from("global_notifications")
+    .insert({
+      reseller_id: account.reseller_id,
+      notification_type: "deposit",
+      message: `₦${finalNetAmount.toLocaleString("en-NG", {
+        minimumFractionDigits: 2,
+      })} has been added to your wallet from ${sender?.bank ?? "your bank"} (after ₦${platformFees.toLocaleString()} fee)`,
+      metadata: {
+        amount: finalNetAmount,
+        fee_charged: platformFees,
+        reference,
+      },
+    });
+
+  if (notifError) {
+    console.error("[Global Reseller] Notification failed:", notifError);
+  }
+
+  console.log("[Global Reseller] Wallet funded:", {
+    reseller_id: account.reseller_id,
+    gross: grossAmount,
+    fees: platformFees,
+    net: finalNetAmount,
+    new_balance: newBalance,
+  });
+
+  return NextResponse.json({
+    message: "Processed global reseller deposit",
+    transaction_id,
+  });
+}
+
 // ─── Generic satellite app processor ─────────────────────────────────────────
 async function processForSatelliteApp(
   app: AppConfig,
@@ -691,6 +843,12 @@ export async function POST(req: NextRequest) {
     const resellerResult = await processForResellerStore(supabase, payload);
     if (resellerResult !== null) {
       return resellerResult;
+    }
+
+    // ── STEP 5.5: Try the country-code app's global_* tables ──────────────────
+    const globalResult = await processForGlobalReseller(payload);
+    if (globalResult !== null) {
+      return globalResult;
     }
 
     // ── STEP 6: Try legacy App 1 ──────────────────────────────────────────────
