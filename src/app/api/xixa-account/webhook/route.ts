@@ -352,7 +352,7 @@ async function processResellerDeposit(
         new_balance: newBalance,
         reference: `DEP_${transaction_id}`,
         status: "completed",
-        description: `Wallet funding via ${sender.bank}`,
+        description: "Wallet funding",
         metadata: {
           payment_method: "bank_transfer",
           bank_name: sender.bank,
@@ -510,7 +510,7 @@ async function processForGlobalReseller(
     wallet_id: wallet?.id ?? null,
     type: "credit",
     amount: finalNetAmount,
-    description: "Wallet funding via xixapay",
+    description: "Wallet funding",
     status: "completed",
     reference,
     payment_gateway: "xixapay",
@@ -925,7 +925,7 @@ export async function POST(req: NextRequest) {
         amount: finalNetAmount.toString(),
         status: "completed",
         reference: `Edges_Network_Web_${transaction_id}`,
-        description: `Wallet funding via ${receiver.bank}`,
+        description: "Wallet funding",
         env: "live",
         metadata: {
           payment_method: "bank_transfer",
