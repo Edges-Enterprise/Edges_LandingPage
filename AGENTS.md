@@ -1039,3 +1039,59 @@ payload signed with
 account number that does **not** exist in the legacy `reseller_virtual_accounts`
 table — otherwise the earlier branch claims the payload first and credits that
 legacy wallet instead.
+
+## Legacy → global reseller migration (`scripts/migrate-ofure-to-global.mjs`)
+
+The `[countryCode]` app reads ONLY `global_*` tables. A reseller who exists only
+in the legacy tables is invisible to it: `/ng/<slug>` 404s and money keeps landing
+in a legacy wallet nothing reads. `scripts/migrate-ofure-to-global.mjs` migrates one
+such reseller (ofure / `fure-network`, done 2026-11-14) and is the template for the
+remaining ~67 legacy resellers. Dry run by default; `--commit` writes; idempotent.
+
+Load the env yourself — the script reads `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY`, which are not exported into every shell:
+
+```
+NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY="$NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY" \
+node scripts/migrate-ofure-to-global.mjs          # plan
+```
+
+Traps this encodes, each of which silently loses money or data if skipped:
+
+- **Reuse the legacy UUID** as `global_reseller_applications.id`, so historical
+  orders/transactions keep one stable key. The collision guard excludes that id,
+  otherwise a re-run aborts on its own row.
+- **Carry the balance, do not recompute it from the ledger.** The legacy
+  `reseller_transactions` ledger is incomplete (ofure's was missing 5 purchase
+  debits, so summing it gave ₦934 against a ₦2.00 balance). The stored wallet
+  balance is authoritative; the missing debits are reconstructed from completed
+  orders so the imported history reconciles to it.
+- **Deactivate the legacy virtual account in the same run.** The xixapay webhook
+  resolves the legacy table first (`processForResellerStore`) and returns early,
+  so a still-active legacy VA number keeps crediting the dead wallet. Carry the
+  number into `global_virtual_accounts`, then set the legacy row `inactive`.
+- **Map plans through `global_base_plans.metadata.plan_id`** (the legacy integer),
+  not by name — 35 legacy plans share a name across `plan_type`, so name matching
+  is ambiguous. Legacy uuid → `reseller_base_plans.id` → integer → global id.
+- **Leave `global_reseller_plan_configs.selling_price` NULL.** A non-null
+  `selling_price` overrides the markup outright (`pricing.ts` step 4), freezing a
+  stale shelf price; null keeps the markup applied at read time.
+- **`global_transactions.type` is `credit|debit|purchase|refund`** — the legacy
+  `deposit` must become `credit`. `description` and `reference` are NOT NULL and
+  legacy rows have no description.
+- **`global_orders` requires `customer_name` and `plan_name`** (neither exists on
+  legacy orders). 13 of ofure's 35 had a null `plan_id`; only 1 of the 5 completed
+  ones was price-inferable, so plan_name falls back to an explicit
+  `Historical plan (not recorded)` rather than a guess.
+- **Carry `reseller_app_configs.apk_url` into `global_app_builds`.** The storefront
+  install banner reads the latter; the legacy column is invisible to it.
+- **`global_reseller_applications` requires `first_name`/`last_name`/`phone`/
+  `original_email`.** Legacy resellers have no `profiles` row, so the name may have
+  to come from the legacy row or the auth metadata (`store_name` can differ from
+  the legacy one — ofure's auth said `fure-data`, legacy said `fure-network`).
+
+Verify after committing: `getStoreReadiness` must return `canSell: true` (needs
+phone + an active `global_virtual_accounts` row + `global_wallets.balance > 0`),
+and `/ng/<slug>` must render plans with prices. Credits − debits in
+`global_transactions` should equal the carried wallet balance exactly.
