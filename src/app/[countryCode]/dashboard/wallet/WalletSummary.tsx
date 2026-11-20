@@ -10,12 +10,14 @@ interface WalletSummaryProps {
     currency: string;
     status: string;
   };
+  transactions?: any[];
   currencySymbol: string;
   translations: any;
 }
 
 export default function WalletSummary({
   wallet,
+  transactions = [],
   currencySymbol,
   translations,
 }: WalletSummaryProps) {
@@ -28,11 +30,27 @@ export default function WalletSummary({
     })}`;
   };
 
-  // Calculate some mock stats (will be replaced with real data later)
+  const sumOf = (predicate: (tx: any) => boolean) =>
+    transactions
+      .filter((tx) => tx.status === "completed" && predicate(tx))
+      .reduce((total, tx) => total + Number(tx.amount || 0), 0);
+
+  // Purchases land in `global_transactions` as `debit` with a PUR- reference,
+  // so type alone would count them as withdrawals.
+  const isPurchase = (tx: any) =>
+    tx?.type === "purchase" ||
+    tx?.type === "refund" ||
+    String(tx?.reference ?? "").startsWith("PUR-") ||
+    /purchase/i.test(String(tx?.description ?? ""));
+
   const stats = {
-    total_deposits: 0,
-    total_withdrawals: 0,
-    total_spent: 0,
+    total_deposits: sumOf(
+      (tx) => !isPurchase(tx) && (tx.type === "credit" || tx.type === "deposit"),
+    ),
+    total_withdrawals: sumOf(
+      (tx) => !isPurchase(tx) && (tx.type === "debit" || tx.type === "withdrawal"),
+    ),
+    total_spent: sumOf(isPurchase),
   };
 
   const summaryCards = [

@@ -322,6 +322,7 @@ export default function WalletClient({
       <div data-tour="wallet_summary">
         <WalletSummary
           wallet={wallet}
+          transactions={transactions}
           currencySymbol={currencySymbol}
           translations={t}
         />

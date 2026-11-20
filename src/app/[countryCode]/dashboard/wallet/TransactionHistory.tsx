@@ -37,6 +37,25 @@ export default function TransactionHistory({
     return () => mq.removeEventListener("change", update);
   }, []);
 
+  // `global_transactions` is constrained to credit/debit/purchase/refund while
+  // the UI (and the legacy reseller tables) speak deposit/withdrawal. Purchases
+  // are written as `debit` with a PUR- reference, so the raw type alone cannot
+  // tell a purchase from a withdrawal.
+  const classifyType = (tx: any): string => {
+    const type = tx?.type;
+    if (type === "credit") return "deposit";
+    if (type === "deposit" || type === "purchase" || type === "refund") {
+      return type;
+    }
+    if (type === "commission") return "commission";
+    const reference = String(tx?.reference ?? "");
+    const description = String(tx?.description ?? "");
+    if (reference.startsWith("PUR-") || /purchase/i.test(description)) {
+      return "purchase";
+    }
+    return "withdrawal";
+  };
+
   const getTypeIcon = (type: string) => {
     const icons: Record<string, any> = {
       deposit: ArrowDownLeft,
@@ -103,7 +122,7 @@ export default function TransactionHistory({
     // "pending" is a status filter, not a type — it must not be compared
     // against tx.type or it would always match nothing.
     if (filter === "pending") return tx.status === "pending";
-    return tx.type === filter;
+    return classifyType(tx) === filter;
   });
 
   const filterOptions = [
@@ -227,11 +246,11 @@ export default function TransactionHistory({
             }}
           >
             {filteredTransactions.map((tx, index) => {
-              const Icon = getTypeIcon(tx.type);
-              const typeColor = getTypeColor(tx.type);
+              const type = classifyType(tx);
+              const Icon = getTypeIcon(type);
+              const typeColor = getTypeColor(type);
               const statusColor = getStatusColor(tx.status);
-              const isPositive =
-                tx.type === "deposit" || tx.type === "commission";
+              const isPositive = type === "deposit" || type === "commission";
               const amount = isPositive ? tx.amount : -tx.amount;
               const txKey = tx.id || `tx-${index}`;
               const isExpanded = expandedId === txKey;
@@ -307,7 +326,7 @@ export default function TransactionHistory({
                             color: "var(--text)",
                           }}
                         >
-                          {tx.description || getTypeLabel(tx.type)}
+                          {tx.description || getTypeLabel(type)}
                         </div>
                         <div
                           className="tx-row-meta"
