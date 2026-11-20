@@ -129,8 +129,9 @@ export default function PublishingPlans({
   const selectedPlanDetails = plans.find((p) => p.id === selectedPlan);
   const activePlanDetails = plans.find((p) => p.id === currentPlan);
 
-  // The bonus is spendable, so it counts toward what can cover the charge.
-  const spendableBalance = walletBalance + walletBonusBalance;
+  // Publishing is a self-purchase: the first-deposit bonus cannot fund it, so
+  // only the withdrawable balance counts toward the charge.
+  const spendableBalance = walletBalance;
 
   const insufficientFunds =
     !!selectedPlanDetails &&
@@ -292,8 +293,9 @@ export default function PublishingPlans({
           {walletBonusBalance > 0 && (
             <span style={{ color: "var(--muted)" }}>
               {" "}
-              + {currencySymbol}
+              ({currencySymbol}
               {walletBonusBalance.toFixed(2)} {t?.bonusBalance || "bonus"}
+              {t?.notForPublishing ? ` ${t.notForPublishing}` : " not usable here"})
             </span>
           )}
         </div>

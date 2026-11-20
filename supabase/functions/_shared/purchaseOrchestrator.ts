@@ -233,25 +233,54 @@ export async function processPurchase(
     throw error;
   }
 
-  // 5. Reseller must be able to cover the wholesale cost, regardless of
-  // who is buying - same as the proven pattern.
-  const { data: resellerBalance, error: balanceError } = await supabaseAdmin
-    .rpc("get_global_reseller_balance", { p_reseller_id: resellerId });
+  // 5. Can this sale be funded? A customer sale may draw on the
+  // first-deposit bonus, but only when the bonus covers the whole selling
+  // price; a self-purchase is balance-only. The rule lives in SQL so the
+  // pre-flight cannot drift from the settlement function.
+  if (userType === "customer") {
+    const { data: funding, error: fundingError } = await supabaseAdmin.rpc(
+      "get_global_sale_funding",
+      {
+        p_reseller_id: resellerId,
+        p_cost_price: costPrice,
+        p_selling_price: finalPrice,
+      },
+    );
 
-  if (balanceError) {
-    return {
-      success: false,
-      error: "Store configuration error. Please contact support.",
-      message: "Store configuration error. Please contact support.",
-    };
-  }
+    if (fundingError) {
+      return {
+        success: false,
+        error: "Store configuration error. Please contact support.",
+        message: "Store configuration error. Please contact support.",
+      };
+    }
 
-  if (parseFloat(resellerBalance || "0") < costPrice) {
-    return {
-      success: false,
-      error: "Unable to fulfill this order. Please try again later.",
-      message: "Unable to fulfill this order. Please try again later.",
-    };
+    if (!funding?.can_fund) {
+      return {
+        success: false,
+        error: "Service temporarily unavailable. Please try again later.",
+        message: "Service temporarily unavailable. Please try again later.",
+      };
+    }
+  } else {
+    const { data: resellerBalance, error: balanceError } = await supabaseAdmin
+      .rpc("get_global_reseller_balance_only", { p_reseller_id: resellerId });
+
+    if (balanceError) {
+      return {
+        success: false,
+        error: "Store configuration error. Please contact support.",
+        message: "Store configuration error. Please contact support.",
+      };
+    }
+
+    if (parseFloat(resellerBalance || "0") < costPrice) {
+      return {
+        success: false,
+        error: "Unable to fulfill this order. Please try again later.",
+        message: "Unable to fulfill this order. Please try again later.",
+      };
+    }
   }
 
   // 6. Customer wallet check (reseller self-purchase has no separate wallet to check here).
