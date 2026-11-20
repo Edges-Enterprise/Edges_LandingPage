@@ -1018,6 +1018,19 @@ evidence trail on our side.
 not a percentage: ₦100 falls in `100–299` → ₦10 → **₦90 net**. A ₦100 deposit
 landing as "ninety something" is correct.
 
+**A credited deposit can still look wrong in the wallet.** `global_transactions`
+is constrained to `credit`/`debit`/`purchase`/`refund`, while
+`TransactionHistory`/`WalletSummary` were written against the legacy reseller
+vocabulary `deposit`/`withdrawal`. An unmapped `credit` fell through to the
+unknown-type branch — red shopping-bag icon, `-₦` sign, literal label "credit",
+and absent from the Deposits filter. Worse, purchases are stored as `debit` with
+a `PUR-` reference, so they appeared under Withdrawals. `classifyType()` in
+`TransactionHistory.tsx` now owns the mapping (and splits purchases from
+withdrawals by reference/description); `WalletSummary` applies the same rule.
+When adding a writer to `global_transactions`, check it against `classifyType`
+— if the new row is not `credit`/`PUR-`/`purchase`/`refund`, it will render as a
+withdrawal.
+
 **Test a webhook without touching real money:** create a throwaway
 `global_reseller_applications` row (the VA FK requires one), a
 `global_virtual_accounts` row and a `global_wallets` row for it, then POST a
