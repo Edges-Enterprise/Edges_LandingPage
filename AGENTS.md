@@ -896,3 +896,90 @@ Test logic with `deno test src/lib/onboarding/` (install deno via
     in `.uploads/` (gitignored). Every upload is also copied to `.uploads/`.
   - Browser form: `/_campaign_code/upload.html`. No auth — dev sandbox only;
     treat received files as untrusted until reviewed.
+
+## Demo accounts (seeded data)
+
+- Fully-seeded demo reseller: **bossblingzs**
+  - Sign in: `/ng/sign-in` — email `bossblingzs@example.com`, password `Bossblingzs!2026`
+  - Country `ng`; `global_reseller_applications` id `64b7553f-55b7-4024-ab36-a5cfe50b449e`;
+    auth user id `15d98222-10c2-4ecd-9657-69d6f912cdea`; `profiles.is_admin = true`
+    (so it can also open `/[countryCode]/admin/platform-plans`).
+  - Seeded: active application, wallet ₦285,000 + ₦5,000 bonus, virtual account,
+    8 wallet transactions, 6 customers + customer wallets + deposits, 6 orders +
+    status history, store settings, app config + completed build, publishing plan
+    (regional), 4 notifications. `catalog_mode = all` with a 10% default markup.
+  - Seeding auth users: the `handle_new_user` trigger reads `username` from the
+    user metadata. Creating via the auth admin API without `user_metadata.username`
+    fails with a `profiles.username` NOT NULL violation — always pass it.
+
+## Platform plans admin (`/[countryCode]/admin/platform-plans`)
+
+- Gated server-side by `getPlatformAdmin()` (`profiles.is_admin`); a non-admin
+  gets a 404. There is no other admin gate on the `[countryCode]/admin/*` routes.
+- Two panels: **Platform markup** (default / country / provider) and the
+  **Plan catalog**. Catalog cards collapse to `Provider | Plan | Cost`; every
+  other detail and the per-plan markup editor open in a dropdown.
+- The platform's cut is resolved by `supabase/functions/_shared/currency/markup.ts`
+  and splits by case: HOME (plan cost currency == store currency, e.g. a
+  Lizzysub NGN plan in an NG store) resolves plan -> provider -> 0 (no FX, so
+  the default 12% does NOT apply); CROSS-BORDER (including every Zendit plan)
+  resolves country -> default. Levels replace, they do not stack.
+- **Raising the Lizzysub/Accragh cost**: set `provider = lizzysub` (or
+  `accragh`) in the Platform markup panel, or a per-plan row in the catalog.
+  Verified live: a 20% provider row lifted the NG "40MB" cost from ₦49 to ₦58.8.
+
+## Known issue: virtual account creation fails ("No virtual accounts were created")
+
+- Symptom: an NG reseller clicks Create Virtual Account and sees "No virtual accounts
+  were created". Wallet exists; `global_virtual_accounts` has no row for the store.
+- Cause: Xixapay rejects the BVN. The API still answers HTTP 201 with
+  `status: "success"`, but `bankAccounts: []` plus
+  `errors: ["LicenseNumber verification failed"]`. Both code paths then bail with
+  "No virtual accounts were created" (`src/lib/payments/xixapay.ts:215` in
+  `initiatePayment`, `:562` in `createVirtualAccount`).
+- Reproduce directly (no app needed):
+  `POST https://api.xixapay.com/api/v1/createVirtualAccount` with the store's
+  `bvn` as `id_number`, its waitlist `full_name`/`mobile`, `bankCode: ["20867"]`,
+  `accountType: "static"`, `id_type: "bvn"`. Check `bankAccounts` and `errors`.
+- The BVN is checked against the name/phone it is sent with, so the waitlist row
+  assigned to the store must match that BVN's real holder. Seeded/test BVNs fail.
+- **BVN lifecycle (fixed)**: a waitlist BVN is claimed (`status: "used"`,
+  `assigned_to`, `bvn` on the application) only AFTER Xixapay returns an account.
+  Before that the row stays `pending`. A BVN Xixapay refuses as a verification
+  failure is retired as `status: "used"` with `assigned_to: null` — it leaves the
+  pool so it is never offered again, but it is credited to nobody. The pool is
+  walked oldest-first for up to `BVN_ATTEMPTS_PER_REQUEST` (5) rows, so a run of
+  dead BVNs no longer dead-ends a signup. Resellers still hold a good BVN if they
+  have one; a stored BVN that Xixapay refuses is retired and replaced in the same
+  request.
+- Failure messaging: resellers only ever see `GENERIC_ACCOUNT_ERROR`. Xixapay's
+  `message` / `errors[]` go to the server log only.
+- Systemic: 10 of 16 active NG stores have no virtual account (only 2 of those had
+  burned a waitlist BVN; 8 never had a BVN at all).
+
+### Fixing a store whose VA creation failed (runbook)
+
+The API only accepts a BVN whose name/phone match the real holder, so a seeded
+waitlist BVN usually fails. Find a pending row that passes, then write the result:
+
+1. Probe pending rows in age order until `bankAccounts` is non-empty:
+   `POST https://api.xixapay.com/api/v1/createVirtualAccount` with
+   `{email: <reseller email with +suffix>, name: row.full_name, phoneNumber: row.mobile,
+   bankCode: ["20867"], businessId: <XIXAPAY_BUSINESS_ID>, accountType: "static",
+   id_type: "bvn", id_number: row.bvn}`.
+   A rejected BVN returns 201 with `bankAccounts: []` and
+   `errors: ["LicenseNumber verification failed"]` and creates nothing.
+   **Send a browser `User-Agent`** — plain python-urllib is blocked by Cloudflare
+   (`403 error code: 1010`).
+2. Insert the returned `bankAccounts[0]` into `global_virtual_accounts`:
+   `reseller_id`, `bank_name`, `account_number`, `account_name`, `account_type:
+   "static"`, `tracking_reference: Reserved_Account_Id`, `provider: "xixapay"`,
+   `customer_email/name/phone/bvn` from the row, `status: "active"`.
+3. Mark that waitlist row `used` (`assigned_to` = application id,
+   `assigned_to_type: "reseller"`, `used_at`), and set `bvn` on the application.
+4. Release any row burned by an earlier failure back to `pending`
+   (`assigned_to`/`used_at` → null) so it can be reused or retried.
+
+Applied to BelovedTopup (`2fb2050f-fd28-4ec9-af05-3ceee5236b85`): BVN
+`22399164978` (waitlist "Abubakar Auwal"), PalmPay `6652526903`. Its earlier
+burned row "Bashir Zakari" was released back to `pending`.

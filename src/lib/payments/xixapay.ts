@@ -5,6 +5,7 @@ import {
   PaymentInitiateResult,
   PaymentWebhookData,
 } from "./payment.types";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const XIXAPAY_BASE_URL = "https://api.xixapay.com";
 const XIXAPAY_API_KEY = process.env.XIXAPAY_API_KEY || "";
@@ -17,6 +18,346 @@ function getHeaders(): HeadersInit {
     "api-key": XIXAPAY_API_KEY,
     "Content-Type": "application/json",
   };
+}
+
+/**
+ * The only message a reseller sees when account creation fails. Xixapay's own
+ * `message` and `errors[]` stay in the server log: they name the BVN check and
+ * read as a dead end to a customer who cannot act on them.
+ */
+const GENERIC_ACCOUNT_ERROR =
+  "We couldn't set up your virtual account right now. Please try again in a moment, or contact support if it keeps happening.";
+
+/**
+ * How many pool BVNs one request may try before giving up. Bounded so a pool of
+ * dead BVNs cannot hold the request open indefinitely.
+ */
+const BVN_ATTEMPTS_PER_REQUEST = 5;
+
+/**
+ * Name and phone that a BVN must be presented with. Xixapay verifies the BVN
+ * against them, so they always come from the waitlist row that owns the BVN —
+ * never from the reseller's own profile.
+ */
+async function bvnIdentity(bvn: string): Promise<{
+  fullName: string;
+  mobile: string;
+} | null> {
+  const { data } = await createAdminClient()
+    .from("waitlist")
+    .select("full_name, mobile")
+    .eq("bvn", bvn)
+    .maybeSingle();
+  if (!data) return null;
+  return { fullName: data.full_name, mobile: data.mobile };
+}
+
+interface AccountAttempt {
+  ok: boolean;
+  bankAccounts: Array<{
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    accountType?: string;
+    Reserved_Account_Id?: string;
+  }>;
+  /** Present only when `ok` is false; safe to log, never shown to a reseller. */
+  error?: string;
+  /**
+   * True when Xixapay refused the BVN itself. Only that verdict retires the
+   * waitlist row: a network or server error must not throw a good BVN away.
+   */
+  bvnRejected?: boolean;
+}
+
+/** Xixapay reports a refused BVN as a verification failure, not an HTTP error. */
+function isBvnRejection(errors: unknown): boolean {
+  if (!Array.isArray(errors)) return false;
+  return errors.some(
+    (e) => typeof e === "string" && /licen[cs]e|verification/i.test(e),
+  );
+}
+
+async function requestVirtualAccount(payload: {
+  email: string;
+  name: string;
+  phoneNumber: string;
+  id_number: string;
+}): Promise<AccountAttempt> {
+  try {
+    const response = await fetch(
+      `${XIXAPAY_BASE_URL}/api/v1/createVirtualAccount`,
+      {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          ...payload,
+          bankCode: ["20867"],
+          businessId: XIXAPAY_BUSINESS_ID,
+          accountType: "static",
+          id_type: "bvn",
+        }),
+      },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || data.status !== "success") {
+      return {
+        ok: false,
+        bankAccounts: [],
+        error: data.message || "Xixapay rejected the request",
+      };
+    }
+
+    const bankAccounts = data.bankAccounts || [];
+    if (bankAccounts.length === 0) {
+      return {
+        ok: false,
+        bankAccounts: [],
+        error: `No accounts returned (${(data.errors || []).join("; ") || "no reason given"})`,
+        bvnRejected: isBvnRejection(data.errors),
+      };
+    }
+
+    return { ok: true, bankAccounts };
+  } catch (error) {
+    return {
+      ok: false,
+      bankAccounts: [],
+      error: error instanceof Error ? error.message : "Request failed",
+    };
+  }
+}
+
+/** Take a BVN out of the pool and bind it to this reseller. */
+async function claimWaitlistBvn(
+  applicationId: string,
+  entry: { id: string; bvn: string },
+): Promise<void> {
+  const adminClient = createAdminClient();
+  await adminClient
+    .from("waitlist")
+    .update({
+      status: "used",
+      assigned_to: applicationId,
+      assigned_to_type: "reseller",
+      used_at: new Date().toISOString(),
+    })
+    .eq("id", entry.id);
+  await adminClient
+    .from("global_reseller_applications")
+    .update({ bvn: entry.bvn })
+    .eq("id", applicationId);
+}
+
+/**
+ * Undo `claimWaitlistBvn`. A BVN that produced no account must go back to the
+ * pool, or the next attempt re-reads it from the reseller record and fails the
+ * same way forever.
+ */
+async function releaseWaitlistBvn(
+  applicationId: string,
+  entryId: string,
+): Promise<void> {
+  const adminClient = createAdminClient();
+  await adminClient
+    .from("waitlist")
+    .update({
+      status: "pending",
+      assigned_to: null,
+      assigned_to_type: null,
+      used_at: null,
+    })
+    .eq("id", entryId);
+  await adminClient
+    .from("global_reseller_applications")
+    .update({ bvn: null })
+    .eq("id", applicationId);
+}
+
+/**
+ * Retire a BVN Xixapay has refused. It stays `used` so the pool never offers it
+ * again, but carries no assignment — it bought no account and belongs to no
+ * reseller.
+ */
+async function retireWaitlistBvn(entryId: string): Promise<void> {
+  await createAdminClient()
+    .from("waitlist")
+    .update({
+      status: "used",
+      assigned_to: null,
+      assigned_to_type: null,
+      used_at: new Date().toISOString(),
+    })
+    .eq("id", entryId);
+}
+
+interface VirtualAccountOutcome {
+  ok: boolean;
+  bankAccounts: AccountAttempt["bankAccounts"];
+  /** Safe to log; never shown to a reseller. */
+  error?: string;
+}
+
+/**
+ * Create the virtual account and persist it, without ever stranding a BVN.
+ *
+ * A BVN is only bound to the reseller once Xixapay has returned an account. On
+ * rejection the row is released, so the next attempt starts from the pool
+ * instead of replaying a BVN that has already been refused.
+ */
+async function provisionVirtualAccount(
+  application: {
+    id: string;
+    email: string;
+    phone: string | null;
+    bvn: string | null;
+  },
+  virtualEmail: string,
+): Promise<VirtualAccountOutcome> {
+  const adminClient = createAdminClient();
+
+  const fail = (error: string): VirtualAccountOutcome => ({
+    ok: false,
+    bankAccounts: [],
+    error,
+  });
+
+  if (application.bvn) {
+    const identity = await bvnIdentity(application.bvn);
+    if (!identity) {
+      // A BVN with no waitlist row cannot be presented to Xixapay at all. Drop
+      // it so this attempt falls back to the pool rather than dead-ending.
+      await adminClient
+        .from("global_reseller_applications")
+        .update({ bvn: null })
+        .eq("id", application.id);
+    } else {
+      const attempt = await requestVirtualAccount({
+        email: virtualEmail,
+        name: identity.fullName,
+        phoneNumber: identity.mobile,
+        id_number: application.bvn,
+      });
+
+      if (attempt.ok) {
+        return saveAccounts(application, virtualEmail, attempt.bankAccounts, {
+          fullName: identity.fullName,
+          mobile: identity.mobile,
+          bvn: application.bvn,
+        });
+      }
+
+      if (!attempt.bvnRejected) return fail(attempt.error ?? "Request failed");
+
+      // A BVN left over from an earlier failed attempt. Retire it and clear it
+      // from the reseller, then fall through to the pool: otherwise this store
+      // replays the same refused BVN on every retry, forever.
+      console.warn(
+        `Retiring rejected BVN ${application.bvn} held by ${application.id}`,
+      );
+      const { data: held } = await adminClient
+        .from("waitlist")
+        .select("id")
+        .eq("bvn", application.bvn)
+        .maybeSingle();
+      if (held) await retireWaitlistBvn(held.id);
+      await adminClient
+        .from("global_reseller_applications")
+        .update({ bvn: null })
+        .eq("id", application.id);
+    }
+  }
+
+  const { data: pending, error: waitlistError } = await adminClient
+    .from("waitlist")
+    .select("id, full_name, bvn, mobile")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+    .limit(BVN_ATTEMPTS_PER_REQUEST);
+
+  if (waitlistError) return fail("Failed to read the BVN pool");
+  if (!pending || pending.length === 0) {
+    return fail("Not available. Please contact support.");
+  }
+
+  // Walk the pool rather than trying only the oldest row. Refused BVNs are
+  // retired as we go, so a pool front-loaded with dead BVNs still converges on
+  // a working one instead of failing the same way on every attempt.
+  for (const entry of pending) {
+    const attempt = await requestVirtualAccount({
+      email: virtualEmail,
+      name: entry.full_name,
+      phoneNumber: entry.mobile,
+      id_number: entry.bvn,
+    });
+
+    if (!attempt.ok) {
+      if (attempt.bvnRejected) {
+        console.warn(`Retiring rejected BVN on waitlist row ${entry.id}`);
+        await retireWaitlistBvn(entry.id);
+        continue;
+      }
+      // Transport or provider fault: the BVN may be fine, so leave it pending.
+      return fail(attempt.error ?? "Request failed");
+    }
+
+    await claimWaitlistBvn(application.id, entry);
+
+    const saved = await saveAccounts(
+      application,
+      virtualEmail,
+      attempt.bankAccounts,
+      { fullName: entry.full_name, mobile: entry.mobile, bvn: entry.bvn },
+    );
+
+    if (!saved.ok) {
+      // Xixapay holds a live account this reseller cannot see. Return the BVN
+      // so a later attempt can still succeed, and let the log carry the detail.
+      await releaseWaitlistBvn(application.id, entry.id);
+    }
+    return saved;
+  }
+
+  return fail("No usable BVN in the pool");
+}
+
+async function saveAccounts(
+  application: { id: string },
+  virtualEmail: string,
+  bankAccounts: AccountAttempt["bankAccounts"],
+  identity: { fullName: string; mobile: string; bvn: string },
+): Promise<VirtualAccountOutcome> {
+  const records = bankAccounts.map((bank) => ({
+    reseller_id: application.id,
+    bank_name: bank.bankName,
+    account_number: bank.accountNumber,
+    account_name: bank.accountName,
+    account_type: bank.accountType || "static",
+    tracking_reference: bank.Reserved_Account_Id,
+    provider: "xixapay",
+    customer_email: virtualEmail,
+    customer_name: identity.fullName,
+    customer_phone: identity.mobile,
+    customer_bvn: identity.bvn,
+    status: "active",
+  }));
+
+  const { error: insertError } = await createAdminClient()
+    .from("global_virtual_accounts")
+    .insert(records);
+
+  if (insertError) {
+    console.error("❌ Failed to save virtual account:", insertError);
+    return {
+      ok: false,
+      bankAccounts: [],
+      error: `Failed to save virtual account: ${insertError.message}`,
+    };
+  }
+
+  return { ok: true, bankAccounts };
 }
 
 function generateReference(prefix: string = "XIXA"): string {
@@ -93,168 +434,23 @@ export const xixapay: PaymentGateway = {
       const separator = localPart.includes("+") ? "" : "+";
       const virtualEmail = `${localPart}${separator}${application.id.slice(0, 8)}${suffix}@${domain}`;
 
-      // Check if reseller already has a BVN
-      let bvnToUse = application.bvn;
-      let waitlistName = "";
-      let waitlistPhone = "";
-
-      if (!bvnToUse) {
-        // ✅ Use admin client to bypass RLS for waitlist table
-        const adminClient = await import("@/lib/supabase/admin").then((m) =>
-          m.createAdminClient(),
-        );
-
-        const { data: waitlistEntry, error: waitlistError } = await adminClient
-          .from("waitlist")
-          .select("id, full_name, bvn, mobile")
-          .eq("status", "pending")
-          .limit(1)
-          .order("created_at", { ascending: true });
-
-        if (waitlistError) {
-          console.error("Waitlist query error:", waitlistError);
-          return {
-            success: false,
-            reference,
-            error: "Failed to fetch BVN from waitlist",
-          };
-        }
-
-        if (!waitlistEntry || waitlistEntry.length === 0) {
-          return {
-            success: false,
-            reference,
-            error: "Not available. Please contact support.",
-          };
-        }
-
-        const entry = waitlistEntry[0];
-        bvnToUse = entry.bvn;
-        waitlistName = entry.full_name;
-        waitlistPhone = entry.mobile;
-
-        // Mark waitlist as used - use admin client
-        await adminClient
-          .from("waitlist")
-          .update({
-            status: "used",
-            assigned_to: application.id,
-            assigned_to_type: "reseller",
-            used_at: new Date().toISOString(),
-          })
-          .eq("id", entry.id);
-
-        // Store BVN on reseller - use admin client
-        await adminClient
-          .from("global_reseller_applications")
-          .update({ bvn: bvnToUse })
-          .eq("id", resellerId);
-      } else {
-        // Reseller already has BVN - fetch waitlist entry
-        const adminClient = await import("@/lib/supabase/admin").then((m) =>
-          m.createAdminClient(),
-        );
-
-        const { data: waitlistEntry } = await adminClient
-          .from("waitlist")
-          .select("full_name, mobile")
-          .eq("bvn", bvnToUse)
-          .single();
-
-        if (waitlistEntry) {
-          waitlistName = waitlistEntry.full_name;
-          waitlistPhone = waitlistEntry.mobile;
-        } else {
-          // Fallback: use reseller's data if waitlist entry not found
-          waitlistName =
-            application.store_name ||
-            `${application.first_name} ${application.last_name}`.trim() ||
-            "Customer";
-          waitlistPhone = application.phone || "08000000000";
-        }
-      }
-
-      // Prepare Xixapay payload
-      const xixapayPayload = {
-        email: virtualEmail,
-        name: waitlistName,
-        phoneNumber: waitlistPhone,
-        bankCode: ["20867"],
-        businessId: XIXAPAY_BUSINESS_ID,
-        accountType: "static",
-        id_type: "bvn",
-        id_number: bvnToUse,
-      };
-
-      // Call Xixapay API to create virtual account
-      const response = await fetch(
-        `${XIXAPAY_BASE_URL}/api/v1/createVirtualAccount`,
-        {
-          method: "POST",
-          headers: getHeaders(),
-          body: JSON.stringify(xixapayPayload),
-        },
+      // A BVN is only bound to the reseller once Xixapay returns an account,
+      // so a rejected BVN stays in the pool for the next signup.
+      const outcome = await provisionVirtualAccount(
+        application,
+        virtualEmail,
       );
 
-      const data = await response.json();
-
-      if (!response.ok || data.status !== "success") {
-        console.error("Xixapay createVirtualAccount error:", data);
+      if (!outcome.ok) {
+        console.error("Xixapay createVirtualAccount failed:", outcome.error);
         return {
           success: false,
           reference,
-          error: data.message || "Failed to create virtual account",
+          error: GENERIC_ACCOUNT_ERROR,
         };
       }
 
-      const bankAccounts = data.bankAccounts || [];
-      if (bankAccounts.length === 0) {
-        return {
-          success: false,
-          reference,
-          error: "No virtual accounts were created",
-        };
-      }
-
-      // ✅ Use admin client to bypass RLS for insert
-      const adminClient = await import("@/lib/supabase/admin").then((m) =>
-        m.createAdminClient(),
-      );
-
-      // Store virtual account in database - NO status column!
-      const accountRecords = bankAccounts.map((bank: any) => ({
-        reseller_id: resellerId,
-        bank_name: bank.bankName,
-        account_number: bank.accountNumber,
-        account_name: bank.accountName,
-        account_type: bank.accountType || "static",
-        tracking_reference: bank.Reserved_Account_Id,
-        provider: "xixapay",
-        customer_email: virtualEmail,
-        customer_name: waitlistName,
-        customer_phone: waitlistPhone,
-        customer_bvn: bvnToUse,
-        // ❌ DO NOT include status - column doesn't exist
-      }));
-
-      console.log("📝 Inserting virtual account records:", accountRecords);
-
-      const { error: insertError } = await adminClient
-        .from("global_virtual_accounts")
-        .insert(accountRecords);
-
-      if (insertError) {
-        console.error("❌ Failed to insert virtual account:", insertError);
-        return {
-          success: false,
-          reference,
-          error:
-            "Failed to save virtual account to database: " +
-            insertError.message,
-        };
-      }
-
-      console.log("✅ Virtual account saved to database successfully");
+      const bankAccounts = outcome.bankAccounts;
 
       return {
         success: true,
@@ -457,146 +653,19 @@ export const xixapay: PaymentGateway = {
       const separator = localPart.includes("+") ? "" : "+";
       const virtualEmail = `${localPart}${separator}${application.id.slice(0, 8)}${suffix}@${domain}`;
 
-      // Get or create BVN
-      let bvnToUse = application.bvn;
-      let waitlistName = "";
-      let waitlistPhone = "";
-
-      if (!bvnToUse) {
-        // ✅ Use admin client to bypass RLS for waitlist table
-        const adminClient = await import("@/lib/supabase/admin").then((m) =>
-          m.createAdminClient(),
-        );
-
-        const { data: waitlistEntry, error: waitlistError } = await adminClient
-          .from("waitlist")
-          .select("id, full_name, bvn, mobile")
-          .eq("status", "pending")
-          .limit(1)
-          .order("created_at", { ascending: true });
-
-        if (waitlistError) {
-          console.error("Waitlist query error:", waitlistError);
-          throw new Error("Failed to fetch BVN from waitlist");
-        }
-
-        if (!waitlistEntry || waitlistEntry.length === 0) {
-          throw new Error("Not available. Please contact support.");
-        }
-
-        const entry = waitlistEntry[0];
-        bvnToUse = entry.bvn;
-        waitlistName = entry.full_name;
-        waitlistPhone = entry.mobile;
-
-        // Mark waitlist as used - use admin client
-        await adminClient
-          .from("waitlist")
-          .update({
-            status: "used",
-            assigned_to: application.id,
-            assigned_to_type: "reseller",
-            used_at: new Date().toISOString(),
-          })
-          .eq("id", entry.id);
-
-        // Store BVN on reseller - use admin client
-        await adminClient
-          .from("global_reseller_applications")
-          .update({ bvn: bvnToUse })
-          .eq("id", resellerId);
-      } else {
-        // Reseller already has BVN - fetch waitlist entry
-        const adminClient = await import("@/lib/supabase/admin").then((m) =>
-          m.createAdminClient(),
-        );
-
-        const { data: waitlistEntry } = await adminClient
-          .from("waitlist")
-          .select("full_name, mobile")
-          .eq("bvn", bvnToUse)
-          .single();
-
-        if (waitlistEntry) {
-          waitlistName = waitlistEntry.full_name;
-          waitlistPhone = waitlistEntry.mobile;
-        } else {
-          // Fallback: use reseller's data if waitlist entry not found
-          waitlistName =
-            application.store_name ||
-            `${application.first_name} ${application.last_name}`.trim() ||
-            "Customer";
-          waitlistPhone = application.phone || "08000000000";
-        }
-      }
-
-      const xixapayPayload = {
-        email: virtualEmail,
-        name: waitlistName,
-        phoneNumber: waitlistPhone,
-        bankCode: ["20867"],
-        businessId: XIXAPAY_BUSINESS_ID,
-        accountType: "static" as const,
-        id_type: "bvn" as const,
-        id_number: bvnToUse,
-      };
-
-      // Call Xixapay API
-      const response = await fetch(
-        `${XIXAPAY_BASE_URL}/api/v1/createVirtualAccount`,
-        {
-          method: "POST",
-          headers: getHeaders(),
-          body: JSON.stringify(xixapayPayload),
-        },
+      // A BVN is only bound to the reseller once Xixapay returns an account,
+      // so a rejected BVN stays in the pool for the next signup.
+      const outcome = await provisionVirtualAccount(
+        application,
+        virtualEmail,
       );
 
-      const data = await response.json();
-
-      if (!response.ok || data.status !== "success") {
-        throw new Error(data.message || "Failed to create virtual account");
+      if (!outcome.ok) {
+        console.error("Xixapay createVirtualAccount failed:", outcome.error);
+        throw new Error(GENERIC_ACCOUNT_ERROR);
       }
 
-      const bankAccounts = data.bankAccounts || [];
-      if (bankAccounts.length === 0) {
-        throw new Error("No virtual accounts were created");
-      }
-
-      // ✅ Use admin client to bypass RLS for insert
-      const adminClient = await import("@/lib/supabase/admin").then((m) =>
-        m.createAdminClient(),
-      );
-
-      // Store in database - NO status column!
-      const accountRecords = bankAccounts.map((bank: any) => ({
-        reseller_id: resellerId,
-        bank_name: bank.bankName,
-        account_number: bank.accountNumber,
-        account_name: bank.accountName,
-        account_type: bank.accountType || "static",
-        tracking_reference: bank.Reserved_Account_Id,
-        provider: "xixapay",
-        customer_email: virtualEmail,
-        customer_name: waitlistName,
-        customer_phone: waitlistPhone,
-        customer_bvn: bvnToUse,
-        status: "active",
-      }));
-
-      console.log("📝 Inserting virtual account records:", accountRecords);
-
-      const { error: insertError } = await adminClient
-        .from("global_virtual_accounts")
-        .insert(accountRecords);
-
-      if (insertError) {
-        console.error("❌ Failed to insert virtual account:", insertError);
-        throw new Error(
-          "Failed to save virtual account: " + insertError.message,
-        );
-      }
-
-      console.log("✅ Virtual account saved to database successfully");
+      const bankAccounts = outcome.bankAccounts;
 
       return {
         accountNumber: bankAccounts[0]?.accountNumber || "",
