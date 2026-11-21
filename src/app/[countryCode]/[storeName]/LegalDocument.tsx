@@ -10,6 +10,7 @@ import {
   type TextDirection,
 } from "../../../../supabase/functions/_shared/legal/legalLocales";
 import { legalUiStrings } from "../../../../supabase/functions/_shared/legal/legalUiStrings";
+import LegalDocumentView from "@/components/legal/LegalDocumentView";
 
 interface LegalStoreRecord {
   store_name: string;
@@ -81,12 +82,14 @@ interface LegalDocumentProps {
  *
  * The text comes from _shared/legal/storeLegalText.ts, the same module the
  * mobile app renders, so a change to the policy reaches both surfaces at once.
- * It is plain text with blank-line paragraphs and "N. Title" headings, so it is
- * split here rather than parsed as markdown.
  *
  * Direction is set on the article rather than the page, because the surrounding
  * layout (the storefront header/footer) has its own direction from the country
  * config and must not be flipped by a legal document.
+ *
+ * Presentation lives in @/components/legal/LegalDocumentView so the country
+ * pages ([countryCode]/privacy|terms) render identically; this wrapper only
+ * resolves the tenant and its labels.
  */
 export default async function LegalDocument({
   storeName,
@@ -108,80 +111,17 @@ export default async function LegalDocument({
   const closing =
     doc === "privacy" ? ui.privacyClosingQuestion : ui.termsClosingQuestion;
 
-  const blocks = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
   return (
-    <main
-      dir={dir}
-      style={{
-        maxWidth: 760,
-        margin: "0 auto",
-        padding: "2.5rem 1.5rem 4rem",
-      }}
-    >
-      <a
-        href={`/${store.country_code || country.code}/${storeName}`}
-        style={{
-          display: "inline-block",
-          marginBottom: "1.75rem",
-          fontSize: "0.85rem",
-          color: "var(--muted)",
-          textDecoration: "none",
-        }}
-      >
-        {backLabel}
-      </a>
-
-      <h1
-        style={{
-          fontSize: "1.6rem",
-          fontWeight: 700,
-          color: "var(--text)",
-          marginBottom: "1.75rem",
-        }}
-      >
-        {title}
-      </h1>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-        {blocks.map((line, index) => {
-          const isHeading = /^\d+\.\s/.test(line);
-          return (
-            <p
-              key={index}
-              style={{
-                margin: isHeading ? "1.5rem 0 0.25rem" : 0,
-                fontSize: isHeading ? "1.02rem" : "0.9rem",
-                fontWeight: isHeading ? 700 : 400,
-                lineHeight: 1.65,
-                color: isHeading ? "var(--text)" : "var(--text2)",
-              }}
-            >
-              {line}
-            </p>
-          );
-        })}
-      </div>
-
-      <p
-        style={{
-          marginTop: "2.5rem",
-          fontSize: "0.8rem",
-          color: "var(--dim)",
-        }}
-      >
-        {closing} {ui.emailLabel}{" "}
-        <a
-          href={`mailto:${store.email}`}
-          style={{ color: "var(--accent)", textDecoration: "underline" }}
-        >
-          {store.email}
-        </a>
-        .
-      </p>
-    </main>
+    <LegalDocumentView
+      title={title}
+      text={text}
+      direction={dir}
+      locale={resolvedLocale}
+      backHref={`/${store.country_code || country.code}/${storeName}`}
+      backLabel={backLabel}
+      closing={closing}
+      emailLabel={ui.emailLabel}
+      email={store.email ?? ""}
+    />
   );
 }

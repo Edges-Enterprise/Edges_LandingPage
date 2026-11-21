@@ -2,6 +2,7 @@
 "use server";
 
 import { createServerClient } from "@/lib/supabase/server";
+import { isReservedStoreSlug } from "@/lib/store/reservedSlugs";
 
 export interface StoreNameCheckResult {
   available: boolean;
@@ -25,6 +26,15 @@ export async function checkStoreSlug(
     return {
       available: false,
       error: "Only lowercase letters, numbers, and hyphens allowed",
+    };
+  }
+
+  // A reserved slug would be shadowed by a platform route of the same name,
+  // leaving the store unreachable at /[countryCode]/[storeName].
+  if (isReservedStoreSlug(storeSlug)) {
+    return {
+      available: false,
+      error: "This store name is reserved. Please choose another.",
     };
   }
 

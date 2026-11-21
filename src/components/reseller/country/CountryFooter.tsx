@@ -8,13 +8,17 @@ interface CountryFooterProps {
   config: CountryConfig;
 }
 
-const footerLinks = [
-  { label: "Privacy Policy", href: "/privacy" },
-  { label: "Terms of Service", href: "/terms" },
-  { label: "Contact", href: "/contact" },
-];
-
 export default function CountryFooter({ config }: CountryFooterProps) {
+  // Country-scoped, not the legacy global /privacy and /terms: those name the
+  // Nigerian entity and publish a jurisdiction that does not apply here. The
+  // routes live at src/app/[countryCode]/privacy and /terms.
+  const base = `/${config.code}`;
+  const footerLinks = [
+    { label: "Privacy Policy", href: `${base}/privacy` },
+    { label: "Terms of Service", href: `${base}/terms` },
+    { label: "Contact", href: "/contact" },
+  ];
+
   return (
     <footer
       style={{
