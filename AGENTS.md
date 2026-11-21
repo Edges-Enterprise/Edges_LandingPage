@@ -1064,8 +1064,22 @@ there.
 
 BelovedTopup's Nov 21 deposits (₦100 and ₦600 gross) were lost to this gap
 before the fix. Both landed in test customer accounts
-(`beloveddavid80@gmail.com`, `adewumitobiloba808@gmail.com`) and were never
-backfilled, since the fix only affects deposits arriving after deploy.
+(`beloveddavid80@gmail.com`, `adewumitobiloba808@gmail.com`) and were
+backfilled by hand afterwards (₦90 and ₦550 net, references
+`EDGE_b3db0162…` / `EDGE_150006276…`) — the backfill rows use the same
+`EDGE_` idempotency key as the live code, so a Xixapay retry is a no-op.
+
+**Customers see their own history** in `StoreTransactionHistory`, rendered
+inside `StoreFundWalletModal`'s accounts view — the modal the header's
+wallet pill opens. It reads through `getCurrentCustomerTransactions`
+(`src/actions/reseller/customers/`), which resolves auth → customer exactly
+as `getCurrentCustomerWallet` does, because `global_customer_transactions`
+has no RLS policies. That table stores `deposit`/`purchase`/`refund`/
+`withdrawal` directly, so unlike `global_transactions` it needs no
+reference-based classifier. Purchases are written by the
+`global-purchase-*` edge functions (`purchaseOrchestrator`), not by a Next
+action — `src/actions/reseller/orders/purchasePlan.ts` is still the legacy
+reseller path.
 
 **Fee is not the problem.** `calculateXixapayFee` is a fixed amount per bracket,
 not a percentage: ₦100 falls in `100–299` → ₦10 → **₦90 net**. A ₦100 deposit

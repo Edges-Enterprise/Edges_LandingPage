@@ -365,6 +365,9 @@ export default function StoreContent({
           onCopy={copyToClipboard}
           onCreateVirtualAccount={handleCreateVirtualAccount}
           onFundMobileMoney={handleFundMobileMoney}
+          resellerId={storeData.application.id}
+          loggedIn={auth.loggedIn}
+          isStoreOwner={auth.isStoreOwner}
         />
 
         <StoreSupportModal

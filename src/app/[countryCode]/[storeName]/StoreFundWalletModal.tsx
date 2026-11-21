@@ -19,6 +19,7 @@ import { Copy, Wallet, X, CheckCircle, AlertCircle } from "lucide-react";
 import { formatStorePrice } from "@/lib/currency/formatStorePrice";
 import type { CountryConfig } from "@/config/countries";
 import type { GlobalCustomerVirtualAccount } from "@/actions/reseller/customers/getGlobalCustomerWallet";
+import StoreTransactionHistory from "./StoreTransactionHistory";
 
 export interface StoreFundMessage {
   type: "success" | "error";
@@ -38,6 +39,10 @@ interface StoreFundWalletModalProps {
   copiedAccount: string | null;
   onCopy: (text: string, key: string) => void;
   onCreateVirtualAccount: () => void;
+  /** Identity for the transaction history; the owner has no customer row. */
+  resellerId: string;
+  loggedIn: boolean;
+  isStoreOwner: boolean;
   onFundMobileMoney: (params: {
     amount: number;
     mobileNumber: string;
@@ -73,6 +78,9 @@ export default function StoreFundWalletModal({
   copiedAccount,
   onCopy,
   onCreateVirtualAccount,
+  resellerId,
+  loggedIn,
+  isStoreOwner,
   onFundMobileMoney,
 }: StoreFundWalletModalProps) {
   const isXixapay = config.paymentGateway?.provider === "xixapay";
@@ -372,6 +380,14 @@ export default function StoreFundWalletModal({
                 </div>
               ))
             )}
+
+            <StoreTransactionHistory
+              resellerId={resellerId}
+              config={config}
+              loggedIn={loggedIn}
+              isStoreOwner={isStoreOwner}
+              refreshKey={balance}
+            />
           </>
         ) : (
           <>
