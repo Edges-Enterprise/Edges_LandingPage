@@ -49,5 +49,6 @@
   "accountNumberPlaceholder": "Numéro de Compte",
   "insufficientBalance": "Solde Insuffisant",
   "error": "Impossible de charger le portefeuille. Veuillez réessayer.",
-  "virtualAccountDescription": "Créez un compte virtuel pour alimenter facilement votre portefeuille. Tout virement vers ce compte sera crédité automatiquement."
+  "virtualAccountDescription": "Créez un compte virtuel pour alimenter facilement votre portefeuille. Tout virement vers ce compte sera crédité automatiquement.",
+  "bonusBalance": "Solde de bonus"
 }

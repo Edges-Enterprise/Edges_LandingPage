@@ -49,5 +49,6 @@
   "accountNumberPlaceholder": "Número de Cuenta",
   "insufficientBalance": "Saldo Insuficiente",
   "error": "No se pudo cargar la billetera. Por favor, inténtalo de nuevo.",
-  "virtualAccountDescription": "Crea una cuenta virtual para fondear fácilmente tu billetera. Cualquier transferencia a esta cuenta se acreditará automáticamente."
+  "virtualAccountDescription": "Crea una cuenta virtual para fondear fácilmente tu billetera. Cualquier transferencia a esta cuenta se acreditará automáticamente.",
+  "bonusBalance": "Saldo de bonificación"
 }

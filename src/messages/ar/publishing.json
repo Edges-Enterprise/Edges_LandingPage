@@ -88,5 +88,7 @@
   "insufficientFunds": "رصيد المحفظة غير كافٍ",
   "paymentFailed": "فشل الدفع. يرجى المحاولة مرة أخرى.",
   "subtitleMobile": "Manage your Play Store presence",
-  "buildDetails": "تفاصيل البناء"
+  "buildDetails": "تفاصيل البناء",
+  "bonusBalance": "رصيد المكافأة",
+  "notForPublishing": "غير قابل للاستخدام هنا"
 }
