@@ -88,5 +88,7 @@
   "insufficientFunds": "Solde du portefeuille insuffisant",
   "paymentFailed": "Le paiement a échoué. Veuillez réessayer.",
   "subtitleMobile": "Manage your Play Store presence",
-  "buildDetails": "Détails de la compilation"
+  "buildDetails": "Détails de la compilation",
+  "bonusBalance": "Solde de bonus",
+  "notForPublishing": "non utilisable ici"
 }

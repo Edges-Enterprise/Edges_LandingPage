@@ -88,5 +88,7 @@
   "insufficientFunds": "Insufficient wallet balance",
   "paymentFailed": "Payment failed. Please try again.",
   "subtitleMobile": "Manage your Play Store presence",
-  "buildDetails": "Build Details"
+  "buildDetails": "Build Details",
+  "bonusBalance": "Bonus Balance",
+  "notForPublishing": "not usable here"
 }

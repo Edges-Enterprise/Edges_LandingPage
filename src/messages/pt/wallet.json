@@ -49,5 +49,6 @@
   "accountNumberPlaceholder": "Número da Conta",
   "insufficientBalance": "Saldo Insuficiente",
   "error": "Não foi possível carregar a carteira. Por favor, tente novamente.",
-  "virtualAccountDescription": "Crie uma conta virtual para financiar facilmente sua carteira. Qualquer transferência para esta conta será creditada automaticamente."
+  "virtualAccountDescription": "Crie uma conta virtual para financiar facilmente sua carteira. Qualquer transferência para esta conta será creditada automaticamente.",
+  "bonusBalance": "Saldo de bônus"
 }

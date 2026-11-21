@@ -48,5 +48,6 @@
   "accountNamePlaceholder": "Account Name",
   "accountNumberPlaceholder": "Account Number",
   "insufficientBalance": "Insufficient Balance",
-  "error": "Unable to load wallet. Please try again."
+  "error": "Unable to load wallet. Please try again.",
+  "bonusBalance": "Bonus Balance"
 }

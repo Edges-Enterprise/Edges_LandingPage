@@ -86,5 +86,7 @@
   "androidDisabled": "La aplicación Android no está habilitada. Actívala en la configuración de tu tienda para publicar.",
   "walletBalance": "Saldo de la cartera",
   "insufficientFunds": "Saldo de cartera insuficiente",
-  "paymentFailed": "El pago falló. Inténtalo de nuevo."
+  "paymentFailed": "El pago falló. Inténtalo de nuevo.",
+  "bonusBalance": "Saldo de bonificación",
+  "notForPublishing": "no usable aquí"
 }

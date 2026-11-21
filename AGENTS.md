@@ -5,9 +5,11 @@ reseller dashboard).
 
 ## Project context
 
-- Docs convention: `HANDOVER.md` (authoritative narrative) and
-  `TASK-8-BOARD.md` (execution checklist). Update both after a fix, and note the
-  commit hash. Task 8 is the current defect batch.
+- Docs convention: `ARCHITECTURE.md` (what the project is and how it is
+  built — read this first for structure, money flow, database rules and the
+  repo-inventory question), `HANDOVER.md` (authoritative narrative + session
+  log) and `TASK-8-BOARD.md` (execution checklist). Update `HANDOVER.md` after
+  a fix and note the commit hash. Task 8 is the current defect batch.
 - **Always merge `handover/supabase-dump` into `main` in the same session you
   push the branch** (standing policy, HANDOVER.md top section) — for both this
   repo and the mobile `reseller-app`. Everything is live on web and mobile, so
@@ -201,6 +203,31 @@ legacy twins are still anon-callable `SECURITY DEFINER` —
 `process_purchase_deductions`, `update_wallet_after_sale`, plus
 `award_app_first_deposit_bonus`. Treat them the same way once it is decided to
 touch the legacy path.
+
+### The first-deposit bonus rule lives in SQL — do not reimplement it
+
+`global_wallets.bonus_balance` is an adoption incentive, not cash. It applies
+**only** when the reseller's own balance cannot cover the platform cost, and it
+must then cover the **entire selling price** or the sale is refused. There is no
+part-funding. Self-purchases (publishing plans) are balance-only.
+
+The rule exists twice, and both must change together:
+
+- `process_global_purchase_deductions(...)` — settlement.
+- `get_global_sale_funding(...)` — pre-flight, returns
+  `{can_fund, mode: 'balance'|'bonus'|'none', balance, bonus}`.
+
+`_shared/purchaseOrchestrator.ts` calls the pre-flight and **must not** compute
+affordability itself, or the two drift. `supabase/tests/sale_funding_test.sql`
+asserts both agree across eight cases; run it after touching either function:
+
+```
+psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/sale_funding_test.sql
+```
+
+It runs inside `BEGIN … ROLLBACK`, so it is safe against the live database and
+leaves no rows. Its assertions are mutation-checked — reinstating the old
+bonus-first settlement makes it fail — so keep that property if you extend it.
 
 ## Payments
 

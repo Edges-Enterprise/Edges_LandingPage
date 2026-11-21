@@ -248,6 +248,11 @@ export async function processPurchase(
     );
 
     if (fundingError) {
+      console.error("sale funding check failed:", fundingError.message, {
+        resellerId,
+        costPrice,
+        finalPrice,
+      });
       return {
         success: false,
         error: "Store configuration error. Please contact support.",
@@ -256,6 +261,15 @@ export async function processPurchase(
     }
 
     if (!funding?.can_fund) {
+      // The customer is told nothing specific on purpose; support needs to
+      // tell an unfunded store apart from a real outage.
+      console.warn("sale refused, store cannot fund it:", {
+        resellerId,
+        costPrice,
+        finalPrice,
+        balance: funding?.balance,
+        bonus: funding?.bonus,
+      });
       return {
         success: false,
         error: "Service temporarily unavailable. Please try again later.",
@@ -267,6 +281,9 @@ export async function processPurchase(
       .rpc("get_global_reseller_balance_only", { p_reseller_id: resellerId });
 
     if (balanceError) {
+      console.error("reseller balance check failed:", balanceError.message, {
+        resellerId,
+      });
       return {
         success: false,
         error: "Store configuration error. Please contact support.",
@@ -275,6 +292,13 @@ export async function processPurchase(
     }
 
     if (parseFloat(resellerBalance || "0") < costPrice) {
+      // Self-purchases are balance-only, so an exhausted balance reads the
+      // same to the user as a failed sale. Log the numbers for support.
+      console.warn("self-purchase refused, balance below cost:", {
+        resellerId,
+        costPrice,
+        balance: resellerBalance,
+      });
       return {
         success: false,
         error: "Unable to fulfill this order. Please try again later.",
