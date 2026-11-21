@@ -87,8 +87,6 @@ export async function triggerAppBuild(params: TriggerAppBuildParams) {
       config: {
         androidPackageName: packageName,
         packageName: packageName,
-        version: "1.0.0",
-        buildNumber: 1,
         apiBaseUrl:
           process.env.NEXT_PUBLIC_APP_URL ||
           "https://edges-landing-page.vercel.app",

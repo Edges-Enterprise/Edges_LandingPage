@@ -58,8 +58,6 @@ export async function triggerAppBuild(resellerId: string) {
     },
     config: {
       androidPackageName: `com.edges.${reseller.store_name.replace(/-/g, "")}`,
-      version: "1.0.0",
-      buildNumber: 1,
       apiBaseUrl:
         process.env.NEXT_PUBLIC_APP_URL ||
         "https://edges-landing-page.vercel.app",

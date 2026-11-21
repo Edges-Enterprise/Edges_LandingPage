@@ -263,8 +263,10 @@ export interface AppAssets {
 export interface AppPackageConfig {
   androidPackageName: string;
   iosBundleId: string;
-  version: string;
-  buildNumber: number;
+  /** @deprecated Version lives in reseller-app/package.json, not per tenant. */
+  version?: string;
+  /** @deprecated Use the project versionCode derived from package.json. */
+  buildNumber?: number;
   apiBaseUrl: string;
   storeUrl: string;
 }

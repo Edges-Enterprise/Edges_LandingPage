@@ -67,8 +67,6 @@ export async function getBuildContext(buildId: string) {
           notificationIcon: notifIcon?.url || "",
         },
         config: {
-          version: "1.0.0",
-          buildNumber: 1,
           androidPackageName: `com.edges.${application.store_slug?.replace(/-/g, "") || "app"}`,
         },
         countryCode: application.country_code,

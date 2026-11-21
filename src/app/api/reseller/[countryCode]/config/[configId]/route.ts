@@ -77,8 +77,6 @@ export async function GET(
           configData?.config?.packageName ||
           configData?.packageName ||
           `com.edges.${(configData?.storeName || "app").replace(/-/g, "")}`,
-        version: configData?.config?.version || "1.0.0",
-        buildNumber: configData?.config?.buildNumber || 1,
         apiBaseUrl:
           configData?.config?.apiBaseUrl ||
           process.env.NEXT_PUBLIC_APP_URL ||
