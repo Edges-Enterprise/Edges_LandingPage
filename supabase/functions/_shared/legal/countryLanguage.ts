@@ -5,13 +5,13 @@
 // A standalone map for the same reason countryName.ts is one: a Deno edge
 // function must not import the React-flavoured src/config/countries
 // CountryConfig just to read `language.code`. The values mirror that field;
-// keep the two in step when a country is added (see
-// `scripts/check-legal-locales.ts` if present, which fails the build on drift).
+// keep the two in step when a country is added.
 //
-// Note `eg` is mapped here even though it is missing from the COUNTRIES map in
-// src/config/countries/index.ts (a known bug - Egypt falls back to the USD
-// config). Mapping it here means the legal text is correct for Egypt as soon as
-// that config is registered, and is harmless until then.
+// `eg` and `ma` are mapped here and are now also registered in COUNTRIES in
+// src/config/countries/index.ts. They were previously mapped here but absent
+// from that registry, so an Egyptian store's legal page rendered English and
+// named the country "International" - this map was right while the web config
+// was not.
 
 const COUNTRY_LANGUAGES: Record<string, string> = {
   ng: "en",

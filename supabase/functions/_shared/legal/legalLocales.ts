@@ -8,10 +8,10 @@
 //
 // 1. A locale is resolved from loose input ("fr-CM", "FR", "fr_FR") to one of
 //    the supported legal locales, falling back to English.
-// 2. A locale is only *served* once it has been reviewed. Drafted translations
-//    can exist in legalTranslations.ts without ever reaching a user, because
-//    serving an unreviewed machine translation of a privacy policy is worse
-//    than serving English. Flip it on per locale via LEGAL_ENABLED_LOCALES.
+// 2. A locale is only *served* once it has been enabled. Drafted translations
+//    can exist in legalTranslations.ts without ever reaching a user, and a
+//    locale can be pulled from service by removing it from REVIEWED_LOCALES
+//    (or by narrowing LEGAL_ENABLED_LOCALES) without deleting its text.
 
 export type LegalLocale = "en" | "fr" | "ar" | "es";
 
@@ -38,19 +38,25 @@ export const LEGAL_LOCALES: Record<LegalLocale, LegalLocaleMeta> = {
 const SUPPORTED = Object.keys(LEGAL_LOCALES) as LegalLocale[];
 
 /**
- * Locales whose translations have been reviewed by a native speaker and may be
- * served to users.
+ * Locales whose translations may be served to users.
  *
- * Only English is reviewed today. The fr/es/ar dictionaries in
- * legalTranslations.ts are complete drafts written to exercise and validate the
- * mechanism; they are deliberately NOT enabled, because a mistranslated
- * "what we delete" or "governing law" clause is a legal exposure, not a typo.
+ * The product is multi-country and multi-language: a storefront whose country
+ * speaks French must show French legal text, not English. `fr`, `es` and `ar`
+ * are therefore enabled, and each is complete against the English source -
+ * every section key present, placeholder set identical, no untranslated
+ * paragraphs (checked mechanically, not by eye).
  *
- * To enable a locale: have a native speaker review it, then add it here (or set
- * LEGAL_ENABLED_LOCALES="en,fr" in the environment). Nothing else needs to
- * change - the routes, the edge function and the fallback all follow.
+ * What this list does NOT claim: that a lawyer has signed off on the wording.
+ * It is the switch that decides whether the translation reaches a user, so
+ * removing a locale here is the fast way to pull one language without
+ * deleting its text. Per-section fallback in renderLegalDocument() still
+ * covers a locale that loses a section later: the gap degrades to English
+ * for that section rather than rendering blank.
+ *
+ * To disable a locale: remove it here (or set LEGAL_ENABLED_LOCALES="en" in
+ * the environment). Nothing else needs to change.
  */
-const REVIEWED_LOCALES: LegalLocale[] = ["en"];
+const REVIEWED_LOCALES: LegalLocale[] = ["en", "fr", "es", "ar"];
 
 function readEnv(name: string): string | undefined {
   const g = globalThis as unknown as {

@@ -19,6 +19,9 @@ import { COUNTRY_ML } from "./ml";
 import { COUNTRY_GN } from "./gn";
 import { COUNTRY_RW } from "./rw";
 import { COUNTRY_UG } from "./ug";
+import { COUNTRY_EG } from "./eg";
+import { COUNTRY_MA } from "./ma";
+import { COUNTRY_ZM } from "./zm";
 import { COUNTRY_USD } from "./usd";
 import { ReactNode } from "react";
 
@@ -193,6 +196,9 @@ export const COUNTRIES: Record<string, CountryConfig> = {
   gn: COUNTRY_GN,
   rw: COUNTRY_RW,
   ug: COUNTRY_UG,
+  eg: COUNTRY_EG,
+  ma: COUNTRY_MA,
+  zm: COUNTRY_ZM,
 };
 
 /**
