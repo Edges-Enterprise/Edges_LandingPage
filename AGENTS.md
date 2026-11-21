@@ -710,10 +710,26 @@ feature yet, and the real pages live in **two** route trees.
 - It sets platform markup at **default / country / provider / plan** (upsert on
   the `(scope, scope_key)` unique index) and **enables/disables** a plan
   (`is_active`, which every catalog read already filters).
+- **Per-plan markup is edited on the catalog row, not via the Scope dropdown.**
+  Each Lizzysub/Accragh row has a **Markup** button that opens a panel below the
+  table (Type = percentage/fixed, Value, Save / Clear / Cancel). It writes
+  `scope='plan'` with `scope_key = plan.id` — the **UUID**, because
+  `resolvePlatformMarkup` compares `scope_key` against `plan.id`, *not*
+  `provider_plan_id`. The Markup column shows the row's value, or `inherit` when
+  none exists; Zendit rows show `—` and no button. **Only offer the editor where
+  a plan row can take effect:** plan/provider rows are HOME-only
+  (`markup.ts` — home = plan cost currency == store currency), and Zendit is
+  always USD, hence always cross-border, so a Zendit plan row would be silently
+  ignored. `supportsPlanMarkup()` encodes that.
+- **Do not render the editor inside the catalog `<tr>`.** It was tried: the row
+  inherits the table's `min-width: 560px`, so on a phone the Type/Value fields
+  stretched to 548px and sat off-screen inside the scroll container (`position:
+  sticky` on the cell did not constrain it). Render it as a sibling panel
+  outside `.pp-table-wrap` instead.
 - **Adding a new plan is deliberately out of scope** (deferred item 9): the
   person said Lizzysub/Accragh plans are added by SQL. Do not add a "new plan"
   form here without picking the pin up.
-- The page is **responsive** now: both six-column tables sit inside a
+- The page is **responsive** now: both catalog tables sit inside a
   `.pp-table-wrap` (`overflow-x: auto`, table `min-width: 560px`) so they scroll
   sideways on phones instead of forcing the page wide; the two form grids
   collapse to one column and the row action buttons flex-wrap under 767px. If

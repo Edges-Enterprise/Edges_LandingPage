@@ -9,7 +9,11 @@
 //      `_shared/currency/markup.ts`). At HOME (plan cost currency == store
 //      currency) only the plan and provider rows apply; cross-border uses
 //      country then default.
-//   2. Plan catalog — search, then enable/disable a plan (`is_active`).
+//   2. Plan catalog — search, then enable/disable a plan (`is_active`), and
+//      set a per-plan markup on Lizzysub/Accragh rows. The per-plan editor is
+//      offered only where a plan row can actually take effect: at HOME the
+//      chain is plan -> provider -> 0, while Zendit is always USD and so
+//      always cross-border, where plan rows are ignored by design.
 //
 // Adding a new plan is deliberately NOT here (deferred item 9): Lizzysub and
 // Accragh plans are seeded by SQL.
@@ -101,6 +105,11 @@ export default function PlatformPlansClient({
   const [markupType, setMarkupType] = useState<MarkupType>("percentage");
   const [markupValue, setMarkupValue] = useState("12");
 
+  // Per-plan markup editor, opened from a row in the plan catalog.
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [editPlanType, setEditPlanType] = useState<MarkupType>("percentage");
+  const [editPlanValue, setEditPlanValue] = useState("");
+
   // Plan search
   const [provider, setProvider] = useState("");
   const [countryCode, setCountryCode] = useState("");
@@ -178,6 +187,76 @@ export default function PlatformPlansClient({
         ),
       );
       setMessage(plan.is_active ? "Plan disabled." : "Plan enabled.");
+    });
+  };
+
+  // Per-plan markup rows, keyed by the plan UUID the pricing pipeline matches
+  // on (`resolvePlatformMarkup` compares `scope_key` to `plan.id`).
+  const planMarkupByPlanId = new Map(
+    markups
+      .filter((m) => m.scope === "plan")
+      .map((m) => [m.scope_key, m] as const),
+  );
+
+  // Plan-level markup only ever applies at HOME (plan cost currency == store
+  // currency), where the chain is plan -> provider -> 0. Lizzysub and Accragh
+  // store their cost in the local currency; Zendit is always USD, i.e. always
+  // cross-border, where a plan row is ignored — so no editor is offered there.
+  const supportsPlanMarkup = (plan: PlatformPlanRow) =>
+    plan.provider === "lizzysub" || plan.provider === "accragh";
+
+  const openPlanMarkup = (plan: PlatformPlanRow) => {
+    const existing = planMarkupByPlanId.get(plan.id);
+    setEditingPlanId(plan.id);
+    setEditPlanType(existing?.markup_type ?? "percentage");
+    setEditPlanValue(existing ? String(existing.markup_value) : "");
+  };
+
+  const closePlanMarkup = () => {
+    setEditingPlanId(null);
+    setEditPlanValue("");
+  };
+
+  const onSavePlanMarkup = (plan: PlatformPlanRow) => {
+    const value = Number(editPlanValue);
+    if (editPlanValue.trim() === "" || !Number.isFinite(value) || value < 0) {
+      setMessage("Markup must be a number of at least 0");
+      return;
+    }
+    startTransition(async () => {
+      const res = await savePlatformMarkup({
+        scope: "plan",
+        scopeKey: plan.id,
+        markupType: editPlanType,
+        markupValue: value,
+        enabled: true,
+      });
+      if (!res.success) {
+        setMessage(res.error ?? "Failed");
+        return;
+      }
+      setMessage(
+        `${plan.name} markup set to ${
+          editPlanType === "percentage" ? `${value}%` : String(value)
+        }.`,
+      );
+      closePlanMarkup();
+      refreshMarkups();
+    });
+  };
+
+  const onClearPlanMarkup = (plan: PlatformPlanRow) => {
+    const existing = planMarkupByPlanId.get(plan.id);
+    if (!existing) return;
+    startTransition(async () => {
+      const res = await deletePlatformMarkup(existing.id);
+      if (!res.success) {
+        setMessage(res.error ?? "Failed");
+        return;
+      }
+      setMessage(`${plan.name} now uses the provider/default markup.`);
+      closePlanMarkup();
+      refreshMarkups();
     });
   };
 
@@ -471,6 +550,7 @@ export default function PlatformPlansClient({
                 <th style={{ padding: "6px 4px" }}>Plan</th>
                 <th style={{ padding: "6px 4px" }}>Country</th>
                 <th style={{ padding: "6px 4px" }}>Cost</th>
+                <th style={{ padding: "6px 4px" }}>Markup</th>
                 <th style={{ padding: "6px 4px" }}>Status</th>
                 <th style={{ padding: "6px 4px" }} />
               </tr>
@@ -478,49 +558,188 @@ export default function PlatformPlansClient({
             <tbody>
               {plans.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: 10, color: "var(--dim)" }}>
+                  <td colSpan={7} style={{ padding: 10, color: "var(--dim)" }}>
                     No plans match.
                   </td>
                 </tr>
               )}
-              {plans.map((plan) => (
-                <tr key={plan.id} style={{ borderTop: "1px solid var(--border)" }}>
-                  <td style={{ padding: "8px 4px" }}>{plan.provider}</td>
-                  <td style={{ padding: "8px 4px" }}>
-                    <div>{plan.name}</div>
-                    <div style={{ color: "var(--dim)", fontSize: "0.72rem" }}>
-                      {plan.provider_plan_id}
-                    </div>
-                  </td>
-                  <td style={{ padding: "8px 4px" }}>
-                    {plan.country_code.toUpperCase()}
-                  </td>
-                  <td style={{ padding: "8px 4px" }}>
-                    {plan.base_price} {plan.currency}
-                  </td>
-                  <td style={{ padding: "8px 4px" }}>
-                    <span
-                      style={{
-                        color: plan.is_active ? "var(--green)" : "var(--dim)",
-                      }}
-                    >
-                      {plan.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td style={{ padding: "8px 4px", textAlign: "right" }}>
-                    <button
-                      style={ghostBtnStyle}
-                      onClick={() => onTogglePlan(plan)}
-                      disabled={pending}
-                    >
-                      {plan.is_active ? "Disable" : "Enable"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {plans.map((plan) => {
+                const planMarkup = planMarkupByPlanId.get(plan.id);
+                const editable = supportsPlanMarkup(plan);
+                const editing = editingPlanId === plan.id;
+                return (
+                  <tr key={plan.id} style={{ borderTop: "1px solid var(--border)" }}>
+                    <td style={{ padding: "8px 4px" }}>{plan.provider}</td>
+                    <td style={{ padding: "8px 4px" }}>
+                      <div>{plan.name}</div>
+                      <div
+                        style={{ color: "var(--dim)", fontSize: "0.72rem" }}
+                      >
+                        {plan.provider_plan_id}
+                      </div>
+                    </td>
+                    <td style={{ padding: "8px 4px" }}>
+                      {plan.country_code.toUpperCase()}
+                    </td>
+                    <td style={{ padding: "8px 4px" }}>
+                      {plan.base_price} {plan.currency}
+                    </td>
+                    <td style={{ padding: "8px 4px", whiteSpace: "nowrap" }}>
+                      {!editable ? (
+                        <span style={{ color: "var(--dim)" }}>—</span>
+                      ) : planMarkup ? (
+                        <span>
+                          {planMarkup.markup_type === "percentage"
+                            ? `${planMarkup.markup_value}%`
+                            : planMarkup.markup_value}
+                          {!planMarkup.enabled && (
+                            <span style={{ color: "var(--dim)" }}>
+                              {" "}
+                              (off)
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--dim)" }}>inherit</span>
+                      )}
+                    </td>
+                    <td style={{ padding: "8px 4px" }}>
+                      <span
+                        style={{
+                          color: plan.is_active
+                            ? "var(--green)"
+                            : "var(--dim)",
+                        }}
+                      >
+                        {plan.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "8px 4px", textAlign: "right" }}>
+                      <div className="pp-actions">
+                        {editable && (
+                          <button
+                            style={ghostBtnStyle}
+                            onClick={() =>
+                              editing ? closePlanMarkup() : openPlanMarkup(plan)
+                            }
+                            disabled={pending}
+                          >
+                            {editing ? "Cancel" : "Markup"}
+                          </button>
+                        )}
+                        <button
+                          style={ghostBtnStyle}
+                          onClick={() => onTogglePlan(plan)}
+                          disabled={pending}
+                        >
+                          {plan.is_active ? "Disable" : "Enable"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        {(() => {
+          const editingPlan = plans.find((p) => p.id === editingPlanId);
+          if (!editingPlan) return null;
+          const planMarkup = planMarkupByPlanId.get(editingPlan.id);
+          return (
+            <div
+              style={{
+                marginTop: 12,
+                padding: "12px 14px",
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                background: "var(--bg2)",
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                Markup for {editingPlan.name}
+              </div>
+              <div
+                style={{
+                  color: "var(--dim)",
+                  fontSize: "0.75rem",
+                  marginBottom: 10,
+                }}
+              >
+                {editingPlan.provider} · {editingPlan.provider_plan_id} ·{" "}
+                {editingPlan.country_code.toUpperCase()} · cost{" "}
+                {editingPlan.base_price} {editingPlan.currency}
+              </div>
+              <div className="pp-grid" style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+                  Type
+                  <ThemeSelect
+                    value={editPlanType}
+                    onChange={(v) => setEditPlanType(v as MarkupType)}
+                    options={[
+                      { value: "percentage", label: "Percentage" },
+                      { value: "fixed", label: "Fixed amount" },
+                    ]}
+                    ariaLabel="Plan markup type"
+                    style={{ ...inputStyle, marginTop: 4 }}
+                  />
+                </label>
+                <label style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+                  Value
+                  <input
+                    style={{ ...inputStyle, marginTop: 4 }}
+                    inputMode="decimal"
+                    autoFocus
+                    value={editPlanValue}
+                    placeholder="e.g. 10"
+                    onChange={(e) => setEditPlanValue(e.target.value)}
+                  />
+                </label>
+              </div>
+              <div
+                className="pp-actions"
+                style={{ justifyContent: "flex-start" }}
+              >
+                <button
+                  style={btnStyle}
+                  onClick={() => onSavePlanMarkup(editingPlan)}
+                  disabled={pending}
+                >
+                  {pending ? "Saving…" : "Save plan markup"}
+                </button>
+                {planMarkup && (
+                  <button
+                    style={ghostBtnStyle}
+                    onClick={() => onClearPlanMarkup(editingPlan)}
+                    disabled={pending}
+                  >
+                    Clear (use inherit)
+                  </button>
+                )}
+                <button
+                  style={ghostBtnStyle}
+                  onClick={closePlanMarkup}
+                  disabled={pending}
+                >
+                  Cancel
+                </button>
+              </div>
+              <p
+                style={{
+                  color: "var(--dim)",
+                  fontSize: "0.72rem",
+                  marginTop: 8,
+                  marginBottom: 0,
+                }}
+              >
+                Plan-level markup replaces the provider and default levels for
+                this plan (they do not stack). It applies at home, i.e. when the
+                plan&apos;s cost currency is the store&apos;s.
+              </p>
+            </div>
+          );
+        })()}
 
         <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
           <button
