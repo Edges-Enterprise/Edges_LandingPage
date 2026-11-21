@@ -49,28 +49,69 @@ interface AppConfig {
   walletUserColumn: string;
 }
 
-const SATELLITE_APPS: AppConfig[] = [
+interface AppConfigSpec {
+  name: string;
+  txPrefix: string;
+  urlEnv: string;
+  keyEnv: string;
+  walletTable: string;
+  walletUserColumn: string;
+}
+
+const SATELLITE_APP_SPECS: AppConfigSpec[] = [
   {
     name: "App2 (Bimbo)",
     txPrefix: "BB_",
-    supabase: createClient(
-      process.env.APP2_SUPABASE_URL!,
-      process.env.APP2_SUPABASE_SECRET_KEY!,
-    ),
+    urlEnv: "APP2_SUPABASE_URL",
+    keyEnv: "APP2_SUPABASE_SECRET_KEY",
     walletTable: "wallets",
     walletUserColumn: "user_id",
   },
   {
     name: "App3 (Alheri)",
     txPrefix: "AA_",
-    supabase: createClient(
-      process.env.APP3_SUPABASE_URL!,
-      process.env.APP3_SUPABASE_SECRET_KEY!,
-    ),
+    urlEnv: "APP3_SUPABASE_URL",
+    keyEnv: "APP3_SUPABASE_SECRET_KEY",
     walletTable: "wallets",
     walletUserColumn: "user_id",
   },
 ];
+
+/**
+ * Satellite app clients, created on first use rather than at module load.
+ *
+ * These were module-level createClient() calls, which meant `next build` threw
+ * "supabaseUrl is required" while collecting page data on any machine without
+ * the APP2/APP3 secrets - a build that needs runtime credentials is a build
+ * that fails in CI.
+ *
+ * An app whose secrets are absent is skipped with a warning rather than
+ * throwing, so a deployment that only configures one satellite still processes
+ * that one instead of failing every webhook.
+ */
+function satelliteApps(): AppConfig[] {
+  const configured: AppConfig[] = [];
+
+  for (const spec of SATELLITE_APP_SPECS) {
+    const url = process.env[spec.urlEnv];
+    const key = process.env[spec.keyEnv];
+    if (!url || !key) {
+      console.warn(
+        `[xixa-webhook] ${spec.name} skipped: ${spec.urlEnv} / ${spec.keyEnv} not set`,
+      );
+      continue;
+    }
+    configured.push({
+      name: spec.name,
+      txPrefix: spec.txPrefix,
+      supabase: createClient(url, key),
+      walletTable: spec.walletTable,
+      walletUserColumn: spec.walletUserColumn,
+    });
+  }
+
+  return configured;
+}
 
 // ─── Fee calculation ──────────────────────────────────────────────────────────
 function calculateFees(grossAmount: number): number {
@@ -995,7 +1036,7 @@ export async function POST(req: NextRequest) {
       "Account not in reseller stores or App 1, trying satellite apps...",
     );
 
-    for (const app of SATELLITE_APPS) {
+    for (const app of satelliteApps()) {
       const result = await processForSatelliteApp(app, payload);
       if (result !== null) {
         return result;
