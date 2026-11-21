@@ -1041,6 +1041,32 @@ identifies the store. Absence means the webhook never reached the app.
 Xixapay exposes no transaction-history endpoint, so this ledger is the only
 evidence trail on our side.
 
+**Customer VAs had the same gap (fixed).** The step above covers the reseller's
+own persistent account. Customers of a `[countryCode]` store get a *separate*
+persistent account in `global_customer_virtual_accounts` and a balance in
+`global_customer_wallets`; nothing read those tables from the registered
+webhook, so their deposits fell through to the satellite apps and 404'd —
+money in the Xixapay wallet and ledger, balance untouched.
+`processForGlobalCustomer()` (STEP 5.6, right after the reseller branch) now
+matches the receiver against `global_customer_virtual_accounts`, credits
+`global_customer_wallets`, and writes a `completed` `global_customer_transactions`
+row plus a `global_customer_notifications` row. Idempotent on
+`EDGE_<transaction_id>`, same convention as the reseller path. Customers never
+get the first-deposit bonus — reseller-only, per product decision.
+
+The two tables cannot be confused: `global_virtual_accounts` and
+`global_customer_virtual_accounts` share no account numbers, so the dispatch
+order between STEP 5.5 and 5.6 is not load-bearing.
+
+`/api/webhooks/xixapay` also handles customer VAs, but that route is **not**
+registered with Xixapay — it is dead code in practice. Don't fix attribution
+there.
+
+BelovedTopup's Nov 21 deposits (₦100 and ₦600 gross) were lost to this gap
+before the fix. Both landed in test customer accounts
+(`beloveddavid80@gmail.com`, `adewumitobiloba808@gmail.com`) and were never
+backfilled, since the fix only affects deposits arriving after deploy.
+
 **Fee is not the problem.** `calculateXixapayFee` is a fixed amount per bracket,
 not a percentage: ₦100 falls in `100–299` → ₦10 → **₦90 net**. A ₦100 deposit
 landing as "ninety something" is correct.
