@@ -178,6 +178,11 @@ and an Expo dependency, found neither, and concluded the repo was web-only. It
 is not: it is an Expo app configured through `app.json`, which I had not opened
 at that point. The claim stands, and the config above is the citation.)
 
+**Status: fixed.** `reseller-app` has since been upgraded to this exact stack,
+and `expo prebuild` on the upgraded project emits `android.targetSdkVersion=36`
+with AGP 8.11.0 resolved. The Simi AAB will only carry 36 after a rebuild
+(P0-3). See P0-2 for the full change set and verification table.
+
 ### D. What already passes
 
 | Check | Result |
@@ -260,66 +265,70 @@ P2 is cleanup.**
       and a Simi-shaped tenant config (`com.edges.simi`) still yields
       `versionCode 10004` — the tenant's own `1.0.0` / `buildNumber 1` is
       correctly ignored. *(mobile + web)*
-- [ ] **P0-2 · Target SDK 36 — requires an Expo SDK 54 upgrade, not a config
-      flag.** The previously written fix here ("install `expo-build-properties`;
-      set `compileSdkVersion: 36`") **does not work**, and I should correct it
-      before anyone spends time on it:
+- [x] **P0-2 · Target SDK 36 — done via Expo SDK 54 upgrade.** **Completed
+      2026-11-21.** The original entry here said "install `expo-build-properties`
+      and set `compileSdkVersion: 36`", which does **not** work on SDK 53 and is
+      worth restating because it is the trap:
 
-      Expo SDK 53 ships React Native 0.79, which pins **AGP 8.8.2**. Google
-      documents AGP 8.8 as supporting a *maximum* API level of **35**. AGP 8.9
-      is also capped at 35; **AGP 8.11 is the first to support API 36**. So
-      `compileSdkVersion: 36` on SDK 53 asks Gradle to compile against an API
-      the build plugin does not support. `expo-build-properties@0.14.8` exposes
-      `compileSdkVersion` / `targetSdkVersion` / `buildToolsVersion` /
-      `kotlinVersion` but **no AGP override**, so there is no escape hatch from
-      config. Expo's own SDK 54 announcement states RN for Android "now targets
-      Android 16 / API 36", and SDK 54 ships RN 0.81 → AGP 8.11.
+      SDK 53 ships RN 0.79 → **AGP 8.8.2**, and Google caps AGP 8.8/8.9 at API
+      **35**. AGP 8.11 is the first that supports 36. `expo-build-properties@0.14.8`
+      has no AGP override, so config alone cannot reach 36. The upgrade was the
+      only path.
 
-      So the real task is **upgrading to Expo SDK 54**. That is not a flag; it
-      is a coordinated dependency migration across ~19 `expo-*` packages plus
-      React Native. The sharp edge: **SDK 54 requires
-      `react-native-reanimated` 4.x, and Reanimated 4 works *only* with the New
-      Architecture.** This app has `newArchEnabled: false`, so the upgrade
-      forces a New Architecture migration on an app that has never run on it.
+      `reseller-app` now runs the SDK 54 matrix (commit `cead42b`, branch
+      `fix/shared-project-versioncode`): `expo 54.0.38`, RN `0.81.5`, React
+      `19.1.0`, `react-native-reanimated 4.1.7`, `react-native-worklets 0.5.1`,
+      `react-native-gesture-handler 2.28.0`, `expo-router 6.0.24`,
+      `expo-notifications 0.32.17`, `expo-updates 29.0.20`.
 
-      The good news, verified in this repo: **no application code imports
-      Reanimated.** `react-native-reanimated ~3.17.4` is declared in
-      `package.json` but never referenced in `app/` or `components/`, so the
-      Reanimated 4 bump should be a version change rather than a code rewrite.
-      The only New Architecture surface is `GestureHandlerRootView` in
-      `app/_layout.tsx`, which is Fabric-compatible in
-      `react-native-gesture-handler 2.28`. That makes this migration materially
-      smaller than the `edges_network` one — but "smaller" is not "small", and
-      it still needs a device pass.
+      Four changes beyond the dependency bump, all of them load-bearing:
 
-      Do not start this without scheduling it properly. The org already runs
-      this exact stack in `edges_network` (`expo ~54.0.38`, RN `0.81.5`,
-      reanimated `~4.1.1`, `newArchEnabled: true`,
-      `expo-build-properties ~1.0.10` with `compileSdkVersion`/`targetSdkVersion`
-      `36`), so copy that configuration rather than inventing one. Sequence:
-      `npx expo install expo@^54`, then `npx expo install --fix`, add
-      `expo-build-properties` with the 36 pair, flip `newArchEnabled: true`,
-      then validate the whole app on a device. *(mobile — needs a dedicated
-      change, not a drive-by edit)*
+      1. `newArchEnabled: true` — Reanimated 4 runs **only** on the New
+         Architecture, so this was forced, not optional.
+      2. `expo-build-properties ~1.0.10` pins `compileSdkVersion` /
+         `targetSdkVersion` to **36**.
+      3. `metro.config.js` sets `unstable_enablePackageExports = false`. This
+         was **predicted** in the previous version of this report and it did
+         bite: SDK 54 enables package `exports` by default, so
+         `@supabase/realtime-js` resolved `require("ws")` to the Node build and
+         the release bundle failed.
+      4. `plugins/withGradleJvmArgs.js` raises the Gradle daemon to
+         `-Xmx4096m -XX:MaxMetaspaceSize=2048m`. New Architecture overflows the
+         default Metaspace during `:app:lintVitalAnalyzeRelease`. Also raised
+         both CI timeouts to 120 min (was 90 and 45).
 
-      **Read `edges_network`'s `ARCHITECTURE.md` §10.2.1 before starting.** It
-      records that org's own SDK 52 → 54 upgrade and the runtime-breaking
-      changes it hit, which are the checklist for this upgrade. The ones most
-      likely to bite here:
+      **The predicted Reanimated risk did not materialise.** No file in `app/` or
+      `components/` ever imported Reanimated, so there was no
+      `useAnimatedGestureHandler` migration and no code rewrite. `tsc --noEmit`
+      passes with zero errors — no React 19.1 `useRef` breakage, no expo-router 6
+      or notifications API breakage.
 
-      - Reanimated 4 needs **`react-native-worklets`** as a separate package
-        (`babel-preset-expo` auto-injects its plugin — no `babel.config.js`
-        edit).
-      - `useAnimatedGestureHandler` is **removed** in Reanimated 4; drag code
-        must move to `Gesture` / `GestureDetector`.
-      - Metro enables package `exports` by default in SDK 54, which broke
-        `require("ws")` via `@supabase/realtime-js`; that repo set
-        `unstable_enablePackageExports = false` in `metro.config.js`.
-        **`reseller-app` also depends on `@supabase/supabase-js`**, so expect
-        the same failure.
-      - SDK 54 + New Architecture needs more JVM metaspace; that repo added a
-        config plugin raising `MaxMetaspaceSize` and raised its CI timeout
-        90 → 120 min.
+      Verification actually performed (not config-reading):
+
+      | Check | Result |
+      | --- | --- |
+      | `expo-doctor` | 18/18 passed |
+      | `tsc --noEmit` | exit 0, zero errors |
+      | `expo export --platform android` | 5.07 MB Hermes bundle, 32 assets |
+      | `expo prebuild` → `gradle.properties` | `android.compileSdkVersion=36`, `android.targetSdkVersion=36` |
+      | `expo prebuild` → `app/build.gradle` | `versionCode 10004`, `versionName "1.0.4"` |
+      | AGP actually resolved | **8.11.0** (`@react-native/gradle-plugin/gradle/libs.versions.toml`) |
+      | `newArchEnabled` in native project | `true`, `hermesEnabled=true` |
+      | JVM args applied | `-Xmx4096m -XX:MaxMetaspaceSize=2048m` |
+      | P0-1 version guard | still throws on `1.0.100` |
+
+      Two caveats. First, a clean `npm install` was only possible after deleting
+      the stale SDK 53 `node_modules` **and** `package-lock.json`; installing
+      over the old tree fails `ERESOLVE` on `@expo/vector-icons`. Anyone
+      repeating this must clear both. Second, `assets/custom/` is generated at
+      build time by `scripts/generate-global-reseller-assets.sh`, which needs
+      network and a `CONFIG_ID`; a local bundle test fails until those
+      placeholders exist. I created them temporarily to run the export and
+      removed them afterwards, so the bundle result above is real but the
+      directory is correctly absent in the repo.
+
+      *(mobile — done; still needs P0-3 on real CI output)*
+
 - [ ] **P0-3 · Prove both.** Rebuild Simi, then read the AAB manifest and
       confirm `versionCode` matches the committed project version **and**
       `targetSdkVersion 36`. Do not trust config alone — that is how the
