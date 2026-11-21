@@ -14,6 +14,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { checkStoreSlug } from "@/actions/reseller/application/checkStoreSlug";
+import { validateStoreSlugFormat } from "@/lib/store/reservedSlugs";
 import { generateIconPng } from "@/lib/business-generator/logo/generator";
 import { SWATCHES } from "@/constants/swatches";
 
@@ -204,11 +205,13 @@ export default function StoreConfigStep({
         return;
       }
 
-      if (!/^[a-z0-9-]+$/.test(slug)) {
+      // Format and reserved-name rejection is local so the user sees it
+      // immediately; the same function runs again on the server, which is what
+      // actually enforces it.
+      const formatError = validateStoreSlugFormat(slug);
+      if (formatError) {
         setStoreNameStatus("taken");
-        setStoreNameMessage(
-          "Only lowercase letters, numbers, and hyphens allowed",
-        );
+        setStoreNameMessage(formatError);
         return;
       }
 

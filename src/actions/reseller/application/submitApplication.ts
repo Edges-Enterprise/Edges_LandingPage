@@ -3,6 +3,7 @@
 
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { validateStoreSlugFormat } from "@/lib/store/reservedSlugs";
 import { triggerAppBuild } from "@/actions/reseller/build/triggerAppBuild";
 
 function generateDashboardToken(): string {
@@ -64,6 +65,14 @@ export async function submitApplication(formData: FormData) {
     }
 
     const authEmail = generateAuthEmail(email, countryCode, storeSlug);
+
+    // The client's availability check is advisory: a crafted POST can skip it.
+    // Enforce the slug rules here so a reserved or brand-impersonating slug can
+    // never reach the database.
+    const slugError = validateStoreSlugFormat(storeSlug);
+    if (slugError) {
+      return { success: false, error: slugError };
+    }
 
     // Check if original email already exists
     const { data: existing, error: checkError } = await supabase
@@ -412,4 +421,3 @@ export async function submitApplication(formData: FormData) {
     };
   }
 }
-
