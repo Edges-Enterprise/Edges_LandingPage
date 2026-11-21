@@ -335,9 +335,63 @@ P2 is cleanup.**
       current versionCode bug stayed invisible across two releases. Note both
       CI builds use `eas build --local`, so the manifest is produced in the
       runner and is inspectable as an artifact.
+- [x] **P0-4a · Orientation — the API 36 upgrade silently unlocks rotation.**
+      **This item was missing from earlier versions of this report, and it is a
+      direct consequence of the P0-2 upgrade rather than a pre-existing bug.**
+
+      `app.config.ts` sets `orientation: "portrait"`, which lands in the
+      manifest as `android:screenOrientation="portrait"` on `MainActivity`
+      (confirmed by prebuild). On API 35 that is a hard lock. On **API 36 it is
+      ignored**, so this app now rotates on tablets, foldables and desktop
+      windowing even though it still declares portrait.
+
+      Google's Android 16 behaviour-changes page, quoted exactly: *"For apps
+      targeting Android 16 (API level 36), orientation, resizability, and aspect
+      ratio restrictions no longer apply on displays with smallest width >=
+      600dp."* The ignored attributes include `screenOrientation`,
+      `resizableActivity`, `minAspectRatio`, `maxAspectRatio`, and the runtime
+      `setRequestedOrientation()`. Portrait, landscape and the `sensor*` /
+      `user*` variants are all in the ignored list.
+
+      **Phones are unaffected** — a normal phone is below sw600dp, so portrait
+      still holds there. This only changes behaviour on large screens.
+
+      **Why not just opt out.** Android offers
+      `android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY`, per
+      activity or per application. The docs are explicit that it is temporary:
+      *"The opt-out is temporary and won't apply when targeting API level 37."*
+      Opting out buys one API cycle and then the rotation arrives anyway, on a
+      codebase that never adapted. The recommendation is to accept rotation and
+      make the layouts survive it, which is what the platform is pushing
+      towards. Recorded as a decision, not an oversight.
+
+      **One real bug found and fixed** (`reseller-app` commit `199aa14`).
+      `components/PlanCarousel.tsx` sized each carousel page with
+      `Dimensions.get("window").width`. That value is read once and never
+      updates, so after a rotation every page keeps its pre-rotation width and
+      the `pagingEnabled` offsets drift — pages land half-way between snaps.
+      Swapped to `useWindowDimensions()`, which re-renders on change. This was
+      the **only** non-reactive `Dimensions` usage in the app; nothing else
+      reads it, and no other screen had a hard-coded viewport width.
+
+      **What still needs a human.** Everything else is unverified rather than
+      proven broken. The layouts use flexbox and percentage widths, and the only
+      absolute-positioned elements are overlays pinned with `left`/`right: 0`
+      (a scroll shadow, a badge, a toast, a loading scrim) — those stretch
+      correctly. But "probably fine" is not "verified", and a phone-portrait
+      layout on a 600dp+ landscape tablet is exactly the case nobody tests.
+      Screen checklist for P0-4: login, home/dashboard, plan carousel
+      (especially this one), transaction history, payment WebView, settings, and
+      the modals — on a tablet or unfolded foldable in landscape.
+
+      *(mobile — carousel fixed; device pass still open)*
+
 - [ ] **P0-4 · Device pass on Android 16.** Edge-to-edge and predictive back
       change behaviour. `edgeToEdgeEnabled: true` is already set, so this should
-      be fine, but it is unverified. *(person)*
+      be fine, but it is unverified. **This pass must now also cover rotation on
+      a large screen** (P0-4a) — the two are the same session, since both are
+      Android 16 windowing behaviour. Use the screen checklist in P0-4a.
+      *(person)*
 - [x] **P0-5 · Developer account type.** **Answered 2026-11-21: organization
       account.** The 12-tester / 14-day closed-test rule applies only to
       *personal* accounts created after 2023-11-13, so it does **not** apply
