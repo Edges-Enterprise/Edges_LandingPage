@@ -12,6 +12,16 @@ export default function StoreFooter({
   translations,
   config,
 }: StoreFooterProps) {
+  const storeName = storeData.application.store_slug;
+  const countryCode = storeData.application.country_code || config?.code;
+  const base = `/${countryCode}/${storeName}`;
+
+  const linkStyle: React.CSSProperties = {
+    color: "var(--muted)",
+    textDecoration: "none",
+    fontSize: "0.78rem",
+  };
+
   return (
     <footer
       style={{
@@ -39,6 +49,25 @@ export default function StoreFooter({
           }}
         />
         {storeData.application.store_name} © {new Date().getFullYear()}
+      </div>
+
+      {/* Tenant-scoped legal pages. These are the URLs submitted to Google Play
+          for the Data safety form, so they must be the store's own pages - not
+          the legacy global /privacy and /terms, which name another company. */}
+      <div
+        style={{
+          marginTop: "0.85rem",
+          display: "flex",
+          justifyContent: "center",
+          gap: "1.25rem",
+        }}
+      >
+        <a href={`${base}/privacy`} style={linkStyle}>
+          Privacy Policy
+        </a>
+        <a href={`${base}/terms`} style={linkStyle}>
+          Terms of Service
+        </a>
       </div>
     </footer>
   );

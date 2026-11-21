@@ -58,6 +58,16 @@ import {
   type ResolvedStorePrice,
 } from "../_shared/currency/storePrice.ts";
 import { platformMarkupChain } from "../_shared/currency/markup.ts";
+import {
+  generatePrivacyPolicy,
+  generateTermsAndConditions,
+} from "../_shared/legal/storeLegalText.ts";
+import { getCountryName } from "../_shared/legal/countryName.ts";
+import { getCountryLanguage } from "../_shared/legal/countryLanguage.ts";
+import {
+  legalDirection,
+  resolveLegalLocale,
+} from "../_shared/legal/legalLocales.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -190,6 +200,12 @@ Deno.serve(async (req) => {
 
     const country = (reseller.country_code || "").toLowerCase();
 
+    // The language the store's legal copy is written in. Read from the
+    // standalone country->language map because a Deno function cannot import
+    // the React country configs. Undefined falls back to English inside
+    // resolveLegalLocale().
+    const storeLanguage = getCountryLanguage(country);
+
     // 4. Load the store's currency and rate once, then price every plan
     //    through the one pipeline the purchase flow also uses. The platform
     //    markup is resolved PER PLAN below, because home vs cross-border
@@ -279,6 +295,30 @@ Deno.serve(async (req) => {
         country_code: reseller.country_code,
         // The store's currency, so the storefront formats every price in it.
         currency: storeContext.currency,
+      },
+      // The store's legal copy, generated here so the app and the public web
+      // pages (src/app/[countryCode]/[storeName]/privacy|terms) render the
+      // same text from _shared/legal/storeLegalText.ts instead of the app
+      // keeping its own copy that can drift.
+      //
+      // `locale` is the store's country language. It is review-gated inside
+      // resolveLegalLocale(), so an unreviewed translation renders English -
+      // passing it unconditionally is safe.
+      legal: {
+        locale: resolveLegalLocale(storeLanguage),
+        direction: legalDirection(resolveLegalLocale(storeLanguage)),
+        privacy_policy: generatePrivacyPolicy({
+          store_name: reseller.store_name,
+          email: reseller.email ?? "",
+          country: getCountryName(reseller.country_code),
+          locale: storeLanguage,
+        }),
+        terms_and_conditions: generateTermsAndConditions({
+          store_name: reseller.store_name,
+          email: reseller.email ?? "",
+          country: getCountryName(reseller.country_code),
+          locale: storeLanguage,
+        }),
       },
     });
   } catch (error) {
