@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict TIruhEzXVeAJIE7yI1ubjdwUJohAIcBiK2Xo9fC2BHafcjnSywyCxjgduLunrvk
+\restrict KrM2eHqLRZ39ex8YeIjAj7iVfWD7WhooSIuCvS6m3K9pWmSgNxJYQ1vk6ULWBKg
 
 -- Dumped from database version 15.8
--- Dumped by pg_dump version 18.6 (Debian 18.6-1.pgdg13+2)
+-- Dumped by pg_dump version 17.11 (Debian 17.11-0+deb13u1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -656,8 +656,6 @@ CREATE FUNCTION public.deduct_global_reseller_cost(p_reseller_id uuid, p_cost_pr
 DECLARE
   v_balance DECIMAL;
   v_bonus DECIMAL;
-  v_from_bonus DECIMAL;
-  v_from_balance DECIMAL;
 BEGIN
   SELECT balance, bonus_balance INTO v_balance, v_bonus
   FROM global_wallets
@@ -668,18 +666,16 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Reseller wallet not found');
   END IF;
 
-  IF v_balance + v_bonus < p_cost_price THEN
+  -- Balance only. The bonus is deliberately excluded from the self-purchase
+  -- solvency check so it cannot authorise a purchase it will not pay for.
+  IF v_balance < p_cost_price THEN
     RAISE EXCEPTION 'Insufficient balance. Available: %, Required: %',
-      v_balance + v_bonus, p_cost_price;
+      v_balance, p_cost_price;
   END IF;
-
-  v_from_bonus := LEAST(v_bonus, p_cost_price);
-  v_from_balance := p_cost_price - v_from_bonus;
 
   UPDATE global_wallets
   SET
-    bonus_balance = bonus_balance - v_from_bonus,
-    balance = balance - v_from_balance,
+    balance = balance - p_cost_price,
     updated_at = NOW()
   WHERE reseller_id = p_reseller_id;
 
@@ -688,11 +684,18 @@ BEGIN
     'new_balance', (SELECT balance FROM global_wallets WHERE reseller_id = p_reseller_id),
     'new_bonus_balance', (SELECT bonus_balance FROM global_wallets WHERE reseller_id = p_reseller_id),
     'amount_deducted', p_cost_price,
-    'amount_from_bonus', v_from_bonus,
-    'amount_from_balance', v_from_balance
+    'amount_from_bonus', 0,
+    'amount_from_balance', p_cost_price
   );
 END;
 $$;
+
+
+--
+-- Name: FUNCTION deduct_global_reseller_cost(p_reseller_id uuid, p_cost_price numeric); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.deduct_global_reseller_cost(p_reseller_id uuid, p_cost_price numeric) IS 'Debits a reseller self-purchase cost from the withdrawable balance only. The first-deposit bonus is never spent here; it is reserved for customer-sale fulfilment.';
 
 
 --
@@ -789,6 +792,33 @@ BEGIN
   RETURN COALESCE(v_total, 0);
 END;
 $$;
+
+
+--
+-- Name: get_global_reseller_balance_only(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_global_reseller_balance_only(p_reseller_id uuid) RETURNS numeric
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_balance numeric;
+BEGIN
+  SELECT balance INTO v_balance
+  FROM public.global_wallets
+  WHERE reseller_id = p_reseller_id;
+
+  RETURN COALESCE(v_balance, 0);
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_global_reseller_balance_only(p_reseller_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_global_reseller_balance_only(p_reseller_id uuid) IS 'Withdrawable balance only, excluding the non-withdrawable first-deposit bonus. Used to gate reseller self-purchases.';
 
 
 --
@@ -1378,6 +1408,49 @@ $$;
 
 
 --
+-- Name: get_global_sale_funding(uuid, numeric, numeric); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_global_sale_funding(p_reseller_id uuid, p_cost_price numeric, p_selling_price numeric) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+  v_balance NUMERIC;
+  v_bonus NUMERIC;
+BEGIN
+  SELECT balance, bonus_balance INTO v_balance, v_bonus
+  FROM public.global_wallets
+  WHERE reseller_id = p_reseller_id;
+
+  IF v_balance IS NULL THEN
+    RETURN jsonb_build_object('can_fund', false, 'mode', 'none');
+  END IF;
+
+  IF v_balance >= p_cost_price THEN
+    RETURN jsonb_build_object('can_fund', true, 'mode', 'balance',
+      'balance', v_balance, 'bonus', v_bonus);
+  END IF;
+
+  IF v_bonus >= p_selling_price THEN
+    RETURN jsonb_build_object('can_fund', true, 'mode', 'bonus',
+      'balance', v_balance, 'bonus', v_bonus);
+  END IF;
+
+  RETURN jsonb_build_object('can_fund', false, 'mode', 'none',
+    'balance', v_balance, 'bonus', v_bonus);
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_global_sale_funding(p_reseller_id uuid, p_cost_price numeric, p_selling_price numeric); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_global_sale_funding(p_reseller_id uuid, p_cost_price numeric, p_selling_price numeric) IS 'Whether a customer sale can be funded: by reseller balance when it covers the cost, else by the bonus when it covers the full selling price. Mirrors process_global_purchase_deductions.';
+
+
+--
 -- Name: get_my_active_sessions(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1581,15 +1654,23 @@ $$;
 --
 
 CREATE FUNCTION public.handle_failed_transaction() RETURNS trigger
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
-BEGIN
-    -- Refund on status change to failed for negative amount
-    IF OLD.status != 'failed' AND NEW.status = 'failed' AND NEW.amount < 0 THEN
-        PERFORM refund_wallet_balance(NEW.user_email, ABS(COALESCE(NEW.metadata->>'actual_cost', ABS(NEW.amount)::TEXT)::NUMERIC));
-    END IF;
-    RETURN NEW;
-END;
+begin
+    if not public.is_trusted_money_writer() then
+        return new;
+    end if;
+
+    if old.status <> 'failed' and new.status = 'failed' and new.amount < 0 then
+        perform public.refund_wallet_balance(
+            new.user_email,
+            abs(coalesce(new.metadata ->> 'actual_cost', abs(new.amount)::text)::numeric)
+        );
+    end if;
+
+    return new;
+end;
 $$;
 
 
@@ -1761,6 +1842,36 @@ BEGIN
   WHERE welcome_offer_usage.used_count < 3;
 END;
 $$;
+
+
+--
+-- Name: is_current_user_admin(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.is_current_user_admin() RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+    select coalesce((select is_admin from public.profiles where id = auth.uid()), false);
+$$;
+
+
+--
+-- Name: is_trusted_money_writer(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.is_trusted_money_writer() RETURNS boolean
+    LANGUAGE sql STABLE
+    AS $$
+    select coalesce(auth.role(), 'service_role') not in ('authenticated', 'anon');
+$$;
+
+
+--
+-- Name: FUNCTION is_trusted_money_writer(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.is_trusted_money_writer() IS 'True for service_role and direct DB connections; false for client JWTs. Guards the wallet-crediting triggers so only trusted callers move money.';
 
 
 --
@@ -2415,8 +2526,8 @@ DECLARE
   v_customer_balance NUMERIC;
   v_reseller_balance NUMERIC;
   v_reseller_bonus NUMERIC;
-  v_from_bonus NUMERIC;
-  v_from_balance NUMERIC;
+  v_from_bonus NUMERIC := 0;
+  v_from_balance NUMERIC := 0;
 BEGIN
   -- 1. Lock and check customer wallet
   SELECT balance INTO v_customer_balance
@@ -2442,8 +2553,9 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Reseller wallet not found');
   END IF;
 
-  -- 3. Reseller must be able to cover the cost price (bonus is spendable)
-  IF v_reseller_balance + v_reseller_bonus < p_cost_price THEN
+  -- 3. Funding decision. Balance pays when it can; otherwise the bonus must
+  --    cover the whole sale price or the order is refused.
+  IF v_reseller_balance < p_cost_price AND v_reseller_bonus < p_selling_price THEN
     RETURN jsonb_build_object(
       'success', false,
       'error', 'Store has insufficient balance to cover the cost of this order'
@@ -2458,16 +2570,25 @@ BEGIN
     updated_at = NOW()
   WHERE id = p_customer_wallet_id;
 
-  -- 5. Credit the selling price, debit the cost from bonus first.
-  v_from_bonus := LEAST(v_reseller_bonus, p_cost_price);
-  v_from_balance := p_cost_price - v_from_bonus;
-
-  UPDATE global_wallets
-  SET
-    balance = balance + p_selling_price - v_from_balance,
-    bonus_balance = bonus_balance - v_from_bonus,
-    updated_at = NOW()
-  WHERE reseller_id = p_reseller_id;
+  IF v_reseller_balance >= p_cost_price THEN
+    -- 5a. Normal settlement: cost from balance, profit is the difference.
+    v_from_balance := p_cost_price;
+    UPDATE global_wallets
+    SET
+      balance = balance + p_selling_price - p_cost_price,
+      updated_at = NOW()
+    WHERE reseller_id = p_reseller_id;
+  ELSE
+    -- 5b. Bonus covers the lost sale: profit to balance, full sale price
+    --     burned from the bonus.
+    v_from_bonus := p_selling_price;
+    UPDATE global_wallets
+    SET
+      balance = balance + p_profit,
+      bonus_balance = bonus_balance - p_selling_price,
+      updated_at = NOW()
+    WHERE reseller_id = p_reseller_id;
+  END IF;
 
   RETURN jsonb_build_object(
     'success', true,
@@ -2476,10 +2597,18 @@ BEGIN
     'reseller_new_bonus_balance', (SELECT bonus_balance FROM global_wallets WHERE reseller_id = p_reseller_id),
     'amount_from_bonus', v_from_bonus,
     'amount_from_balance', v_from_balance,
+    'bonus_covered_sale', v_from_bonus > 0,
     'profit_earned', p_profit
   );
 END;
 $$;
+
+
+--
+-- Name: FUNCTION process_global_purchase_deductions(p_customer_wallet_id uuid, p_customer_deduct numeric, p_reseller_id uuid, p_cost_price numeric, p_selling_price numeric, p_profit numeric); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.process_global_purchase_deductions(p_customer_wallet_id uuid, p_customer_deduct numeric, p_reseller_id uuid, p_cost_price numeric, p_selling_price numeric, p_profit numeric) IS 'Customer sale settlement. If the reseller balance covers the platform cost the cost is taken from balance and the bonus is untouched; otherwise the bonus stands in for the missing funds and is burned by the full selling price, with only the profit credited to the reseller. Refuses the sale when neither can cover it.';
 
 
 --
@@ -2550,6 +2679,25 @@ BEGIN
     'profit_earned', p_profit
   );
 END;$$;
+
+
+--
+-- Name: protect_profile_admin_flag(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_profile_admin_flag() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO 'public'
+    AS $$
+begin
+    if new.is_admin is distinct from old.is_admin
+       and coalesce(auth.role(), '') <> 'service_role'
+       and current_user not in ('postgres', 'supabase_admin') then
+        new.is_admin := old.is_admin;
+    end if;
+    return new;
+end;
+$$;
 
 
 --
@@ -3035,6 +3183,68 @@ END;$$;
 
 
 --
+-- Name: trigger_global_customer_push(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.trigger_global_customer_push() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'vault', 'net'
+    AS $$
+DECLARE
+    v_secret text;
+BEGIN
+    SELECT decrypted_secret INTO v_secret
+        FROM vault.decrypted_secrets WHERE name = 'push_trigger_secret';
+
+    PERFORM net.http_post(
+        url := 'https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/global-send-push-notification',
+        headers := jsonb_build_object(
+            'Content-Type', 'application/json',
+            'x-push-secret', coalesce(v_secret, '')
+        ),
+        body := jsonb_build_object(
+            'table', 'global_customer_notifications',
+            'record', row_to_json(NEW)::jsonb
+        ),
+        timeout_milliseconds := 5000
+    );
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: trigger_global_reseller_push(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.trigger_global_reseller_push() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'vault', 'net'
+    AS $$
+DECLARE
+    v_secret text;
+BEGIN
+    SELECT decrypted_secret INTO v_secret
+        FROM vault.decrypted_secrets WHERE name = 'push_trigger_secret';
+
+    PERFORM net.http_post(
+        url := 'https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/global-send-push-notification',
+        headers := jsonb_build_object(
+            'Content-Type', 'application/json',
+            'x-push-secret', coalesce(v_secret, '')
+        ),
+        body := jsonb_build_object(
+            'table', 'global_notifications',
+            'record', row_to_json(NEW)::jsonb
+        ),
+        timeout_milliseconds := 5000
+    );
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: trigger_push_notification(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3323,28 +3533,30 @@ $$;
 --
 
 CREATE FUNCTION public.update_wallet_balance() RETURNS trigger
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
-BEGIN
-  -- Only run if status is 'success'
-  IF NEW.status = 'success' THEN
-    -- Check if this transaction has already been credited
-    IF (OLD.status IS DISTINCT FROM NEW.status) OR (TG_OP = 'INSERT') THEN
-      -- If wallet exists, update it
-      IF EXISTS (SELECT 1 FROM wallet WHERE user_email = NEW.user_email) THEN
-        UPDATE wallet
-        SET balance = balance + NEW.amount
-        WHERE user_email = NEW.user_email;
-      ELSE
-        -- If not, create wallet and credit it
-        INSERT INTO wallet (user_email, balance)
-        VALUES (NEW.user_email, NEW.amount);
-      END IF;
-    END IF;
-  END IF;
+begin
+    -- Client roles move money through their own path, never through this trigger.
+    if not public.is_trusted_money_writer() then
+        return new;
+    end if;
 
-  RETURN NEW;
-END;
+    if new.status = 'success' then
+        if (old.status is distinct from new.status) or (tg_op = 'INSERT') then
+            if exists (select 1 from wallet where user_email = new.user_email) then
+                update wallet
+                set balance = balance + new.amount
+                where user_email = new.user_email;
+            else
+                insert into wallet (user_email, balance)
+                values (new.user_email, new.amount);
+            end if;
+        end if;
+    end if;
+
+    return new;
+end;
 $$;
 
 
@@ -3483,6 +3695,106 @@ $$;
 --
 
 COMMENT ON FUNCTION public.wallet_currency_for_country(p_country_code text) IS 'The currency a store''s wallets are denominated in: its country''s mapped currency, or USD when the country has no local currency rail.';
+
+
+--
+-- Name: wallet_debit(numeric, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.wallet_debit(p_amount numeric, p_reference text) RETURNS numeric
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+declare
+    v_email   text := auth.email();
+    v_balance numeric;
+begin
+    if v_email is null then
+        raise exception 'not authenticated' using errcode = '28000';
+    end if;
+    if p_amount is null or p_amount <= 0 then
+        raise exception 'invalid debit amount: %', p_amount using errcode = '22023';
+    end if;
+    if p_reference is null or length(trim(p_reference)) = 0 then
+        raise exception 'reference required' using errcode = '22023';
+    end if;
+
+    -- Idempotent while an unrefunded debit exists for this reference.
+    if (select count(*) from wallet_ledger
+          where user_email = v_email and reference = p_reference and kind = 'debit')
+       > (select count(*) from wallet_ledger
+            where user_email = v_email and reference = p_reference and kind = 'refund')
+    then
+        select balance into v_balance from wallet where user_email = v_email;
+        return v_balance;
+    end if;
+
+    update wallet
+       set balance = balance - p_amount
+     where user_email = v_email
+       and balance >= p_amount
+    returning balance into v_balance;
+
+    if not found then
+        raise exception 'insufficient wallet balance' using errcode = 'P0001';
+    end if;
+
+    insert into wallet_ledger (user_email, reference, kind, amount)
+    values (v_email, p_reference, 'debit', p_amount);
+
+    return v_balance;
+end;
+$$;
+
+
+--
+-- Name: wallet_refund(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.wallet_refund(p_reference text) RETURNS numeric
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+declare
+    v_email   text := auth.email();
+    v_amount  numeric;
+    v_balance numeric;
+begin
+    if v_email is null then
+        raise exception 'not authenticated' using errcode = '28000';
+    end if;
+    if p_reference is null or length(trim(p_reference)) = 0 then
+        raise exception 'reference required' using errcode = '22023';
+    end if;
+
+    select l.amount into v_amount
+      from wallet_ledger l
+     where l.user_email = v_email and l.reference = p_reference and l.kind = 'debit'
+       and not exists (
+           select 1 from wallet_ledger r
+            where r.user_email = l.user_email and r.reference = l.reference
+              and r.kind = 'refund' and r.created_at >= l.created_at
+       )
+     order by l.created_at desc
+     limit 1;
+
+    -- Nothing unrefunded for this reference: nothing to do.
+    if v_amount is null then
+        select balance into v_balance from wallet where user_email = v_email;
+        return v_balance;
+    end if;
+
+    update wallet
+       set balance = balance + v_amount
+     where user_email = v_email
+    returning balance into v_balance;
+
+    insert into wallet_ledger (user_email, reference, kind, amount)
+    values (v_email, p_reference, 'refund', v_amount);
+
+    return v_balance;
+end;
+$$;
 
 
 --
@@ -5885,6 +6197,7 @@ CREATE TABLE auth.one_time_tokens (
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
     expires_at timestamp with time zone,
+    link_token_hash text,
     CONSTRAINT one_time_tokens_token_hash_check CHECK ((char_length(token_hash) > 0))
 );
 
@@ -5946,6 +6259,7 @@ CREATE TABLE auth.saml_providers (
     created_at timestamp with time zone,
     updated_at timestamp with time zone,
     name_id_format text,
+    dedicated_scope boolean,
     CONSTRAINT "entity_id not empty" CHECK ((char_length(entity_id) > 0)),
     CONSTRAINT "metadata_url not empty" CHECK (((metadata_url = NULL::text) OR (char_length(metadata_url) > 0))),
     CONSTRAINT "metadata_xml not empty" CHECK ((char_length(metadata_xml) > 0))
@@ -6884,8 +7198,21 @@ CREATE TABLE public.global_platform_markups (
     enabled boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT global_platform_markups_scope_check CHECK ((scope = ANY (ARRAY['default'::text, 'country'::text, 'plan'::text]))),
+    CONSTRAINT global_platform_markups_scope_check CHECK ((scope = ANY (ARRAY['default'::text, 'country'::text, 'provider'::text, 'plan'::text]))),
     CONSTRAINT global_platform_markups_type_check CHECK ((markup_type = ANY (ARRAY['percentage'::text, 'fixed'::text])))
+);
+
+
+--
+-- Name: global_promotion_sends; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.global_promotion_sends (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    scheduled_id text NOT NULL,
+    sent_for date NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    country_code text DEFAULT 'ALL'::text NOT NULL
 );
 
 
@@ -6939,7 +7266,13 @@ CREATE TABLE public.global_reseller_applications (
     fcm_token text,
     notifications_enabled boolean DEFAULT false NOT NULL,
     branding_updated_at timestamp with time zone,
-    password_changed_at timestamp with time zone
+    password_changed_at timestamp with time zone,
+    catalog_mode text DEFAULT 'selected'::text NOT NULL,
+    default_markup_type text DEFAULT 'percentage'::text NOT NULL,
+    default_markup_value numeric DEFAULT 0 NOT NULL,
+    CONSTRAINT global_reseller_applications_catalog_mode_check CHECK ((catalog_mode = ANY (ARRAY['selected'::text, 'all'::text]))),
+    CONSTRAINT global_reseller_applications_default_markup_type_check CHECK ((default_markup_type = ANY (ARRAY['percentage'::text, 'fixed'::text]))),
+    CONSTRAINT global_reseller_applications_default_markup_value_check CHECK ((default_markup_value >= (0)::numeric))
 );
 
 
@@ -6955,6 +7288,20 @@ COMMENT ON COLUMN public.global_reseller_applications.branding_updated_at IS 'La
 --
 
 COMMENT ON COLUMN public.global_reseller_applications.password_changed_at IS 'When the reseller last changed their password through the dashboard.';
+
+
+--
+-- Name: COLUMN global_reseller_applications.catalog_mode; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.global_reseller_applications.catalog_mode IS 'selected = only plans with an enabled config row (opt-in). all = every active plan, priced by default_markup_*, with per-plan config rows as overrides.';
+
+
+--
+-- Name: COLUMN global_reseller_applications.default_markup_value; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.global_reseller_applications.default_markup_value IS 'Reseller markup applied to a plan that has no config row when catalog_mode = all. A per-plan config row overrides it.';
 
 
 --
@@ -7879,6 +8226,41 @@ ALTER SEQUENCE public.wallet_audit_id_seq OWNED BY public.wallet_audit.id;
 
 
 --
+-- Name: wallet_ledger; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.wallet_ledger (
+    id bigint NOT NULL,
+    user_email text NOT NULL,
+    reference text NOT NULL,
+    kind text NOT NULL,
+    amount numeric NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT wallet_ledger_amount_check CHECK ((amount > (0)::numeric)),
+    CONSTRAINT wallet_ledger_kind_check CHECK ((kind = ANY (ARRAY['debit'::text, 'refund'::text])))
+);
+
+
+--
+-- Name: wallet_ledger_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.wallet_ledger_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: wallet_ledger_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.wallet_ledger_id_seq OWNED BY public.wallet_ledger.id;
+
+
+--
 -- Name: web_push_tokens; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8294,6 +8676,13 @@ ALTER TABLE ONLY public.rewards ALTER COLUMN id SET DEFAULT nextval('public.rewa
 --
 
 ALTER TABLE ONLY public.wallet_audit ALTER COLUMN id SET DEFAULT nextval('public.wallet_audit_id_seq'::regclass);
+
+
+--
+-- Name: wallet_ledger id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wallet_ledger ALTER COLUMN id SET DEFAULT nextval('public.wallet_ledger_id_seq'::regclass);
 
 
 --
@@ -8912,6 +9301,22 @@ ALTER TABLE ONLY public.global_platform_markups
 
 
 --
+-- Name: global_promotion_sends global_promotion_sends_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_promotion_sends
+    ADD CONSTRAINT global_promotion_sends_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: global_promotion_sends global_promotion_sends_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.global_promotion_sends
+    ADD CONSTRAINT global_promotion_sends_unique UNIQUE (scheduled_id, sent_for, country_code);
+
+
+--
 -- Name: global_reseller_app_configs global_reseller_app_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9520,6 +9925,14 @@ ALTER TABLE ONLY public.wallet_audit
 
 
 --
+-- Name: wallet_ledger wallet_ledger_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wallet_ledger
+    ADD CONSTRAINT wallet_ledger_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: wallet wallet_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9860,6 +10273,13 @@ CREATE INDEX oauth_consents_active_user_client_idx ON auth.oauth_consents USING 
 --
 
 CREATE INDEX oauth_consents_user_order_idx ON auth.oauth_consents USING btree (user_id, granted_at DESC);
+
+
+--
+-- Name: one_time_tokens_link_token_hash_hash_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX one_time_tokens_link_token_hash_hash_idx ON auth.one_time_tokens USING hash (link_token_hash);
 
 
 --
@@ -10962,6 +11382,13 @@ CREATE INDEX idx_xixapay_ledger_created_at ON public.xixapay_wallet_ledger USING
 
 
 --
+-- Name: wallet_ledger_ref_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX wallet_ledger_ref_idx ON public.wallet_ledger USING btree (user_email, reference);
+
+
+--
 -- Name: bname; Type: INDEX; Schema: storage; Owner: -
 --
 
@@ -11160,10 +11587,24 @@ CREATE TRIGGER failed_transaction_trigger AFTER UPDATE OF status ON public.trans
 
 
 --
+-- Name: global_customer_notifications global_customer_push_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER global_customer_push_trigger AFTER INSERT ON public.global_customer_notifications FOR EACH ROW EXECUTE FUNCTION public.trigger_global_customer_push();
+
+
+--
 -- Name: global_orders global_orders_status_history_trg; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER global_orders_status_history_trg AFTER INSERT OR UPDATE OF status ON public.global_orders FOR EACH ROW EXECUTE FUNCTION public.log_global_order_status_change();
+
+
+--
+-- Name: global_notifications global_reseller_push_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER global_reseller_push_trigger AFTER INSERT ON public.global_notifications FOR EACH ROW EXECUTE FUNCTION public.trigger_global_reseller_push();
 
 
 --
@@ -11192,6 +11633,13 @@ CREATE TRIGGER reseller_push_trigger AFTER INSERT ON public.reseller_notificatio
 --
 
 CREATE TRIGGER "send-push-on-notification-insert" AFTER INSERT ON public.notifications FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request('https://jjyyfaxcwanrmiipzkoj.supabase.co/functions/v1/send-push-notification', 'POST', '{"Content-type":"application/json","Authorization":"Bearer <REDACTED-SERVICE-ROLE-KEY>"}', '{}', '5000');
+
+
+--
+-- Name: profiles trg_protect_profile_admin; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_protect_profile_admin BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.protect_profile_admin_flag();
 
 
 --
@@ -12497,13 +12945,6 @@ CREATE POLICY "Allow authenticated inserts" ON public.cable_purchases FOR INSERT
 
 
 --
--- Name: coming_soon_notifications Allow authenticated inserts; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow authenticated inserts" ON public.coming_soon_notifications FOR INSERT TO authenticated WITH CHECK (true);
-
-
---
 -- Name: customer_issues Allow authenticated inserts; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -12802,13 +13243,6 @@ CREATE POLICY "Enable update for authenticated users" ON public.global_transacti
 --
 
 CREATE POLICY "Public can view purchase counts" ON public.flashsale_purchases FOR SELECT USING (true);
-
-
---
--- Name: profiles Public profiles are viewable by everyone; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
 
 
 --
@@ -13248,7 +13682,7 @@ CREATE POLICY admin_access ON public.plan_settings_log USING ((( SELECT profiles
 -- Name: profiles admin_update; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY admin_update ON public.profiles FOR UPDATE USING ((is_admin = true));
+CREATE POLICY admin_update ON public.profiles FOR UPDATE TO authenticated USING (public.is_current_user_admin()) WITH CHECK (public.is_current_user_admin());
 
 
 --
@@ -13262,6 +13696,19 @@ ALTER TABLE public.airtime_purchases ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY "anyone can insert debug logs" ON public.debug_logs FOR INSERT TO authenticated, anon WITH CHECK (true);
+
+
+--
+-- Name: app_updates; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.app_updates ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: app_updates app_updates_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY app_updates_public_read ON public.app_updates FOR SELECT TO authenticated, anon USING (true);
 
 
 --
@@ -13305,10 +13752,24 @@ ALTER TABLE public.business_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cable_plans ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: cable_plans cable_plans_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY cable_plans_public_read ON public.cable_plans FOR SELECT TO authenticated, anon USING (true);
+
+
+--
 -- Name: cable_purchases; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.cable_purchases ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: coming_soon_notifications coming_soon_insert_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY coming_soon_insert_own ON public.coming_soon_notifications FOR INSERT TO authenticated WITH CHECK (((email)::text = auth.email()));
+
 
 --
 -- Name: coming_soon_notifications; Type: ROW SECURITY; Schema: public; Owner: -
@@ -13317,10 +13778,23 @@ ALTER TABLE public.cable_purchases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coming_soon_notifications ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: coming_soon_notifications coming_soon_select_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY coming_soon_select_own ON public.coming_soon_notifications FOR SELECT TO authenticated USING (((email)::text = auth.email()));
+
+
+--
 -- Name: customer_issues; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.customer_issues ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: data_purchases; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.data_purchases ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: debug_logs; Type: ROW SECURITY; Schema: public; Owner: -
@@ -13433,6 +13907,12 @@ ALTER TABLE public.global_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.global_platform_markups ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: global_promotion_sends; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.global_promotion_sends ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: global_reseller_onboarding; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -13481,10 +13961,63 @@ ALTER TABLE public.global_virtual_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.global_wallets ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: hot_deals; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.hot_deals ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: hot_deals hot_deals_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY hot_deals_public_read ON public.hot_deals FOR SELECT TO authenticated, anon USING (true);
+
+
+--
+-- Name: lizzy; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.lizzy ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: lizzy_flashsale; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.lizzy_flashsale ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: lizzy_flashsale lizzy_flashsale_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY lizzy_flashsale_public_read ON public.lizzy_flashsale FOR SELECT TO authenticated, anon USING (true);
+
+
+--
+-- Name: lizzy lizzy_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY lizzy_public_read ON public.lizzy FOR SELECT TO authenticated, anon USING (true);
+
+
+--
+-- Name: notifications; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: notifications notifications_delete_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY notifications_delete_own ON public.notifications FOR DELETE TO authenticated USING ((user_id = auth.uid()));
+
+
+--
+-- Name: notifications notifications_select_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY notifications_select_own ON public.notifications FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+
 
 --
 -- Name: plan_settings_log; Type: ROW SECURITY; Schema: public; Owner: -
@@ -13641,6 +14174,33 @@ CREATE POLICY sweep_logs_admin_all ON public.xixapay_sweep_logs USING ((auth.rol
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: user_push_tokens; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.user_push_tokens ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: user_push_tokens user_push_tokens_insert_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY user_push_tokens_insert_own ON public.user_push_tokens FOR INSERT TO authenticated WITH CHECK ((user_id = auth.uid()));
+
+
+--
+-- Name: user_push_tokens user_push_tokens_select_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY user_push_tokens_select_own ON public.user_push_tokens FOR SELECT TO authenticated USING ((user_id = auth.uid()));
+
+
+--
+-- Name: user_push_tokens user_push_tokens_update_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY user_push_tokens_update_own ON public.user_push_tokens FOR UPDATE TO authenticated USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
+
+
+--
 -- Name: welcome_offer_usage users can manage own welcome offer; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -13652,16 +14212,81 @@ CREATE POLICY "users can manage own welcome offer" ON public.welcome_offer_usage
 
 
 --
+-- Name: virtual_accounts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.virtual_accounts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: virtual_accounts virtual_accounts_system_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY virtual_accounts_system_insert ON public.virtual_accounts FOR INSERT TO authenticated WITH CHECK ((user_id = auth.uid()));
+
+
+--
 -- Name: waitlist; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.waitlist ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: wallet; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.wallet ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: wallet_ledger; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.wallet_ledger ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: wallet_ledger wallet_ledger_select_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY wallet_ledger_select_own ON public.wallet_ledger FOR SELECT TO authenticated USING ((user_email = auth.email()));
+
+
+--
+-- Name: wallet wallet_select_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY wallet_select_own ON public.wallet FOR SELECT TO authenticated USING ((user_email = auth.email()));
+
+
+--
 -- Name: web_push_tokens; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.web_push_tokens ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: welcome_offer_product; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.welcome_offer_product ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: welcome_offer_product welcome_offer_product_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY welcome_offer_product_public_read ON public.welcome_offer_product FOR SELECT TO authenticated, anon USING (true);
+
+
+--
+-- Name: welcome_offer_text; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.welcome_offer_text ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: welcome_offer_text welcome_offer_text_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY welcome_offer_text_public_read ON public.welcome_offer_text FOR SELECT TO authenticated, anon USING (true);
+
 
 --
 -- Name: xixapay_sweep_logs; Type: ROW SECURITY; Schema: public; Owner: -
@@ -13746,5 +14371,5 @@ ALTER TABLE storage.vector_indexes ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict TIruhEzXVeAJIE7yI1ubjdwUJohAIcBiK2Xo9fC2BHafcjnSywyCxjgduLunrvk
+\unrestrict KrM2eHqLRZ39ex8YeIjAj7iVfWD7WhooSIuCvS6m3K9pWmSgNxJYQ1vk6ULWBKg
 
