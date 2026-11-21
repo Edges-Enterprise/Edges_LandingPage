@@ -64,6 +64,23 @@ implemented in `process_global_purchase_deductions` (settlement) and
 `get_global_sale_funding` (pre-flight), which must stay in step;
 `supabase/tests/sale_funding_test.sql` is the guard.
 
+**Deployed edge functions (2026-11-21).** The `purchaseOrchestrator.ts`
+logging change is live. Four functions bundle that file, and all four were
+redeployed together — deploying only some would leave the rest on a stale
+bundle:
+
+| Function | Version | `verify_jwt` |
+|---|---|---|
+| `accragh-webhook` | 14 | `false` |
+| `global-purchase-airtime` | 27 | `true` |
+| `global-purchase-data` | 27 | `true` |
+| `global-store-catalog` | 20 | `false` |
+
+Any future edit to `_shared/purchaseOrchestrator.ts` needs all four redeployed.
+`accragh-webhook` and `global-store-catalog` are `verify_jwt=false`, so they
+must be deployed with `--no-verify-jwt` or the CLI resets them to `true` and
+breaks the callers.
+
 **Open work.** The deferred wrap-up checklist is
 "Project-completion stage — deferred items" (below). Nothing there is to be
 actioned unprompted mid-task. The newest session entry is the last row of the
