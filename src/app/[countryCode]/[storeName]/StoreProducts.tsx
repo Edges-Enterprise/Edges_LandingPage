@@ -36,6 +36,15 @@ const CATEGORY_COLORS: Record<string, string> = {
   cable: "#10B981",
 };
 
+// rgb triplets for the same categories, so translucent tints can be written as
+// rgba() instead of color-mix(), which iOS below 16.2 does not support.
+const CATEGORY_COLOR_RGB: Record<string, string> = {
+  data: "59, 130, 246",
+  airtime: "139, 92, 246",
+  electricity: "245, 158, 11",
+  cable: "16, 185, 129",
+};
+
 const PRODUCTS_PER_PAGE = 15;
 
 export default function StoreProducts({
@@ -67,6 +76,9 @@ export default function StoreProducts({
   const featured = networkProducts.slice(0, 3);
   const networkColor =
     CATEGORY_COLORS[networkProducts[0]?.category || ""] || "var(--brand-color)";
+  const networkColorRgb =
+    CATEGORY_COLOR_RGB[networkProducts[0]?.category || ""] ||
+    "var(--brand-color-rgb, 201, 138, 84)";
 
   return (
     <section id="products" style={{ padding: "1rem 0 2rem" }}>
@@ -144,9 +156,10 @@ export default function StoreProducts({
                 color: "var(--brand-color)",
                 cursor: "pointer",
                 // A soft fade so tabs passing under the icon read as
-                // "behind" rather than clipped.
-                boxShadow:
-                  "-8px 0 10px -6px color-mix(in srgb, var(--bg) 90%, transparent)",
+                // "behind" rather than clipped. Translucency comes from a
+                // hex-with-alpha var rather than color-mix(), which iOS below
+                // 16.2 does not support.
+                boxShadow: "-8px 0 10px -6px var(--bg-fade)",
               }}
             >
               <Globe size={18} />
@@ -226,11 +239,12 @@ export default function StoreProducts({
                 }}
               >
                 <div
+                  data-surface
                   style={{
                     width: 28,
                     height: 28,
                     borderRadius: 8,
-                    background: "color-mix(in srgb, var(--brand-color) 18%, transparent)",
+                    background: "rgba(var(--brand-color-rgb, 201, 138, 84), 0.18)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -293,11 +307,12 @@ export default function StoreProducts({
             }}
           >
             <div
+              data-surface
               style={{
                 width: 28,
                 height: 28,
                 borderRadius: 8,
-                background: `color-mix(in srgb, ${networkColor} 18%, transparent)`,
+                background: `rgba(${networkColorRgb}, 0.18)`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

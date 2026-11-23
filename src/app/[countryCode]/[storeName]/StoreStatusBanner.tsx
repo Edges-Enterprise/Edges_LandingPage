@@ -59,14 +59,16 @@ export default function StoreStatusBanner({
           background-color: transparent !important;
         }
         body.storefront-theme .store-caution {
+          /* Plain rgba() rather than color-mix(): iOS below 16.2 has no
+             color-mix() and would drop the whole background declaration. */
           background: linear-gradient(
             135deg,
-            color-mix(in srgb, var(--yellow) 13%, transparent),
-            color-mix(in srgb, var(--brand-color) 7%, transparent)
+            rgba(var(--yellow-rgb, 245, 158, 11), 0.13),
+            rgba(var(--brand-color-rgb, 201, 138, 84), 0.07)
           ) !important;
           -webkit-backdrop-filter: blur(16px) saturate(1.4);
           backdrop-filter: blur(16px) saturate(1.4);
-          border-bottom: 1px solid color-mix(in srgb, var(--yellow) 32%, transparent);
+          border-bottom: 1px solid rgba(var(--yellow-rgb, 245, 158, 11), 0.32);
         }
         .store-caution-link {
           color: var(--brand-color);
