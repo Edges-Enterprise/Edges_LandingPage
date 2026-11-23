@@ -5903,7 +5903,7 @@ the Management API (54 functions, `fetched_at` 2026-11-23T17:34:08Z).
   balance only moved by the cost price. Worth reviewing if that card is meant
   to represent money out.
 
-## Task 11 — Xixapay sweeper: admin payout of the platform float (opened 2026-11-23, BUILT — NOT COMMITTED)
+## Task 11 — Xixapay sweeper: admin payout of the platform float (opened 2026-11-23, BUILT, VERIFIED, SHIPPED)
 
 A platform admin can now see the Xixapay balance and pay it out to a bank, at
 `/[countryCode]/admin/sweeper`.
@@ -6041,6 +6041,35 @@ Sweeping the full ledger balance leaves the platform fee revenue (roughly 4% of
 gross) behind in the Xixapay account, because the ledger records net amounts.
 That is intended, but it means the sweeper cannot empty the account, and the
 figure it shows is deliberately not the account total.
+
+### UI refinements (2026-11-23, second pass)
+
+Three usability fixes to the sweeper page, all browser-verified:
+
+1. **Bank picker is a searchable themed dropdown.** The native `<select>` is
+   replaced by `ThemeSelect` (from `dashboard/ThemeSelect.tsx`) with a new
+   optional `searchable` prop. That list carries ~500 banks, so a filter box is
+   required, not optional. The prop is additive and defaults to off, so the
+   five other `ThemeSelect` call sites are unaffected. The popup keeps the
+   filter pinned and scrolls only `.theme-select-list`; the box is a sibling of
+   the `role="listbox"` element, not a child, so ARIA stays valid.
+2. **Account name resolves automatically.** Typing a bank plus a 6+ digit
+   account number triggers `resolveSweepBank` after a 450 ms debounce; the
+   manual Verify button is gone. A sequence ref discards replies for a stale
+   account number, so a slow response cannot overwrite the current name. Three
+   inline states replace the old message: spinner, resolved name, provider
+   error.
+3. **Recent sweeps collapse on phones.** Under 768px the table is not rendered
+   at all (`useIsMobile`, conditional render rather than CSS hiding, so screen
+   readers do not hear each row twice). Each row shows amount and status; the
+   timestamp, target, reference and error move behind a chevron disclosure.
+
+Verified against the live DB: search filtered 500+ banks to 2 for "zenith";
+selecting PalmPay + `6614053648` produced "Luminate Global Enterprise-Joh(Xixapay)"
+with no button press; a bad account showed the provider error inline. The
+mobile branch was checked by temporarily forcing `isMobile = true`, confirming
+the disclosure expands, then reverting. `tsc --noEmit` and `next build` clean.
+Pushed to `main` as `cc71187`.
 
 ## Log
 
@@ -6358,4 +6387,5 @@ Until the key is rotated, treat the database as compromised:
 See the "SECURITY — exposed service_role key in git history" section above for
 the full evidence and the measured scope of the exposure.
 | 2026-11-23 | Task 10 session | Built **and deployed** reseller-held customer funds: deposit mirror, cost-price settlement, customer-list wallets, and the `[countryCode]` withdrawal route + modal (Sundays/Wednesdays, unlimited, 2% fee, float withdrawable). Migration applied to production in one transaction after snapshotting balances; exactly one wallet changed (belovedtopup ₦90 → ₦820 = scoped ₦730 backfill), both SQL suites pass against live. Web pushed to `main` (`596e4f9`) and Vercel production confirmed READY on that SHA with the alias pointing at it, closing the deposit-mirror/cost-settlement ordering window. Edge functions `global-purchase-data` and `global-purchase-airtime` redeployed to v30 with the `SUPABASE_OPEN_HANDS` token — which also shipped the previously undeployed `02745f3` plan-collision fix. **Correction:** an earlier version of this row said four functions needed redeploying and that the impact was cosmetic; only two import the orchestrator, and the deploy carried a real bug fix. Dashboard UI still not browser-verified (no reseller credentials; no password reset performed). |
+| 2026-11-23 | Task 11 session (UI pass) | Three usability fixes to the sweeper, browser-verified against the live DB and pushed to `main` (`cc71187`). (1) Bank picker replaced the native `<select>` with `ThemeSelect` plus a new optional `searchable` prop — additive, so the five other call sites are untouched; the filter box is a sibling of `role="listbox"` so ARIA stays valid, and only the row list scrolls. (2) Account name now resolves automatically on bank + 6-digit account, debounced 450 ms with a sequence ref so a stale reply cannot overwrite the current name; the Verify button is gone. (3) Under 768px the recent sweeps table is not rendered at all — `useIsMobile` drives a conditional render, not CSS hiding — and each row shows amount/status with timestamp, target, reference and error behind a chevron. Live checks: "zenith" filtered 500+ banks to 2; PalmPay + `6614053648` resolved to "Luminate Global Enterprise-Joh(Xixapay)" with no button press; a bad account surfaced the provider error inline. Mobile branch verified by temporarily forcing `isMobile = true`, then reverted. `tsc --noEmit` and `next build` clean. **Also observed:** a real ₦810 sweep landed on 2026-11-23 19:01, so the derived balance now reads ₦10.00 (₦820 deposits − ₦810 swept) — the sweeper correctly refuses any further sweep as below the ₦500 minimum. |
 | 2026-11-23 | Task 11 session | Built the **Xixapay sweeper** (admin pays the platform float out to a bank) at `/[countryCode]/admin/sweeper`, gated by `getPlatformAdmin` server-side with every action re-checking it. Xixapay has no balance API (five candidate endpoints all 404), so the balance is derived from `xixapay_wallet_ledger` via the `xixapay_wallet_balance` view. **Balance rule settled with the owner: sum every deposit minus every sweep from every reseller and reseller customer, starting 2026-11-20** (BelovedTopup's first real deposit, not its 2026-11-19 store creation). The view has no reseller/store predicate — proven by inserting an unrelated store's deposit inside a rolled-back transaction and watching the balance rise by exactly that amount. Reconciled a ₦280 overstatement to the owner's confirmed ₦820 (= 640+90+90): two duplicate deliveries of one ₦100 payment that arrived under **different** `transaction_id`s with an identical payload timestamp (+₦180), plus a pre-go-live July backfill/sweep pair (+₦100). Deleted only the two duplicate rows, kept all older rows as audit, redefined the view with the 2026-11-20 cutoff, and added a unique index on the payment's real identity (`payload timestamp + sender account + amount`) — verified a fresh re-delivery is now rejected `23505`. Single-flight guard (partial unique index on `pending`) also proven `23505`. `tsc` and `next build` clean. **Not browser-verified** (no platform-admin credentials); **not committed** at time of writing. |
