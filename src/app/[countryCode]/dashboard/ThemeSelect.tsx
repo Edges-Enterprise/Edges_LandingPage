@@ -39,6 +39,10 @@ interface ThemeSelectProps {
   className?: string;
   /** Floor for the popup width; defaults to the trigger's width. */
   menuMinWidth?: number;
+  /** Render a filter box at the top of the popup, for long lists. */
+  searchable?: boolean;
+  /** Placeholder for the filter box. */
+  searchPlaceholder?: string;
 }
 
 const MENU_MAX_HEIGHT = 300;
@@ -66,8 +70,11 @@ export default function ThemeSelect({
   style,
   className,
   menuMinWidth,
+  searchable = false,
+  searchPlaceholder = "Search…",
 }: ThemeSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
   const [menu, setMenu] = useState<{
     left: number;
@@ -89,20 +96,42 @@ export default function ThemeSelect({
   );
   const selectedOption = selectedIndex >= 0 ? options[selectedIndex] : undefined;
 
+  // A searchable popup navigates the filtered list, so every index below
+  // (active row, commit, aria-activedescendant) refers to `visible`, not
+  // `options`.
+  const visible = useMemo(() => {
+    const q = searchable ? query.trim().toLowerCase() : "";
+    if (!q) return options;
+    return options.filter((o) =>
+      (
+        o.text ??
+        (typeof o.label === "string" ? o.label : o.value) ??
+        ""
+      )
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [options, searchable, query]);
+
+  const activeOptionIndex = useMemo(
+    () => visible.findIndex((o) => o.value === value),
+    [visible, value],
+  );
+
   useEffect(() => setMounted(true), []);
 
   // Walk from `from` in `step` direction to the next row that is not disabled.
   const firstEnabled = useCallback(
     (from: number, step: number) => {
-      if (!options.length) return -1;
+      if (!visible.length) return -1;
       let i = from;
-      for (let n = 0; n < options.length; n++) {
-        i = (i + step + options.length) % options.length;
-        if (!options[i]?.disabled) return i;
+      for (let n = 0; n < visible.length; n++) {
+        i = (i + step + visible.length) % visible.length;
+        if (!visible[i]?.disabled) return i;
       }
       return -1;
     },
-    [options],
+    [visible],
   );
 
   const positionMenu = useCallback(() => {
@@ -143,9 +172,12 @@ export default function ThemeSelect({
 
   const open = useCallback(() => {
     if (disabled) return;
-    setActiveIndex(selectedIndex >= 0 ? selectedIndex : firstEnabled(-1, 1));
+    setQuery("");
+    setActiveIndex(
+      activeOptionIndex >= 0 ? activeOptionIndex : firstEnabled(-1, 1),
+    );
     setIsOpen(true);
-  }, [disabled, selectedIndex, firstEnabled]);
+  }, [disabled, activeOptionIndex, firstEnabled]);
 
   useIsoLayoutEffect(() => {
     if (!isOpen) return;
@@ -178,14 +210,21 @@ export default function ThemeSelect({
       ?.scrollIntoView({ block: "nearest" });
   }, [isOpen, activeIndex]);
 
+  // Filtering can shrink the list under the cursor, leaving `activeIndex`
+  // pointing past the end. Reset it to the first surviving row.
+  useEffect(() => {
+    if (!isOpen) return;
+    setActiveIndex((i) => (i >= visible.length ? firstEnabled(-1, 1) : i));
+  }, [isOpen, visible.length, firstEnabled]);
+
   const commit = useCallback(
     (index: number) => {
-      const option = options[index];
+      const option = visible[index];
       if (!option || option.disabled) return;
       onChange(option.value);
       close(true);
     },
-    [options, onChange, close],
+    [visible, onChange, close],
   );
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -212,7 +251,7 @@ export default function ThemeSelect({
         break;
       case "End":
         e.preventDefault();
-        setActiveIndex(firstEnabled(options.length, -1));
+        setActiveIndex(firstEnabled(visible.length, -1));
         break;
       case "Enter":
       case " ":
@@ -234,9 +273,9 @@ export default function ThemeSelect({
           const query = (buffer + e.key).toLowerCase();
           typeahead.current = { query, at: now };
           const start = activeIndex >= 0 ? activeIndex : 0;
-          for (let n = 1; n <= options.length; n++) {
-            const i = (start + n) % options.length;
-            const option = options[i];
+          for (let n = 1; n <= visible.length; n++) {
+            const i = (start + n) % visible.length;
+            const option = visible[i];
             const haystack = (
               option?.text ??
               (typeof option?.label === "string" ? option.label : option?.value) ??
@@ -294,9 +333,6 @@ export default function ThemeSelect({
         createPortal(
           <div
             ref={menuRef}
-            id={listboxId}
-            role="listbox"
-            aria-label={ariaLabel}
             className="theme-select-menu"
             style={{
               top: menu.top,
@@ -306,36 +342,81 @@ export default function ThemeSelect({
               maxHeight: menu.maxHeight,
             }}
           >
-            {options.map((option, index) => (
-              <button
-                key={option.value || `__empty_${index}`}
-                id={`${listboxId}-opt-${index}`}
-                data-index={index}
-                type="button"
-                role="option"
-                aria-selected={index === selectedIndex}
-                disabled={option.disabled}
-                className="theme-select-option"
-                style={option.style}
-                data-active={index === activeIndex}
-                onMouseEnter={() => !option.disabled && setActiveIndex(index)}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => commit(index)}
-              >
-                <span
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {option.label}
-                </span>
-                {index === selectedIndex && (
-                  <Check size={14} className="theme-select-check" />
-                )}
-              </button>
-            ))}
+            {searchable ? (
+              <input
+                type="text"
+                className="theme-select-search"
+                placeholder={searchPlaceholder}
+                value={query}
+                autoFocus
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  // Focus lives in this input, so the trigger's key handler
+                  // never fires; forward the keys that drive the listbox.
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    close(true);
+                    return;
+                  }
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    commit(activeIndex);
+                    return;
+                  }
+                  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setActiveIndex((i) =>
+                      firstEnabled(i, e.key === "ArrowDown" ? 1 : -1),
+                    );
+                  }
+                }}
+                aria-label={searchPlaceholder}
+              />
+            ) : null}
+
+            <div
+              id={listboxId}
+              role="listbox"
+              aria-label={ariaLabel}
+              className="theme-select-list"
+            >
+              {visible.length === 0 ? (
+                <div className="theme-select-empty">No matches</div>
+              ) : (
+                visible.map((option, index) => (
+                  <button
+                    key={option.value || `__empty_${index}`}
+                    id={`${listboxId}-opt-${index}`}
+                    data-index={index}
+                    type="button"
+                    role="option"
+                    aria-selected={option.value === value}
+                    disabled={option.disabled}
+                    className="theme-select-option"
+                    style={option.style}
+                    data-active={index === activeIndex}
+                    onMouseEnter={() =>
+                      !option.disabled && setActiveIndex(index)
+                    }
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => commit(index)}
+                  >
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {option.label}
+                    </span>
+                    {option.value === value && (
+                      <Check size={14} className="theme-select-check" />
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
           </div>,
           document.body,
         )}

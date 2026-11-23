@@ -223,13 +223,47 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0.3rem;
   background: var(--card);
   border: 1px solid var(--border2);
   border-radius: 10px;
   box-shadow: var(--shadow-lg, 0 10px 40px rgba(0, 0, 0, 0.4));
   animation: theme-select-in 0.12s ease;
+}
+
+/* The searchable popup keeps the filter pinned and scrolls only the rows. */
+.theme-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.theme-select-search {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 2px;
+  background: var(--bg2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.theme-select-search:focus {
+  outline: none;
+  border-color: var(--brand-color);
+}
+
+.theme-select-empty {
+  padding: 0.6rem;
+  color: var(--dim);
+  font-size: 0.8rem;
+  text-align: center;
 }
 
 @keyframes theme-select-in {

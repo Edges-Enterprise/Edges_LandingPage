@@ -15,8 +15,10 @@
 // The account name is resolved by the provider BEFORE the send, and shown with
 // a confirmation step, so a typo cannot pay a stranger.
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { AlertTriangle, Check, Loader2, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { AlertTriangle, Check, ChevronDown, Loader2, RefreshCw } from "lucide-react";
+import ThemeSelect from "@/app/[countryCode]/dashboard/ThemeSelect";
+import { useIsMobile } from "@/hooks/common/useIsMobile";
 import {
   getSweeperState,
   listSweepBanks,
@@ -107,6 +109,8 @@ export default function SweeperClient({
   >(null);
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
+  const isMobile = useIsMobile();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     startTransition(async () => {
@@ -139,23 +143,45 @@ export default function SweeperClient({
     numericAmount >= state.minSweep &&
     numericAmount <= state.balance;
 
-  const canVerify = bankCode !== "" && /^\d{6,}$/.test(accountNumber) && !pending;
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  // Guards against a slow reply for an old account number overwriting the name
+  // of the one now in the field.
+  const verifySeq = useRef(0);
 
   const canSubmit =
     amountValid && accountName !== "" && bankCode !== "" && !pending;
 
-  const handleVerify = () => {
-    setMessage(null);
-    setAccountName("");
-    startTransition(async () => {
+  // Resolve the account name as soon as both inputs are complete, so the admin
+  // never has to press Verify. Debounced because the number is typed digit by
+  // digit and each resolve is a provider call.
+  useEffect(() => {
+    const ready = bankCode !== "" && /^\d{6,}$/.test(accountNumber);
+    if (!ready) {
+      setAccountName("");
+      setVerifyError(null);
+      setVerifying(false);
+      return;
+    }
+
+    const seq = ++verifySeq.current;
+    setVerifying(true);
+    setVerifyError(null);
+
+    const timer = setTimeout(async () => {
       const result = await resolveSweepBank(bankCode, accountNumber);
+      if (seq !== verifySeq.current) return;
+      setVerifying(false);
       if (result.success) {
         setAccountName(result.accountName);
       } else {
-        setMessage({ kind: "error", text: result.error });
+        setAccountName("");
+        setVerifyError(result.error);
       }
-    });
-  };
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [bankCode, accountNumber]);
 
   const handleSubmit = () => {
     if (!confirming) {
@@ -189,6 +215,16 @@ export default function SweeperClient({
   const selectedBankName = useMemo(
     () => banks.find((b) => b.bankCode === bankCode)?.bankName ?? "",
     [banks, bankCode],
+  );
+
+  const bankOptions = useMemo(
+    () =>
+      banks.map((bank) => ({
+        value: bank.bankCode,
+        label: bank.bankName,
+        text: bank.bankName,
+      })),
+    [banks],
   );
 
   return (
@@ -306,60 +342,58 @@ export default function SweeperClient({
             <label style={label} htmlFor="sweep-bank">
               Bank
             </label>
-            <select
+            <ThemeSelect
               id="sweep-bank"
-              style={input}
+              ariaLabel="Bank"
               value={bankCode}
-              onChange={(e) => {
-                setBankCode(e.target.value);
+              placeholder="Select a bank"
+              searchable
+              searchPlaceholder="Search banks…"
+              menuMinWidth={260}
+              style={{ width: "100%" }}
+              options={bankOptions}
+              onChange={(next) => {
+                setBankCode(next);
                 setAccountName("");
+                setVerifyError(null);
                 setConfirming(false);
               }}
-            >
-              <option value="">Select a bank</option>
-              {banks.map((bank) => (
-                <option key={bank.bankCode} value={bank.bankCode}>
-                  {bank.bankName}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>
             <label style={label} htmlFor="sweep-account">
               Account number
             </label>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <input
-                id="sweep-account"
-                style={input}
-                inputMode="numeric"
-                placeholder="0123456789"
-                value={accountNumber}
-                onChange={(e) => {
-                  setAccountNumber(e.target.value.replace(/\D/g, ""));
-                  setAccountName("");
-                  setConfirming(false);
-                }}
-              />
-              <button
-                type="button"
-                onClick={handleVerify}
-                disabled={!canVerify}
-                style={{
-                  ...ghostButton,
-                  whiteSpace: "nowrap",
-                  opacity: canVerify ? 1 : 0.5,
-                  cursor: canVerify ? "pointer" : "not-allowed",
-                }}
-              >
-                {pending ? <Loader2 size={15} className="anim-spin" /> : null}
-                Verify
-              </button>
-            </div>
+            <input
+              id="sweep-account"
+              style={input}
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="0123456789"
+              value={accountNumber}
+              onChange={(e) => {
+                setAccountNumber(e.target.value.replace(/\D/g, ""));
+                setAccountName("");
+                setVerifyError(null);
+                setConfirming(false);
+              }}
+            />
           </div>
 
-          {accountName ? (
+          {verifying ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                fontSize: "0.85rem",
+                color: "var(--dim)",
+              }}
+            >
+              <Loader2 size={15} className="anim-spin" /> Verifying account…
+            </div>
+          ) : accountName ? (
             <div
               style={{
                 display: "flex",
@@ -371,6 +405,20 @@ export default function SweeperClient({
               }}
             >
               <Check size={15} /> {accountName}
+            </div>
+          ) : verifyError ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "0.4rem",
+                fontSize: "0.85rem",
+                lineHeight: 1.5,
+                color: "#e8896b",
+              }}
+            >
+              <AlertTriangle size={15} style={{ marginTop: 2, flexShrink: 0 }} />
+              <span>{verifyError}</span>
             </div>
           ) : null}
 
@@ -483,6 +531,166 @@ export default function SweeperClient({
           <p style={{ color: "var(--dim)", fontSize: "0.85rem", margin: 0 }}>
             No sweeps yet.
           </p>
+        ) : isMobile ? (
+          /* Phone layout: the row shows amount and status, and the timestamp —
+             the widest column — moves behind a disclosure. */
+          <div style={{ display: "grid", gap: "0.5rem" }}>
+            {state.history.map((row) => {
+              const isOpen = expandedId === row.id;
+              const toggle = () => setExpandedId(isOpen ? null : row.id);
+              return (
+                <div
+                  key={row.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isOpen}
+                  onClick={toggle}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggle();
+                    }
+                  }}
+                  style={{
+                    background: "var(--bg2)",
+                    borderRadius: 8,
+                    padding: "0.75rem 0.9rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "0.75rem",
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: "0.85rem",
+                          fontWeight: 600,
+                          color: "var(--text)",
+                        }}
+                      >
+                        {row.sweep_amount === null
+                          ? "No amount"
+                          : naira(Number(row.sweep_amount))}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.72rem",
+                          fontWeight: 600,
+                          marginTop: "0.15rem",
+                          color:
+                            row.status === "completed"
+                              ? "var(--green)"
+                              : "#e8896b",
+                        }}
+                      >
+                        {row.status}
+                      </div>
+                    </div>
+                    <ChevronDown
+                      size={16}
+                      style={{
+                        color: "var(--dim)",
+                        flexShrink: 0,
+                        transform: isOpen ? "rotate(180deg)" : "none",
+                        transition: "transform 0.2s",
+                      }}
+                    />
+                  </div>
+
+                  {isOpen ? (
+                    <div
+                      style={{
+                        marginTop: "0.65rem",
+                        paddingTop: "0.65rem",
+                        borderTop: "1px solid var(--border)",
+                        display: "grid",
+                        gap: "0.35rem",
+                        fontSize: "0.75rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "1rem",
+                        }}
+                      >
+                        <span style={{ color: "var(--dim)" }}>When</span>
+                        <span style={{ color: "var(--text)" }}>
+                          {new Date(row.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "1rem",
+                        }}
+                      >
+                        <span style={{ color: "var(--dim)" }}>Target</span>
+                        <span
+                          style={{
+                            color: "var(--text)",
+                            textAlign: "end",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {row.target_bank || "—"}
+                          {row.target_account ? ` · ${row.target_account}` : ""}
+                        </span>
+                      </div>
+                      {row.reference ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "1rem",
+                          }}
+                        >
+                          <span style={{ color: "var(--dim)" }}>Reference</span>
+                          <span
+                            style={{
+                              color: "var(--text)",
+                              textAlign: "end",
+                              wordBreak: "break-all",
+                            }}
+                          >
+                            {row.reference}
+                          </span>
+                        </div>
+                      ) : null}
+                      {row.error ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "1rem",
+                          }}
+                        >
+                          <span style={{ color: "var(--dim)" }}>Error</span>
+                          <span
+                            style={{
+                              color: "#e8896b",
+                              textAlign: "end",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {row.error}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table
