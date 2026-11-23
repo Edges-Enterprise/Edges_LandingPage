@@ -548,3 +548,105 @@ A reseller can withdraw money their customers deposited, leaving the store
 unable to fund orders. Accepted by product decision. The failure mode is a
 refused sale with the vague message above, not a negative balance: settlement
 refuses before deducting anything from the customer.
+
+---
+
+## 14. The Xixapay sweeper (2026-11-23, LIVE)
+
+Platform admins can move the Xixapay float to a bank account at
+`/[countryCode]/admin/sweeper`. Server-gated by `getPlatformAdmin`; a non-admin
+gets `notFound()`, never the balance. Every action re-checks the gate.
+
+### 14.1 Xixapay has no balance API
+
+Verified: `api/v1/balance`, `api/balance`, `api/v1/wallet/balance`,
+`api/get/balance`, `api/v1/account/balance` all return 404. So the balance is
+**derived from our own ledger**, never quoted by the provider.
+
+The page says this to the admin rather than presenting the figure as
+provider-confirmed, because an admin moving real money needs to know which
+number they are trusting.
+
+### 14.2 How the balance is computed
+
+`xixapay_wallet_balance` sums `xixapay_wallet_ledger`:
+
+```
+balance = Σ deposits − Σ sweeps      where created_at >= 2026-11-20
+```
+
+Three things about that rule:
+
+- **Every reseller counts.** The ledger is central, not per-store. The view
+  filters on date only — it has no reseller, store or receiver column in its
+  predicate. A deposit from any store adds to the same float. (Verified by
+  inserting a deposit attributed to an unrelated store inside a rolled-back
+  transaction: the balance rose by exactly that amount.)
+- **The start date is the first real payment**, 2026-11-20, the day BelovedTopup
+  took its first deposit. Not the day the store was created. Rows older than
+  that stay in the table for audit but do not count.
+- **Deposits are recorded NET** of the platform fee (4%). So the ledger is what
+  resellers were credited, not what Xixapay settled. The gap is platform fee
+  revenue still sitting in the Xixapay account, which is expected.
+
+The webhook writes the ledger row at STEP 4.5, before any reseller or
+global-app routing, so it runs once per successful payment regardless of which
+store ends up claiming it.
+
+### 14.3 Why it read ₦1,100 instead of ₦820
+
+Two independent faults, both corrected by
+`supabase/migrations/20261123_xixapay_ledger_reconcile.sql`:
+
+| Cause | Effect |
+|---|---|
+| Xixapay re-delivered one ₦100 payment three times, each under a **new** `transaction_id` but with an identical payload timestamp | +₦180 |
+| A July manual backfill (+₦900) and its sweep (−₦800), both pre-go-live | +₦100 |
+
+The re-delivery slipped through because the ledger's unique constraint is on
+`transaction_id`, and the re-deliveries carried different ones. A unique index on
+the payment's real identity — payload timestamp + sender account + amount — now
+rejects them; the webhook already catches and logs the resulting error.
+
+### 14.4 One sweep at a time
+
+The balance is read, the transfer is sent, then the ledger row is written. Two
+admins could read the same balance and both send it, and the provider cannot
+arbitrate afterwards because it exposes no balance.
+
+`xixapay_sweep_logs` is written **before** the transfer with status `pending`,
+and a partial unique index (`WHERE status = 'pending'`) makes a second concurrent
+sweep fail with `23505` instead of paying twice. A claim abandoned by a crashed
+request is cleared after 10 minutes by `releaseStaleSweeps`, so a dead request
+cannot lock the sweeper out permanently.
+
+`pending` was used rather than a new `in_flight` status because the table's CHECK
+constraint only permits `pending`/`completed`/`failed`.
+
+### 14.5 Outcome handling
+
+The transfer is instant and final; there is no payout-status endpoint to ask
+afterwards. So an unknown outcome is treated as unknown rather than assumed
+either way:
+
+| Provider result | Sweep log | Balance |
+|---|---|---|
+| Accepted | `completed` | ledger row written, balance drops |
+| Rejected (`definitive: true`) | `failed` | untouched — no money moved |
+| Threw, or `definitive: false` | `failed`, "check the dashboard" | untouched, admin told to verify before retrying |
+| Accepted but ledger write failed | `completed` with a loud error | **overstates** until corrected by hand |
+
+The last row is the dangerous one: money has left but the ledger still shows it.
+It is logged with the overstatement amount and surfaced to the admin rather than
+silently swallowed.
+
+### 14.6 Bank verification
+
+The account name is resolved by the provider before the send and shown to the
+admin for confirmation, and it is re-verified server-side immediately before the
+transfer — a name typed into the form is not trusted, and a payout to the wrong
+name is unrecoverable.
+
+### 14.7 Minimum sweep
+
+`MIN_SWEEP` is ₦500. Below that the transfer is not worth the fee.

@@ -5903,6 +5903,113 @@ the Management API (54 functions, `fetched_at` 2026-11-23T17:34:08Z).
   balance only moved by the cost price. Worth reviewing if that card is meant
   to represent money out.
 
+## Task 11 — Xixapay sweeper: admin payout of the platform float (opened 2026-11-23, BUILT — NOT COMMITTED)
+
+A platform admin can now see the Xixapay balance and pay it out to a bank, at
+`/[countryCode]/admin/sweeper`.
+
+### What was built
+
+| Piece | File |
+|---|---|
+| Server actions (balance, banks, verify, sweep) | `src/app/actions/xixapay-sweeper.ts` |
+| Gated page | `src/app/[countryCode]/admin/sweeper/page.tsx` |
+| Client UI | `src/app/[countryCode]/admin/sweeper/SweeperClient.tsx` |
+| Single-flight guard | `supabase/migrations/20261115_xixapay_sweep_single_flight.sql` |
+| Ledger reconciliation + idempotency | `supabase/migrations/20261123_xixapay_ledger_reconcile.sql` |
+
+The gate is `getPlatformAdmin` in the page, and **every action re-checks it**.
+The `[countryCode]/admin/layout` is a placeholder with no auth check, so a
+layout-level gate would have been the wrong place to rely on.
+
+### The balance rule — read this before touching the sweeper
+
+Xixapay has **no balance API** (all five plausible endpoints 404). The balance
+is derived from `xixapay_wallet_ledger`:
+
+```
+balance = Σ deposits − Σ sweeps      where created_at >= 2026-11-20
+```
+
+- **Every reseller counts, not just one store.** The view filters on date only;
+  it has no reseller/store/receiver predicate. Verified empirically by inserting
+  a deposit attributed to an unrelated store inside a rolled-back transaction —
+  the balance rose by exactly that amount. The webhook also writes the ledger row
+  at STEP 4.5, *before* reseller/global-app routing, so every successful payment
+  lands in the ledger regardless of which store claims it.
+- **2026-11-20 is the start**, the day BelovedTopup took its first real deposit —
+  not the day the store row was created (2026-11-19). Older rows are kept for
+  audit but excluded.
+- **Deposits are NET of the 4% platform fee**, so the ledger is what resellers
+  were credited, not what Xixapay settled. The difference is platform fee revenue
+  still sitting in the Xixapay account. Do not "fix" that gap.
+
+### Why the balance read ₦1,100 instead of ₦820
+
+The owner confirmed ₦820 (= 640 + 90 + 90). The ledger overstated by ₦280:
+
+| Cause | Effect |
+|---|---|
+| Xixapay re-delivered one ₦100 payment 3×, each with a **new** `transaction_id` but an identical payload timestamp (`16:56:05.339212Z`), sender and amount | +₦180 |
+| July manual backfill (+₦900) and its sweep (−₦800), both pre-go-live | +₦100 |
+
+The re-delivery defeated the old constraint because it was on `transaction_id`
+only. `20261123_xixapay_ledger_reconcile.sql` deletes the two duplicate rows
+(keeping the earliest), leaves the July rows in place as history, redefines the
+view with the 2026-11-20 cutoff, and adds a unique index on the payment's real
+identity — `(raw_payload->>'timestamp', raw_payload->'sender'->>'account_number',
+amount)` where `type='deposit'`. Verified: a simulated re-delivery under a fresh
+transaction_id is now rejected with `23505`.
+
+**Do not re-run that migration expecting it to be a no-op on a fresh DB** — the
+two `DELETE`s are keyed on specific transaction_ids that only exist in this
+database.
+
+### One sweep at a time
+
+The balance is read, then the transfer is sent, then the ledger row is written.
+Two admins could both read the same balance and both send it, and Xixapay cannot
+arbitrate afterwards. So `xixapay_sweep_logs` is written **before** the transfer
+with status `pending`, and a partial unique index (`WHERE status = 'pending'`)
+makes a second concurrent sweep fail with `23505`. A claim left by a crashed
+request is cleared after 10 minutes by `releaseStaleSweeps`.
+
+`pending` was used instead of a new `in_flight` status because the table's CHECK
+constraint permits only `pending`/`completed`/`failed`.
+
+### Outcome handling
+
+The transfer is instant and final with no status endpoint, so an unknown outcome
+stays unknown:
+
+| Provider result | Sweep log | Balance |
+|---|---|---|
+| Accepted | `completed` | ledger row written, balance drops |
+| Rejected (`definitive: true`) | `failed` | untouched |
+| Threw, or `definitive: false` | `failed` + "check the dashboard" | untouched, admin told to verify before retrying |
+| Accepted, ledger write failed | `completed` with a loud error | **overstates** until corrected by hand |
+
+The account name is resolved by the provider before the send, shown for
+confirmation, and **re-verified server-side immediately before the transfer** —
+a name typed into the form is never trusted.
+
+`MIN_SWEEP` is ₦500.
+
+### Verification done
+
+- `tsc --noEmit` clean; `next build` clean, route `ƒ /[countryCode]/admin/sweeper` registered.
+- Single-flight guard proven: first `pending` claim accepted, second rejected `23505`, test rows removed.
+- Idempotency proven: re-delivery of a known payment rejected `23505`, balance unchanged at ₦820.
+- Ledger reconciled to exactly ₦820 with all audit rows retained.
+- **Not browser-verified** — no platform-admin credentials were available in the session. The gate is server-side, so an unauthenticated hit returns 404, but the rendered page has not been seen.
+
+### Known consequence
+
+Sweeping the full ledger balance leaves the platform fee revenue (roughly 4% of
+gross) behind in the Xixapay account, because the ledger records net amounts.
+That is intended, but it means the sweeper cannot empty the account, and the
+figure it shows is deliberately not the account total.
+
 ## Log
 
 | Date | Session | Notes |
@@ -6219,3 +6326,4 @@ Until the key is rotated, treat the database as compromised:
 See the "SECURITY — exposed service_role key in git history" section above for
 the full evidence and the measured scope of the exposure.
 | 2026-11-23 | Task 10 session | Built **and deployed** reseller-held customer funds: deposit mirror, cost-price settlement, customer-list wallets, and the `[countryCode]` withdrawal route + modal (Sundays/Wednesdays, unlimited, 2% fee, float withdrawable). Migration applied to production in one transaction after snapshotting balances; exactly one wallet changed (belovedtopup ₦90 → ₦820 = scoped ₦730 backfill), both SQL suites pass against live. Web pushed to `main` (`596e4f9`) and Vercel production confirmed READY on that SHA with the alias pointing at it, closing the deposit-mirror/cost-settlement ordering window. Edge functions `global-purchase-data` and `global-purchase-airtime` redeployed to v30 with the `SUPABASE_OPEN_HANDS` token — which also shipped the previously undeployed `02745f3` plan-collision fix. **Correction:** an earlier version of this row said four functions needed redeploying and that the impact was cosmetic; only two import the orchestrator, and the deploy carried a real bug fix. Dashboard UI still not browser-verified (no reseller credentials; no password reset performed). |
+| 2026-11-23 | Task 11 session | Built the **Xixapay sweeper** (admin pays the platform float out to a bank) at `/[countryCode]/admin/sweeper`, gated by `getPlatformAdmin` server-side with every action re-checking it. Xixapay has no balance API (five candidate endpoints all 404), so the balance is derived from `xixapay_wallet_ledger` via the `xixapay_wallet_balance` view. **Balance rule settled with the owner: sum every deposit minus every sweep from every reseller and reseller customer, starting 2026-11-20** (BelovedTopup's first real deposit, not its 2026-11-19 store creation). The view has no reseller/store predicate — proven by inserting an unrelated store's deposit inside a rolled-back transaction and watching the balance rise by exactly that amount. Reconciled a ₦280 overstatement to the owner's confirmed ₦820 (= 640+90+90): two duplicate deliveries of one ₦100 payment that arrived under **different** `transaction_id`s with an identical payload timestamp (+₦180), plus a pre-go-live July backfill/sweep pair (+₦100). Deleted only the two duplicate rows, kept all older rows as audit, redefined the view with the 2026-11-20 cutoff, and added a unique index on the payment's real identity (`payload timestamp + sender account + amount`) — verified a fresh re-delivery is now rejected `23505`. Single-flight guard (partial unique index on `pending`) also proven `23505`. `tsc` and `next build` clean. **Not browser-verified** (no platform-admin credentials); **not committed** at time of writing. |
