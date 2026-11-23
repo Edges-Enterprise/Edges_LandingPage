@@ -121,11 +121,32 @@ export async function processPurchase(
   }
 
   const { data: basePlanRows, error: basePlanError } =
-    await basePlanQuery.limit(2);
-  // Exactly one match, or the id was ambiguous and the caller must send the
-  // plan's country. Never guess: picking a row would charge for the wrong
-  // country's plan.
-  const basePlan = basePlanRows?.length === 1 ? basePlanRows[0] : null;
+    await basePlanQuery.limit(20);
+  // Exactly one match resolves outright. More than one means the id is
+  // ambiguous across countries, and a caller that did not send `countryCode`
+  // (an older client) still has to be served - so fall back to the store's own
+  // catalog: a plan the store sells has an enabled config row, and only one of
+  // the colliding countries will be enabled for it. This is a real signal, not
+  // a guess; if it is still ambiguous the request is refused rather than
+  // charging for the wrong country's plan.
+  let basePlan =
+    basePlanRows && basePlanRows.length === 1 ? basePlanRows[0] : null;
+
+  if (!basePlan && !basePlanError && basePlanRows && basePlanRows.length > 1) {
+    const candidateIds = basePlanRows.map((row) => row.id);
+    const { data: enabledConfigs } = await supabaseAdmin
+      .from("global_reseller_plan_configs")
+      .select("plan_id")
+      .eq("reseller_id", resellerId)
+      .eq("enabled", true)
+      .in("plan_id", candidateIds);
+
+    if (enabledConfigs?.length === 1) {
+      basePlan =
+        basePlanRows.find((row) => row.id === enabledConfigs[0].plan_id) ??
+        null;
+    }
+  }
 
   if (basePlanError || !basePlan) {
     return { success: false, error: "Plan not available", message: "Plan not available" };

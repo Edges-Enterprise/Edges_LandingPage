@@ -92,8 +92,28 @@ export async function priceRangeAmount(params: PriceRangeAmountParams): Promise<
       planQuery = planQuery.ilike("country_code", planCountry);
     }
 
-    const { data: planRows, error: planError } = await planQuery.limit(2);
-    const plan = planRows?.length === 1 ? planRows[0] : null;
+    const { data: planRows, error: planError } = await planQuery.limit(20);
+    let plan = planRows?.length === 1 ? planRows[0] : null;
+
+    // An ambiguous id with no `countryCode` from the caller (an older client)
+    // is disambiguated by which of the colliding plans this store actually
+    // sells. Still ambiguous after that = refuse rather than guess.
+    if (!plan && !planError && planRows && planRows.length > 1) {
+      const { data: enabledConfigs } = await adminClient
+        .from("global_reseller_plan_configs")
+        .select("plan_id")
+        .eq("reseller_id", params.resellerId)
+        .eq("enabled", true)
+        .in(
+          "plan_id",
+          planRows.map((row) => row.id),
+        );
+
+      if (enabledConfigs?.length === 1) {
+        plan =
+          planRows.find((row) => row.id === enabledConfigs[0].plan_id) ?? null;
+      }
+    }
 
     if (planError || !plan) {
       return { success: false, error: "Plan not found" };
