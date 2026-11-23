@@ -98,12 +98,26 @@ export interface PaymentGateway {
   processPayout?(params: {
     resellerId: string;
     amount: number;
-    currency: string;
+    currency?: string;
     bankCode: string;
     accountNumber: string;
-    accountName: string;
+    accountName?: string;
     narration?: string;
-  }): Promise<{ success: boolean; reference?: string; error?: string }>;
+    /** Idempotency key; providers reject duplicate references. */
+    reference?: string;
+    customerEmail?: string;
+  }): Promise<{
+    success: boolean;
+    reference?: string;
+    error?: string;
+    /** Accepted by the provider but not yet settled. */
+    pending?: boolean;
+    /**
+     * False when the outcome is unknown (timeout, network error, 5xx). The
+     * money may have moved, so callers must not refund on this.
+     */
+    definitive?: boolean;
+  }>;
 
   // Korapay-specific optional methods
   getPayoutStatus?(reference: string): Promise<{

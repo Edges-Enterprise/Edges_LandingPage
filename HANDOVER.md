@@ -5877,11 +5877,21 @@ the Management API (54 functions, `fetched_at` 2026-11-23T17:34:08Z).
   `process_global_purchase_deductions`. It is a `pg_dump` snapshot, not a
   migration source; regenerate it after applying the migration rather than
   hand-editing.
-- There is no payout provider call yet. `request_global_withdrawal` records a
-  `pending` withdrawal and deducts the money; something must call
-  `complete_global_withdrawal` / `fail_global_withdrawal` when the bank
-  transfer settles. Until then every withdrawal stays `pending` and the money
-  stays deducted.
+- ~~There is no payout provider call yet.~~ **Resolved.** Withdrawals now send a
+  real bank transfer via `dispatchWithdrawalPayout`
+  (`src/lib/payments/withdrawalPayout.ts`) immediately after
+  `request_global_withdrawal` succeeds. All three gateways implement
+  `processPayout`; the provider is told the **net** amount. Failed payouts
+  refund through `fail_global_withdrawal`; unknown outcomes stay `pending` and
+  are settled by `GET /api/cron/reconcile-withdrawals` (10-minute Vercel cron,
+  `CRON_SECRET`-gated). See ARCHITECTURE.md §13.4.
+- **`CRON_SECRET` must be set in production.** The reconcile endpoint fails
+  closed (503) when it is missing, so withdrawals left `pending` will not
+  auto-settle until the variable is configured.
+- **Stuck Xixapay withdrawals need a human.** Xixapay has no payout status
+  endpoint, so a withdrawal left `pending` there (ambiguous timeout) cannot be
+  auto-resolved. Check the Xixapay dashboard for the transfer, then resolve the
+  row by hand.
 - The wallet summary's "total spent" sums `global_transactions.amount` for
   `purchase` rows, which for customer sales is the selling price while the
   balance only moved by the cost price. Worth reviewing if that card is meant

@@ -87,10 +87,20 @@ export function isXixapayGateway(
   processPayout(params: {
     resellerId: string;
     amount: number;
+    currency?: string;
     bankCode: string;
     accountNumber: string;
+    accountName?: string;
     narration?: string;
-  }): Promise<{ success: boolean; reference?: string; error?: string }>;
+    reference?: string;
+    customerEmail?: string;
+  }): Promise<{
+    success: boolean;
+    reference?: string;
+    error?: string;
+    pending?: boolean;
+    definitive?: boolean;
+  }>;
 } {
   return gateway === xixapay;
 }

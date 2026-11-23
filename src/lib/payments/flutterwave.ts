@@ -407,6 +407,167 @@ export const flutterwave: PaymentGateway = {
   getMobileMoneyNetworks(countryCode: string): string[] {
     return MOBILE_MONEY_NETWORKS[countryCode.toUpperCase()] || [];
   },
+
+  async getBanks(): Promise<Array<{ bankName: string; bankCode: string }>> {
+    return [];
+  },
+
+  async verifyBankAccount(
+    bankCode: string,
+    accountNumber: string,
+  ): Promise<{ success: boolean; accountName?: string; error?: string }> {
+    try {
+      const response = await fetch(
+        `${FLUTTERWAVE_BASE_URL}/accounts/resolve`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            account_number: accountNumber,
+            account_bank: bankCode,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || data.status !== "success") {
+        return {
+          success: false,
+          error: data.message || "Bank account verification failed",
+        };
+      }
+
+      return { success: true, accountName: data.data?.account_name || "" };
+    } catch (error) {
+      console.error("Flutterwave verifyBankAccount error:", error);
+      return { success: false, error: "Verification failed. Please try again." };
+    }
+  },
+
+  /**
+   * Sends a withdrawal to a bank account.
+   *
+   * Flutterwave queues the transfer and returns `NEW`/`PENDING`, so a success
+   * here means accepted, not settled. `requires_approval: 1` means the payout
+   * will sit in the dashboard until someone approves it — that is still a
+   * pending withdrawal, never a completed one.
+   */
+  async processPayout(params: {
+    resellerId: string;
+    amount: number;
+    currency: string;
+    bankCode: string;
+    accountNumber: string;
+    accountName: string;
+    narration?: string;
+    reference?: string;
+  }): Promise<{
+    success: boolean;
+    reference?: string;
+    error?: string;
+    pending?: boolean;
+    definitive?: boolean;
+  }> {
+    try {
+      const {
+        amount,
+        currency,
+        bankCode,
+        accountNumber,
+        narration,
+        reference,
+        resellerId,
+      } = params;
+
+      const transferReference =
+        reference || generateReference(`FLW-W-${resellerId.slice(0, 8)}`);
+
+      const response = await fetch(`${FLUTTERWAVE_BASE_URL}/transfers`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          amount: Number(amount.toFixed(2)),
+          account_bank: bankCode,
+          account_number: accountNumber,
+          currency,
+          narration: narration || "Wallet withdrawal",
+          reference: transferReference,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.status === "success") {
+        return {
+          success: true,
+          // Flutterwave identifies the transfer by numeric id, not the
+          // reference we sent, so status checks need that id.
+          reference: String(data.data?.id ?? transferReference),
+          pending: data.data?.status !== "SUCCESSFUL",
+          definitive: true,
+        };
+      }
+
+      return {
+        success: false,
+        error: data.message || "Payout failed",
+        reference: transferReference,
+        definitive: true,
+      };
+    } catch (error) {
+      console.error("Flutterwave processPayout error:", error);
+      // Unknown outcome: the transfer may have been queued. Never refund on
+      // this; resolve it with getPayoutStatus instead.
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Payout failed",
+        definitive: false,
+      };
+    }
+  },
+
+  async getPayoutStatus(reference: string): Promise<{
+    status: "completed" | "failed" | "pending";
+    amount?: number;
+    currency?: string;
+    providerReference?: string;
+  }> {
+    try {
+      const response = await fetch(
+        `${FLUTTERWAVE_BASE_URL}/transfers/${reference}`,
+        { method: "GET", headers: getHeaders() },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || data.status !== "success") {
+        return {
+          status: response.status === 404 ? "failed" : "pending",
+          providerReference: reference,
+        };
+      }
+
+      const statusMap: Record<string, "completed" | "failed" | "pending"> = {
+        SUCCESSFUL: "completed",
+        FAILED: "failed",
+        NEW: "pending",
+        PENDING: "pending",
+        // Flutterwave's manual-review state. Money has not moved yet.
+        APPROVAL_REQUIRED: "pending",
+      };
+
+      return {
+        status: statusMap[data.data?.status] || "pending",
+        amount: Number(data.data?.amount) || 0,
+        currency: data.data?.currency || "",
+        providerReference: String(data.data?.id ?? reference),
+      };
+    } catch (error) {
+      console.error("Flutterwave getPayoutStatus error:", error);
+      return { status: "pending", providerReference: reference };
+    }
+  },
 };
 
 // // src/lib/payments/flutterwave.ts

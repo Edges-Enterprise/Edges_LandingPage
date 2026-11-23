@@ -359,4 +359,186 @@ export const korapay: PaymentGateway = {
   supportsMobileMoney(countryCode: string): boolean {
     return true;
   },
+
+  async getBanks(): Promise<Array<{ bankName: string; bankCode: string }>> {
+    return [];
+  },
+
+  /**
+   * Resolves a bank account so a withdrawal can be checked before money moves.
+   * Korapay's `currency` field here is a currency code despite the docs
+   * calling it a country (they show "KE" but the field takes "KES").
+   */
+  async verifyBankAccount(
+    bankCode: string,
+    accountNumber: string,
+    currency: string = "NGN",
+  ): Promise<{ success: boolean; accountName?: string; error?: string }> {
+    try {
+      const response = await fetch(`${KORAPAY_BASE_URL}/misc/banks/resolve`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          bank: bankCode,
+          account: accountNumber,
+          currency,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.status === true && data.data?.account_name) {
+        return { success: true, accountName: data.data.account_name };
+      }
+
+      return {
+        success: false,
+        error: data.message || "Account verification failed",
+      };
+    } catch (error) {
+      console.error("Korapay verifyBankAccount error:", error);
+      return { success: false, error: "Verification failed. Please try again." };
+    }
+  },
+
+  /**
+   * Sends a withdrawal to a bank account.
+   *
+   * A `true` status means Korapay accepted the payout, not that the money has
+   * landed — it comes back as `processing` and settles later. Callers must not
+   * treat this as final; confirm with `getPayoutStatus`.
+   */
+  async processPayout(params: {
+    resellerId: string;
+    amount: number;
+    currency: string;
+    bankCode: string;
+    accountNumber: string;
+    accountName: string;
+    narration?: string;
+    reference?: string;
+    customerEmail?: string;
+  }): Promise<{
+    success: boolean;
+    reference?: string;
+    error?: string;
+    pending?: boolean;
+    definitive?: boolean;
+  }> {
+    try {
+      const {
+        amount,
+        currency,
+        bankCode,
+        accountNumber,
+        accountName,
+        narration,
+        reference,
+        customerEmail,
+        resellerId,
+      } = params;
+
+      // Korapay requires at least 5 characters and rejects duplicates.
+      const payoutReference =
+        reference || generateReference(`KPY-W-${resellerId.slice(0, 8)}`);
+
+      const response = await fetch(
+        `${KORAPAY_BASE_URL}/transactions/disburse`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            reference: payoutReference,
+            destination: {
+              type: "bank_account",
+              amount: Number(amount.toFixed(2)),
+              currency,
+              narration: narration || "Wallet withdrawal",
+              bank_account: {
+                bank: bankCode,
+                account: accountNumber,
+              },
+              customer: {
+                name: accountName,
+                email: customerEmail || "payouts@edges.enterprise",
+              },
+            },
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.status === true) {
+        return {
+          success: true,
+          reference: data.data?.reference || payoutReference,
+          // Accepted but unsettled: the caller keeps the withdrawal pending
+          // and lets the status poll or webhook close it.
+          pending: data.data?.status === "processing",
+          definitive: true,
+        };
+      }
+
+      return {
+        success: false,
+        error: data.message || "Payout failed",
+        reference: payoutReference,
+        definitive: true,
+      };
+    } catch (error) {
+      console.error("Korapay processPayout error:", error);
+      // Unknown outcome: the request may have reached Korapay. Callers must
+      // not refund on this, or a payout that did go through is paid twice.
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Payout failed",
+        definitive: false,
+      };
+    }
+  },
+
+  async getPayoutStatus(reference: string): Promise<{
+    status: "completed" | "failed" | "pending";
+    amount?: number;
+    currency?: string;
+    providerReference?: string;
+  }> {
+    try {
+      const response = await fetch(
+        `${KORAPAY_BASE_URL}/transactions/disburse/${reference}`,
+        { method: "GET", headers: getHeaders() },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || data.status === false) {
+        // A 404 means Korapay never accepted the payout, so nothing moved and
+        // the caller should refund. Any other error is unknown: stay pending
+        // rather than refunding a payout that may still settle.
+        return {
+          status: response.status === 404 ? "failed" : "pending",
+          providerReference: reference,
+        };
+      }
+
+      const statusMap: Record<string, "completed" | "failed" | "pending"> = {
+        success: "completed",
+        successful: "completed",
+        failed: "failed",
+        processing: "pending",
+        pending: "pending",
+      };
+
+      return {
+        status: statusMap[data.data?.status] || "pending",
+        amount: parseFloat(data.data?.amount) || 0,
+        currency: data.data?.currency || "",
+        providerReference: data.data?.reference || reference,
+      };
+    } catch (error) {
+      console.error("Korapay getPayoutStatus error:", error);
+      return { status: "pending", providerReference: reference };
+    }
+  },
 };

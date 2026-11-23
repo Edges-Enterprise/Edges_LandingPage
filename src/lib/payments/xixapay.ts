@@ -766,10 +766,20 @@ export const xixapay: PaymentGateway = {
   async processPayout(params: {
     resellerId: string;
     amount: number;
+    currency?: string;
     bankCode: string;
     accountNumber: string;
+    accountName?: string;
     narration?: string;
-  }): Promise<{ success: boolean; reference?: string; error?: string }> {
+    reference?: string;
+    customerEmail?: string;
+  }): Promise<{
+    success: boolean;
+    reference?: string;
+    error?: string;
+    pending?: boolean;
+    definitive?: boolean;
+  }> {
     try {
       const { resellerId, amount, bankCode, accountNumber, narration } = params;
 
@@ -788,21 +798,30 @@ export const xixapay: PaymentGateway = {
       const data = await response.json();
 
       if (data.status === "success") {
+        // Xixapay payouts settle instantly and the API has no status endpoint,
+        // so a success here is final. There is also no idempotency key in the
+        // payload, so a retry after an ambiguous timeout would pay twice.
         return {
           success: true,
           reference: data.reference,
+          pending: false,
+          definitive: true,
         };
       }
 
       return {
         success: false,
         error: data.message || "Payout failed",
+        definitive: true,
       };
     } catch (error) {
       console.error("Xixapay processPayout error:", error);
+      // Unknown outcome: the request may have reached Xixapay. Callers must not
+      // refund on this.
       return {
         success: false,
         error: error instanceof Error ? error.message : "Payout failed",
+        definitive: false,
       };
     }
   },

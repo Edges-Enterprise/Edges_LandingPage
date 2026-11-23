@@ -468,6 +468,50 @@ Withdrawals are recorded in `global_withdrawals` and mirrored to
 `global_transactions` as a **`debit`**, because `global_transactions_type_check`
 permits only `credit|debit|purchase|refund` — there is no `withdrawal` member.
 
+#### Payout dispatch
+
+`request_global_withdrawal` only writes the ledger. The bank transfer itself is
+sent afterwards by `dispatchWithdrawalPayout`
+(`src/lib/payments/withdrawalPayout.ts`), called from the withdraw route once
+the row exists.
+
+The provider receives the **net** amount (₦1,000 → provider is told ₦980); the
+fee never leaves the platform.
+
+| Provider | Countries | Payout endpoint | Settles |
+|---|---|---|---|
+| Xixapay | NG | `POST /api/v1/transfer` | instantly, final |
+| Korapay | 20 others | `POST /merchant/api/v1/transactions/disburse` | async (`processing`) |
+| Flutterwave | rw, ug, usd, zm | `POST /v3/transfers` | async (`NEW`/`PENDING`) |
+
+Only Xixapay, Korapay and Flutterwave implement `processPayout`. A country
+whose provider lacks it fails the withdrawal and refunds rather than silently
+leaving it pending.
+
+**Failure handling.** The three outcomes are deliberately different, because
+the expensive mistake is refunding a payout that actually went through:
+
+| Provider result | Withdrawal | Balance |
+|---|---|---|
+| Rejected (`definitive: true`) | `failed` | refunded in full |
+| Unknown — timeout, socket error, 5xx (`definitive: false`) | stays `pending` | **not** refunded |
+| Accepted, not settled (`pending: true`) | stays `pending` | not refunded |
+| Accepted and settled | `completed` | not refunded |
+
+An unknown outcome stays pending because the request may have reached the
+provider; refunding it would pay the reseller twice. The same rule applies if
+the payout succeeds but `complete_global_withdrawal` then fails — the money is
+gone, so the row is left pending and logged for reconciliation instead of being
+refunded.
+
+**Settlement.** `GET /api/cron/reconcile-withdrawals` (every 10 minutes via
+`vercel.json`) polls pending payouts through `reconcileWithdrawal`, completing
+or refunding them. It requires `Authorization: Bearer $CRON_SECRET` and returns
+503 when that variable is unset, so it cannot be triggered by the public. Rows
+younger than 2 minutes are skipped; rows older than 72 hours are left for a
+human. Xixapay exposes no payout status endpoint, so a stuck Xixapay row can
+only be resolved manually.
+
 ### 13.5 Idempotency
 
 Deposits arrive through webhooks that retry. The mirror is keyed on

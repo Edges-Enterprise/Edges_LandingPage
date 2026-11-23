@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
+import { dispatchWithdrawalPayout } from "@/lib/payments/withdrawalPayout";
 
 const FEE_RATE = 0.02;
 const MIN_WITHDRAWAL = 100;
@@ -45,7 +46,7 @@ async function resolveReseller() {
     return { error: "Reseller application not found", status: 404 as const };
   }
 
-  return { application };
+  return { application, user };
 }
 
 export async function GET() {
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { application } = resolved;
+    const { application, user } = resolved;
     const body = await request.json();
 
     const amount = Number(body?.amount);
@@ -179,6 +180,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // The money is now deducted and a pending row exists. Send the payout for
+    // the net amount — the fee stays with the platform, so paying the gross
+    // would hand the reseller their fee back.
+    const outcome = await dispatchWithdrawalPayout({
+      withdrawalId: data.withdrawal_id,
+      resellerId: application.id,
+      netAmount: Number(data.net_amount),
+      bankCode,
+      accountNumber,
+      accountName,
+      reference: String(data.reference),
+      countryCode: application.country_code,
+      customerEmail: user.email,
+    });
+
+    if (outcome.status === "failed") {
+      // The provider refused, so the deduction was reversed by
+      // fail_global_withdrawal. Tell the reseller plainly.
+      return NextResponse.json(
+        {
+          success: false,
+          error: outcome.error || "Withdrawal could not be sent to your bank",
+          refunded: true,
+          reference: data.reference,
+        },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json({
       success: true,
       withdrawal_id: data.withdrawal_id,
@@ -186,6 +216,13 @@ export async function POST(request: NextRequest) {
       fee: data.fee,
       net_amount: data.net_amount,
       reference: data.reference,
+      status: outcome.status,
+      // A pending payout has been accepted by the provider but has not
+      // settled yet; the reseller should see that rather than "paid".
+      message:
+        outcome.status === "completed"
+          ? "Withdrawal sent to your bank account"
+          : "Withdrawal is being processed and will arrive shortly",
     });
   } catch (error) {
     console.error("withdrawal error:", error);
