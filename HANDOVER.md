@@ -5718,10 +5718,12 @@ integrated).
 
 ## Task 10 — Reseller-held customer funds + countryCode withdrawals (opened 2026-11-23, BUILT — NOT DEPLOYED)
 
-**Status: code complete, migration written but NOT applied to the live database.**
-Nothing in production has changed. Applying the migration is a separate,
-deliberate step (see below) and it alters money movement, so it should be run
-intentionally, not as a side effect of a session.
+**Status: DEPLOYED 2026-11-23.** Migration applied to production, web app
+deployed to Vercel production at `596e4f9`, alias `edges-landing-page.vercel.app`
+confirmed on that build. **One step outstanding: the edge functions that bundle
+`_shared/purchaseOrchestrator.ts` were not redeployed** — no Supabase access
+token in the deploying session. See "Still outstanding" below; it is cosmetic,
+not a money-flow risk.
 
 ### What was asked
 
@@ -5784,7 +5786,25 @@ runs through them. So customer money must sit in the store balance.
 - **Not verified in a browser**: the authenticated dashboard needs reseller
   credentials, which this session did not have and did not reset.
 
-### Deployment — READ BEFORE APPLYING
+### Deployment (done 2026-11-23)
+
+Applied in one transaction via direct `psycopg2` connection (no Supabase CLI
+token available; direct DB access is this repo's established migration path).
+Balances were snapshotted to `/workspace/predeploy_snapshot.json` first.
+
+Post-apply verification against live:
+- Exactly **one** wallet changed: `2fb2050f` (belovedtopup) ₦90 → ₦820,
+  matching the scoped ₦730 backfill. All other 38 wallets byte-identical.
+- One `CDEP-BACKFILL-*` ledger row; `global_withdrawals` created and empty.
+- All six new functions present, `anon`/`authenticated` revoked,
+  `service_role` granted.
+- Settlement confirmed switched to cost-deduction; profit-only rule gone.
+- Both SQL suites pass against the live database.
+- Live eligibility check returns `allowed=false` with the correct
+  "Your next withdrawal day is Wednesday, 25 November 2026".
+- Live deposit mirror exercised and rolled back: names the customer, credits
+  the reseller, idempotent.
+- Production `GET /api/reseller/wallet/withdraw` returns 401 unauthenticated.
 
 The migration is additive except for one replaced function
 (`process_global_purchase_deductions`). Once applied:
@@ -5801,7 +5821,39 @@ Apply the migration and deploy the web app together.
 
 `supabase/functions/_shared/purchaseOrchestrator.ts` also changed (ledger
 description/metadata only, no money movement), which requires redeploying the
-edge functions that bundle it.
+edge functions that bundle it — **not done**, see "Still outstanding".
+
+### Still outstanding — edge functions
+
+`supabase/functions/_shared/purchaseOrchestrator.ts` changed. Its bundled
+consumers are `global-purchase-data`, `global-purchase-airtime`,
+`global-store-catalog` and `accragh-webhook` (via `_shared/storeIdentity` /
+`_shared/zenditWebhook` / `_shared/currency/pricing`). None were redeployed:
+the session had no `SUPABASE_ACCESS_TOKEN`.
+
+**Impact: cosmetic only.** The diff adds `customer_name` / `cost_price` /
+`selling_price` / `profit` / `kind` to the `global_transactions.metadata` of a
+customer purchase, and prefixes the description with the customer's name. No
+money moves differently — settlement is a database function, already live.
+
+**Consequence if left undone:** reseller-side *purchase* history shows the old
+generic description ("Purchased X") rather than "Customer purchase - <name>".
+Deposit history is unaffected: its customer name comes from the SQL mirror,
+which is live.
+
+Deploy when a token is available (from a checkout of `main`):
+
+```bash
+export SUPABASE_ACCESS_TOKEN=...
+npx supabase link --project-ref jyyfaxcwanrmiipzkoj
+npx supabase functions deploy global-purchase-data
+npx supabase functions deploy global-purchase-airtime
+npx supabase functions deploy global-store-catalog
+npx supabase functions deploy accragh-webhook
+```
+
+`WARNING: Docker is not running` is expected and harmless — the CLI falls back
+to remote bundling. Then refresh `supabase/edge-functions.json`.
 
 ### Known issues / follow-ups
 
@@ -6138,4 +6190,4 @@ Until the key is rotated, treat the database as compromised:
 
 See the "SECURITY — exposed service_role key in git history" section above for
 the full evidence and the measured scope of the exposure.
-| 2026-11-23 | Task 10 session | Built reseller-held customer funds: deposit mirror, cost-price settlement, customer-list wallets, and the `[countryCode]` withdrawal route + modal (Sundays/Wednesdays, unlimited, 2% fee, float withdrawable). Migration and tests written and verified in rolled-back transactions; **not applied to the live database and not committed**. Settlement now takes cost from the reseller balance, which is only safe once the matching web build is live — see Task 10's deployment note. Dashboard UI not browser-verified (no reseller credentials in session; no password reset performed). |
+| 2026-11-23 | Task 10 session | Built **and deployed** reseller-held customer funds: deposit mirror, cost-price settlement, customer-list wallets, and the `[countryCode]` withdrawal route + modal (Sundays/Wednesdays, unlimited, 2% fee, float withdrawable). Migration applied to production in one transaction after snapshotting balances; exactly one wallet changed (belovedtopup ₦90 → ₦820 = scoped ₦730 backfill), both SQL suites pass against live. Web pushed to `main` (`596e4f9`) and Vercel production confirmed READY on that SHA with the alias pointing at it, closing the deposit-mirror/cost-settlement ordering window. **Outstanding:** the four edge functions bundling `purchaseOrchestrator.ts` were not redeployed (no `SUPABASE_ACCESS_TOKEN`); impact is cosmetic — purchase-history descriptions — not money flow. Dashboard UI still not browser-verified (no reseller credentials; no password reset performed). |
