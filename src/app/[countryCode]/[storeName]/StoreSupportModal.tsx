@@ -38,6 +38,7 @@ export default function StoreSupportModal({
 
   return (
     <div
+      data-surface
       onClick={onClose}
       style={{
         position: "fixed",
@@ -49,12 +50,14 @@ export default function StoreSupportModal({
         justifyContent: "center",
         padding: "1rem",
         backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
       }}
     >
       <div
+        data-surface
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--bg-card, var(--bg))",
+          background: "var(--card)",
           borderRadius: 20,
           padding: "2rem",
           width: "100%",

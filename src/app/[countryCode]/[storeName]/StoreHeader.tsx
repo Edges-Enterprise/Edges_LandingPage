@@ -524,6 +524,7 @@ export default function StoreHeader({
                   fontFamily: "inherit",
                   textDecoration: "none",
                   backdropFilter: "blur(4px)",
+                  WebkitBackdropFilter: "blur(4px)",
                   transition: "all 0.2s ease",
                   whiteSpace: "nowrap",
                 }}
@@ -867,11 +868,14 @@ export default function StoreHeader({
       {/* Mobile Drawer Backdrop */}
       {isMobileMenuOpen && (
         <div
+          data-surface
           onClick={() => setIsMobileMenuOpen(false)}
           style={{
             position: "fixed",
             inset: 0,
             background: "rgba(0,0,0,0.5)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             zIndex: 45,
           }}
         />
@@ -879,6 +883,7 @@ export default function StoreHeader({
 
       {/* Mobile Drawer */}
       <div
+        data-surface
         className="mobile-drawer"
         style={{
           width: 280,

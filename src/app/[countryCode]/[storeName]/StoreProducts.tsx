@@ -393,7 +393,7 @@ function FeaturedCard({
     <div
       style={{
         background: highlight
-          ? `linear-gradient(135deg, ${brandColor}, color-mix(in srgb, ${brandColor} 70%, black))`
+          ? `linear-gradient(135deg, ${brandColor}, var(--accent-dark))`
           : "var(--card)",
         border: highlight ? "none" : "1.5px solid var(--border)",
         borderRadius: 16,

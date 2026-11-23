@@ -100,6 +100,7 @@ export default function StorePurchaseModal({
 
   return (
     <div
+      data-surface
       onClick={onClose}
       style={{
         position: "fixed",
@@ -111,12 +112,14 @@ export default function StorePurchaseModal({
         justifyContent: "center",
         padding: "1rem",
         backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
       }}
     >
       <div
+        data-surface
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "var(--bg-card, var(--bg))",
+          background: "var(--card)",
           borderRadius: 20,
           padding: "2rem",
           width: "100%",
@@ -489,6 +492,7 @@ export default function StorePurchaseModal({
 
         {showPinInfo && (
           <div
+            data-surface
             onClick={() => setShowPinInfo(false)}
             style={{
               position: "fixed",
@@ -502,9 +506,10 @@ export default function StorePurchaseModal({
             }}
           >
             <div
+              data-surface
               onClick={(e) => e.stopPropagation()}
               style={{
-                background: "var(--bg-card, var(--bg))",
+                background: "var(--card)",
                 borderRadius: 16,
                 padding: "1.5rem",
                 maxWidth: 320,

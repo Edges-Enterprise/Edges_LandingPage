@@ -4,43 +4,50 @@
    STOREFRONT THEME - Uses dashboard theme styles
    ============================================ */
 
-/* Force storefront theme on body when on store pages */
+/* Force storefront theme on body when on store pages.
+
+   Colours that need the brand tint are declared twice: a plain value as the
+   base, then the color-mix() upgrade inside @supports. The plain value must be
+   the base declaration — a custom property holding an unsupported function does
+   NOT fall back to an earlier declaration, it becomes invalid at computed-value
+   time, so `background-color: var(--bg)` would compute to transparent. That is
+   what made the iOS overlays see-through before iOS 16.2. */
 body.storefront-theme {
   /* Backgrounds */
-   --bg: color-mix(in srgb, var(--brand-color) 6%, #0A0A0A 94%) !important;
-  --bg2: color-mix(in srgb, var(--brand-color) 10%, #0A0A0A 90%) !important;
-  --bg3: color-mix(in srgb, var(--brand-color) 14%, #0A0A0A 86%) !important;
-  --bg4: color-mix(in srgb, var(--brand-color) 18%, #0A0A0A 82%) !important;
-  
+  --bg: #120A04 !important;
+  --bg2: #1C1108 !important;
+  --bg3: #251609 !important;
+  --bg4: #2C1B0B !important;
+
   /* Cards and surfaces */
-  --card: color-mix(in srgb, var(--brand-color) 8%, #0A0A0A 92%) !important;
-  --card2: color-mix(in srgb, var(--brand-color) 12%, #0A0A0A 88%) !important;
-  --card3: color-mix(in srgb, var(--brand-color) 16%, #0A0A0A 84%) !important;
-  
+  --card: #1E130A !important;
+  --card2: #2A1A0D !important;
+  --card3: #33200F !important;
+
   /* Borders - use brand color with opacity */
-  --border: rgba(var(--brand-color-rgb), 0.12) !important;
-  --border2: rgba(var(--brand-color-rgb), 0.25) !important;
-  --border3: rgba(var(--brand-color-rgb), 0.45) !important;
-  
+  --border: rgba(var(--brand-color-rgb, 201, 138, 84), 0.12) !important;
+  --border2: rgba(var(--brand-color-rgb, 201, 138, 84), 0.25) !important;
+  --border3: rgba(var(--brand-color-rgb, 201, 138, 84), 0.45) !important;
+
   /* Text colors */
   --text: #F5F0EB !important;
   --text2: #D5CFC5 !important;
   --muted: #A0958A !important;
   --dim: #6B5F55 !important;
-  
+
   /* Accent - uses brand color */
-  --accent: var(--brand-color) !important;
-  --accent-lt: color-mix(in srgb, var(--brand-color) 70%, white) !important;
-  --accent-dark: color-mix(in srgb, var(--brand-color) 80%, black) !important;
-  --accent-bg: rgba(var(--brand-color-rgb), 0.08) !important;
-  --accent-bg-hover: rgba(var(--brand-color-rgb), 0.15) !important;
-  
+  --accent: var(--brand-color, #C98A54) !important;
+  --accent-lt: #DEB082 !important;
+  --accent-dark: #A86C38 !important;
+  --accent-bg: rgba(var(--brand-color-rgb, 201, 138, 84), 0.08) !important;
+  --accent-bg-hover: rgba(var(--brand-color-rgb, 201, 138, 84), 0.15) !important;
+
   /* Status colors */
   --green: #6EBD8A !important;
   --red: #EF4444 !important;
   --yellow: #F59E0B !important;
   --blue: #3B82F6 !important;
-  
+
   /* Shadows */
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2) !important;
   --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
@@ -48,53 +55,87 @@ body.storefront-theme {
 
 /* Light theme for storefront */
 body.storefront-theme[data-theme="light"] {
---bg: color-mix(in srgb, var(--brand-color) 5%, #FDFDFC 95%) !important;
-  --bg2: color-mix(in srgb, var(--brand-color) 9%, #FDFDFC 91%) !important;
-  --bg3: color-mix(in srgb, var(--brand-color) 13%, #FDFDFC 87%) !important;
-  --bg4: color-mix(in srgb, var(--brand-color) 17%, #FDFDFC 83%) !important;
-  
+  --bg: #FDF8F3 !important;
+  --bg2: #F5E9D9 !important;
+  --bg3: #EDD0AE !important;
+  --bg4: #E5C298 !important;
+
   --card: #FFFFFF !important;
-  --card2: color-mix(in srgb, var(--brand-color) 6%, #FDFDFC 94%) !important;
-  --card3: color-mix(in srgb, var(--brand-color) 10%, #FDFDFC 90%) !important;
-  
-  --border: rgba(var(--brand-color-rgb), 0.15) !important;
-  --border2: rgba(var(--brand-color-rgb), 0.3) !important;
-  --border3: rgba(var(--brand-color-rgb), 0.5) !important;
-  
+  --card2: #FBF3E7 !important;
+  --card3: #F7EADB !important;
+
+  --border: rgba(var(--brand-color-rgb, 201, 138, 84), 0.15) !important;
+  --border2: rgba(var(--brand-color-rgb, 201, 138, 84), 0.3) !important;
+  --border3: rgba(var(--brand-color-rgb, 201, 138, 84), 0.5) !important;
+
   --text: #1A1410 !important;
   --text2: #3D322A !important;
   --muted: #6B5F55 !important;
   --dim: #A0958A !important;
-  
-  --accent: var(--brand-color) !important;
-  --accent-lt: color-mix(in srgb, var(--brand-color) 60%, white) !important;
-  --accent-dark: color-mix(in srgb, var(--brand-color) 80%, black) !important;
-  --accent-bg: rgba(var(--brand-color-rgb), 0.08) !important;
-  --accent-bg-hover: rgba(var(--brand-color-rgb), 0.15) !important;
-  
+
+  --accent: var(--brand-color, #C98A54) !important;
+  --accent-lt: #DEB082 !important;
+  --accent-dark: #A86C38 !important;
+  --accent-bg: rgba(var(--brand-color-rgb, 201, 138, 84), 0.08) !important;
+  --accent-bg-hover: rgba(var(--brand-color-rgb, 201, 138, 84), 0.15) !important;
+
   --green: #2F7D4F !important;
   --red: #DC2626 !important;
   --yellow: #D97706 !important;
   --blue: #2563EB !important;
-  
+
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
   --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.08) !important;
 }
 
+/* Brand-tinted upgrade, only where color-mix() actually parses. */
+@supports (color: color-mix(in srgb, red, red)) {
+  body.storefront-theme {
+    --bg: color-mix(in srgb, var(--brand-color, #C98A54) 6%, #0A0A0A 94%) !important;
+    --bg2: color-mix(in srgb, var(--brand-color, #C98A54) 10%, #0A0A0A 90%) !important;
+    --bg3: color-mix(in srgb, var(--brand-color, #C98A54) 14%, #0A0A0A 86%) !important;
+    --bg4: color-mix(in srgb, var(--brand-color, #C98A54) 18%, #0A0A0A 82%) !important;
+
+    --card: color-mix(in srgb, var(--brand-color, #C98A54) 8%, #0A0A0A 92%) !important;
+    --card2: color-mix(in srgb, var(--brand-color, #C98A54) 12%, #0A0A0A 88%) !important;
+    --card3: color-mix(in srgb, var(--brand-color, #C98A54) 16%, #0A0A0A 84%) !important;
+
+    --accent-lt: color-mix(in srgb, var(--brand-color, #C98A54) 70%, white) !important;
+    --accent-dark: color-mix(in srgb, var(--brand-color, #C98A54) 80%, black) !important;
+  }
+
+  body.storefront-theme[data-theme="light"] {
+    --bg: color-mix(in srgb, var(--brand-color, #C98A54) 5%, #FDFDFC 95%) !important;
+    --bg2: color-mix(in srgb, var(--brand-color, #C98A54) 9%, #FDFDFC 91%) !important;
+    --bg3: color-mix(in srgb, var(--brand-color, #C98A54) 13%, #FDFDFC 87%) !important;
+    --bg4: color-mix(in srgb, var(--brand-color, #C98A54) 17%, #FDFDFC 83%) !important;
+
+    --card2: color-mix(in srgb, var(--brand-color, #C98A54) 6%, #FDFDFC 94%) !important;
+    --card3: color-mix(in srgb, var(--brand-color, #C98A54) 10%, #FDFDFC 90%) !important;
+
+    --accent-lt: color-mix(in srgb, var(--brand-color, #C98A54) 60%, white) !important;
+    --accent-dark: color-mix(in srgb, var(--brand-color, #C98A54) 80%, black) !important;
+  }
+}
 /* ============================================
    FORCE STOREFRONT BACKGROUND ON ALL ELEMENTS
    ============================================ */
 
 body.storefront-theme,
-body.storefront-theme div,
-body.storefront-theme section,
-body.storefront-theme main,
-body.storefront-theme header,
-body.storefront-theme footer,
-body.storefront-theme article,
-body.storefront-theme aside {
+body.storefront-theme div:not([data-surface]),
+body.storefront-theme section:not([data-surface]),
+body.storefront-theme main:not([data-surface]),
+body.storefront-theme header:not([data-surface]),
+body.storefront-theme footer:not([data-surface]),
+body.storefront-theme article:not([data-surface]),
+body.storefront-theme aside:not([data-surface]) {
   background-color: var(--bg) !important;
 }
+
+/* Overlays and cards are excluded above via [data-surface] so they paint
+   themselves. Without the exclusion this rule replaces their translucent
+   rgba() with the opaque page colour, which is what erased the mobile menu
+   backdrop and the modal panels on iOS. */
 
 body.storefront-theme .card,
 body.storefront-theme [style*="background: var(--card)"] {
