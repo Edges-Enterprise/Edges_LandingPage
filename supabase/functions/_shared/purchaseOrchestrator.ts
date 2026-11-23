@@ -633,14 +633,25 @@ export async function processPurchase(
       status: "completed",
       reference: orderId || requestId,
       payment_gateway: basePlan.provider,
-      description: `Purchased ${basePlan.name} (${basePlan.network || basePlan.provider})`,
+      // A customer sale must be attributable in the reseller's ledger: they
+      // see whose purchase drew down their balance. Self-purchases keep the
+      // plain description.
+      description:
+        userType === "customer"
+          ? `Customer purchase - ${customerName || customerEmail || "Customer"} - ${basePlan.name} (${basePlan.network || basePlan.provider})`
+          : `Purchased ${basePlan.name} (${basePlan.network || basePlan.provider})`,
       metadata: {
         order_id: orderId,
         plan_id: basePlan.id,
         plan_name: basePlan.name,
         customer_email: customerEmail,
+        customer_name: customerName,
         phone_number: phoneNumber,
         provider_ref: requestId,
+        cost_price: costPrice,
+        selling_price: finalPrice,
+        profit: userType === "customer" ? profit : 0,
+        kind: userType === "customer" ? "customer_purchase" : "self_purchase",
       },
     });
 

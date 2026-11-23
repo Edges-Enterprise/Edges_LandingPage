@@ -85,7 +85,29 @@ export default function CustomersClient({
         .order("created_at", { ascending: false });
 
       if (!error && data) {
-        setCustomers(data as Customer[]);
+        // Re-attach wallet balances so a refresh reflects deposits and
+        // purchases without a page reload.
+        const { data: wallets } = await supabase
+          .from("global_customer_wallets")
+          .select("customer_id, balance, total_spent, currency, status")
+          .eq("reseller_id", customersData.application.id);
+
+        const walletByCustomer = new Map(
+          (wallets || []).map((w) => [w.customer_id, w]),
+        );
+
+        setCustomers(
+          data.map((c) => {
+            const wallet = walletByCustomer.get(c.id);
+            return {
+              ...c,
+              wallet_balance: wallet ? Number(wallet.balance || 0) : 0,
+              wallet_total_spent: wallet ? Number(wallet.total_spent || 0) : 0,
+              wallet_currency: wallet?.currency ?? null,
+              wallet_status: wallet?.status ?? null,
+            };
+          }) as Customer[],
+        );
 
         // Update stats
         const now = new Date();

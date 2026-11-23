@@ -5716,6 +5716,113 @@ integrated).
    design assumes the risk is carried but does not yet measure it.
 
 
+## Task 10 — Reseller-held customer funds + countryCode withdrawals (opened 2026-11-23, BUILT — NOT DEPLOYED)
+
+**Status: code complete, migration written but NOT applied to the live database.**
+Nothing in production has changed. Applying the migration is a separate,
+deliberate step (see below) and it alters money movement, so it should be run
+intentionally, not as a side effect of a session.
+
+### What was asked
+
+A reseller is the admin of their own store: customers are theirs and support
+runs through them. So customer money must sit in the store balance.
+
+1. A customer deposit credits the customer wallet **and** the reseller balance,
+   recorded in the reseller dashboard as a customer deposit by customer name.
+2. The customer list in the reseller dashboard must show wallet details.
+3. A customer purchase debits the customer by the **selling price** and the
+   reseller by the **platform cost price**, leaving the profit in the reseller
+   balance. Recorded as a customer purchase by customer name.
+4. Withdrawals for the `[countryCode]`/`global_*` side, on **Sundays and
+   Wednesdays** only, unlimited on those days, **2% fee**. The legacy
+   `resellers*` implementation is reference only.
+5. The first-deposit bonus is **unchanged**.
+
+### Product decisions taken (by the owner, this session)
+
+- Resellers **may withdraw customer float**. Float is their responsibility; if
+  they over-withdraw, the store cannot cover the platform cost and the customer
+  sees "Service temporarily unavailable. Please try again later." No float
+  reserve is enforced.
+- "Twice weekly" means **day-of-week only** (Sunday and Wednesday), not a
+  count of two. Any other day shows *"Your next withdrawal day is {date}"*.
+- Backfill: **BelovedTopup plus any store with customer activity in the 24h
+  before the migration was written**. Nothing else. Bossblingzs (₦29,600 of
+  float, 8 days idle) is deliberately **not** backfilled.
+- Reseller-side "customer purchase" history starts from deploy; not
+  reconstructed.
+- 2% is charged on the withdrawal amount and deducted from it.
+
+### What was built
+
+| Area | File |
+|---|---|
+| Migration (settlement, mirror, withdrawals, backfill) | `supabase/migrations/20261123_customer_deposits_fund_reseller_balance.sql` |
+| Feature tests, 9 cases | `supabase/tests/reseller_customer_funds_test.sql` |
+| Updated settlement test | `supabase/tests/sale_funding_test.sql` (case 8: 2050 not 2550) |
+| Deposit mirror — mobile money | `src/actions/reseller/customers/handleSuccessfulCustomerDeposit.ts` |
+| Deposit mirror — virtual account | `src/app/api/xixa-account/webhook/route.ts` |
+| Customer purchase named in ledger | `supabase/functions/_shared/purchaseOrchestrator.ts` |
+| Customer list wallets | `[countryCode]/dashboard/customers/{page,CustomersClient,CustomerTable}.tsx` |
+| Withdrawal API (new) | `src/app/api/reseller/wallet/withdraw/route.ts` |
+| Withdrawal UI | `[countryCode]/dashboard/wallet/WithdrawModal.tsx` |
+
+### Verification done
+
+- `npx tsc --noEmit` clean; `npm run build` succeeds and emits
+  `/api/reseller/wallet/withdraw`.
+- Both SQL suites pass (9 + 9 cases) inside rolled-back transactions.
+- Eligibility verified across all seven weekdays: allowed Sunday/Wednesday,
+  correct "next withdrawal day" text otherwise, `withdrawable == balance`.
+- End-to-end simulation on BelovedTopup (deposit → replay → purchase →
+  withdraw → failed-payout refund → drained-store refusal), all rolled back.
+- Withdrawal success path (request, second same-day withdrawal, over-balance
+  refusal, refund, double-refund guard, complete) verified by temporarily
+  relaxing the day gate **inside a transaction that was rolled back**.
+- Unauthenticated `GET`/`POST` return 401.
+- **Not verified in a browser**: the authenticated dashboard needs reseller
+  credentials, which this session did not have and did not reset.
+
+### Deployment — READ BEFORE APPLYING
+
+The migration is additive except for one replaced function
+(`process_global_purchase_deductions`). Once applied:
+
+- Deposits mirror into the reseller balance (webhooks only — see caveat).
+- Sales take the **cost** from the reseller balance instead of adding profit.
+
+**Caveat that matters:** the deposit-mirror calls live in the Next.js app
+(`handleSuccessfulCustomerDeposit.ts`, `xixa-account/webhook/route.ts`), which
+deploys with the web app. The settlement function lives in the database. If the
+migration is applied while an **older web build is still serving**, deposits
+will not mirror but sales will already charge cost — stores would slowly drain.
+Apply the migration and deploy the web app together.
+
+`supabase/functions/_shared/purchaseOrchestrator.ts` also changed (ledger
+description/metadata only, no money movement), which requires redeploying the
+edge functions that bundle it.
+
+### Known issues / follow-ups
+
+- Historical purchases have **no** `global_customer_transactions` rows: six
+  deposits and zero purchases exist despite ₦57,600 of spend. Customer wallet
+  balances do not reconcile with deposit history for Bossblingzs (off by
+  ₦8,200, in both directions across customers). Untouched by this task.
+- `supabase/schema.sql` still contains the **old** version of
+  `process_global_purchase_deductions`. It is a `pg_dump` snapshot, not a
+  migration source; regenerate it after applying the migration rather than
+  hand-editing.
+- There is no payout provider call yet. `request_global_withdrawal` records a
+  `pending` withdrawal and deducts the money; something must call
+  `complete_global_withdrawal` / `fail_global_withdrawal` when the bank
+  transfer settles. Until then every withdrawal stays `pending` and the money
+  stays deducted.
+- The wallet summary's "total spent" sums `global_transactions.amount` for
+  `purchase` rows, which for customer sales is the selling price while the
+  balance only moved by the cost price. Worth reviewing if that card is meant
+  to represent money out.
+
 ## Log
 
 | Date | Session | Notes |
@@ -6031,3 +6138,4 @@ Until the key is rotated, treat the database as compromised:
 
 See the "SECURITY — exposed service_role key in git history" section above for
 the full evidence and the measured scope of the exposure.
+| 2026-11-23 | Task 10 session | Built reseller-held customer funds: deposit mirror, cost-price settlement, customer-list wallets, and the `[countryCode]` withdrawal route + modal (Sundays/Wednesdays, unlimited, 2% fee, float withdrawable). Migration and tests written and verified in rolled-back transactions; **not applied to the live database and not committed**. Settlement now takes cost from the reseller balance, which is only safe once the matching web build is live — see Task 10's deployment note. Dashboard UI not browser-verified (no reseller credentials in session; no password reset performed). |

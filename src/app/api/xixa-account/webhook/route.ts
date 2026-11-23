@@ -715,7 +715,7 @@ async function processForGlobalCustomer(
 
   // Customers never receive the reseller first-deposit bonus — that is
   // reseller-only by product decision, so no bonus RPC is called here.
-  const { error: txError } = await admin
+  const { data: insertedTx, error: txError } = await admin
     .from("global_customer_transactions")
     .insert({
       reseller_id: account.reseller_id,
@@ -749,7 +749,9 @@ async function processForGlobalCustomer(
         provider: "xixapay",
         verified_by: "xixapay-webhook",
       },
-    });
+    })
+    .select("id")
+    .single();
 
   if (txError) {
     console.error("[Global Customer] Transaction insert failed:", txError);
@@ -757,6 +759,36 @@ async function processForGlobalCustomer(
       { error: "Failed to record transaction" },
       { status: 500 },
     );
+  }
+
+  // The reseller holds their customers' money, so this deposit also lands in
+  // the store balance and is written to the reseller ledger against the
+  // customer's name. Keyed by the customer transaction id, so a retried
+  // webhook cannot double credit. Logged loudly but not fatal - the customer
+  // is already credited, and the mirror can be re-run.
+  if (insertedTx?.id) {
+    const { data: mirror, error: mirrorError } = await admin.rpc(
+      "credit_reseller_for_customer_deposit",
+      {
+        p_reseller_id: account.reseller_id,
+        p_customer_tx_id: insertedTx.id,
+        p_amount: finalNetAmount,
+      },
+    );
+
+    if (mirrorError) {
+      console.error(
+        "[Global Customer] CRITICAL: deposit mirror to reseller balance failed:",
+        { reference, resellerId: account.reseller_id, finalNetAmount, mirrorError },
+      );
+    } else if (mirror?.success === false) {
+      console.error("[Global Customer] CRITICAL: deposit mirror refused:", {
+        reference,
+        resellerId: account.reseller_id,
+        finalNetAmount,
+        mirror,
+      });
+    }
   }
 
   const { error: notifError } = await admin

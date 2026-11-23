@@ -1,9 +1,8 @@
 // src/app/[countryCode]/dashboard/wallet/WithdrawModal.tsx
 "use client";
 
-import { useState } from "react";
-import { X, Wallet, Banknote } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { useCallback, useEffect, useState } from "react";
+import { X, Wallet, Banknote, AlertCircle } from "lucide-react";
 
 interface WithdrawModalProps {
   onClose: () => void;
@@ -13,6 +12,17 @@ interface WithdrawModalProps {
   translations: any;
 }
 
+interface Eligibility {
+  allowed: boolean;
+  reason: string | null;
+  next_withdrawal_day: string | null;
+  balance: number;
+  withdrawable: number;
+  float_owed: number;
+}
+
+const FEE_RATE = 0.02;
+
 export default function WithdrawModal({
   onClose,
   onSuccess,
@@ -21,12 +31,42 @@ export default function WithdrawModal({
   translations,
 }: WithdrawModalProps) {
   const t = translations;
-  const supabase = createClient();
   const [amount, setAmount] = useState<string>("");
-  const [bankAccount, setBankAccount] = useState<string>("");
-  const [bankName, setBankName] = useState<string>("");
+  const [bankCode, setBankCode] = useState<string>("");
+  const [accountNumber, setAccountNumber] = useState<string>("");
   const [accountName, setAccountName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [eligibility, setEligibility] = useState<Eligibility | null>(null);
+
+  const currencySymbol = config?.currencySymbol || "₦";
+
+  const loadEligibility = useCallback(async () => {
+    try {
+      const response = await fetch("/api/reseller/wallet/withdraw", {
+        method: "GET",
+      });
+      const data = await response.json();
+      if (data?.success) {
+        setEligibility({
+          allowed: data.allowed,
+          reason: data.reason ?? null,
+          next_withdrawal_day: data.next_withdrawal_day ?? null,
+          balance: Number(data.balance ?? 0),
+          withdrawable: Number(data.withdrawable ?? 0),
+          float_owed: Number(data.float_owed ?? 0),
+        });
+      } else {
+        setError(data?.error || "Could not check withdrawal availability");
+      }
+    } catch {
+      setError("Could not check withdrawal availability");
+    }
+  }, []);
+
+  useEffect(() => {
+    loadEligibility();
+  }, [loadEligibility]);
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -34,53 +74,89 @@ export default function WithdrawModal({
     }
   };
 
+  const parsedAmount = parseFloat(amount) || 0;
+  const fee = Math.round(parsedAmount * FEE_RATE);
+  const netAmount = parsedAmount - fee;
+  const maxAmount = eligibility?.withdrawable ?? Number(wallet?.balance ?? 0);
+  const dayBlocked = eligibility !== null && !eligibility.allowed;
+
   const handleSubmit = async () => {
-    if (!amount || parseFloat(amount) <= 0) return;
-    if (parseFloat(amount) > wallet.balance) return;
+    setError(null);
+
+    if (dayBlocked) {
+      setError(eligibility?.reason || "Withdrawals are not available today");
+      return;
+    }
+
+    if (!parsedAmount || parsedAmount <= 0) {
+      setError("Enter an amount");
+      return;
+    }
+
+    if (parsedAmount > maxAmount) {
+      setError("Amount exceeds your available balance");
+      return;
+    }
 
     setIsLoading(true);
     try {
-      // This would call your withdrawal API
       const response = await fetch("/api/reseller/wallet/withdraw", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: parseFloat(amount),
-          bankAccount,
-          bankName,
+          amount: parsedAmount,
+          bankCode,
+          accountNumber,
           accountName,
         }),
       });
 
-      if (response.ok) {
-        onSuccess();
-        onClose();
+      const data = await response.json();
+
+      // Previously this closed on any 2xx and swallowed every failure, so a
+      // refused withdrawal looked like a success.
+      if (!response.ok || data?.success === false) {
+        setError(data?.error || "Withdrawal failed. Please try again.");
+        return;
       }
-    } catch (error) {
-      console.error("Withdraw error:", error);
+
+      onSuccess();
+      onClose();
+    } catch {
+      setError("Withdrawal failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const currencySymbol = config.currencySymbol || "₦";
-  const maxAmount = wallet.balance || 0;
+  const quickAmounts = [0.25, 0.5, 0.75, 1]
+    .map((fraction) => Math.floor(maxAmount * fraction))
+    .filter((value) => value > 0);
 
-  // Quick amount buttons
-  const quickAmounts = [
-    Math.floor(maxAmount * 0.25),
-    Math.floor(maxAmount * 0.5),
-    Math.floor(maxAmount * 0.75),
-    Math.floor(maxAmount),
-  ].filter((amount) => amount > 0);
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "0.75rem",
+    borderRadius: "0.5rem",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text)",
+    fontSize: "0.9rem",
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: "block",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+    color: "var(--muted)",
+    marginBottom: "0.35rem",
+  };
 
   return (
     <div
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        backdropFilter: "blur(4px)",
+        background: "rgba(0,0,0,0.5)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -91,157 +167,163 @@ export default function WithdrawModal({
     >
       <div
         style={{
-          background: "var(--card)",
-          border: "1px solid var(--border)",
-          borderRadius: 16,
-          maxWidth: 480,
-          width: "100%",
-          maxHeight: "90vh",
-          overflow: "auto",
+          background: "var(--surface)",
+          borderRadius: "1rem",
           padding: "1.5rem",
-          position: "relative",
+          width: "100%",
+          maxWidth: "440px",
+          maxHeight: "90vh",
+          overflowY: "auto",
         }}
       >
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: "1rem",
-            right: "1rem",
-            background: "transparent",
-            border: "none",
-            color: "var(--muted)",
-            cursor: "pointer",
-            padding: "0.25rem",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "var(--text)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--muted)";
-          }}
-        >
-          <X size={20} />
-        </button>
-
-        <h2
-          style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: "1.25rem",
-            fontWeight: 700,
-            marginBottom: "0.5rem",
-          }}
-        >
-          {t?.withdraw || "Withdraw Funds"}
-        </h2>
-        <p
-          style={{
-            color: "var(--muted)",
-            fontSize: "0.9rem",
-            marginBottom: "1.5rem",
-          }}
-        >
-          {t?.withdrawDescription ||
-            "Withdraw your earnings to your bank account."}
-        </p>
-
-        {/* Balance Display */}
         <div
           style={{
-            background: "var(--bg2)",
-            border: "1px solid var(--border)",
-            borderRadius: 10,
-            padding: "1rem",
-            marginBottom: "1.5rem",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            marginBottom: "1rem",
           }}
         >
-          <div>
-            <p
-              style={{
-                fontSize: "0.7rem",
-                color: "var(--dim)",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-              }}
-            >
-              {t?.availableBalance || "Available Balance"}
-            </p>
-            <p
-              style={{
-                fontFamily: "'Playfair Display', serif",
-                fontSize: "1.5rem",
-                fontWeight: 700,
-                color: "var(--text)",
-              }}
-            >
-              {currencySymbol} {maxAmount.toLocaleString()}
-            </p>
-          </div>
-          <Wallet
-            size={32}
-            style={{ color: "var(--brand-color)", opacity: 0.5 }}
-          />
-        </div>
-
-        {/* Amount Input */}
-        <div style={{ marginBottom: "1.5rem" }}>
-          <label
+          <h2
             style={{
-              display: "block",
-              fontSize: "0.8rem",
-              fontWeight: 600,
-              color: "var(--muted)",
-              marginBottom: "0.5rem",
+              margin: 0,
+              fontSize: "1.1rem",
+              fontWeight: 700,
+              color: "var(--text)",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
             }}
           >
-            {t?.amount || "Amount"}
-          </label>
+            <Banknote size={18} />
+            {t?.withdraw || "Withdraw Funds"}
+          </h2>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "var(--muted)",
+              padding: "0.25rem",
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Balance breakdown. Customer float is shown so the figure is never a
+            surprise, but it does not reduce what can be withdrawn: the
+            reseller owns the store and its customers. */}
+        <div
+          style={{
+            background: "var(--background)",
+            borderRadius: "0.5rem",
+            padding: "0.75rem",
+            marginBottom: "1rem",
+            fontSize: "0.85rem",
+            color: "var(--text)",
+          }}
+        >
           <div
             style={{
               display: "flex",
-              alignItems: "center",
-              background: "var(--bg2)",
-              border: "1px solid var(--border)",
-              borderRadius: 10,
-              overflow: "hidden",
+              justifyContent: "space-between",
+              marginBottom: "0.35rem",
             }}
           >
-            <span
+            <span style={{ color: "var(--muted)" }}>
+              {t?.availableBalance || "Available balance"}
+            </span>
+            <span style={{ fontWeight: 700 }}>
+              {currencySymbol}
+              {maxAmount.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </div>
+          {eligibility && eligibility.float_owed > 0 && (
+            <div
               style={{
-                padding: "0.75rem 1rem",
-                color: "var(--muted)",
-                fontWeight: 600,
-                background: "var(--bg3)",
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: "0.78rem",
               }}
             >
-              {currencySymbol}
-            </span>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              min="0"
-              max={maxAmount}
-              step="0.01"
-              style={{
-                flex: 1,
-                padding: "0.75rem 1rem",
-                background: "transparent",
-                border: "none",
-                color: "var(--text)",
-                fontSize: "1rem",
-                outline: "none",
-              }}
-            />
-          </div>
+              <span style={{ color: "var(--muted)" }}>
+                {t?.includesCustomerFunds || "Includes customer funds"}
+              </span>
+              <span style={{ color: "var(--muted)" }}>
+                {currencySymbol}
+                {eligibility.float_owed.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+          )}
+        </div>
 
-          {/* Quick Amounts */}
-          {quickAmounts.length > 0 && (
+        {dayBlocked && (
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              alignItems: "flex-start",
+              background: "rgba(245,158,11,0.12)",
+              border: "1px solid #f59e0b",
+              borderRadius: "0.5rem",
+              padding: "0.75rem",
+              marginBottom: "1rem",
+              fontSize: "0.85rem",
+              color: "var(--text)",
+            }}
+          >
+            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
+            <span>
+              {eligibility?.reason ||
+                `Your next withdrawal day is ${eligibility?.next_withdrawal_day}`}
+            </span>
+          </div>
+        )}
+
+        {error && (
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              alignItems: "flex-start",
+              background: "rgba(239,68,68,0.12)",
+              border: "1px solid #ef4444",
+              borderRadius: "0.5rem",
+              padding: "0.75rem",
+              marginBottom: "1rem",
+              fontSize: "0.85rem",
+              color: "var(--text)",
+            }}
+          >
+            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div style={{ marginBottom: "1rem" }}>
+          <label style={labelStyle} htmlFor="withdraw-amount">
+            {t?.amount || "Amount"} ({currencySymbol})
+          </label>
+          <input
+            id="withdraw-amount"
+            type="number"
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+            disabled={dayBlocked || isLoading}
+            style={inputStyle}
+          />
+          {quickAmounts.length > 0 && !dayBlocked && (
             <div
               style={{
                 display: "flex",
@@ -250,179 +332,117 @@ export default function WithdrawModal({
                 flexWrap: "wrap",
               }}
             >
-              {quickAmounts.map((amt) => (
+              {quickAmounts.map((value) => (
                 <button
-                  key={amt}
-                  onClick={() => setAmount(amt.toString())}
+                  key={value}
+                  onClick={() => setAmount(String(value))}
+                  disabled={isLoading}
                   style={{
-                    padding: "0.25rem 0.75rem",
-                    background: "transparent",
+                    padding: "0.3rem 0.6rem",
+                    borderRadius: "0.35rem",
                     border: "1px solid var(--border)",
-                    borderRadius: 4,
-                    color: "var(--muted)",
+                    background: "var(--background)",
+                    color: "var(--text)",
                     fontSize: "0.75rem",
                     cursor: "pointer",
-                    transition: "all 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "var(--brand-color)";
-                    e.currentTarget.style.color = "var(--text)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "var(--border)";
-                    e.currentTarget.style.color = "var(--muted)";
                   }}
                 >
-                  {currencySymbol} {amt.toLocaleString()}
+                  {currencySymbol}
+                  {value.toLocaleString()}
                 </button>
               ))}
             </div>
           )}
+          {parsedAmount > 0 && (
+            <div
+              style={{
+                marginTop: "0.5rem",
+                fontSize: "0.78rem",
+                color: "var(--muted)",
+                lineHeight: 1.6,
+              }}
+            >
+              <div>
+                {t?.fee || "Fee"} (2%): {currencySymbol}
+                {fee.toLocaleString()}
+              </div>
+              <div>
+                {t?.youReceive || "You receive"}: {currencySymbol}
+                {netAmount.toLocaleString()}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Bank Details */}
-        <div style={{ marginBottom: "1.5rem" }}>
-          <p
-            style={{
-              fontSize: "0.8rem",
-              fontWeight: 600,
-              color: "var(--muted)",
-              marginBottom: "0.5rem",
-            }}
-          >
-            {t?.bankDetails || "Bank Details"}
-          </p>
-          <div style={{ display: "grid", gap: "0.75rem" }}>
-            <input
-              type="text"
-              value={bankName}
-              onChange={(e) => setBankName(e.target.value)}
-              placeholder={t?.bankNamePlaceholder || "Bank Name"}
-              style={{
-                padding: "0.75rem 1rem",
-                background: "var(--bg2)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                outline: "none",
-                transition: "border-color 0.2s",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "var(--brand-color)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "var(--border)";
-              }}
-            />
-            <input
-              type="text"
-              value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
-              placeholder={t?.accountNamePlaceholder || "Account Name"}
-              style={{
-                padding: "0.75rem 1rem",
-                background: "var(--bg2)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                outline: "none",
-                transition: "border-color 0.2s",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "var(--brand-color)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "var(--border)";
-              }}
-            />
-            <input
-              type="text"
-              value={bankAccount}
-              onChange={(e) => setBankAccount(e.target.value)}
-              placeholder={t?.accountNumberPlaceholder || "Account Number"}
-              style={{
-                padding: "0.75rem 1rem",
-                background: "var(--bg2)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                outline: "none",
-                transition: "border-color 0.2s",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "var(--brand-color)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "var(--border)";
-              }}
-            />
-          </div>
+        <div style={{ marginBottom: "1rem" }}>
+          <label style={labelStyle} htmlFor="withdraw-bank-code">
+            {t?.bankCode || "Bank code"}
+          </label>
+          <input
+            id="withdraw-bank-code"
+            type="text"
+            value={bankCode}
+            onChange={(e) => setBankCode(e.target.value)}
+            placeholder="e.g. 058"
+            disabled={dayBlocked || isLoading}
+            style={inputStyle}
+          />
         </div>
 
-        {/* Submit Button */}
+        <div style={{ marginBottom: "1rem" }}>
+          <label style={labelStyle} htmlFor="withdraw-account-number">
+            {t?.accountNumber || "Account number"}
+          </label>
+          <input
+            id="withdraw-account-number"
+            type="text"
+            inputMode="numeric"
+            value={accountNumber}
+            onChange={(e) => setAccountNumber(e.target.value)}
+            placeholder="0123456789"
+            disabled={dayBlocked || isLoading}
+            style={inputStyle}
+          />
+        </div>
+
+        <div style={{ marginBottom: "1.25rem" }}>
+          <label style={labelStyle} htmlFor="withdraw-account-name">
+            {t?.accountName || "Account name"}
+          </label>
+          <input
+            id="withdraw-account-name"
+            type="text"
+            value={accountName}
+            onChange={(e) => setAccountName(e.target.value)}
+            placeholder="Name on the account"
+            disabled={dayBlocked || isLoading}
+            style={inputStyle}
+          />
+        </div>
+
         <button
           onClick={handleSubmit}
-          disabled={
-            !amount ||
-            parseFloat(amount) <= 0 ||
-            parseFloat(amount) > maxAmount ||
-            !bankName ||
-            !accountName ||
-            !bankAccount ||
-            isLoading
-          }
+          disabled={isLoading || dayBlocked}
           style={{
             width: "100%",
-            padding: "0.75rem",
-            background:
-              !amount ||
-              parseFloat(amount) <= 0 ||
-              parseFloat(amount) > maxAmount ||
-              isLoading
-                ? "var(--bg2)"
-                : "var(--brand-color)",
-            color:
-              !amount ||
-              parseFloat(amount) <= 0 ||
-              parseFloat(amount) > maxAmount ||
-              isLoading
-                ? "var(--dim)"
-                : "#FDF8F3",
+            padding: "0.85rem",
+            borderRadius: "0.5rem",
             border: "none",
-            borderRadius: 10,
-            fontWeight: 600,
-            fontSize: "1rem",
-            cursor:
-              !amount ||
-              parseFloat(amount) <= 0 ||
-              parseFloat(amount) > maxAmount ||
-              isLoading
-                ? "not-allowed"
-                : "pointer",
-            transition: "all 0.2s",
-          }}
-          onMouseEnter={(e) => {
-            if (
-              amount &&
-              parseFloat(amount) > 0 &&
-              parseFloat(amount) <= maxAmount &&
-              !isLoading
-            ) {
-              e.currentTarget.style.opacity = "0.85";
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = "1";
+            background: dayBlocked ? "var(--muted)" : "var(--primary, #2563eb)",
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: "0.9rem",
+            cursor: isLoading || dayBlocked ? "not-allowed" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.5rem",
           }}
         >
+          <Wallet size={16} />
           {isLoading
             ? t?.processing || "Processing..."
-            : parseFloat(amount) > maxAmount
-              ? t?.insufficientBalance || "Insufficient Balance"
-              : t?.withdraw || "Withdraw"}
+            : t?.withdraw || "Withdraw"}
         </button>
       </div>
     </div>

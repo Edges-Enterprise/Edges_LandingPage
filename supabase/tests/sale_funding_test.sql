@@ -104,16 +104,28 @@ BEGIN
 
   -- 8. An affordable sale settles from balance and leaves the bonus alone.
   --    500 sale, 450 cost, 50 profit.
+  --
+  --    Under reseller-held customer funds (20261123) the reseller balance
+  --    already holds the customer's money from the deposit mirror, so
+  --    settlement takes the COST out of the balance instead of adding the
+  --    profit to it. Expected balance is 2500 - 450 = 2050, not 2550. The
+  --    profit is not lost: it is the part of the customer's money no longer
+  --    owed back to them.
   v_result := public.process_global_purchase_deductions(v_customer_wallet, 500, v_reseller, 450, 500, 50);
   IF (v_result->>'success')::boolean IS NOT TRUE OR (v_result->>'bonus_covered_sale')::boolean IS NOT FALSE THEN
     RAISE EXCEPTION 'case 8: expected a balance-funded sale, got %', v_result;
   END IF;
   SELECT balance, bonus_balance INTO v_balance, v_bonus FROM public.global_wallets WHERE reseller_id = v_reseller;
-  IF v_balance <> 2550 OR v_bonus <> 0 THEN
-    RAISE EXCEPTION 'case 8: expected balance 2550 bonus 0, got balance % bonus %', v_balance, v_bonus;
+  IF v_balance <> 2050 OR v_bonus <> 0 THEN
+    RAISE EXCEPTION 'case 8: expected balance 2050 bonus 0, got balance % bonus %', v_balance, v_bonus;
   END IF;
 
-  RAISE NOTICE 'sale funding rule: all 8 cases passed';
+  -- 9. The cost, not the selling price, left the reseller balance.
+  IF (v_result->>'amount_from_balance')::numeric <> 450 THEN
+    RAISE EXCEPTION 'case 9: expected 450 taken from balance, got %', v_result->>'amount_from_balance';
+  END IF;
+
+  RAISE NOTICE 'sale funding rule: all 9 cases passed';
 END $$;
 
 ROLLBACK;

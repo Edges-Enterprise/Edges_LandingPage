@@ -17,6 +17,11 @@ export interface Customer {
   notifications_enabled?: boolean;
   created_at: string;
   updated_at: string;
+  /** From global_customer_wallets - the funds the reseller holds for them. */
+  wallet_balance?: number;
+  wallet_total_spent?: number;
+  wallet_currency?: string | null;
+  wallet_status?: string | null;
 }
 
 export interface CustomerStats {

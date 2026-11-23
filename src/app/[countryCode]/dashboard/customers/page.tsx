@@ -31,6 +31,31 @@ async function getCustomersData(userId: string) {
 
     if (customersError) throw customersError;
 
+    // Wallet details live in their own table. Fetch them in one query and
+    // attach, rather than a per-customer lookup, so the reseller can see the
+    // customer funds they are holding for each customer.
+    const { data: wallets, error: walletsError } = await supabase
+      .from("global_customer_wallets")
+      .select("customer_id, balance, total_spent, currency, status")
+      .eq("reseller_id", application.id);
+
+    if (walletsError) console.error("Customer wallets error:", walletsError);
+
+    const walletByCustomer = new Map(
+      (wallets || []).map((w) => [w.customer_id, w]),
+    );
+
+    const customersWithWallets = (customers || []).map((c) => {
+      const wallet = walletByCustomer.get(c.id);
+      return {
+        ...c,
+        wallet_balance: wallet ? Number(wallet.balance || 0) : 0,
+        wallet_total_spent: wallet ? Number(wallet.total_spent || 0) : 0,
+        wallet_currency: wallet?.currency ?? null,
+        wallet_status: wallet?.status ?? null,
+      };
+    });
+
     // Calculate stats
     const now = new Date();
     const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
@@ -46,7 +71,7 @@ async function getCustomersData(userId: string) {
 
     return {
       application,
-      customers: customers || [],
+      customers: customersWithWallets,
       stats,
     };
   } catch (error) {

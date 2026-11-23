@@ -382,3 +382,106 @@ Collected here so they are not rediscovered each session.
 | What is deployed right now? | `supabase/edge-functions.json` |
 | How does a purchase settle? | `supabase/functions/_shared/purchaseOrchestrator.ts`, `supabase/migrations/20261116_bonus_covers_lost_sale.sql` |
 | Does the funding rule still work? | `supabase/tests/sale_funding_test.sql` |
+
+---
+
+## 13. Reseller-held customer funds (2026-11-23)
+
+Before this change a customer's wallet and the store's wallet were financially
+unrelated: a customer deposited into their own wallet, and the store only ever
+touched its own money. The store owner is the admin of their own store —
+customers are theirs, support runs through them — so customer money now sits in
+the store balance, and a sale settles at cost.
+
+### 13.1 The two invariants
+
+A customer deposit credits **both** wallets by the same amount:
+
+```
+customer wallet  += net_amount
+reseller balance += net_amount      (ledger row names the customer)
+```
+
+A customer purchase moves money in two parts:
+
+```
+customer wallet  -= selling_price
+reseller balance -= cost_price      (the platform cost)
+```
+
+The difference, `selling_price - cost_price`, stays in the reseller balance as
+profit. It is not a credit; it is the part of the customer's money no longer
+owed back to them.
+
+**This replaced a profit-only rule.** Previously settlement ran
+`reseller balance += selling_price - cost_price`, because customer money never
+entered the balance. Left in place, that would have paid the reseller twice —
+once when the customer deposited, again when they bought. Taking only the cost
+out is the single charge for the sale.
+
+### 13.2 Float is the reseller's responsibility
+
+`reseller balance` therefore contains customer money. This is deliberate:
+
+- The reseller may withdraw the **full** balance, float included.
+- `get_reseller_float_owed()` reports the float so the dashboard can show it,
+  but it never reduces the withdrawable amount.
+- If a reseller withdraws too much, their store cannot cover the platform cost
+  and the sale is refused. The customer is told *"Service temporarily
+  unavailable. Please try again later."* — deliberately vague, so a poorly
+  funded store is not distinguishable from an outage.
+
+The dashboard shows "Includes customer funds" next to the available balance so
+the figure is never a surprise.
+
+### 13.3 Where the money logic lives
+
+| Concern | Location |
+|---|---|
+| Deposit mirror (idempotent) | `credit_reseller_for_customer_deposit(reseller, customer_tx_id, amount)` |
+| Settlement | `process_global_purchase_deductions(...)` — now takes the cost from balance |
+| Funding pre-check | `get_global_sale_funding(...)` — unchanged; already agreed with settlement |
+| Withdrawal rule | `get_withdrawal_eligibility(reseller, timezone)` |
+| Withdrawal request | `request_global_withdrawal(...)` — day gate, lock, deduction, ledger in one call |
+| Withdrawal outcomes | `fail_global_withdrawal(...)` refunds; `complete_global_withdrawal(...)` finalises |
+| Migration | `supabase/migrations/20261123_customer_deposits_fund_reseller_balance.sql` |
+| Tests | `supabase/tests/reseller_customer_funds_test.sql` (9 cases) |
+
+All of these are `SECURITY DEFINER` and granted to `service_role` only.
+
+### 13.4 Withdrawals
+
+- **Sundays and Wednesdays**, evaluated in the store's timezone
+  (`config.timezone`, `Africa/Lagos` for NG) — never the browser's, so a
+  reseller cannot reach an allowed day early by changing their clock.
+- **Unlimited** on those days. There is no weekly count.
+- Any other day: *"Your next withdrawal day is {Weekday}, {D} {Month} {YYYY}"*.
+- **2% fee**, deducted from the requested amount (₦1,000 → ₦20 fee → ₦980).
+- A **failed** payout refunds in full. A completed one does not.
+
+Withdrawals are recorded in `global_withdrawals` and mirrored to
+`global_transactions` as a **`debit`**, because `global_transactions_type_check`
+permits only `credit|debit|purchase|refund` — there is no `withdrawal` member.
+
+### 13.5 Idempotency
+
+Deposits arrive through webhooks that retry. The mirror is keyed on
+`CDEP-<customer_tx_id>` in `global_transactions.reference`, and returns
+`already_credited` on a replay rather than crediting again. The deposit handler
+treats a mirror failure as **non-fatal**: the customer is already credited, and
+a missing mirror can be re-run, whereas failing the request would provoke a
+retry of the whole deposit.
+
+### 13.6 What is not retroactive
+
+Historical purchases never wrote `global_customer_transactions` rows — six
+deposits and zero purchases exist despite ₦57,600 of spend. Reseller-side
+"customer purchase" history therefore starts from deploy. Customer deposits
+were backfilled (see HANDOVER) but purchases were not, by decision.
+
+### 13.7 Known consequence
+
+A reseller can withdraw money their customers deposited, leaving the store
+unable to fund orders. Accepted by product decision. The failure mode is a
+refused sale with the vague message above, not a negative balance: settlement
+refuses before deducting anything from the customer.

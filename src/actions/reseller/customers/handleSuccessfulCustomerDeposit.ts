@@ -131,6 +131,37 @@ export async function handleSuccessfulCustomerDeposit({
       return { success: false, error: "Failed to update transaction" };
     }
 
+    // The reseller holds their customers' money, so the same deposit is
+    // mirrored into the store balance and written to the reseller ledger
+    // against the customer's name. Keyed by the customer transaction id, so a
+    // webhook replay cannot credit twice.
+    //
+    // Non-fatal on purpose: the customer is already credited, and a missing
+    // mirror is recoverable by re-running the RPC, whereas failing here would
+    // provoke a retry of the whole deposit.
+    const { data: mirror, error: mirrorError } = await adminClient.rpc(
+      "credit_reseller_for_customer_deposit",
+      {
+        p_reseller_id: resellerId,
+        p_customer_tx_id: transactionId,
+        p_amount: netAmount,
+      },
+    );
+
+    if (mirrorError) {
+      console.error(
+        "CRITICAL: customer deposit mirror to reseller balance failed:",
+        { transactionId, resellerId, netAmount, error: mirrorError.message },
+      );
+    } else if (mirror?.success === false) {
+      console.error("CRITICAL: customer deposit mirror refused:", {
+        transactionId,
+        resellerId,
+        netAmount,
+        mirror,
+      });
+    }
+
     // Best-effort: the wallet is already credited, so a failed notification
     // must not fail the webhook and provoke a retry of the whole deposit.
     await createStoreNotification({

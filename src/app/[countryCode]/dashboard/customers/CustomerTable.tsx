@@ -37,6 +37,17 @@ export default function CustomerTable({
 }: CustomerTableProps) {
   const t = translations;
   const supabase = createClient();
+
+  // Symbol comes from the country config, so a store outside Nigeria does not
+  // get a naira sign. Values are stored per wallet currency; the config is the
+  // store's own currency and matches in practice.
+  const currencySymbol = config?.currencySymbol || "₦";
+  const formatWalletBalance = (amount?: number) =>
+    `${currencySymbol}${Number(amount ?? 0).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(
     null,
@@ -234,6 +245,19 @@ export default function CustomerTable({
                   letterSpacing: "0.05em",
                 }}
               >
+                {t?.walletBalance || "Wallet Balance"}
+              </th>
+              <th
+                style={{
+                  padding: "0.75rem 1rem",
+                  textAlign: "left",
+                  color: "var(--muted)",
+                  fontWeight: 600,
+                  fontSize: "0.75rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
                 {t?.status || "Status"}
               </th>
               <th
@@ -303,6 +327,19 @@ export default function CustomerTable({
                   }}
                 >
                   {customer.phone || "—"}
+                </td>
+                <td
+                  style={{
+                    padding: "0.75rem 1rem",
+                    fontWeight: 600,
+                    fontVariantNumeric: "tabular-nums",
+                    color:
+                      (customer.wallet_balance ?? 0) > 0
+                        ? "var(--text)"
+                        : "var(--muted)",
+                  }}
+                >
+                  {formatWalletBalance(customer.wallet_balance)}
                 </td>
                 <td
                   style={{
@@ -499,6 +536,12 @@ export default function CustomerTable({
                     <div>
                       <span>{t?.phone || "Phone"}</span>
                       <span>{customer.phone || "—"}</span>
+                    </div>
+                    <div>
+                      <span>{t?.walletBalance || "Wallet Balance"}</span>
+                      <span style={{ fontWeight: 600 }}>
+                        {formatWalletBalance(customer.wallet_balance)}
+                      </span>
                     </div>
                     <div>
                       <span>{t?.joined || "Joined"}</span>
