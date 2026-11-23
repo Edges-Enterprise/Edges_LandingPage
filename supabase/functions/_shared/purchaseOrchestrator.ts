@@ -32,6 +32,11 @@ export interface PurchaseRequest {
   phoneNumber: string;
   transactionPin: string;
   userId: string; // auth.users.id of the caller (reseller or customer)
+  // The destination country of the plan, from the storefront catalog. A
+  // provider_plan_id is only unique per country (Zendit numbers plans
+  // per-provider, so lizzysub's NG "116" and accragh's GH "116" coexist),
+  // so the lookup needs this to resolve one row.
+  countryCode?: string;
   // Phase 2: the customer's chosen amount for a Zendit RANGE offer (airtime
   // top-up). Absent for FIXED offers.
   value?: { type: "PRICE" | "ZEND"; value: number };
@@ -54,6 +59,10 @@ export async function processPurchase(
 ): Promise<PurchaseResult> {
   const { resellerId, providerPlanId, phoneNumber, transactionPin, userId } =
     req;
+  // `global_base_plans.country_code` is mixed-case: the Zendit sync writes it
+  // lowercased, the Accragh sync uppercased. Every comparison on it must be
+  // case-insensitive, or one provider's stores silently match nothing.
+  const requestedCountry = (req.countryCode || "").trim();
 
   // 1. Resolve caller identity - reseller self-purchase vs customer,
   // same branch structure as the proven legacy pattern.
@@ -93,15 +102,30 @@ export async function processPurchase(
   }
 
   // 2. Resolve the base plan by its provider-facing id + country/category scope.
-  const { data: basePlan, error: basePlanError } = await supabaseAdmin
+  //    `provider_plan_id` is NOT globally unique: Zendit numbers plans per
+  //    provider, so NG lizzysub "116" and GH accragh "116" are two different
+  //    plans. Without the country scope this matched both and `.single()`
+  //    failed with PGRST116 ("The result contains 2 rows"), which the caller
+  //    surfaced as "Plan not available" for every colliding plan.
+  let basePlanQuery = supabaseAdmin
     .from("global_base_plans")
     .select(
       "id, provider, provider_plan_id, country_code, network, name, category, base_price, currency, price_type, range_min, range_max, range_increment, send_value, send_currency, zendit_fx",
     )
     .eq("provider_plan_id", providerPlanId)
     .eq("category", category)
-    .eq("is_active", true)
-    .single();
+    .eq("is_active", true);
+
+  if (requestedCountry) {
+    basePlanQuery = basePlanQuery.ilike("country_code", requestedCountry);
+  }
+
+  const { data: basePlanRows, error: basePlanError } =
+    await basePlanQuery.limit(2);
+  // Exactly one match, or the id was ambiguous and the caller must send the
+  // plan's country. Never guess: picking a row would charge for the wrong
+  // country's plan.
+  const basePlan = basePlanRows?.length === 1 ? basePlanRows[0] : null;
 
   if (basePlanError || !basePlan) {
     return { success: false, error: "Plan not available", message: "Plan not available" };

@@ -158,6 +158,7 @@ export function useStorePurchase({
       const result = await priceRangeAmount({
         resellerId,
         providerPlanId: selectedPlan.plan_id ?? selectedPlan.id,
+        countryCode: selectedPlan.country_code,
         sendAmount: amount,
       });
       if (result.success && result.data) {
@@ -275,6 +276,9 @@ export function useStorePurchase({
             phoneNumber: nationalPhone,
             transactionPin: purchasePin,
             userId: user.id,
+            // `provider_plan_id` is only unique per country, so the server
+            // cannot resolve the plan without it.
+            countryCode: selectedPlan.country_code,
             // Phase 2: a RANGE offer carries the recipient amount the
             // customer chose, in minor units of the send currency. Zendit's
             // `ZEND` type is the amount the recipient receives.

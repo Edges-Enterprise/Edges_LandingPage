@@ -26,6 +26,11 @@ interface PriceRangeAmountParams {
    * uuid the storefront never sees).
    */
   providerPlanId: string;
+  /**
+   * The plan's destination country (`global_base_plans.country_code`). Part of
+   * the plan's identity, because `provider_plan_id` is only unique per country.
+   */
+  countryCode?: string;
   /** The recipient amount the customer entered, in the send currency. */
   sendAmount: number;
 }
@@ -67,14 +72,28 @@ export async function priceRangeAmount(params: PriceRangeAmountParams): Promise<
     // The catalog hands the client the provider-facing id, which is what the
     // purchase edge function also resolves by (see purchaseOrchestrator.ts).
     // The table's own `id` is a uuid the storefront never sees.
-    const { data: plan, error: planError } = await adminClient
+    //
+    // `provider_plan_id` is only unique per country (Zendit numbers plans per
+    // provider, so lizzysub's NG "116" and accragh's GH "116" coexist), so the
+    // plan's country is part of the key. `.single()` over the id alone matched
+    // both rows and failed with PGRST116, surfacing as "Plan not found".
+    // `country_code` is mixed-case in this table (Zendit lowercases, Accragh
+    // uppercases), so it must be matched case-insensitively.
+    const planCountry = (params.countryCode || "").trim();
+    let planQuery = adminClient
       .from("global_base_plans")
       .select(
         "id, provider, provider_plan_id, country_code, network, name, category, base_price, currency, send_value, send_currency, price_type, range_min, range_max, range_increment, zendit_fx",
       )
       .eq("provider_plan_id", params.providerPlanId)
-      .eq("is_active", true)
-      .single();
+      .eq("is_active", true);
+
+    if (planCountry) {
+      planQuery = planQuery.ilike("country_code", planCountry);
+    }
+
+    const { data: planRows, error: planError } = await planQuery.limit(2);
+    const plan = planRows?.length === 1 ? planRows[0] : null;
 
     if (planError || !plan) {
       return { success: false, error: "Plan not found" };

@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { resellerId, planId, phoneNumber, transactionPin, userId } =
+    const { resellerId, planId, phoneNumber, transactionPin, userId, value, countryCode } =
       await req.json();
 
     if (!resellerId || !planId || !phoneNumber || !transactionPin || !userId) {
@@ -52,6 +52,9 @@ Deno.serve(async (req) => {
       phoneNumber,
       transactionPin,
       userId,
+      countryCode,
+      // A RANGE data offer carries the buyer's chosen amount, same as airtime.
+      value,
     });
 
     return new Response(JSON.stringify(result), {

@@ -625,6 +625,21 @@ Operational invariants worth keeping:
   country, listed them). The storefront comment in `global-store-catalog`
   already states this; the dashboard actions now follow it.
 
+- **`provider_plan_id` is NOT globally unique — never resolve a plan on it
+  alone.** Zendit numbers plans per provider, so `lizzysub` (NG) and `accragh`
+  (GH) reuse the same numeric ids: 17 of 11,002 active rows collide on
+  `(provider_plan_id, category)`, and 0 collide on
+  `(provider_plan_id, category, country_code)`. Any `.single()` over the
+  two-column key fails with `PGRST116` ("The result contains 2 rows"), which
+  surfaces to buyers as "Plan not available" for exactly the colliding plans
+  (this is what broke `belovedtopup`'s GLO/MTN/AIRTEL data plans). Resolve
+  with `(provider_plan_id, category, country_code)` — and since
+  `country_code` is mixed-case (previous bullet), compare it with `.ilike`,
+  not `.eq`. `purchaseOrchestrator.ts` and
+  `src/actions/reseller/plans/priceRangeAmount.ts` both do this; keep them in
+  step, and pass `countryCode` from the client (`useStorePurchase.ts`) or the
+  lookup cannot disambiguate.
+
 - **Cross-border selling is a READ-scoping issue, not a write one.** A plan
   is enabled/marked-up by its `global_base_plans.id`, which is unique across
   countries, so `togglePlan` / `updatePlanConfig` / `bulkUpdatePlans` already
