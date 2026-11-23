@@ -5883,11 +5883,17 @@ the Management API (54 functions, `fetched_at` 2026-11-23T17:34:08Z).
   `request_global_withdrawal` succeeds. All three gateways implement
   `processPayout`; the provider is told the **net** amount. Failed payouts
   refund through `fail_global_withdrawal`; unknown outcomes stay `pending` and
-  are settled by `GET /api/cron/reconcile-withdrawals` (10-minute Vercel cron,
-  `CRON_SECRET`-gated). See ARCHITECTURE.md §13.4.
-- **`CRON_SECRET` must be set in production.** The reconcile endpoint fails
-  closed (503) when it is missing, so withdrawals left `pending` will not
-  auto-settle until the variable is configured.
+  are settled by `settleResellerPayouts` when the reseller opens their wallet,
+  with a daily cron (`GET /api/cron/reconcile-withdrawals`, 03:00,
+  `CRON_SECRET`-gated) as the backstop. See ARCHITECTURE.md §13.4.
+- **`CRON_SECRET` is set on the `edges-landing-page` Vercel project** (production
+  target, created 2026-11-23). The reconcile endpoint fails closed (503) when it
+  is missing, so a missing value silently stops auto-settlement. Rotate by
+  deleting and recreating the variable, then redeploying.
+- **Vercel Hobby allows only daily crons.** An earlier `*/10` schedule failed the
+  production deployment outright with *"Hobby accounts are limited to daily cron
+  jobs"*, so the payout code was not live until the schedule was relaxed to
+  `0 3 * * *`. Check the plan before tightening it.
 - **Stuck Xixapay withdrawals need a human.** Xixapay has no payout status
   endpoint, so a withdrawal left `pending` there (ambiguous timeout) cannot be
   auto-resolved. Check the Xixapay dashboard for the transfer, then resolve the

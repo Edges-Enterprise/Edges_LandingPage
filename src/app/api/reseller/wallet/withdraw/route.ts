@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCountryConfig } from "@/config/countries";
-import { dispatchWithdrawalPayout } from "@/lib/payments/withdrawalPayout";
+import { dispatchWithdrawalPayout, settleResellerPayouts } from "@/lib/payments/withdrawalPayout";
 
 const FEE_RATE = 0.02;
 const MIN_WITHDRAWAL = 100;
@@ -61,6 +61,11 @@ export async function GET() {
 
     const { application } = resolved;
     const admin = createAdminClient();
+
+    // Close this reseller's async payouts before reporting the balance, so a
+    // settlement that completed since their last visit is reflected here. The
+    // daily cron is only a backstop for resellers who never come back.
+    await settleResellerPayouts(application.id, application.country_code);
 
     const { data, error } = await admin.rpc("get_withdrawal_eligibility", {
       p_reseller_id: application.id,

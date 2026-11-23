@@ -233,3 +233,46 @@ export async function reconcileWithdrawal(
 
   return { status: "pending", providerReference: status.providerReference };
 }
+
+/** Pending payouts younger than this may still be settling at the provider. */
+const SETTLE_MIN_AGE_MINUTES = 2;
+
+/**
+ * Settles one reseller's own pending payouts.
+ *
+ * Vercel's Hobby plan only permits a daily cron, so without this an async
+ * payout could sit `pending` for up to 24 hours. Calling this when the reseller
+ * opens their wallet closes their rows as soon as they look, and the daily cron
+ * remains the backstop for anyone who does not.
+ *
+ * Never throws: a reconciliation failure must not break the caller's response.
+ */
+export async function settleResellerPayouts(
+  resellerId: string,
+  countryCode: string,
+  limit = 5,
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+
+    const { data: pending } = await admin
+      .from("global_withdrawals")
+      .select("id")
+      .eq("reseller_id", resellerId)
+      .eq("status", "pending")
+      .lt(
+        "created_at",
+        new Date(
+          Date.now() - SETTLE_MIN_AGE_MINUTES * 60_000,
+        ).toISOString(),
+      )
+      .order("created_at", { ascending: true })
+      .limit(limit);
+
+    for (const row of pending ?? []) {
+      await reconcileWithdrawal(row.id as string, countryCode);
+    }
+  } catch (err) {
+    console.error("settleResellerPayouts failed:", resellerId, err);
+  }
+}

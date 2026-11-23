@@ -504,12 +504,26 @@ the payout succeeds but `complete_global_withdrawal` then fails — the money is
 gone, so the row is left pending and logged for reconciliation instead of being
 refunded.
 
-**Settlement.** `GET /api/cron/reconcile-withdrawals` (every 10 minutes via
-`vercel.json`) polls pending payouts through `reconcileWithdrawal`, completing
-or refunding them. It requires `Authorization: Bearer $CRON_SECRET` and returns
-503 when that variable is unset, so it cannot be triggered by the public. Rows
-younger than 2 minutes are skipped; rows older than 72 hours are left for a
-human. Xixapay exposes no payout status endpoint, so a stuck Xixapay row can
+**Settlement.** Korapay and Flutterwave settle asynchronously, so a payout they
+accept stays `pending` until its status is polled. Two paths do that:
+
+- **When the reseller opens their wallet** — `GET /api/reseller/wallet/withdraw`
+  calls `settleResellerPayouts` for that reseller's own rows before reporting
+  the balance. This is the path that normally resolves a payout, since it runs
+  as soon as someone looks.
+- **Daily cron** — `GET /api/cron/reconcile-withdrawals` at 03:00
+  (`vercel.json`) is the backstop for resellers who never return. Vercel's
+  Hobby plan only permits **daily** cron jobs; a `*/10` schedule fails the
+  deployment outright ("Hobby accounts are limited to daily cron jobs"), so do
+  not tighten this without first confirming the plan.
+
+The cron requires `Authorization: Bearer $CRON_SECRET` and returns 503 when
+that variable is unset, so it cannot be triggered by the public. Rows younger
+than 2 minutes are skipped; rows older than 72 hours are left for a human.
+
+Withdrawals are only permitted on **Sundays and Wednesdays**, so a Sunday
+payout gets cron attempts on Monday, Tuesday and Wednesday before the 72-hour
+cutoff. Xixapay exposes no payout status endpoint, so a stuck Xixapay row can
 only be resolved manually.
 
 ### 13.5 Idempotency
