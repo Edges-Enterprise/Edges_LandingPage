@@ -387,9 +387,10 @@ Collected here so they are not rediscovered each session.
 
 ## 13. Reseller-held customer funds (2026-11-23, LIVE)
 
-Deployed to production 2026-11-23: migration applied, web at `596e4f9`. The
-edge functions bundling `purchaseOrchestrator.ts` are the one outstanding
-redeploy (cosmetic — purchase-history descriptions), see `HANDOVER.md`.
+Fully deployed 2026-11-23: migration applied, web at `596e4f9`, and both edge
+functions importing `purchaseOrchestrator.ts` (`global-purchase-data`,
+`global-purchase-airtime`) at v30. Note that only those two import it — the
+others reference it in comments only. See `HANDOVER.md`.
 
 Before this change a customer's wallet and the store's wallet were financially
 unrelated: a customer deposited into their own wallet, and the store only ever

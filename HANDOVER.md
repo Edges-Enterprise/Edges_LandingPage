@@ -5718,12 +5718,10 @@ integrated).
 
 ## Task 10 — Reseller-held customer funds + countryCode withdrawals (opened 2026-11-23, BUILT — NOT DEPLOYED)
 
-**Status: DEPLOYED 2026-11-23.** Migration applied to production, web app
-deployed to Vercel production at `596e4f9`, alias `edges-landing-page.vercel.app`
-confirmed on that build. **One step outstanding: the edge functions that bundle
-`_shared/purchaseOrchestrator.ts` were not redeployed** — no Supabase access
-token in the deploying session. See "Still outstanding" below; it is cosmetic,
-not a money-flow risk.
+**Status: FULLY DEPLOYED 2026-11-23.** Migration applied to production, web app
+on Vercel production at `596e4f9`, and both edge functions that import
+`_shared/purchaseOrchestrator.ts` redeployed (`global-purchase-data` and
+`global-purchase-airtime`, both v30). Nothing outstanding.
 
 ### What was asked
 
@@ -5819,41 +5817,55 @@ migration is applied while an **older web build is still serving**, deposits
 will not mirror but sales will already charge cost — stores would slowly drain.
 Apply the migration and deploy the web app together.
 
-`supabase/functions/_shared/purchaseOrchestrator.ts` also changed (ledger
-description/metadata only, no money movement), which requires redeploying the
-edge functions that bundle it — **not done**, see "Still outstanding".
+`supabase/functions/_shared/purchaseOrchestrator.ts` also changed, which
+required redeploying the two edge functions that import it — **done**, see the
+next section.
 
-### Still outstanding — edge functions
+### Edge functions — deployed 2026-11-23 (correction)
 
-`supabase/functions/_shared/purchaseOrchestrator.ts` changed. Its bundled
-consumers are `global-purchase-data`, `global-purchase-airtime`,
-`global-store-catalog` and `accragh-webhook` (via `_shared/storeIdentity` /
-`_shared/zenditWebhook` / `_shared/currency/pricing`). None were redeployed:
-the session had no `SUPABASE_ACCESS_TOKEN`.
+An earlier note in this file claimed four functions needed redeploying and that
+the change was cosmetic. **Both claims were wrong.** Corrected below.
 
-**Impact: cosmetic only.** The diff adds `customer_name` / `cost_price` /
-`selling_price` / `profit` / `kind` to the `global_transactions.metadata` of a
-customer purchase, and prefixes the description with the customer's name. No
-money moves differently — settlement is a database function, already live.
+**Only two functions import `purchaseOrchestrator.ts`:**
 
-**Consequence if left undone:** reseller-side *purchase* history shows the old
-generic description ("Purchased X") rather than "Customer purchase - <name>".
-Deposit history is unaffected: its customer name comes from the SQL mirror,
-which is live.
+| function | imports it? |
+|---|---|
+| `global-purchase-data` | yes — `import { processPurchase } from "../_shared/purchaseOrchestrator.ts"` |
+| `global-purchase-airtime` | yes — same import |
+| `global-store-catalog` | **no** — matched only on a comment ("Pricing mirrors _shared/purchaseOrchestrator.ts") |
+| `accragh-webhook` | **no** — imports `_shared/accraghWebhook.ts`; the other shared files merely *mention* the orchestrator in comments |
 
-Deploy when a token is available (from a checkout of `main`):
+**Not cosmetic.** The deployed bundle was also missing the committed fix from
+`02745f3` ("disambiguate colliding plans from the store's own catalog"), which
+the functions had never picked up — live was built 08:53, that commit landed
+08:59. So this deploy shipped two changes, not one:
+
+1. `02745f3` — plan resolution by the store's enabled config instead of
+   refusing when a `provider_plan_id` collides across countries.
+2. Task 10 — `customer_name` / `cost_price` / `selling_price` / `profit` /
+   `kind` in the ledger metadata, and the "Customer purchase - <name>" prefix.
+
+Both are now live. Verified: bundles contain `customer_purchase`,
+`Customer purchase -`, `cost_price` and `limit(20)`; both respond `400
+{"success":false,"error":"Missing required fields"}` to an empty POST, so they
+boot and validate rather than crashing.
+
+**Deploy command** (worked with the `SUPABASE_OPEN_HANDS` token; `--use-api`
+avoids needing Docker):
 
 ```bash
-export SUPABASE_ACCESS_TOKEN=...
-npx supabase link --project-ref jyyfaxcwanrmiipzkoj
-npx supabase functions deploy global-purchase-data
-npx supabase functions deploy global-purchase-airtime
-npx supabase functions deploy global-store-catalog
-npx supabase functions deploy accragh-webhook
+export SUPABASE_ACCESS_TOKEN=<token>
+npx supabase@3.3.0 functions deploy <slug> --project-ref jyyfaxcwanrmiipzkoj --use-api --yes
 ```
 
-`WARNING: Docker is not running` is expected and harmless — the CLI falls back
-to remote bundling. Then refresh `supabase/edge-functions.json`.
+There is **no `supabase/config.toml`** in this repo, so the CLI defaults
+`verify_jwt=true`. Both functions were already `true`, so nothing changed —
+but do not use this route for `global-store-catalog` or `accragh-webhook`
+without passing `--no-verify-jwt` or adding a `config.toml`, or their JWT
+check will be silently switched on and callers will start getting 401s.
+
+`supabase/edge-functions.json` was 3 versions stale and has been refreshed from
+the Management API (54 functions, `fetched_at` 2026-11-23T17:34:08Z).
 
 ### Known issues / follow-ups
 
@@ -6190,4 +6202,4 @@ Until the key is rotated, treat the database as compromised:
 
 See the "SECURITY — exposed service_role key in git history" section above for
 the full evidence and the measured scope of the exposure.
-| 2026-11-23 | Task 10 session | Built **and deployed** reseller-held customer funds: deposit mirror, cost-price settlement, customer-list wallets, and the `[countryCode]` withdrawal route + modal (Sundays/Wednesdays, unlimited, 2% fee, float withdrawable). Migration applied to production in one transaction after snapshotting balances; exactly one wallet changed (belovedtopup ₦90 → ₦820 = scoped ₦730 backfill), both SQL suites pass against live. Web pushed to `main` (`596e4f9`) and Vercel production confirmed READY on that SHA with the alias pointing at it, closing the deposit-mirror/cost-settlement ordering window. **Outstanding:** the four edge functions bundling `purchaseOrchestrator.ts` were not redeployed (no `SUPABASE_ACCESS_TOKEN`); impact is cosmetic — purchase-history descriptions — not money flow. Dashboard UI still not browser-verified (no reseller credentials; no password reset performed). |
+| 2026-11-23 | Task 10 session | Built **and deployed** reseller-held customer funds: deposit mirror, cost-price settlement, customer-list wallets, and the `[countryCode]` withdrawal route + modal (Sundays/Wednesdays, unlimited, 2% fee, float withdrawable). Migration applied to production in one transaction after snapshotting balances; exactly one wallet changed (belovedtopup ₦90 → ₦820 = scoped ₦730 backfill), both SQL suites pass against live. Web pushed to `main` (`596e4f9`) and Vercel production confirmed READY on that SHA with the alias pointing at it, closing the deposit-mirror/cost-settlement ordering window. Edge functions `global-purchase-data` and `global-purchase-airtime` redeployed to v30 with the `SUPABASE_OPEN_HANDS` token — which also shipped the previously undeployed `02745f3` plan-collision fix. **Correction:** an earlier version of this row said four functions needed redeploying and that the impact was cosmetic; only two import the orchestrator, and the deploy carried a real bug fix. Dashboard UI still not browser-verified (no reseller credentials; no password reset performed). |
