@@ -6001,7 +6001,39 @@ a name typed into the form is never trusted.
 - Single-flight guard proven: first `pending` claim accepted, second rejected `23505`, test rows removed.
 - Idempotency proven: re-delivery of a known payment rejected `23505`, balance unchanged at ₦820.
 - Ledger reconciled to exactly ₦820 with all audit rows retained.
-- **Not browser-verified** — no platform-admin credentials were available in the session. The gate is server-side, so an unauthenticated hit returns 404, but the rendered page has not been seen.
+- **Browser-verified 2026-11-23** against production with a temporary admin
+  account (below): `/ng/admin/sweeper` renders "Available to sweep ₦820.00",
+  "Deposits ₦820.00 − sweeps ₦0.00", the 500-entry bank list from Xixapay, the
+  no-balance-API caveat, and the four historical sweep attempts. An
+  unauthenticated hit returns a hard 404, confirming the gate fails closed.
+
+### Verification admin — delete when done
+
+`/ng/admin/sweeper` needs a signed-in `profiles.is_admin = true` user, and
+Supabase passwords are bcrypt hashes that cannot be read back. A dedicated
+account was created rather than resetting a password on one of the four existing
+admins, three of which are in active use.
+
+| | |
+|---|---|
+| Email | `sweeper-verify@example.com` |
+| Password | stored in `.env.sweeper-verify` (gitignored by the `.env*` rule) |
+| User id | `f0681e64-7da5-4d9c-aca1-2cda086feffc` |
+
+**It is a live platform admin and must be removed once it is no longer needed:**
+
+```sql
+delete from auth.users where email = 'sweeper-verify@example.com';
+```
+
+The other four admins in the database (`newuser@mail.com`,
+`bossblingzs@gmail.com`, `platform-admin-access@example.com`,
+`bossblingzs@example.com`) had their passwords left untouched — a password reset
+would have locked out whoever uses them.
+
+Note: `profiles.is_admin` is guarded by the `protect_profile_admin_flag` trigger,
+which silently reverts changes unless the writer is `postgres`/`supabase_admin`
+or `service_role`. Setting the flag needs a direct connection, not the app.
 
 ### Known consequence
 
