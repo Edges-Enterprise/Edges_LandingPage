@@ -29,6 +29,7 @@ import { toNationalDigits } from "../../../supabase/functions/_shared/phone/norm
 import { getCountryConfig, type CountryConfig } from "@/config/countries";
 import type { StoreProduct } from "@/types/reseller/storefront";
 import { priceRangeAmount } from "@/actions/reseller/plans/priceRangeAmount";
+import { setCurrentCustomerPin } from "@/actions/reseller/customers/setCurrentCustomerPin";
 import {
   lookupNetwork,
   type NetworkDetection,
@@ -228,26 +229,28 @@ export function useStorePurchase({
     }
 
     // Persist a new PIN before purchasing (the orchestrator only verifies).
+    // The customer path must go through a server action: `global_customers`
+    // RLS grants nothing to the customer's own account, so the browser client
+    // updated 0 rows and swallowed the error.
     if (isCreatingPin) {
-      const pinError = isStoreOwner
-        ? (
-            await supabase
-              .from("global_reseller_applications")
-              .update({ transaction_pin: purchasePin })
-              .eq("auth_user_id", user.id)
-          ).error
-        : (
-            await supabase
-              .from("global_customers")
-              .update({ transaction_pin: purchasePin })
-              .eq("auth_user_id", user.id)
-              .eq("reseller_id", resellerId)
-          ).error;
+      if (isStoreOwner) {
+        const { error: pinError } = await supabase
+          .from("global_reseller_applications")
+          .update({ transaction_pin: purchasePin })
+          .eq("auth_user_id", user.id);
 
-      if (pinError) {
-        setPurchaseError("Failed to save PIN. Please try again.");
-        setPurchaseLoading(false);
-        return;
+        if (pinError) {
+          setPurchaseError("Failed to save PIN. Please try again.");
+          setPurchaseLoading(false);
+          return;
+        }
+      } else {
+        const pinResult = await setCurrentCustomerPin(resellerId, purchasePin);
+        if (!pinResult.success) {
+          setPurchaseError(pinResult.error || "Failed to save PIN. Please try again.");
+          setPurchaseLoading(false);
+          return;
+        }
       }
     }
 
