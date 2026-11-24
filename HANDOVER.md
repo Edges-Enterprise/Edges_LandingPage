@@ -5794,6 +5794,8 @@ Post-apply verification against live:
 - Exactly **one** wallet changed: `2fb2050f` (belovedtopup) ₦90 → ₦820,
   matching the scoped ₦730 backfill. All other 38 wallets byte-identical.
 - One `CDEP-BACKFILL-*` ledger row; `global_withdrawals` created and empty.
+  **Superseded 2026-11-23** — the lump row was later split per customer, see
+  "Opening balance split per customer" below.
 - All six new functions present, `anon`/`authenticated` revoked,
   `service_role` granted.
 - Settlement confirmed switched to cost-deduction; profit-only rule gone.
@@ -5902,6 +5904,60 @@ the Management API (54 functions, `fetched_at` 2026-11-23T17:34:08Z).
   `purchase` rows, which for customer sales is the selling price while the
   balance only moved by the cost price. Worth reviewing if that card is meant
   to represent money out.
+
+### Opening balance split per customer (2026-11-23, after the fact)
+
+The backfill credited BelovedTopup **one** ₦730 ledger row for the whole store.
+The owner asked for it broken out per customer, so the reseller could see whose
+money they are holding. Migration:
+`supabase/migrations/20261123_cdep_backfill_per_customer.sql`.
+
+The ₦730 was never ambiguous — the three completed customer deposits behind it
+reconcile to the naira:
+
+| Customer | Gross | Fee | Net credited | Running wallet |
+|---|---|---|---|---|
+| `beloveddavid80` | ₦100 | ₦10 | ₦90 | ₦90 |
+| `adewumitobiloba808` | ₦600 | ₦50 | ₦550 | ₦550 |
+| `adewumitobiloba808` | ₦100 | ₦10 | ₦90 | ₦640 |
+| **Total** | **₦800** | **₦70** | **₦730** | ₦640 (final) |
+
+The ₦70 difference between the ₦800 gross deposit history and the ₦730 balances
+is entirely the deposit fees, which is why the backfill used
+`global_customer_wallets.balance` rather than summing deposits. That was the
+right call and is unchanged.
+
+The lump `CDEP-BACKFILL-<reseller_id>` row was deleted and replaced by three
+rows, one per deposit, using **`net_amount`** — the same figure the live mirror
+credits (`handleSuccessfulCustomerDeposit.ts` passes `netAmount` to
+`credit_reseller_for_customer_deposit`). Descriptions read
+`Customer deposit - <name> (opening balance)`, and `created_at` is each
+deposit's own timestamp so the history sorts in the order the money actually
+arrived.
+
+**The reseller wallet was not touched.** It already held the correct ₦820
+(₦730 backfill + ₦90 edge-funded deposit); this migration only rewrites ledger
+presentation. Re-running the balance `UPDATE` would have doubled the money.
+
+Rows are keyed **`CDEP-<customer_tx_id>`**, identical to the live mirror's
+key, so a late webhook replay for any of these three deposits finds its row and
+returns `already_credited` instead of crediting again. Verified: replaying
+`9545daad` left the balance at ₦820.
+
+Guarded rather than clever: the rewrite only happens when the completed
+deposits' `net_amount` sum equals the lump row's amount exactly. Anything that
+does not reconcile is left as the lump row with a `RAISE NOTICE`, rather than
+inventing a split.
+
+Verified on production: no wallet balance changed (39 wallets diffed against
+`/workspace/predeploy_cdep_split.json`), zero `CDEP-BACKFILL-%` rows remain,
+ledger now reads ₦90 + ₦90 + ₦550 + ₦90 = ₦820, migration is idempotent across
+two runs, both SQL suites still pass, and `anon` still cannot execute the
+mirror RPC. Committed as `a791147`.
+
+Note for whoever reads the wallet history UI: `getTransactions` filters on
+`reseller_id` only, never `wallet_id`, so the new rows (which carry no
+`wallet_id`, matching the original lump row) render normally.
 
 ## Task 11 — Xixapay sweeper: admin payout of the platform float (opened 2026-11-23, BUILT, VERIFIED, SHIPPED)
 
@@ -6387,5 +6443,6 @@ Until the key is rotated, treat the database as compromised:
 See the "SECURITY — exposed service_role key in git history" section above for
 the full evidence and the measured scope of the exposure.
 | 2026-11-23 | Task 10 session | Built **and deployed** reseller-held customer funds: deposit mirror, cost-price settlement, customer-list wallets, and the `[countryCode]` withdrawal route + modal (Sundays/Wednesdays, unlimited, 2% fee, float withdrawable). Migration applied to production in one transaction after snapshotting balances; exactly one wallet changed (belovedtopup ₦90 → ₦820 = scoped ₦730 backfill), both SQL suites pass against live. Web pushed to `main` (`596e4f9`) and Vercel production confirmed READY on that SHA with the alias pointing at it, closing the deposit-mirror/cost-settlement ordering window. Edge functions `global-purchase-data` and `global-purchase-airtime` redeployed to v30 with the `SUPABASE_OPEN_HANDS` token — which also shipped the previously undeployed `02745f3` plan-collision fix. **Correction:** an earlier version of this row said four functions needed redeploying and that the impact was cosmetic; only two import the orchestrator, and the deploy carried a real bug fix. Dashboard UI still not browser-verified (no reseller credentials; no password reset performed). |
+| 2026-11-23 | Task 10 follow-up | Owner asked for the BelovedTopup opening balance to be broken out per customer instead of one lump sum. It reconciles exactly: three completed deposits net ₦90 + ₦550 + ₦90 = the ₦730 that was backfilled (gross ₦800 minus ₦70 of deposit fees, which is why the backfill correctly used wallet balances rather than summing deposits). `20261123_cdep_backfill_per_customer.sql` deletes the single `CDEP-BACKFILL-<reseller_id>` row and writes one `credit` row per deposit at its `net_amount`, keyed `CDEP-<customer_tx_id>` — the identical key the live mirror uses, so a late webhook replay for any of them is swallowed as `already_credited`. **The reseller wallet was deliberately not updated**: it already held the correct ₦820, and repeating the original balance `UPDATE` would have doubled the money. Guarded: rewrites only when the deposit nets equal the lump amount exactly, otherwise leaves the row and raises a notice. Applied to production after snapshotting `/workspace/predeploy_cdep_split.json`; diffed all 39 wallets and **none changed**, zero lump rows remain, ledger reads ₦90 + ₦90 + ₦550 + ₦90 = ₦820, idempotent over two runs, replay returned `already_credited`, both SQL suites pass, `anon` still cannot execute the mirror RPC. No web deploy needed — `getTransactions` filters on `reseller_id`, not `wallet_id`. Committed `a791147`. |
 | 2026-11-23 | Task 11 session (UI pass) | Three usability fixes to the sweeper, browser-verified against the live DB and pushed to `main` (`cc71187`). (1) Bank picker replaced the native `<select>` with `ThemeSelect` plus a new optional `searchable` prop — additive, so the five other call sites are untouched; the filter box is a sibling of `role="listbox"` so ARIA stays valid, and only the row list scrolls. (2) Account name now resolves automatically on bank + 6-digit account, debounced 450 ms with a sequence ref so a stale reply cannot overwrite the current name; the Verify button is gone. (3) Under 768px the recent sweeps table is not rendered at all — `useIsMobile` drives a conditional render, not CSS hiding — and each row shows amount/status with timestamp, target, reference and error behind a chevron. Live checks: "zenith" filtered 500+ banks to 2; PalmPay + `6614053648` resolved to "Luminate Global Enterprise-Joh(Xixapay)" with no button press; a bad account surfaced the provider error inline. Mobile branch verified by temporarily forcing `isMobile = true`, then reverted. `tsc --noEmit` and `next build` clean. **Also observed:** a real ₦810 sweep landed on 2026-11-23 19:01, so the derived balance now reads ₦10.00 (₦820 deposits − ₦810 swept) — the sweeper correctly refuses any further sweep as below the ₦500 minimum. |
 | 2026-11-23 | Task 11 session | Built the **Xixapay sweeper** (admin pays the platform float out to a bank) at `/[countryCode]/admin/sweeper`, gated by `getPlatformAdmin` server-side with every action re-checking it. Xixapay has no balance API (five candidate endpoints all 404), so the balance is derived from `xixapay_wallet_ledger` via the `xixapay_wallet_balance` view. **Balance rule settled with the owner: sum every deposit minus every sweep from every reseller and reseller customer, starting 2026-11-20** (BelovedTopup's first real deposit, not its 2026-11-19 store creation). The view has no reseller/store predicate — proven by inserting an unrelated store's deposit inside a rolled-back transaction and watching the balance rise by exactly that amount. Reconciled a ₦280 overstatement to the owner's confirmed ₦820 (= 640+90+90): two duplicate deliveries of one ₦100 payment that arrived under **different** `transaction_id`s with an identical payload timestamp (+₦180), plus a pre-go-live July backfill/sweep pair (+₦100). Deleted only the two duplicate rows, kept all older rows as audit, redefined the view with the 2026-11-20 cutoff, and added a unique index on the payment's real identity (`payload timestamp + sender account + amount`) — verified a fresh re-delivery is now rejected `23505`. Single-flight guard (partial unique index on `pending`) also proven `23505`. `tsc` and `next build` clean. **Not browser-verified** (no platform-admin credentials); **not committed** at time of writing. |
