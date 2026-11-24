@@ -50,6 +50,14 @@ async function getWalletData(userId: string) {
         .maybeSingle(),
     ]);
 
+    // Totals come from the whole ledger. Summing the 50 rows above dropped
+    // every older transaction, so a busy store under-reported its deposits
+    // and withdrawals.
+    const { data: totals } = await admin.rpc(
+      "get_global_reseller_wallet_totals",
+      { p_reseller_id: application.id },
+    );
+
     if (walletError) console.error("Wallet fetch error:", walletError);
     if (txError) console.error("Transactions fetch error:", txError);
     if (vaError) console.error("Virtual account fetch error:", vaError);
@@ -63,6 +71,7 @@ async function getWalletData(userId: string) {
         status: "active",
       },
       transactions: transactions || [],
+      totals: totals || null,
       virtualAccount: virtualAccount || null,
     };
   } catch (error) {

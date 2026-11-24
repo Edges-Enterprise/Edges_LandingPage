@@ -323,6 +323,7 @@ export default function WalletClient({
         <WalletSummary
           wallet={wallet}
           transactions={transactions}
+          totals={walletData.totals}
           currencySymbol={currencySymbol}
           translations={t}
         />

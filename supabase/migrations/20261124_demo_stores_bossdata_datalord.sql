@@ -65,6 +65,7 @@ BEGIN
 
   IF v_ids IS NOT NULL THEN
     DELETE FROM public.global_order_status_history      WHERE reseller_id = ANY (v_ids);
+    DELETE FROM public.global_withdrawals               WHERE reseller_id = ANY (v_ids);
     DELETE FROM public.global_customer_transactions     WHERE reseller_id = ANY (v_ids);
     DELETE FROM public.global_customer_wallets          WHERE reseller_id = ANY (v_ids);
     DELETE FROM public.global_orders                    WHERE reseller_id = ANY (v_ids);
@@ -356,6 +357,11 @@ DECLARE
   v_seq           int;
   v_share_total   numeric;
   v_remainder     numeric;
+  v_own_money     numeric;
+  v_wd            record;
+  v_bonus_award   numeric;
+  v_bonus_left    numeric;
+  v_currency      text;
 BEGIN
   FOR s IN
     SELECT * FROM (VALUES
@@ -587,6 +593,119 @@ BEGIN
 
       v_float := v_float + v_cust_balance;
     END LOOP;
+
+    -- -----------------------------------------------------------------
+    -- Withdrawals and bonus.
+    --
+    -- A store that has traded for months would have paid itself out at
+    -- least once, and would have collected the one-time first-deposit
+    -- bonus. Leaving both at zero makes the wallet page look like an
+    -- untouched account, which is the one thing these demo stores are
+    -- not.
+    --
+    -- Two rules keep the numbers honest:
+    --   1. Withdrawals come out of owner money only. Customer float is
+    --      money the store owes its customers, so each payout is capped
+    --      at (balance - float) and can never dig into it.
+    --   2. app_bonus_claimed is set, so a later real deposit cannot
+    --      award a second USD 10 bonus on top of the seeded one.
+    --
+    -- Amounts are deliberately not round: a payout of exactly 20,000
+    -- reads as fabricated. Each is fee-bearing like a real bank payout.
+    v_own_money := v_bal - v_float;
+
+    FOR v_wd IN
+      SELECT * FROM (VALUES
+        -- slug,   amount,   fee,   bank,  account,      holder,             days_ago
+        ('bossdata', 18500.00, 100.00, '058', '0123456789', 'Boss Data Ltd',      41),
+        ('bossdata', 11750.00,  75.00, '058', '0123456789', 'Boss Data Ltd',      19),
+        ('datalord',   350.00,  10.00, '022', '1098765432', 'DataLord Ventures',  33)
+      ) AS t(slug, amount, fee, bank_code, acct, holder, days_ago)
+      WHERE t.slug = s.slug
+    LOOP
+      CONTINUE WHEN v_wd.amount > v_own_money;
+
+      INSERT INTO public.global_withdrawals (
+        reseller_id, amount, fee, net_amount, status, reference,
+        bank_code, account_number, account_name, created_at, updated_at
+      ) VALUES (
+        s.app_id, v_wd.amount, v_wd.fee, v_wd.amount - v_wd.fee,
+        'completed',
+        'DT-WDR-' || upper(s.slug) || '-' || v_wd.days_ago,
+        v_wd.bank_code, v_wd.acct, v_wd.holder,
+        now() - (v_wd.days_ago || ' days')::interval,
+        now() - (v_wd.days_ago || ' days')::interval
+      );
+
+      -- request_global_withdrawal() books a payout as a 'debit' because
+      -- the type check has no 'withdrawal' member; mirror that exactly.
+      INSERT INTO public.global_transactions (
+        reseller_id, type, amount, description, status, reference, metadata,
+        created_at, payment_gateway
+      ) VALUES (
+        s.app_id, 'debit', v_wd.amount,
+        'Withdrawal to bank account',
+        'completed',
+        'WDR-DT-' || upper(s.slug) || '-' || v_wd.days_ago,
+        jsonb_build_object('seed', 'dt', 'kind', 'withdrawal',
+                           'fee', v_wd.fee, 'net_amount', v_wd.amount - v_wd.fee),
+        now() - (v_wd.days_ago || ' days')::interval, 'manual'
+      );
+
+      v_bal       := v_bal - v_wd.amount;
+      v_own_money := v_own_money - v_wd.amount;
+    END LOOP;
+
+    -- Bonus balance: the USD 10 first-deposit bonus at the live FX rate,
+    -- less a little already spent. Not the full award, because a store
+    -- this old would have dipped into it; and not a round figure, for
+    -- the same reason the withdrawals are not.
+    SELECT currency INTO v_currency
+    FROM public.global_wallets WHERE reseller_id = s.app_id;
+
+    v_bonus_award := public.app_bonus_amount_local(v_currency);
+    IF v_bonus_award IS NOT NULL THEN
+      v_bonus_left := round(v_bonus_award * 0.3034, 2);
+
+      UPDATE public.global_wallets
+      SET bonus_balance        = v_bonus_left,
+          app_bonus_claimed    = true,
+          app_bonus_claimed_at = now() - interval '90 days',
+          updated_at           = now()
+      WHERE reseller_id = s.app_id;
+
+      INSERT INTO public.global_transactions (
+        reseller_id, type, amount, description, status, reference, metadata,
+        created_at, payment_gateway
+      ) VALUES (
+        s.app_id, 'credit', v_bonus_award,
+        'App first deposit bonus',
+        'completed',
+        'BONUS-APP-DT-' || upper(s.slug),
+        jsonb_build_object('seed', 'dt', 'kind', 'app_first_deposit',
+                           'usd_value', 10, 'currency', v_currency),
+        now() - interval '90 days', 'manual'
+      );
+
+      -- The award is credited in full, then the part already used is
+      -- debited, so the ledger and bonus_balance agree. Without this the
+      -- history would show a 13,888.89 credit next to a 4,213.89 balance
+      -- and no explanation of the difference.
+      IF v_bonus_award > v_bonus_left THEN
+        INSERT INTO public.global_transactions (
+          reseller_id, type, amount, description, status, reference, metadata,
+          created_at, payment_gateway
+        ) VALUES (
+          s.app_id, 'debit', v_bonus_award - v_bonus_left,
+          'Bonus applied to orders',
+          'completed',
+          'BONUS-SPEND-DT-' || upper(s.slug),
+          jsonb_build_object('seed', 'dt', 'kind', 'bonus_spend',
+                             'currency', v_currency),
+          now() - interval '44 days', 'manual'
+        );
+      END IF;
+    END IF;
 
     UPDATE public.global_wallets
     SET balance = v_bal, updated_at = now()

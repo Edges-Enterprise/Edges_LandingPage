@@ -9,6 +9,7 @@ import {
   RefreshCw,
   CreditCard,
   ChevronDown,
+  Gift,
 } from "lucide-react";
 
 interface TransactionHistoryProps {
@@ -40,16 +41,21 @@ export default function TransactionHistory({
   // `global_transactions` is constrained to credit/debit/purchase/refund while
   // the UI (and the legacy reseller tables) speak deposit/withdrawal. Purchases
   // are written as `debit` with a PUR- reference, so the raw type alone cannot
-  // tell a purchase from a withdrawal.
+  // tell a purchase from a withdrawal. Bonus rows are credits and debits that
+  // are neither: the award is not a deposit, and the part later spent is not a
+  // withdrawal.
   const classifyType = (tx: any): string => {
     const type = tx?.type;
+    const reference = String(tx?.reference ?? "");
+    const description = String(tx?.description ?? "");
+    if (reference.startsWith("BONUS") || tx?.metadata?.kind === "bonus_spend") {
+      return "bonus";
+    }
     if (type === "credit") return "deposit";
     if (type === "deposit" || type === "purchase" || type === "refund") {
       return type;
     }
     if (type === "commission") return "commission";
-    const reference = String(tx?.reference ?? "");
-    const description = String(tx?.description ?? "");
     if (reference.startsWith("PUR-") || /purchase/i.test(description)) {
       return "purchase";
     }
@@ -63,6 +69,7 @@ export default function TransactionHistory({
       purchase: ShoppingBag,
       refund: RefreshCw,
       commission: CreditCard,
+      bonus: Gift,
     };
     const Icon = icons[type] || ShoppingBag;
     return Icon;
@@ -75,6 +82,7 @@ export default function TransactionHistory({
       purchase: "#F59E0B",
       refund: "#3B82F6",
       commission: "#8B5CF6",
+      bonus: "#A855F7",
     };
     return colors[type] || "var(--muted)";
   };
@@ -96,6 +104,7 @@ export default function TransactionHistory({
       purchase: t?.purchase || "Purchase",
       refund: t?.refund || "Refund",
       commission: t?.commission || "Commission",
+      bonus: t?.bonus || "Bonus",
     };
     return labels[type] || type;
   };

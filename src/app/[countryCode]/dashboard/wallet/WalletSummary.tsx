@@ -11,6 +11,12 @@ interface WalletSummaryProps {
     status: string;
   };
   transactions?: any[];
+  totals?: {
+    total_deposits?: number;
+    total_withdrawals?: number;
+    total_spent?: number;
+    transaction_count?: number;
+  } | null;
   currencySymbol: string;
   translations: any;
 }
@@ -18,6 +24,7 @@ interface WalletSummaryProps {
 export default function WalletSummary({
   wallet,
   transactions = [],
+  totals,
   currencySymbol,
   translations,
 }: WalletSummaryProps) {
@@ -43,14 +50,21 @@ export default function WalletSummary({
     String(tx?.reference ?? "").startsWith("PUR-") ||
     /purchase/i.test(String(tx?.description ?? ""));
 
+  // Prefer the whole-ledger totals from the server. The local sums are a
+  // fallback for the case where the RPC is unavailable, and they only cover
+  // the 50 rows the page fetched, so they under-report on a busy store.
   const stats = {
-    total_deposits: sumOf(
-      (tx) => !isPurchase(tx) && (tx.type === "credit" || tx.type === "deposit"),
-    ),
-    total_withdrawals: sumOf(
-      (tx) => !isPurchase(tx) && (tx.type === "debit" || tx.type === "withdrawal"),
-    ),
-    total_spent: sumOf(isPurchase),
+    total_deposits:
+      totals?.total_deposits ??
+      sumOf(
+        (tx) => !isPurchase(tx) && (tx.type === "credit" || tx.type === "deposit"),
+      ),
+    total_withdrawals:
+      totals?.total_withdrawals ??
+      sumOf(
+        (tx) => !isPurchase(tx) && (tx.type === "debit" || tx.type === "withdrawal"),
+      ),
+    total_spent: totals?.total_spent ?? sumOf(isPurchase),
   };
 
   const summaryCards = [
