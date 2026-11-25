@@ -41,6 +41,7 @@ interface UseStorePurchaseArgs {
   isStoreOwner: boolean;
   resellerId: string;
   hasTransactionPin: boolean | null;
+  refreshPinStatus: () => Promise<{ hasPin: boolean; error?: string }>;
   config: CountryConfig;
   onPinSet: () => void;
   onPurchased: () => void | Promise<void>;
@@ -52,6 +53,7 @@ export function useStorePurchase({
   isStoreOwner,
   resellerId,
   hasTransactionPin,
+  refreshPinStatus,
   config,
   onPinSet,
   onPurchased,
@@ -87,7 +89,10 @@ export function useStorePurchase({
         return;
       }
       setSelectedPlan(product);
-      setIsCreatingPin(hasTransactionPin === false);
+      // `null` means the status lookup has not settled. Treat that as "create"
+      // so the modal prompts for a new PIN rather than implying one exists;
+      // handlePurchase re-reads the real status before saving.
+      setIsCreatingPin(hasTransactionPin !== true);
       // The destination flow already collected the number, so it is carried
       // into the confirm modal rather than asked for twice.
       setPurchasePhone(phone ?? "");
@@ -232,7 +237,24 @@ export function useStorePurchase({
     // The customer path must go through a server action: `global_customers`
     // RLS grants nothing to the customer's own account, so the browser client
     // updated 0 rows and swallowed the error.
-    if (isCreatingPin) {
+    //
+    // The status is re-read here instead of trusting `isCreatingPin`, which is
+    // derived from state that is still null until the status lookup settles:
+    // a buy started before it landed was treated as "already has a PIN", the
+    // save was skipped, and the orchestrator rejected it with "No transaction
+    // PIN found" - exactly the retry loop this flow must not have.
+    let hasPin = hasTransactionPin === true;
+    if (!hasPin) {
+      const status = await refreshPinStatus();
+      if (status.error) {
+        setPurchaseError("Could not check your transaction PIN. Please try again.");
+        setPurchaseLoading(false);
+        return;
+      }
+      hasPin = status.hasPin;
+    }
+
+    if (!hasPin) {
       if (isStoreOwner) {
         const { error: pinError } = await supabase
           .from("global_reseller_applications")
@@ -252,6 +274,7 @@ export function useStorePurchase({
           return;
         }
       }
+      await refreshPinStatus();
     }
 
     const {
@@ -334,6 +357,8 @@ export function useStorePurchase({
     isCreatingPin,
     isStoreOwner,
     resellerId,
+    hasTransactionPin,
+    refreshPinStatus,
     config,
     onPinSet,
     onPurchased,

@@ -88,6 +88,24 @@ export function useStoreCustomerAuth(
     };
   }, [loggedIn, isStoreOwner, resellerId]);
 
+  // Re-read the PIN status on demand and publish it. The purchase flow calls
+  // this at confirm time: the effect above settles asynchronously, so a buy
+  // started first can still see `null`, and after a PIN is saved the state
+  // must be refreshed or the next purchase asks for a new PIN again.
+  //
+  // `error` is reported separately from `hasPin`: a failed lookup must not be
+  // read as "no PIN", or the purchase would overwrite a PIN that already
+  // exists with whatever was typed.
+  const refreshPinStatus = useCallback(async (): Promise<{
+    hasPin: boolean;
+    error?: string;
+  }> => {
+    const result = await getCurrentCustomerPinStatus(resellerId, isStoreOwner);
+    if (result.error) return { hasPin: false, error: result.error };
+    setHasTransactionPin(result.hasPin);
+    return { hasPin: result.hasPin };
+  }, [resellerId, isStoreOwner]);
+
   const switchAuthMode = useCallback((mode: AuthMode) => {
     setAuthMode(mode);
     setLoginError("");
@@ -188,5 +206,6 @@ export function useStoreCustomerAuth(
     handleLogin,
     handleLogout,
     hasTransactionPin,
+    refreshPinStatus,
   };
 }

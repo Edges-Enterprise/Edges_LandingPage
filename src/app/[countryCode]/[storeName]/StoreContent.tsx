@@ -77,8 +77,11 @@ export default function StoreContent({
     isStoreOwner: auth.isStoreOwner,
     resellerId: storeData.application.id,
     hasTransactionPin: auth.hasTransactionPin,
+    refreshPinStatus: auth.refreshPinStatus,
     config,
-    onPinSet: () => {},
+    onPinSet: () => {
+      void auth.refreshPinStatus();
+    },
     onPurchased: wallet.refreshWalletData,
     onRequireLogin: () => setLoginOpen(true),
   });
