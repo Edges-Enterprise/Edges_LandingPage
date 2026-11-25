@@ -9,6 +9,7 @@ import {
   digitsOnly,
   hasCountryPrefix,
   stripInternationalPrefix,
+  toLocalDigits,
   toMsisdn,
   toNationalDigits,
 } from "./normalize.ts";
@@ -58,4 +59,27 @@ Deno.test("normalize: a leading trunk 0 forces the local interpretation", () => 
 Deno.test("normalize: no dial code leaves the digits as typed", () => {
   assert.equal(toMsisdn("08036076543", ""), "8036076543");
   assert.equal(toMsisdn("2348036076543", ""), "2348036076543");
+});
+
+Deno.test("normalize: every Nigerian form gives the same local dialling number", () => {
+  // Lizzysub rejects the national form with "The phone must be 11 digits." and
+  // needs the trunk 0, so all four shapes a customer may type must land on the
+  // same 11-digit local number - otherwise a valid number is un-buyable.
+  for (const form of [
+    "+2348036076543",
+    "2348036076543",
+    "08036076543",
+    "8036076543",
+    "0803 607 6543",
+    "+234 803 607 6543",
+  ]) {
+    assert.equal(toLocalDigits(form, NG), "08036076543", `local of ${form}`);
+  }
+});
+
+Deno.test("normalize: local digits respect the country trunk prefix", () => {
+  assert.equal(toLocalDigits("788123456", RW), "0788123456");
+  assert.equal(toLocalDigits("0788123456", RW), "0788123456");
+  // A country whose local form carries no trunk prefix stays bare.
+  assert.equal(toLocalDigits("788123456", RW, ""), "788123456");
 });

@@ -65,3 +65,21 @@ export function toNationalDigits(input: string, dialCode: string): string {
   if (dial && msisdn.startsWith(dial)) return msisdn.slice(dial.length);
   return msisdn;
 }
+
+/**
+ * Local dialling form: the national digits with the trunk prefix restored
+ * ("8036076543" -> "08036076543").
+ *
+ * Some provider APIs want the number the subscriber would dial themselves
+ * rather than the international form. Lizzysub rejects a Nigerian national
+ * number ("The phone must be 11 digits.") because it expects the trunk "0";
+ * sending it through `toLocalDigits` is what makes that call valid.
+ */
+export function toLocalDigits(
+  input: string,
+  dialCode: string,
+  trunkPrefix = "0",
+): string {
+  const national = toNationalDigits(input, dialCode);
+  return trunkPrefix ? trunkPrefix + national : national;
+}

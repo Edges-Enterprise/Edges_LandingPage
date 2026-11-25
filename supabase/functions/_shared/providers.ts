@@ -31,6 +31,8 @@
 // 1.d.iv.zi). Zendit: handled by the zendit-webhook edge function
 // (branch 1.d.iv.zo). See HANDOVER.md Task 4.
 
+import { toLocalDigits } from "./phone/normalize.ts";
+
 export type PurchaseCategory = "data" | "airtime";
 
 export interface ProviderPurchaseParams {
@@ -94,11 +96,17 @@ async function purchaseLizzysub(
       ? "https://lizzysub.com/api/topup"
       : "https://lizzysub.com/api/data";
 
+  // Lizzysub wants the number as the subscriber dials it (NG trunk "0"
+  // included) and rejects the bare national form with "The phone must be 11
+  // digits." Callers pass national digits, so restore the trunk prefix here;
+  // this provider is Nigeria-only, hence the hardcoded dial code.
+  const localPhone = toLocalDigits(params.phoneNumber, "234");
+
   const body =
     params.category === "airtime"
       ? {
           network: networkId,
-          phone: params.phoneNumber,
+          phone: localPhone,
           plan_type: "VTU",
           bypass: false,
           amount: params.amount,
@@ -106,7 +114,7 @@ async function purchaseLizzysub(
         }
       : {
           network: networkId,
-          phone: params.phoneNumber,
+          phone: localPhone,
           data_plan: params.providerPlanId,
           bypass: false,
           "request-id": params.requestId,
