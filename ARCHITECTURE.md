@@ -72,18 +72,18 @@ purchase orchestration described in this file. The Supabase backend it drives
 (`jjyyfaxcwanrmiipzkoj`) is shared with the legacy mobile client, and the
 functions that matter for money live in this repo's `supabase/functions/`.
 
-Feature status, verified live on 2026-11-15:
+Feature status, verified live on 2026-11-25:
 
 | Capability | State | Evidence |
 |---|---|---|
 | Multi-tenant storefronts | **Working** | `/ng/belovedtopup` server-renders its plans and a Buy button |
 | Customer login with aliased email | **Working** | Real login as `beloveddavid80@gmail.com`, mapped to `…+belovedtopup1@gmail.com` |
-| Reseller dashboard login | **Working** | `adegbiledavid83@gmail.com` → `/ng/dashboard` |
+| Reseller dashboard login | **Working** | `adegbiledavid83@gmail.com` → `/ng/dashboard` via `getAuthEmail` alias resolution; 2 customers, 14 orders rendered |
 | Catalogue + per-store pricing | **Working** | 37 plans returned (30 NG, 7 GH) |
 | First-time customer PIN creation | **Working** (fixed 2026-11-24, `c0c0cfd`) | PIN `9034` persisted to `global_customers` from the storefront |
 | Transaction-PIN enforcement | **Working** | Wrong PIN → *"Invalid transaction PIN"*; correct PIN proceeds |
-| Wallet debit → provider delivery | **Unverified end-to-end** | Reaches the provider, then *"Insufficient balance"*; demo wallets are near-empty |
-| Lizzysub 11-digit phone fix | **Fixed in source, NOT deployed** | `_shared/providers.ts` sends the local form; the live function is stale |
+| Wallet debit → provider delivery | **Working** (2026-11-25) | Order `26768edf` completed: ₦90 debited, MTN 75MB delivered to `08020530614`, ₦17 profit recorded |
+| Lizzysub 11-digit phone fix | **Deployed** (v31, 2026-11-25T23:40Z) | Was the sole cause of 14 consecutive failures; first success came immediately after redeploy |
 | Xixapay sweeper (admin) | Working per `HANDOVER.md` | Task 11; not browser-verified by this session |
 | Legacy Android app | **Not available in this org** | `Edges-Network-App` is README-only |
 
