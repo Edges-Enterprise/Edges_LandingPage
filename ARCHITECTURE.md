@@ -9,52 +9,99 @@ to be read end-to-end first.
 > schema, i18n and test commits that follow it), and from the live database
 > (`jjyyfaxcwanrmiipzkoj`) queried directly. Facts read from the repo or the
 > database are stated plainly; anything inferred is marked _(inferred)_.
+> §1.0 was added and §1.1–1.3 re-verified against the GitHub API on 2026-11-15.
 
 ---
 
 ## 1. Which repository is the latest and most feature-complete?
 
-This is the question that gets answered wrongly most often, because the
-organisation has two first-party product repos that are both actively
-developed and share one database. The honest answer depends on what "latest"
-means, so both axes are given.
+### 1.0 About the `edges_network` repository name — read this first
+
+The task instruction "clone `Edges-Enterprise/edges_network`" does not resolve
+to a repository. Verified on 2026-11-15:
+
+| Check | Result |
+|---|---|
+| `GET /repos/Edges-Enterprise/edges_network` with token | `404 Not Found` |
+| Same URL, unauthenticated | `404 Not Found` |
+| `GET /orgs/Edges-Enterprise/repos?type=all` | 7 repos, **0 private** |
+| GitHub code search for `edges_network` in the org | 1 hit: `Edges-Network-App` (name match only) |
+
+`edges_network` is the **`name` field in this repo's `package.json`**
+(`"name": "edges_network"`, `"version": "0.1.1"`). It is the npm package name
+of *this* project, not a separate GitHub repository.
+
+Two consequences follow, and both matter for handover:
+
+1. **Anything that says "work on the mobile app in the `edges_network` repo"
+   is stale.** The mobile repo referenced throughout `HANDOVER.md` is
+   `Erudite885/reseller-app` (see §1.3), which is outside the
+   `Edges-Enterprise` org. If a private `edges_network` repo does exist, this
+   token cannot see it, because it can see 0 private repos; access would have
+   to be granted explicitly.
+2. **`Edges-Network-App` is not a source repo.** Its root contains exactly one
+   file, `README.md`, which is marketing copy for the Android app ("Nigeria's
+   #1 trusted platform…"). It holds no code and cannot be built.
 
 ### 1.1 By date of last commit
 
-| Repo | Last push | Commits | Language | Role |
+| Repo | Last push | Language | Role | Status |
 |---|---|---|---|---|
-| **`Edges_LandingPage`** (this repo) | **2026-11-21** | 11 on `main` (shallow clone) | TypeScript / Next.js 16 | Multi-tenant reseller platform, storefronts, backend orchestration |
-| `edges_network` | 2026-11-19 | 494 | TypeScript / Expo React Native | Legacy single-country (Nigeria) mobile app |
-| `Edges-Network-App` | 2025-10-07 | — | — | APK release/discovery repo, no source |
-| `B-PAY` | 2026-01-08 | — | TypeScript | Separate fintech app |
-| `Bimbo-Data-App` | 2026-02-28 | — | TypeScript | Separate small data app |
+| **`Edges_LandingPage`** (this repo) | **2026-11-25** | TypeScript / Next.js 16 | Multi-tenant reseller platform: storefronts, dashboard, wallet, purchases, backend orchestration | **Latest. 47 commits on `main`, active development** |
+| `B-PAY` | 2026-01-08 | TypeScript / Expo | Separate fintech/wallet app with its own Supabase schema | Real code (`yarn` zero-install), ~160 MB |
+| `Edges-Network-App` | 2025-10-07 | — | Android app marketing / release pointer | **Stub — `README.md` only, no source** |
+| `localsend2` | 2026-02-22 | — | Fork of `localsend/localsend` | Unrelated to Edges product |
+| `editmovie2` | 2026-02-01 | — | Fork of `fmhy/edit` | Unrelated to Edges product |
+| `cal.com` | 2026-02-10 | — | Fork of `calcom/cal.diy` | Unrelated to Edges product |
+| `postiz-app` | 2025-07-17 | — | Fork of `gitroomhq/postiz-app` | Unrelated to Edges product |
 
-**`Edges_LandingPage` is the most recently updated repo** and the one where
-active feature work is landing.
+Read from the GitHub API on 2026-11-15 (`pushed_at`, `language`, root-contents
+listing, fork/parent metadata). The four forked repos are third-party projects
+mirrored into the org; they share no code with the Edges product.
+
+**`Edges_LandingPage` is the most recently updated repo** *and* the one where
+active feature work is landing. `HANDOVER.md` records its history through Task
+11 (the Xixapay sweeper); the newest commits concern the customer purchase flow,
+diagnosed and fixed on 2026-11-24/25.
 
 ### 1.2 By working features
 
-`Edges_LandingPage` is also the most feature-complete for the reseller/multi-tenant
-product: it holds the storefront, the reseller dashboard, publishing, wallet,
-catalogue, FX and the purchase orchestration described in this file. The
-Supabase backend it drives is the same one `edges_network` uses, and the
+`Edges_LandingPage` is the only repo with a working, end-to-end reseller
+platform: storefront, dashboard, publishing, wallet, catalogue, FX and the
+purchase orchestration described in this file. The Supabase backend it drives
+(`jjyyfaxcwanrmiipzkoj`) is shared with the legacy mobile client, and the
 functions that matter for money live in this repo's `supabase/functions/`.
 
-**`edges_network` is the larger and older codebase** (494 commits since 2023)
-and remains the shipped Android app, but it is the legacy single-country
-product. It is not where new platform features are being added.
+Feature status, verified live on 2026-11-15:
+
+| Capability | State | Evidence |
+|---|---|---|
+| Multi-tenant storefronts | **Working** | `/ng/belovedtopup` server-renders its plans and a Buy button |
+| Customer login with aliased email | **Working** | Real login as `beloveddavid80@gmail.com`, mapped to `…+belovedtopup1@gmail.com` |
+| Reseller dashboard login | **Working** | `adegbiledavid83@gmail.com` → `/ng/dashboard` |
+| Catalogue + per-store pricing | **Working** | 37 plans returned (30 NG, 7 GH) |
+| First-time customer PIN creation | **Working** (fixed 2026-11-24, `c0c0cfd`) | PIN `9034` persisted to `global_customers` from the storefront |
+| Transaction-PIN enforcement | **Working** | Wrong PIN → *"Invalid transaction PIN"*; correct PIN proceeds |
+| Wallet debit → provider delivery | **Unverified end-to-end** | Reaches the provider, then *"Insufficient balance"*; demo wallets are near-empty |
+| Lizzysub 11-digit phone fix | **Fixed in source, NOT deployed** | `_shared/providers.ts` sends the local form; the live function is stale |
+| Xixapay sweeper (admin) | Working per `HANDOVER.md` | Task 11; not browser-verified by this session |
+| Legacy Android app | **Not available in this org** | `Edges-Network-App` is README-only |
+
+The useful conclusion: **work on the platform → `Edges_LandingPage`.** There is
+no other first-party source repo in this org to work in.
 
 ### 1.3 What this means in practice
 
 - **Work on the platform, storefront, dashboard, wallet or backend → this repo.**
-- **Work on the legacy Nigerian mobile app → `edges_network`.**
-- Both share Supabase project `jjyyfaxcwanrmiipzkoj`, so **schema changes made
-  here affect the mobile app**. This is the single most important operational
-  fact in this document; see §6.
+- **The mobile app is `Erudite885/reseller-app`**, outside this org, per
+  `HANDOVER.md` §"Repos in scope". It cannot be cloned from `Edges-Enterprise`.
+- That mobile client talks to the same Supabase project (`jjyyfaxcwanrmiipzkoj`),
+  so **schema changes made here affect the mobile app**. This is the single most
+  important operational fact in this document; see §6.
 
-> Caution: an older `ARCHITECTURE.md` in `edges_network` argues that
-> `edges_network` is the latest repo. That was written on 2026-11-15, when it
-> was true. It is no longer true as of 2026-11-21.
+> Caution: older notes (including an `ARCHITECTURE.md` in the mobile repo)
+> describe `edges_network` as the latest repo and the place to do mobile work.
+> That repo is not reachable from this org (§1.0). Treat those notes as stale.
 
 ---
 
@@ -362,7 +409,7 @@ Collected here so they are not rediscovered each session.
 5. **`_shared/` changes need multi-function redeploys** (§7); it is easy to fix
    one function and leave a stale bundle on another.
 6. **Two repos share one database** (§1.3). A schema change here can break the
-   legacy `edges_network` mobile app.
+   legacy mobile client (`Erudite885/reseller-app`).
 7. **13 empty migration placeholders** (§6.2) make the history look fuller than
    it is.
 8. **The purchase refusal message is deliberately vague** ("Service temporarily

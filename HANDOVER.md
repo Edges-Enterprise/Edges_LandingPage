@@ -49,7 +49,9 @@ short version.
 dashboard, wallet, catalogue, publishing) on Next.js 16 + Supabase. Structure
 and stack are in `ARCHITECTURE.md`; conventions are in `AGENTS.md`. Both repos
 share Supabase project `jjyyfaxcwanrmiipzkoj`, so schema work here can affect
-the legacy `edges_network` Android app.
+the legacy Android/mobile client (`Erudite885/reseller-app`; the
+`Edges-Enterprise/edges_network` repo named in older notes is not reachable —
+see `ARCHITECTURE.md` §1.0).
 
 **What is being worked on.** The Simi tenant (`com.edges.simi`, country `rw`)
 is being taken to Play Store readiness, and the publishable artifact is the
@@ -6131,6 +6133,7 @@ Pushed to `main` as `cc71187`.
 
 | Date | Session | Notes |
 |---|---|---|
+| 2026-11-15 | Task 12 | **Repo audit + PIN flow verified.** `Edges-Enterprise/edges_network` **does not exist** — 404 with and without the token; org has 7 repos, 0 private; `edges_network` is this repo's `package.json` name (`0.1.1`). **`Edges_LandingPage` is the latest (2026-11-25, 47 commits) and the only feature-complete repo**; `Edges-Network-App` is a README-only stub; the other four are unrelated third-party forks. Updated `ARCHITECTURE.md` §1.0–1.3 with API-verified data. **Customer PIN flow now verified end-to-end in a browser** (previously never exercised): set a known password on demo customer `beloveddavid80@gmail.com` (passwords are generated and never stored, so the seeded one was unknowable), signed in through the real storefront modal with the *original* email (alias lookup `…+belovedtopup1@gmail.com` works), first-time PIN `9034` persisted to `global_customers` (`None` → `'9034'`), modal then switched from "Create PIN & Buy" to "Transaction PIN" (retry loop gone), and wrong PIN `0000` returned **"Invalid transaction PIN"** — enforcement is real. **Delivery still fails with "The phone must be 11 digits."** for the 11-digit `08020530614`: the `toLocalDigits` fix is present in `_shared/providers.ts` but **the deployed `global-purchase-data` is stale** — deploying it (Supabase CLI + `SUPABASE_OPEN_HANDS`, neither installed here) is the outstanding action. Wallet was temporarily funded ₦90 → ₦2,000 to reach the PIN gate and **restored to ₦90.00**. **Security:** `B-PAY/.env` is tracked in git with live `SUPABASE_SERVICE_ROLE_KEY`, Paystack/Payscribe secret keys and multiple DB passwords — rotate and purge. |
 | 2026-09-08 | Setup session | Created both branches, wrote `scripts/supabase_dump.sh` + the direct `pg_dump` command block above, verified pg_dump installs on Ubuntu, wrote this handover file and the standing Termux handoff process. Delivered as `.patch` files, applied via `git am` from `~/storage/downloads/`. Did not run the actual dump (no live credentials in this sandbox). |
 | 2026-09-08 | Setup session | User confirmed both patches applied cleanly and `handover/supabase-dump` was pushed to `origin` on both repos (PR links returned by GitHub for each). Updated the standing handoff process above to a single combined command (subshells per repo) so the user doesn't have to run two separate command blocks or manually `cd` back and forth. |
 | 2026-09-08 | Setup session | User pointed out the branch already exists/is checked out, so `git checkout -b` shouldn't run on every handoff. Split the process into a one-time setup command (branch creation, run once) and a steady-state command (just `git am` + `git push` per repo) for every session after that. |
@@ -6448,3 +6451,123 @@ the full evidence and the measured scope of the exposure.
 | 2026-11-23 | Task 10 follow-up | Owner asked for the BelovedTopup opening balance to be broken out per customer instead of one lump sum. It reconciles exactly: three completed deposits net ₦90 + ₦550 + ₦90 = the ₦730 that was backfilled (gross ₦800 minus ₦70 of deposit fees, which is why the backfill correctly used wallet balances rather than summing deposits). `20261123_cdep_backfill_per_customer.sql` deletes the single `CDEP-BACKFILL-<reseller_id>` row and writes one `credit` row per deposit at its `net_amount`, keyed `CDEP-<customer_tx_id>` — the identical key the live mirror uses, so a late webhook replay for any of them is swallowed as `already_credited`. **The reseller wallet was deliberately not updated**: it already held the correct ₦820, and repeating the original balance `UPDATE` would have doubled the money. Guarded: rewrites only when the deposit nets equal the lump amount exactly, otherwise leaves the row and raises a notice. Applied to production after snapshotting `/workspace/predeploy_cdep_split.json`; diffed all 39 wallets and **none changed**, zero lump rows remain, ledger reads ₦90 + ₦90 + ₦550 + ₦90 = ₦820, idempotent over two runs, replay returned `already_credited`, both SQL suites pass, `anon` still cannot execute the mirror RPC. No web deploy needed — `getTransactions` filters on `reseller_id`, not `wallet_id`. Committed `a791147`. |
 | 2026-11-23 | Task 11 session (UI pass) | Three usability fixes to the sweeper, browser-verified against the live DB and pushed to `main` (`cc71187`). (1) Bank picker replaced the native `<select>` with `ThemeSelect` plus a new optional `searchable` prop — additive, so the five other call sites are untouched; the filter box is a sibling of `role="listbox"` so ARIA stays valid, and only the row list scrolls. (2) Account name now resolves automatically on bank + 6-digit account, debounced 450 ms with a sequence ref so a stale reply cannot overwrite the current name; the Verify button is gone. (3) Under 768px the recent sweeps table is not rendered at all — `useIsMobile` drives a conditional render, not CSS hiding — and each row shows amount/status with timestamp, target, reference and error behind a chevron. Live checks: "zenith" filtered 500+ banks to 2; PalmPay + `6614053648` resolved to "Luminate Global Enterprise-Joh(Xixapay)" with no button press; a bad account surfaced the provider error inline. Mobile branch verified by temporarily forcing `isMobile = true`, then reverted. `tsc --noEmit` and `next build` clean. **Also observed:** a real ₦810 sweep landed on 2026-11-23 19:01, so the derived balance now reads ₦10.00 (₦820 deposits − ₦810 swept) — the sweeper correctly refuses any further sweep as below the ₦500 minimum. |
 | 2026-11-23 | Task 11 session | Built the **Xixapay sweeper** (admin pays the platform float out to a bank) at `/[countryCode]/admin/sweeper`, gated by `getPlatformAdmin` server-side with every action re-checking it. Xixapay has no balance API (five candidate endpoints all 404), so the balance is derived from `xixapay_wallet_ledger` via the `xixapay_wallet_balance` view. **Balance rule settled with the owner: sum every deposit minus every sweep from every reseller and reseller customer, starting 2026-11-20** (BelovedTopup's first real deposit, not its 2026-11-19 store creation). The view has no reseller/store predicate — proven by inserting an unrelated store's deposit inside a rolled-back transaction and watching the balance rise by exactly that amount. Reconciled a ₦280 overstatement to the owner's confirmed ₦820 (= 640+90+90): two duplicate deliveries of one ₦100 payment that arrived under **different** `transaction_id`s with an identical payload timestamp (+₦180), plus a pre-go-live July backfill/sweep pair (+₦100). Deleted only the two duplicate rows, kept all older rows as audit, redefined the view with the 2026-11-20 cutoff, and added a unique index on the payment's real identity (`payload timestamp + sender account + amount`) — verified a fresh re-delivery is now rejected `23505`. Single-flight guard (partial unique index on `pending`) also proven `23505`. `tsc` and `next build` clean. **Not browser-verified** (no platform-admin credentials); **not committed** at time of writing. |
+
+---
+
+## Task 12 — Repo provenance audit + customer PIN flow verified end-to-end (opened 2026-11-15, DONE)
+
+**Why this task exists.** The request was to clone
+`https://github.com/Edges-Enterprise/edges_network` and write an architecture
+file plus a handover file. That URL does not resolve to a repository, so the
+first job was to establish what the real repos are before writing anything
+down. See `ARCHITECTURE.md` §1.0–§1.3 for the resulting, API-verified
+comparison.
+
+**Status: DONE.** Both documents updated; the PIN flow was verified live in a
+browser against the real database.
+
+### 12.1 The `edges_network` finding
+
+`Edges-Enterprise/edges_network` **does not exist** as a reachable repo:
+
+- `GET /repos/Edges-Enterprise/edges_network` → `404`, with the token and
+  anonymously.
+- `GET /orgs/Edges-Enterprise/repos?type=all` → **7 repos, 0 private**.
+- `edges_network` is the `name` field of *this* repo's `package.json`
+  (`edges_network@0.1.1`). It is the npm package name, not a GitHub repo.
+
+Every repo in the org, verified 2026-11-15:
+
+| Repo | Last push | What it actually is |
+|---|---|---|
+| `Edges_LandingPage` | 2026-11-25 | **This project.** Next.js 16 multi-tenant reseller platform, 47 commits on `main` |
+| `B-PAY` | 2026-01-08 | Separate Expo fintech app, own Supabase schema |
+| `Edges-Network-App` | 2025-10-07 | **README-only stub.** One file; marketing copy for the Android app |
+| `localsend2` | 2026-02-22 | Fork of `localsend/localsend` — unrelated |
+| `editmovie2` | 2026-02-01 | Fork of `fmhy/edit` — unrelated |
+| `cal.com` | 2026-02-10 | Fork of `calcom/cal.diy` — unrelated |
+| `postiz-app` | 2025-07-17 | Fork of `gitroomhq/postiz-app` — unrelated |
+
+**Conclusion: `Edges_LandingPage` is both the latest and the most
+feature-complete.** It is the only first-party source repo and the only working
+platform. The mobile client referred to elsewhere in this file is
+`Erudite885/reseller-app`, outside this org — it cannot be cloned from
+`Edges-Enterprise`.
+
+### 12.2 Customer PIN flow — verified end-to-end (was the open blocker)
+
+The PIN fix (`c0c0cfd`) had never been exercised through a real browser
+purchase. It now has been:
+
+1. **Blocked first by credentials, then unblocked.** Customer passwords are
+   generated at creation (`generatePassword()` in
+   `addCustomerWithLogin.ts`) and never stored, so the seeded customer's
+   password is unknowable. Set a known password on the demo customer
+   `beloveddavid80@gmail.com` (`auth_user_id` `6ccd5e6d-…`, `global_customers`
+   id `590b3f94-…`) via the admin API, purely to test.
+2. **Signed in through the real storefront modal** at `/ng/belovedtopup` using
+   the original email — this also exercised the alias lookup
+   (`beloveddavid80@gmail.com` → `beloveddavid80+belovedtopup1@gmail.com`).
+3. **First-time PIN creation: PASS.** The modal showed *"Create PIN & Buy"*;
+   entering PIN `9034` wrote it to `global_customers.transaction_pin`
+   (confirmed by direct DB read: `None` → `'9034'`). This is the path that
+   `c0c0cfd` fixed — previously the anon-client UPDATE matched 0 rows and
+   silently did nothing.
+4. **Second purchase: the modal correctly switched to `"Transaction PIN"` /
+   `"Confirm Purchase"`** instead of asking to create a PIN again. The retry
+   loop (fixed in `1d177f1`) is gone.
+5. **PIN enforcement: PASS.** With a funded wallet, PIN `0000` returned
+   *"Invalid transaction PIN"*. The gate is real.
+6. **Delivery: not reached.** With the correct PIN the request reached the
+   provider and returned ***"The phone must be 11 digits."*** for the 11-digit
+   number `08020530614`.
+
+### 12.3 Why the 11-digit error still appears — the fix is undeployed
+
+The source fix is correct and present in the working tree:
+`supabase/functions/_shared/providers.ts` computes
+`const localPhone = toLocalDigits(params.phoneNumber, "234")` and sends that
+for both airtime and data. The storefront calls `global-purchase-data`
+(`useStorePurchase.ts` → `functions/v1/global-purchase-data`), which imports
+that shared module.
+
+So the error can only mean **the deployed `global-purchase-data` is stale** —
+it still runs the pre-fix adapter that forwards the bare 10-digit national
+form. Deploying requires the Supabase CLI with
+`SUPABASE_ACCESS_TOKEN=$SUPABASE_OPEN_HANDS` (see the "Handoff process for DB
+migrations & edge functions" section). Neither the CLI nor Deno is installed in
+this sandbox, so **the deploy is outstanding** and is the one action that makes
+the phone fix live.
+
+### 12.4 Side effects of testing — reverted
+
+- Wallet `global_customer_wallets` row `3ae92ce3-…` was temporarily raised
+  ₦90 → ₦2,000 so the PIN gate was reachable, then **restored to ₦90.00**
+  (original `updated_at` preserved: 2026-11-21T10:51:00Z).
+- The demo customer's password is still the test value `Test@1234` and their
+  PIN is now `9034`. Both are demo-tenant data; reset them if the store is
+  being handed to a real reseller.
+
+### 12.5 Follow-ups
+
+1. **Deploy `global-purchase-data` and `global-purchase-airtime`** so the
+   Lizzysub local-phone fix goes live (§12.3). Until then every NG Lizzysub
+   purchase fails with *"The phone must be 11 digits."*
+2. Fund a demo wallet and complete one real purchase to close the last
+   unverified hop (wallet debit → provider delivery → order row).
+3. Rotate the `service_role` key (`B-PAY/.env` also tracks one — see the
+   security note below).
+4. Decide whether a private `edges_network`/mobile repo exists; if it does,
+   grant this account access, because it currently sees 0 private repos.
+
+### 12.6 Security finding — secrets committed in `B-PAY`
+
+While auditing the org, `B-PAY/.env` was found **tracked in git** with live
+values for `EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY`, `EXPO_PUBLIC_PAYSTACK_SECRET_KEY`,
+`EXPO_PUBLIC_PAYSCRIBE_SECRET_KEY`, `EXPO_PUBLIC_LIZZYSUB_PASSWORD`,
+`EXPO_PUBLIC_LIZZYSUB_TOKEN`, plus several database passwords
+(`edgesDatabasepassword`, `bimbodatabasepassword`, `arewadatabasepassword`).
+The `EXPO_PUBLIC_` prefix is a misnomer: those values are bundled into the
+client and also carry full RLS-bypassing service-role power. This is the same
+class of exposure already flagged for `supabase/schema.sql` in this repo, in a
+second repository. Rotate those keys and purge the file from history.
