@@ -6758,3 +6758,5 @@ Still open, all outside the agreed scope:
   but noise in `all`-mode stores.
 - The legacy `lizzy` table and the mobile app remain out of scope.
 - `supabase/edge-functions.json` is a point-in-time snapshot and is now stale.
+
+Code commit: `74e3816` (migration, sync branch, purchase guard, test).
