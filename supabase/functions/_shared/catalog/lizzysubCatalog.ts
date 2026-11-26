@@ -42,6 +42,7 @@ export interface LizzysubRejection {
 
 /**
  * Ids the owner asked us to hold back.
+ *   242          — 1MB for ₦50,000: a real provider plan, but not one we sell.
  *   312, 314-319 — Airtel COOPERATE GIFTING: "not all sims are eligible", so
  *                  the rule needs confirming with Lizzysub first.
  *   330          — 10MB for ₦500: no retail value.
@@ -52,6 +53,7 @@ export interface LizzysubRejection {
  * be withheld; do not add a rejection rule that catches ordinary plans.
  */
 const HELD_PLAN_IDS = new Set([
+  "242",
   "312",
   "314",
   "315",

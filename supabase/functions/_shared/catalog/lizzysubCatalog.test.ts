@@ -89,6 +89,16 @@ const held = normalizeLizzysubPlan(
 assert.ok("rejected" in held);
 assert.match(held.rejected.reason, /held/);
 
+const blocked = normalizeLizzysubPlan(
+  plan({
+    plan_id: "242",
+    name: "1.0000000MB COOPERATE GIFTING = ₦50,000.00 7days",
+    amount: 50000,
+  }),
+);
+assert.ok("rejected" in blocked);
+assert.match(blocked.rejected.reason, /held/);
+
 const noSize = normalizeLizzysubPlan(
   plan({ plan_id: "900", name: "COOPERATE GIFTING = ₦500.00 7days", amount: 500 }),
 );

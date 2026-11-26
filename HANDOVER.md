@@ -6745,17 +6745,33 @@ the whole catalogue. Deployed to `global-purchase-data`,
 size/validity parsing, the held list and test-plan rejection. Run with
 `node --experimental-strip-types` (no Deno runner in this environment).
 
+**6. Follow-up, same day (owner asked for BelovedTopup in scope and 242 blocked).**
+`supabase/migrations/20261126_lizzysub_belovedtopup.sql`:
+
+- BelovedTopup (created 2026-11-19) re-pointed 152→332 (₦34,600) and 251→327
+  (₦306), and its three below-cost prices were recomputed from the markup the
+  config already declared rather than from a guessed margin: 72 → ₦1,192
+  (base 960 + ₦232), 263 → ₦345 and 281 → ₦585 (both 0% markup, so at cost).
+  Plan 72's hand-set ₦800 against a ₦960 cost was the one real jump.
+- 242 (1MB for ₦50,000) added to `HELD_PLAN_IDS` and deactivated. Confirmed by
+  re-running the sync: `offers_seen 225, plans_upserted 215,
+  plans_deactivated 0, offers_rejected 10, status ok`; 242 stays inactive
+  because it is never upserted, and it also fails the `last_seen_at` guard.
+
+Verified again through `global-store-catalog`: BelovedTopup returns 332 at
+₦34,600, 327 at ₦306, 72 at ₦1,192, 263 at ₦345, 281 at ₦585, with 152, 251 and
+242 absent; First Data no longer lists 242.
+
 Still open, all outside the agreed scope:
 
-- 14 enabled fixed-price configs in pre-2026-11-20 stores now sell below base
-  cost: Datamax 71/72/73/75/76/257, First Data 71/72/73/75/76, BelovedTopup
-  72/263/281. Each sale debits the reseller wallet by the difference.
+- 14 enabled fixed-price configs in stores the owner left out still sell below
+  base cost: Datamax 71/72/73/75/76/257, First Data 71/72/73/75/76, Mercy Data
+  295 (₦49 vs ₦50), Roseline 113 (₦73 vs ₦75). Each sale debits the reseller
+  wallet by the difference.
 - The `data` store (created 2026-11-05) carries selling prices in the millions
   (₦3,969,730 for a ₦1,920 plan) — likely a `bulkUpdatePlans` multiplier bug.
 - Airtel CG 312/314–319 stay held until eligibility is confirmed; remove the ids
   from `HELD_PLAN_IDS` to import them.
-- 242 (1MB for ₦50,000) is a genuine provider plan and is now active; harmless
-  but noise in `all`-mode stores.
 - The legacy `lizzy` table and the mobile app remain out of scope.
 - `supabase/edge-functions.json` is a point-in-time snapshot and is now stale.
 
