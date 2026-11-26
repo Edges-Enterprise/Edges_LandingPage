@@ -110,7 +110,7 @@ export async function processPurchase(
   let basePlanQuery = supabaseAdmin
     .from("global_base_plans")
     .select(
-      "id, provider, provider_plan_id, country_code, network, name, category, base_price, currency, price_type, range_min, range_max, range_increment, send_value, send_currency, zendit_fx",
+      "id, provider, provider_plan_id, country_code, network, name, category, base_price, currency, price_type, range_min, range_max, range_increment, send_value, send_currency, zendit_fx, last_seen_at",
     )
     .eq("provider_plan_id", providerPlanId)
     .eq("category", category)
@@ -150,6 +150,27 @@ export async function processPurchase(
 
   if (basePlanError || !basePlan) {
     return { success: false, error: "Plan not available", message: "Plan not available" };
+  }
+
+  // 2b. Refuse a plan the provider has not confirmed recently. Lizzysub
+  //     reassigns ids, so an id that no longer exists — or that now names a
+  //     different product — must fail closed instead of being sold.
+  //     global-catalog-sync stamps last_seen_at every four hours; the window is
+  //     deliberately wide so one missed run cannot stop sales, but narrow
+  //     enough to catch a drifting catalogue before a customer does.
+  if (basePlan.provider === "lizzysub") {
+    const seenAt = basePlan.last_seen_at
+      ? Date.parse(basePlan.last_seen_at as string)
+      : NaN;
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    if (!Number.isFinite(seenAt) || Date.now() - seenAt > maxAgeMs) {
+      return {
+        success: false,
+        error: "Plan not available",
+        message:
+          "This plan is temporarily unavailable. Please choose another bundle.",
+      };
+    }
   }
 
   // 3. Resolve what this store sells and the plan's markup, the same way the

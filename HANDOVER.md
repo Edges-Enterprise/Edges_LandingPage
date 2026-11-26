@@ -6572,3 +6572,189 @@ The `EXPO_PUBLIC_` prefix is a misnomer: those values are bundled into the
 client and also carry full RLS-bypassing service-role power. This is the same
 class of exposure already flagged for `supabase/schema.sql` in this repo, in a
 second repository. Rotate those keys and purge the file from history.
+
+## Task 13 — Lizzysub catalog drift in `global_base_plans` (audit, 2026-11-26)
+
+**Status: audit only. No DB rows or code were changed.** The NG storefront and
+dashboard sell from `global_base_plans` (provider `lizzysub`) through
+`global_reseller_plan_configs`; that snapshot no longer matches the provider.
+
+### 13.1 How the live provider catalog was read
+
+- `POST https://lizzysub.com/api/login/verify/user` (`LIZZYSUB_USERNAME` /
+  `LIZZYSUB_PASSWORD`) → `token`. The account's `user.apikey` equals
+  `LIZZYSUB_FULFILLMENT_TOKEN`, so the dashboard and the app are one account.
+- `POST https://lizzysub.com/api/get/data/plans/{token}/adex`
+  `{"network":"1".."4","network_type":"GIFTING"|"SME"|"COOPERATE GIFTING"}`
+  → `{plan:[{name,plan_id,amount}]}`. Network ids: 1 MTN, 2 AIRTEL, 3 GLO,
+  4 9MOBILE — same as `global_base_plans.network`/`lizzy.plan_network`.
+- The API is on `lizzysub.com` (the SPA is `app.lizzysub.com`) and returns
+  `302 → /500` unless the request has a browser `User-Agent`, `Origin`,
+  `Referer` and `X-Requested-With: XMLHttpRequest`.
+- Cross-check: the public `GET /api/website/plan` price list returns the same
+  225 plans (MTN 90, GLO 41, AIRTEL 68, 9MOBILE 26). All 225 ids are unique.
+
+### 13.2 Verdict
+
+| | Count |
+|---|---|
+| Live Lizzysub plans | **225** |
+| `global_base_plans` lizzysub rows | 216 (205 active) |
+| ids matching a live plan | 192 |
+| ids the provider no longer has | **20** (18 still **active**) |
+| ids reused by a *different* product | **4** (1 still active) |
+| live plans absent from the catalog | **29** |
+| enabled reseller configs on this catalog | 1045 across 9 stores |
+
+`global-catalog-sync` only syncs **zendit** (`PROVIDER = "zendit"`); the
+lizzysub rows were a one-off import from `reseller_base_plans`
+(`metadata.original_table`) and have never been refreshed. That is the root
+cause.
+
+### 13.3 Active rows whose id is gone at Lizzysub → purchase fails
+
+`12, 49, 83, 152, 174, 219, 220, 237, 251, 267, 269, 270, 277, 305, 307, 308,
+309, 310` (224 and 244 are inactive). Lizzysub answers *"Invalid Data Plan ID or
+Network"*. 89 enabled configs across 6 stores point at these ids: First Data,
+data, Datamax, BossData (18 each), Fure Network (11), BelovedTopup (6 —
+83, 152, 251, 270, 305, 309).
+
+### 13.4 Id reuse — same id, different product (the dangerous ones)
+
+The purchase resolves `global_base_plans` by `provider_plan_id` + `category` +
+`is_active` + country only (`_shared/purchaseOrchestrator.ts` §2), so the
+catalog's name/network are ignored and the provider's current plan is bought.
+
+| id | Catalog row | Lizzysub now | Effect |
+|---|---|---|---|
+| **311** (active) | MTN SME 4000MB, base ₦880 | MTN GIFTING 1GB, **₦500,000** test plan | one sale ≈ ₦499k loss (or a refused purchase) |
+| 239 (inactive) | GLO SME 615MB, ₦250 | GLO GIFTING 15GB, ₦3,255 | 13× cost |
+| 242 (inactive) | GLO SME 717MB, ₦285 | MTN CG 1MB, ₦50,000 | 175× cost |
+| 243 (inactive) | GLO SME 2.151GB, ₦830 | MTN CG 15GB, ₦4,900 | 6× cost |
+
+311 is enabled in First Data, data, Datamax and BossData; 239/242/243 in Fure
+Network.
+
+### 13.5 Cost drift — 48 active base rows priced below provider cost
+
+Base price is the platform's cost basis, so a base below cost loses money even
+before reseller markup. Worst: 76 (9MOBILE 10GB, ₦2,810 vs ₦4,750), 257 (MTN
+20GB, ₦5,347 vs ₦6,500), 126 (AIRTEL 300GB, ₦47,600 vs ₦48,750), 75 (9MOBILE
+5GB, ₦1,410 vs ₦2,380), 168 (AIRTEL 160GB, ₦28,550 vs ₦29,250), 73 (₦848 vs
+₦1,430), 125 (₦19,100 vs ₦19,500), 72 (₦568 vs ₦960), 121, 287, 306, 122, 71,
+236, 288, 123, 230, 231, 90, 286, 150, 151, 56, 264, 55, 148, 262, 149, 229,
+51, 274, 15, 141, 142, 263, 235, 146, 144, 14, 281, 248, 284, 218, 78, 85,
+167, 166. Total ₦10,373 if one of each sells once.
+
+At the reseller level, 16 enabled configs already sell below provider cost
+(First Data 6, Datamax 7, BelovedTopup 3 — 72, 263, 281). Excluding the 311
+rows, exposure is ₦5,950.
+
+### 13.6 Missing from the catalog (29)
+
+`259, 312, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326,
+327, 328, 329, 330, 331, 332, 335, 336, 337, 338, 339, 340, 342, 343`
+— Airtel CG 1.2GB–20GB (312–319), MTN SME datashare (320–323, 331), GLO Always
+On / Tuesday Fiesta (324–329, 342, 343), MTN CG 2-day (335–340), MTN 150GB
+(332), GLO 6.01GB (259). 330 (10MB at ₦500) is not worth importing.
+
+### 13.7 Files in the `[countryCode]` tree that depend on this
+
+- `src/app/[countryCode]/[storeName]/page.tsx` — live catalog read
+  (`global_base_plans` × `global_reseller_plan_configs`, not `global_plans`).
+- `src/app/[countryCode]/[storeName]/StoreProducts.tsx`,
+  `StorePurchaseModal.tsx`, `StoreDestinationFlow.tsx` — what the buyer sees
+  and the `plan_id` they post.
+- `src/app/[countryCode]/dashboard/plans/` — `PlansClient.tsx`,
+  `GlobalPlansPanel.tsx`, `PlanCard.tsx`, `CreatePlanModal.tsx`,
+  `EditPlanModal.tsx`, `BulkPricingModal.tsx`, `PlanPricingCalculator.tsx`.
+- `src/actions/reseller/plans/` — `getPlans.ts`, `getGlobalPlans.ts`,
+  `updatePlanConfig.ts`, `bulkUpdatePlans.ts`, `globalPlanFacets.ts`,
+  `getPlanStats.ts`, `priceRangeAmount.ts`.
+- `supabase/functions/global-store-catalog/index.ts` (`plan_id:
+  provider_plan_id`), `_shared/purchaseOrchestrator.ts` (resolution),
+  `global-purchase-data` / `global-purchase-airtime` (bundled with the
+  orchestrator — redeploy all four per §"Deployed edge functions").
+- Dead/incorrect: `src/lib/providers/lizzysub.ts` targets
+  `https://api.lizzysub.com/api/v1/...` — that host does not resolve and those
+  endpoints 404. It has no importers; delete it rather than reuse it.
+- Out of scope but related: `src/app/(protected)/data/[id]` still reads the
+  legacy `lizzy` table (186 rows) via `src/app/actions/data.ts`.
+
+### 13.8 Resolution — applied 2026-11-26
+
+Owner decisions: bring only stores created on/after **2026-11-20** up to date at
+the config level (Fure Network, Ed ward, BossData); keep the round-up buffer on
+`base_price`; preserve each reseller's markup when re-pointing; import the
+clean-terms subset of the missing plans.
+
+**1. `supabase/migrations/20261126_lizzysub_catalog_reconcile.sql`** (applied in
+one transaction; snapshot of both tables taken first, 216 plans / 1,065 configs):
+
+- Tombstoned the 4 reused ids as `legacy-239/242/243/311`. Deactivating alone was
+  not durable: the provider still publishes those ids, so the next sync would
+  have reactivated the old row and sold the wrong product.
+- Deactivated the 18 ids Lizzysub no longer publishes.
+- Raised the 48 rows priced below provider cost to the next ₦5 (under ₦1,000) or
+  ₦10. No existing buffer was lowered.
+- Imported 21 plans: 259, 320–329, 331, 332, 335–340, 342, 343. Held 312,
+  314–319 (Airtel CG — "not all sims are eligible", needs provider confirmation)
+  and skipped 330 (10MB at ₦500).
+- Re-pointed `global_reseller_plan_configs` 152→332 and 251→327 for stores
+  created on/after 2026-11-20 only, carrying `markup_type` / `markup_value`
+  unchanged: BossData kept 8%, Fure Network kept fixed +₦2.
+
+Before → after: 216 rows / 205 active / 18 stale active / 48 below cost →
+**237 rows / 207 active / 0 stale / 0 below cost**.
+
+**2. Lizzysub catalog sync.** New `_shared/catalog/lizzysubClient.ts` (login +
+12 bucket crawl) and `_shared/catalog/lizzysubCatalog.ts` (normalise), wired into
+`global-catalog-sync` as a second provider. Guards:
+
+- `base_price` is never lowered (`max` of existing and new), so the buffer
+  policy survives a sync.
+- The deactivation pass is skipped when the crawl returns fewer than half the
+  currently active plans, and the run is recorded as `partial`. A provider
+  outage must not empty every NG storefront.
+- `HELD_PLAN_IDS` = 312, 314–319, 330; provider test plans are refused by name;
+  a ₦1,000,000 sanity ceiling (legitimate 1.5TB yearly plans reach ₦218,250).
+- Anything the normaliser rejects is not upserted, so it is deactivated on the
+  next run. That is why the reject list must only ever hold deliberately
+  withheld plans — 20TB/60TB plans and the ₦218k 1.5TB plan were initially
+  rejected and would have been switched off; `parseSize` now accepts TB.
+
+First run 2026-11-26 01:03: `offers_seen 225, plans_upserted 216,
+plans_deactivated 0, offers_rejected 9, status ok`. The Zendit crawl in the same
+invocation was unaffected (10,760 offers). Deployed with `--no-verify-jwt`
+(the pg_cron call sends only `x-sync-secret`); needs `LIZZYSUB_USERNAME` and
+`LIZZYSUB_PASSWORD` as function secrets (added).
+
+**3. Purchase-time guard.** `purchaseOrchestrator` now selects `last_seen_at`
+and refuses a `lizzysub` plan older than 7 days with "This plan is temporarily
+unavailable", so an id that is no longer confirmed fails closed instead of
+charging for a product the provider no longer sells. Deployment order matters:
+the sync must run first to stamp every active row, otherwise the guard refuses
+the whole catalogue. Deployed to `global-purchase-data`,
+`global-purchase-airtime` and `accragh-webhook` after the sync run above.
+
+**4. Verified** through `global-store-catalog`: BossData returns 327 at ₦205.20
+(190 × 1.08) and 332 at ₦31,428 (29,100 × 1.08); Fure Network returns 327 at
+₦192 (190 + 2) and 332 at ₦29,102; 152, 251 and 311 are absent from both.
+
+**5. Test.** `_shared/catalog/lizzysubCatalog.test.ts` covers the buffer rule,
+size/validity parsing, the held list and test-plan rejection. Run with
+`node --experimental-strip-types` (no Deno runner in this environment).
+
+Still open, all outside the agreed scope:
+
+- 14 enabled fixed-price configs in pre-2026-11-20 stores now sell below base
+  cost: Datamax 71/72/73/75/76/257, First Data 71/72/73/75/76, BelovedTopup
+  72/263/281. Each sale debits the reseller wallet by the difference.
+- The `data` store (created 2026-11-05) carries selling prices in the millions
+  (₦3,969,730 for a ₦1,920 plan) — likely a `bulkUpdatePlans` multiplier bug.
+- Airtel CG 312/314–319 stay held until eligibility is confirmed; remove the ids
+  from `HELD_PLAN_IDS` to import them.
+- 242 (1MB for ₦50,000) is a genuine provider plan and is now active; harmless
+  but noise in `all`-mode stores.
+- The legacy `lizzy` table and the mobile app remain out of scope.
+- `supabase/edge-functions.json` is a point-in-time snapshot and is now stale.
