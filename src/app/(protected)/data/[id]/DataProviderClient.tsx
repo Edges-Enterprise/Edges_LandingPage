@@ -102,12 +102,8 @@ export function DataProviderClient({
 
     try {
       const result = await purchaseDataAction({
-        network: provider.lizzysubId,
         phone: phoneNumber,
         data_plan: selectedBundle.lizzysub_plan_id || selectedBundle.id,
-        planName: selectedBundle.data,
-        amount: selectedBundle.price,
-        validity: selectedBundle.validity,
         pin: transactionPin,
       });
 

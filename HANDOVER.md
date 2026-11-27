@@ -6975,3 +6975,22 @@ What it does, and what it deliberately does not:
 Run it by hand with
 `select public.run_scheduled_edge('lizzy-catalog-sync','catalog_sync_secret');`
 and read `lizzy_catalog_syncs` for the result.
+
+### `purchaseDataAction` charges the stored price
+
+The data purchase used to debit `formData.amount`, a number the browser sent.
+It now looks the plan up in `lizzy` by `data_plan` and charges
+`sell_price` (falling back to `plan_amount`), taking the network, plan name and
+validity from the same row. The client sends only `phone`, `data_plan` and
+`pin`, so a forged amount cannot buy a bundle cheaply. This is the same fix the
+flash sale action already carries.
+
+### `provider_cost` records Lizzysub's documented price
+
+Both tables carry `provider_cost`, written by `lizzy-catalog-sync` from the
+price Lizzysub prints in the plan name ("6.01GB GIFTING = ₦1,860.00 ..."),
+falling back to the API amount when the name has none. It is a plain column,
+deliberately not generated from `plan_amount`/`newprice`, so it survives any
+repricing we do. On the 2026-11-27 catalogue it matches the API amount on all
+225 plans, which is expected: Lizzysub's price list and its API agree today,
+and the column is there to notice the day they stop.

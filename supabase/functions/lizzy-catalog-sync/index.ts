@@ -13,7 +13,9 @@
 //   * Upsert on plan_id / planid. Lizzysub plan ids are unique across networks
 //     and types, which is what makes them the natural key.
 //   * plan_amount and newprice track the wholesale cost exactly, so the
-//     generated cost_price columns follow. sell_price and amount are cost plus
+//     generated cost_price columns follow. provider_cost records the price
+//     Lizzysub documents for the bundle, parsed from the plan name, and is
+//     never derived from our own columns. sell_price and amount are cost plus
 //     the network's buffer, and are never lowered: a plan already on sale
 //     keeps its price when the cost drops, so the margin survives.
 //   * The flash sale selection is never reset. isflashsale is only seeded for
@@ -120,6 +122,18 @@ function validityOf(name: string): string {
       (word) => word[0].toUpperCase() + word.slice(1),
     )
     .replace(/^./, (char) => char.toUpperCase());
+}
+
+/**
+ * The price Lizzysub prints in the plan name ("6.01GB GIFTING = ₦1,860.00 ...").
+ * That is the figure its own price list documents, recorded separately from
+ * plan_amount/newprice so our pricing can never rewrite it. Falls back to the
+ * API amount when the name carries no price.
+ */
+function documentedPriceOf(name: string, amount: number): number {
+  const match = name.match(/=\s*₦\s*([\d,]+(?:\.\d+)?)/);
+  if (!match) return round2(amount);
+  return round2(Number(match[1].replace(/,/g, "")));
 }
 
 function anchorOf(sell: number): number {
@@ -241,6 +255,7 @@ async function syncCatalog(
         plan: sizeOf(plan.name, true),
         plan_amount: cost,
         sell_price: shelf,
+        provider_cost: documentedPriceOf(plan.name, Number(plan.amount)),
       });
 
       const previous = flashByPlan.get(id);
@@ -255,6 +270,7 @@ async function syncCatalog(
         flashname: previous?.flashname ?? null,
         oldprice: anchor,
         newprice: cost,
+        provider_cost: documentedPriceOf(plan.name, Number(plan.amount)),
         isflashsale: previous
           ? (previous.isflashsale ?? false)
           : plan.plan_type === "SME",

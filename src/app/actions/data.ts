@@ -143,12 +143,8 @@ export async function checkTransactionPinAction() {
  * Purchase Data via Lizzysub API
  */
 export async function purchaseDataAction(formData: {
-  network: number;
   phone: string;
   data_plan: number;
-  planName: string;
-  amount: number;
-  validity: string;
   pin: string;
 }) {
   try {
@@ -183,7 +179,24 @@ export async function purchaseDataAction(formData: {
       return { error: "Incorrect transaction PIN" };
     }
 
-    // 4. Check wallet balance
+    // 4. Resolve the plan and what it costs. The price comes from the row, not
+    // from the caller: anything the browser sends can be forged.
+    const { data: plan, error: planError } = await supabase
+      .from("lizzy")
+      .select("plan_id,network,plan_network,plan,validity,plan_amount,sell_price")
+      .eq("plan_id", formData.data_plan)
+      .single();
+
+    if (planError || !plan) {
+      return { error: "This plan is no longer available. Please refresh." };
+    }
+
+    const price = Number(plan.sell_price ?? plan.plan_amount);
+    if (!(price > 0)) {
+      return { error: "This plan is no longer available. Please refresh." };
+    }
+
+    // 5. Check wallet balance
     const { data: wallet, error: walletError } = await supabase
       .from("wallet")
       .select("balance")
@@ -195,23 +208,23 @@ export async function purchaseDataAction(formData: {
     }
 
     const currentBalance = parseFloat(wallet.balance || "0");
-    if (currentBalance < formData.amount) {
+    if (currentBalance < price) {
       return {
-        error: `Insufficient balance. You have ₦${currentBalance.toLocaleString()}, but need ₦${formData.amount.toLocaleString()}`,
+        error: `Insufficient balance. You have ₦${currentBalance.toLocaleString()}, but need ₦${price.toLocaleString()}`,
       };
     }
 
-    // 5. Generate unique request ID
+    // 6. Generate unique request ID
     const requestId = `EDGESN_DATA_WEB_${Date.now()}_${Math.random()
       .toString(36)
       .substring(7)
       .toUpperCase()}`;
 
-    // 6. Call Lizzysub API via Supabase Edge Function
+    // 7. Call Lizzysub API via Supabase Edge Function
     const lizzysubPayload = {
-      network: formData.network,
+      network: Number(plan.plan_network),
       phone: formData.phone,
-      data_plan: formData.data_plan,
+      data_plan: plan.plan_id,
       bypass: false,
       "request-id": requestId,
     };
@@ -241,7 +254,7 @@ export async function purchaseDataAction(formData: {
       message: lizzysubData.message?.slice(0, 50),
     });
 
-    // 7. Handle API response
+    // 8. Handle API response
      if (lizzysubData.status !== "success") {
        let userErrorMessage =
          lizzysubData.message || "Transaction failed. Please try again.";
@@ -257,7 +270,7 @@ export async function purchaseDataAction(formData: {
        // Create failed transaction record
        await supabase.from("transactions").insert({
          user_email: profile.email,
-         amount: formData.amount,
+         amount: price,
          reference: requestId,
          status: "failed",
          type: "data_purchase",
@@ -265,8 +278,8 @@ export async function purchaseDataAction(formData: {
          metadata: {
            network: lizzysubData.network || "Unknown",
            phone_number: formData.phone,
-           plan_name: formData.planName,
-           validity: formData.validity,
+           plan_name: plan.plan,
+           validity: plan.validity,
            error_message: lizzysubData.message,
            lizzysub_plan_id: formData.data_plan,
          },
@@ -277,8 +290,8 @@ export async function purchaseDataAction(formData: {
        };
      }
 
-    // 8. Deduct from wallet
-    const newBalance = currentBalance - formData.amount;
+    // 9. Deduct from wallet
+    const newBalance = currentBalance - price;
     const { error: balanceError } = await supabase
       .from("wallet")
       .update({ balance: newBalance })
@@ -289,10 +302,10 @@ export async function purchaseDataAction(formData: {
       return { error: "Failed to update wallet balance" };
     }
 
-    // 9. Create successful transaction record
+    // 10. Create successful transaction record
     await supabase.from("transactions").insert({
       user_email: profile.email,
-      amount: formData.amount,
+      amount: price,
       reference: requestId,
       status: "completed",
       type: "data_purchase",
@@ -300,9 +313,9 @@ export async function purchaseDataAction(formData: {
       metadata: {
         network: lizzysubData.network,
         phone_number: lizzysubData.phone_number,
-        plan_name: formData.planName,
+        plan_name: plan.plan,
         dataplan: lizzysubData.dataplan,
-        validity: formData.validity,
+        validity: plan.validity,
         system: lizzysubData.system,
         plan_type: lizzysubData.plan_type,
         oldbal: lizzysubData.oldbal,
@@ -313,24 +326,24 @@ export async function purchaseDataAction(formData: {
       },
     });
 
-    // 10. Create notification
+    // 11. Create notification
     await supabase.from("notifications").insert({
       user_id: user.id,
       notification_type: "data_purchase",
       message: `Successfully purchased ${
-        lizzysubData.dataplan || formData.planName
+        lizzysubData.dataplan || plan.plan
       } for ${formData.phone}`,
       is_read: false,
       metadata: {
         network: lizzysubData.network,
         phone: formData.phone,
-        amount: formData.amount,
+        amount: price,
         plan: lizzysubData.dataplan,
         reference: requestId,
       },
     });
 
-    // 11. Revalidate pages
+    // 12. Revalidate pages
     revalidatePath("/data");
     revalidatePath("/wallet");
     revalidatePath("/history");
@@ -343,7 +356,7 @@ export async function purchaseDataAction(formData: {
         network: lizzysubData.network,
         phone_number: lizzysubData.phone_number,
         dataplan: lizzysubData.dataplan,
-        amount: formData.amount,
+        amount: price,
         newBalance: newBalance,
         reference: requestId,
       },
