@@ -6835,14 +6835,23 @@ MB of data), `330` (10MB at ₦500, almost certainly a typo), and `312`,
    FK to `auth.users`, so a deleted account left its balance behind and the next
    sign-up with the same address picked that wallet up again. Added
    `["wallet","user_email"]` and `["web_push_tokens","user_id"]` to `OWNED_ROWS`.
-2. It carried `clearTenantRows`, which deleted the caller's `global_customers`
-   row — country-code/reseller surface that does not belong on this branch.
-   Removed; the function now touches only Edges tables.
+2. It only cleared `global_customers`, leaving the reseller surface behind.
+   `resellers` and `reseller_customers` carry `auth_user_id` with no FK to
+   `auth.users`, so a reseller or reseller-customer delete would strand those
+   rows and every child of them. `clearSurfaceRows` now covers all three
+   parents (`global_customers` by `auth_email`, `resellers` and
+   `reseller_customers` by `email`), one delete each, cascade doing the rest.
+
+There is only one `delete-account` function on the project — the global
+storefront and reseller apps have no separate one — so it has to serve all three
+surfaces. That is why v42 carried the tenant cleanup inside it.
 
 `wallet_audit` rows are still kept with `user_email` nulled (financial-record
 policy). Source is now in the repo at `supabase/functions/delete-account/index.ts`;
-it had only existed as a deployed artifact. Verified end to end: user 404,
-`profiles` 0, `wallet` 0, `notifications` 0, `wallet_audit` unlinked.
+it had only existed as a deployed artifact. Verified end to end on all three surfaces
+(v44): Edges user → 404 with `profiles`, `wallet`, `notifications` gone and
+`wallet_audit` unlinked; storefront customer → `global_customers` row and its
+cascaded wallet gone; reseller → `resellers` and `reseller_customers` rows gone.
 
 **Email/SMTP**: the app itself sends no email (`src/` has no nodemailer/resend/
 brevo code). Supabase auth sends only the recovery mail — `mailer_autoconfirm`
