@@ -18,9 +18,8 @@
 //     never derived from our own columns. sell_price and amount are cost plus
 //     the network's buffer, and are never lowered: a plan already on sale
 //     keeps its price when the cost drops, so the margin survives.
-//   * The flash sale price is the provider cost plus FLASH_SALE_BUFFER, so an
-//     order always covers its own payment fees. cost_price keeps tracking the
-//     provider cost, not the sale price.
+//   * The flash sale sells at the provider cost: newprice is what Lizzysub
+//     charges us, with no buffer on top.
 //   * The flash sale selection is never reset. isflashsale is only seeded for
 //     rows the sync creates (SME, the campaign's current rule); an operator's
 //     decision to switch a plan on or off is preserved. Stock is preserved for
@@ -67,13 +66,6 @@ const DEFAULT_MARKUP = 25;
 
 /** The "was" price on the flash sale card. */
 const ANCHOR_MULTIPLIER = 1.3;
-
-/**
- * Token margin on the flash sale price. The campaign sells at Lizzysub's cost,
- * which leaves nothing to cover the payment fees on the wallet funding that
- * paid for it; ₦3 per order is that floor, not a profit.
- */
-const FLASH_SALE_BUFFER = 3;
 const ANCHOR_STEP = 50;
 
 /**
@@ -279,7 +271,7 @@ async function syncCatalog(
         validate: validity,
         flashname: previous?.flashname ?? null,
         oldprice: anchor,
-        newprice: round2(cost + FLASH_SALE_BUFFER),
+        newprice: cost,
         provider_cost: documentedPriceOf(plan.name, Number(plan.amount)),
         isflashsale: previous
           ? (previous.isflashsale ?? false)

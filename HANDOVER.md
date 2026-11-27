@@ -6995,16 +6995,10 @@ repricing we do. On the 2026-11-27 catalogue it matches the API amount on all
 225 plans, which is expected: Lizzysub's price list and its API agree today,
 and the column is there to notice the day they stop.
 
-### The flash sale price carries a ₦3 buffer
+### The flash sale sells at cost
 
-`newprice` is the flash sale price: Lizzysub cost plus `FLASH_SALE_BUFFER` (₦3
-in `lizzy-catalog-sync`). The campaign used to sell at cost, which left nothing
-for the payment fees on the wallet funding that paid for it.
-
-`cost_price` therefore no longer follows `newprice` — it is generated from
-`provider_cost`, so it keeps meaning "what Lizzysub charges us". On the current
-catalogue `newprice - cost_price` is ₦3.00 on all 220 rows, and the flash price
-is still below the data page price on every row (by ₦3 to ₦997).
-
-Change the buffer by editing the constant and redeploying; the next run reprices
-the whole campaign.
+`newprice` is the Lizzysub cost with nothing on top, so a flash order earns no
+margin. `cost_price` generates from `provider_cost` rather than `newprice`, so
+it keeps meaning "what Lizzysub charges us" whatever the sale price does. On the
+current catalogue `newprice = cost_price` on all 220 rows, and the flash price
+sits below the data page price on every row.
