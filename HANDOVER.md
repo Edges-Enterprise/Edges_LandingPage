@@ -6939,3 +6939,40 @@ Keeping it out of the product surface is done in the two server actions:
 `select("*")`, so `cost_price` never reaches a browser. Column lists have to be
 updated when a new public column is added. The mobile app still selects `*`; it
 is untouched by design.
+
+### `lizzy-catalog-sync` keeps both tables on Lizzysub
+
+`supabase/functions/lizzy-catalog-sync` crawls Lizzysub and writes `lizzy` and
+`lizzy_flashsale` in one pass. pg_cron runs it every six hours
+(`lizzy-catalog-sync`, `30 */6 * * *`, via `run_scheduled_edge` and the
+`catalog_sync_secret` vault secret, so the `x-sync-secret` guard matches
+`global-catalog-sync`). Each run logs to `lizzy_catalog_syncs`, which is
+service-role only.
+
+What it does, and what it deliberately does not:
+
+* Upserts on `plan_id` / `planid`, so the same catalogue produces the same rows.
+  Running it twice in a row changes nothing — verified by fingerprinting both
+  tables across two runs.
+* `plan_amount` and `newprice` follow the wholesale cost exactly, so the
+  generated `cost_price` columns follow. `sell_price` and `amount` are cost plus
+  the per network/type buffer in `MARKUP` (the medians already on the shelf) and
+  are never lowered, so a cost drop widens the margin instead of cutting the
+  price.
+* The flash sale selection is preserved. `isflashsale` is only seeded for rows
+  the sync creates (SME); switching a plan on or off by hand survives a sync,
+  and so does simulated stock.
+* Delisted plans are deleted from both tables. The exception is a plan that was
+  sold: `flashsale_purchases` holds a foreign key to `planid`, so those are
+  deactivated instead.
+* Pruning is skipped when the crawl returns fewer than half the stored plans, so
+  a partial Lizzysub response cannot empty the shop.
+* `311` (provider test plan) and `242` (1MB for ₦50,000) are skipped by id or
+  pattern. Everything else Lizzysub lists is imported, including `240`/`241`,
+  the MTN COOPERATE GIFTING plans that Lizzysub labels 300MB/150MB but prices at
+  ₦97,000/₦58,200 — they are live on the data page. Add them to
+  `EXCLUDED_PLAN_IDS` if they should not be sold.
+
+Run it by hand with
+`select public.run_scheduled_edge('lizzy-catalog-sync','catalog_sync_secret');`
+and read `lizzy_catalog_syncs` for the result.
