@@ -6868,3 +6868,35 @@ contain "Village Girl — New Omotala Jalade movie" notifications and are still 
 active Monday-09:00 cron jobs. They write only to `reseller_*` tables; `public.
 notifications` has 0 movie rows. `global-scheduled-promotions` explicitly
 dropped that content.
+
+### Airtel CG imported; `lizzy_flashsale` audited
+
+**Airtel CG**: the seven held plans (`312`, `314`–`319`) are now in `lizzy` at
+Lizzysub cost + ₦40, matching the rest of that group. `lizzy` holds 220 rows and
+none is priced below cost. Lizzysub still warns "Not all sims are eligible" on
+`314`–`319`; the plans are live but a purchase can fail for an ineligible SIM.
+
+**`lizzy_flashsale` does not carry Lizzysub prices** (177 rows, audited against a
+live pull on 2026-11-27):
+
+- only 75 of the 164 ids shared with `lizzy` carry the same amount as the
+  Lizzysub cost;
+- 10 rows point at plans Lizzysub no longer sells (`12`, `49`, `152`, `174`,
+  `219`, `220`, `224`, `232`, `244`, `251` — the delisted set);
+- 24 rows have a live `planid` that is a *different product* — e.g. id `240` is
+  "GLO SME 1843MB" in this table while Lizzysub's `240` is the GLO CG 300 Mbps
+  broadband plan at ₦97,000;
+- 23 rows match no live plan of that network/type/size;
+- 58 rows sell below Lizzysub cost, ₦5.8M of exposure on the remaining stock.
+  Worst: 9MOBILE CG 15GB at ₦2,700 against a ₦6,800 cost.
+
+This matters because `purchaseFlashSaleAction` sends `data_plan: planid` straight
+to Lizzysub, so a stale id buys the wrong bundle at the wrong cost while the
+customer pays the flash price. Two related defects: the action charges
+`formData.amount` from the client instead of `flashPlan.amount` from the row it
+just fetched, and the `stock_sold` increment is commented out, so nothing ever
+sells out. Usage to date is small — 16 completed flash purchases, ₦1,994 total,
+last on 2026-01-17 — but `/flashsale` is live and opens Friday to Sunday.
+
+Rebuilding the table from the verified `lizzy` catalog is the fix; it is waiting
+on a decision about which discounts to keep.
