@@ -7019,9 +7019,14 @@ columns, so the cost never reaches the browser.
 
 Labels were corrected to match the plans they buy: 70 was "500MB" but buys
 9Mobile 1.5GB, 56 was "30 Day" but buys a 7 day plan. Row 232 ("MTN 500MB,
-₦375") has no matching Lizzysub plan and cannot be fulfilled — it fails at
-purchase until it is repointed or removed.
+30 days") had no plan behind it — Lizzysub sells no 30 day MTN 500MB at all —
+so it was repointed to the SME 500MB (id 233, 7 days, cost ₦190) and relabelled
+to match.
 
-Nine rows are priced below their provider cost, six of them 9Mobile by ₦180 to
-₦1,930. That is visible in the table now; the prices themselves were not
-changed.
+Two pricing problems are visible in the table and were left alone:
+
+* Nine rows sell below their provider cost, six of them 9Mobile by ₦180 to
+  ₦1,930.
+* Eleven rows are dearer than the same bundle on the data page — 235 by ₦215,
+  236 by ₦200, 229 by ₦150 — which makes the "hot" tab a worse buy than the
+  regular one. 233 sits ₦25 above its own ₦350 data page price.
