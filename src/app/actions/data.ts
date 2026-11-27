@@ -15,7 +15,7 @@ export async function getHotDealsAction(networkName: string) {
     // Hot deals table uses plan_type field (not category)
     const { data, error } = await supabase
       .from("hot_deals")
-      .select("*")
+      .select("id,data,price,validity,category,description,plan_type")
       .ilike("plan_type", networkName) // MTN, AIRTEL, GLO, 9MOBILE
       .order("price", { ascending: true });
 

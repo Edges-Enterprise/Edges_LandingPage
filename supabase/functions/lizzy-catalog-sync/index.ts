@@ -24,6 +24,9 @@
 //     rows the sync creates (SME, the campaign's current rule); an operator's
 //     decision to switch a plan on or off is preserved. Stock is preserved for
 //     existing rows and simulated for new ones.
+//   * hot_deals has no plan ids of its own: a row's id is the lizzy plan it
+//     buys. Its provider_cost is refreshed from lizzy so the margin on each
+//     hot deal stays visible.
 //   * Pruning is guarded. If the crawl returns fewer than half the plans we
 //     already hold, nothing is deleted — a partial Lizzysub response must not
 //     empty the shop.
@@ -90,6 +93,7 @@ interface Summary {
   flashUpserted: number;
   flashRemoved: number;
   flashDeactivated: number;
+  hotDealsPriced: number;
   errors: string[];
 }
 
@@ -155,6 +159,7 @@ function emptySummary(): Summary {
     flashUpserted: 0,
     flashRemoved: 0,
     flashDeactivated: 0,
+    hotDealsPriced: 0,
     errors: [],
   };
 }
@@ -349,6 +354,17 @@ async function syncCatalog(
       }
     }
 
+    // hot_deals rows are aliases onto lizzy plan ids, so their cost is just a
+    // copy of the plan's. Refresh it after pruning, when the set is final.
+    const { data: hotDealsPriced, error: hotDealsError } = await supabase.rpc(
+      "refresh_hot_deal_costs",
+    );
+    if (hotDealsError) {
+      summary.errors.push(`hot deal costs: ${hotDealsError.message}`);
+    } else {
+      summary.hotDealsPriced = Number(hotDealsPriced ?? 0);
+    }
+
     await supabase
       .from("lizzy_catalog_syncs")
       .update({
@@ -361,6 +377,7 @@ async function syncCatalog(
         flash_upserted: summary.flashUpserted,
         flash_removed: summary.flashRemoved,
         flash_deactivated: summary.flashDeactivated,
+        hot_deals_priced: summary.hotDealsPriced,
         errors: summary.errors.slice(0, 100),
       })
       .eq("id", runId);

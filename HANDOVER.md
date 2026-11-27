@@ -7002,3 +7002,26 @@ margin. `cost_price` generates from `provider_cost` rather than `newprice`, so
 it keeps meaning "what Lizzysub charges us" whatever the sale price does. On the
 current catalogue `newprice = cost_price` on all 220 rows, and the flash price
 sits below the data page price on every row.
+
+### Hot plans are `hot_deals`, and they are plain Lizzysub purchases
+
+The Hot tab reads `hot_deals`, not `lizzy`. The table is hand-maintained and has
+no plan id of its own: the page passes `hot_deals.id` as the Lizzysub plan id,
+so each row is really an alias onto `lizzy.plan_id` with a price we set.
+Purchase settles through the same `lizzysub-proxy` → Lizzysub `/api/data` call
+as any other bundle.
+
+`hot_deals.provider_cost` now records what Lizzysub charges for the plan behind
+each row. `lizzy-catalog-sync` refreshes it every run through
+`refresh_hot_deal_costs()`, after pruning, and logs the count in
+`lizzy_catalog_syncs.hot_deals_priced`. `getHotDealsAction` selects explicit
+columns, so the cost never reaches the browser.
+
+Labels were corrected to match the plans they buy: 70 was "500MB" but buys
+9Mobile 1.5GB, 56 was "30 Day" but buys a 7 day plan. Row 232 ("MTN 500MB,
+₦375") has no matching Lizzysub plan and cannot be fulfilled — it fails at
+purchase until it is repointed or removed.
+
+Nine rows are priced below their provider cost, six of them 9Mobile by ₦180 to
+₦1,930. That is visible in the table now; the prices themselves were not
+changed.
