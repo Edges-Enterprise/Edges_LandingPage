@@ -6776,3 +6776,45 @@ Still open, all outside the agreed scope:
 - `supabase/edge-functions.json` is a point-in-time snapshot and is now stale.
 
 Code commit: `74e3816` (migration, sync branch, purchase guard, test).
+
+## Task 14 — Edges Network branch: edges-only prune, `/edges` → `/`, `lizzy` price sync (2026-11-27)
+
+Branch `edges-network` is the Edges Network (Nigeria D2C) build. It must not
+carry the country-code storefront (`global_*`) or the reseller store
+(`reseller_*`) surface that `main` serves.
+
+**Pruned** (all unreferenced from the D2C app; verified with `tsc` + `next build`):
+
+- `src/app/api/v1/**` (public reseller API), `api/webhooks/{flutterwave,korapay,xixapay}`,
+  `api/cron/reconcile-withdrawals`, `api/config/korapay`, `api/payment/callback`,
+  `api/create-customer-virtual-account`
+- `src/app/actions/reseller/**`, `src/actions/reseller/**`, `src/app/reseller/**`
+- `src/lib/payments/{flutterwave,korapay,withdrawalPayout,xixapay,fees,payment.types,index}.ts`
+
+`api/xixa-account/webhook` stays — it credits the Edges wallet — but its
+reseller and `global_*` processors and the ~800-line commented duplicate of the
+whole file are gone (2,036 → 566 lines). The satellite processors (App2 Bimbo,
+App3 Alheri) are kept: they write to their own Supabase projects, not this one.
+`grep 'from("global_\|from("reseller_'` over `src/` now returns 0.
+
+**Routes**: the landing page moved from `/edges` to `/`; `/edges` is a
+`permanentRedirect("/")`. Root layout metadata was still branded "Telcos" and is
+now "Edges Network".
+
+**`lizzy` (data plans) re-synced against the live Lizzysub catalogue**
+(225 plans, 2026-11-27) using the contract in
+`supabase/functions/_shared/catalog/lizzysubClient.ts`. Backup of the old
+prices: `public.lizzy_price_backup_20261127`.
+
+- 49 plans had `plan_amount` **below** Lizzysub's price (a loss on every sale);
+  1 more (`plan_id` 131, MTN GIFTING 16.5GB) sold below its own cost (₦3,650 vs
+  ₦6,305). 10 zero-margin plans got the network median margin.
+- 60 rows updated. Rule: where `plan_amount > lizzysub` the buffer is kept
+  untouched; where it was equal or lower, `plan_amount` = Lizzysub price and
+  `sell_price` = Lizzysub price + the plan's existing margin (network median
+  where the margin was ≤ 0).
+- Result: 0 plans below Lizzysub cost, 0 selling below cost, 26 still carrying a
+  buffer above cost.
+- Still out of sync and **not** touched: 50 plans Lizzysub offers that `lizzy`
+  lacks, and 11 `lizzy` plans Lizzysub no longer lists (they will fail if
+  bought). 8 plans in the live catalogue are priced at exactly cost.
