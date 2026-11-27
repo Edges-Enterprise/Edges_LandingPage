@@ -6924,3 +6924,18 @@ so a row with `stock_available = stock_sold` really does sell out.
 Note for future edits: `flashsale_purchases` has an FK to `lizzy_flashsale`
 (`planid`), so rows referenced by a purchase cannot be deleted — `1`, `100` and
 `113` today. Deactivate instead of deleting.
+
+### `cost_price` added to both catalog tables
+
+`lizzy.cost_price` and `lizzy_flashsale.cost_price` now hold the Lizzysub cost,
+as generated columns so they cannot drift: `lizzy` derives it from `plan_amount`
+and `lizzy_flashsale` from `newprice`. Both are `numeric`, stored, and readable
+by anon/authenticated like the rest of the table — the cost is kept out of the
+product surface, not out of the database.
+
+Keeping it out of the product surface is done in the two server actions:
+`getDataPlansAction` and both `lizzy_flashsale` reads in
+`src/app/actions/flashsale.ts` now list their columns explicitly instead of
+`select("*")`, so `cost_price` never reaches a browser. Column lists have to be
+updated when a new public column is added. The mobile app still selects `*`; it
+is untouched by design.

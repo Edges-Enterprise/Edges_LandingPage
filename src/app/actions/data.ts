@@ -43,7 +43,9 @@ export async function getDataPlansAction(
 
     let query = supabase
       .from("lizzy")
-      .select("*")
+      .select(
+        "plan_id,network,plan_type,plan_network,validity,plan,plan_amount,sell_price",
+      )
       .ilike("network", networkName); // Case-insensitive match
 
     const { data, error } = await query.order("plan_amount", {

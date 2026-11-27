@@ -4,6 +4,11 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
+// cost_price is deliberately excluded: it is the internal Lizzysub cost and
+// must never reach the browser.
+const FLASH_SALE_COLUMNS =
+  "planid,network,plantype,planname,amount,validate,flashname,oldprice,newprice,isflashsale,stock_available,stock_sold,discount_percentage";
+
 /**
  * Fetch Flash Sale Plans from Supabase
  */
@@ -13,7 +18,7 @@ export async function getFlashSalePlansAction(networkName?: string) {
 
     let query = supabase
       .from("lizzy_flashsale")
-      .select("*")
+      .select(FLASH_SALE_COLUMNS)
       .eq("isflashsale", true);
 
     if (networkName) {
@@ -96,7 +101,7 @@ export async function purchaseFlashSaleAction(formData: {
     // 4. Check if plan is still available
     const { data: flashPlan, error: planError } = await supabase
       .from("lizzy_flashsale")
-      .select("*")
+      .select(FLASH_SALE_COLUMNS)
       .eq("planid", formData.planid)
       .eq("isflashsale", true)
       .single();
