@@ -65,11 +65,15 @@ const ANCHOR_MULTIPLIER = 1.3;
 const ANCHOR_STEP = 50;
 
 /**
- * Plans Lizzysub lists that we must not sell. 242 is 1MB for ₦50,000. Provider
- * test plans are caught by pattern rather than by id, so a new one cannot slip
- * through.
+ * Plans Lizzysub lists that we must not sell:
+ *   240, 241 — "300MB"/"150MB" at ₦97,000/₦58,200, but the descriptions say
+ *              300Mbps/150Mbps: broadband packages wearing a bundle label.
+ *   242      — 1MB for ₦50,000.
+ *   330      — 10MB for ₦500, no retail value.
+ * Provider test plans are caught by pattern rather than by id, so a new one
+ * cannot slip through.
  */
-const EXCLUDED_PLAN_IDS = new Set([242]);
+const EXCLUDED_PLAN_IDS = new Set([240, 241, 242, 330]);
 const TEST_PLAN_PATTERN = /warning|don'?t\s+buy|\btest(?:ing)?\b/i;
 
 const CHUNK = 500;

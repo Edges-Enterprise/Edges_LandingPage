@@ -6967,11 +6967,10 @@ What it does, and what it deliberately does not:
   deactivated instead.
 * Pruning is skipped when the crawl returns fewer than half the stored plans, so
   a partial Lizzysub response cannot empty the shop.
-* `311` (provider test plan) and `242` (1MB for ₦50,000) are skipped by id or
-  pattern. Everything else Lizzysub lists is imported, including `240`/`241`,
-  the MTN COOPERATE GIFTING plans that Lizzysub labels 300MB/150MB but prices at
-  ₦97,000/₦58,200 — they are live on the data page. Add them to
-  `EXCLUDED_PLAN_IDS` if they should not be sold.
+* `240`, `241`, `242` and `330` are skipped by id, and provider test plans by
+  pattern. 240/241 are the "300MB"/"150MB" plans that are really 300/150 Mbps
+  broadband at ₦97,000/₦58,200, 242 is 1MB for ₦50,000 and 330 is 10MB for
+  ₦500. Everything else Lizzysub lists is imported: 220 plans in each table.
 
 Run it by hand with
 `select public.run_scheduled_edge('lizzy-catalog-sync','catalog_sync_secret');`
