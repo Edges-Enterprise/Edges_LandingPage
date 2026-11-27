@@ -6818,3 +6818,44 @@ prices: `public.lizzy_price_backup_20261127`.
 - Still out of sync and **not** touched: 50 plans Lizzysub offers that `lizzy`
   lacks, and 11 `lizzy` plans Lizzysub no longer lists (they will fail if
   bought). 8 plans in the live catalogue are priced at exactly cost.
+
+### Follow-up (same session): `lizzy` catalog completed, delete-account fixed
+
+**Catalog**: added the 38 Lizzysub plans that were missing and deleted the 11
+delisted ones. `lizzy` now holds 213 rows, every one matching a live Lizzysub
+plan, none priced below provider cost. Twelve live plans were deliberately not
+imported: `311` (provider says "don't buy, testing only", ₦500,000 for 1GB),
+`242` (1MB at ₦50,000), `240`/`241` (150/300 **Mbps** broadband mislabelled as
+MB of data), `330` (10MB at ₦500, almost certainly a typo), and `312`,
+`314`–`319` (Airtel CG, still held pending eligibility per Task 13).
+
+**delete-account** (`v42` → `v43`) had two defects, both now fixed:
+
+1. It never deleted the `wallet` row. `wallet` is keyed by `user_email` with no
+   FK to `auth.users`, so a deleted account left its balance behind and the next
+   sign-up with the same address picked that wallet up again. Added
+   `["wallet","user_email"]` and `["web_push_tokens","user_id"]` to `OWNED_ROWS`.
+2. It carried `clearTenantRows`, which deleted the caller's `global_customers`
+   row — country-code/reseller surface that does not belong on this branch.
+   Removed; the function now touches only Edges tables.
+
+`wallet_audit` rows are still kept with `user_email` nulled (financial-record
+policy). Source is now in the repo at `supabase/functions/delete-account/index.ts`;
+it had only existed as a deployed artifact. Verified end to end: user 404,
+`profiles` 0, `wallet` 0, `notifications` 0, `wallet_audit` unlinked.
+
+**Email/SMTP**: the app itself sends no email (`src/` has no nodemailer/resend/
+brevo code). Supabase auth sends only the recovery mail — `mailer_autoconfirm`
+is on, so signup confirmation is skipped, and `smtp_host` is unset on the
+project, so auth mail goes through Supabase's shared mailer (2/hour cap; this is
+the 429 seen earlier). The `SMTP_*` secrets belong to the **Telcos** Gmail
+mailbox and are used only by the global/reseller edge functions, which send with
+`From: "Telcos." <SMTP_USER>` and a "© Telcos" footer. The Edges recovery
+template is Edges-branded and clean.
+
+The legacy movie promo the owner asked about is real but not live for Edges:
+`reseller-scheduled-promotions` (v27) and `web-scheduled-promotions` (v31) still
+contain "Village Girl — New Omotala Jalade movie" notifications and are still on
+active Monday-09:00 cron jobs. They write only to `reseller_*` tables; `public.
+notifications` has 0 movie rows. `global-scheduled-promotions` explicitly
+dropped that content.
