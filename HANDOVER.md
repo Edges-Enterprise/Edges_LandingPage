@@ -6900,3 +6900,27 @@ last on 2026-01-17 — but `/flashsale` is live and opens Friday to Sunday.
 
 Rebuilding the table from the verified `lizzy` catalog is the fix; it is waiting
 on a decision about which discounts to keep.
+
+### `lizzy_flashsale` rebuilt as a standalone campaign table
+
+The table is deliberately independent of `lizzy` — no foreign key, its own
+`planid` primary key — and now carries the whole Lizzysub catalogue: 223 rows,
+every live plan except the provider's test plan (`311`, ₦500,000 for 1GB,
+"Dont buy it") and the `242` placeholder (1 MB at ₦50,000). The eligibility-
+clause Airtel CG plans (`312`, `314`–`319`) are included. The old contents are
+in `lizzy_flashsale_backup_20261127`.
+
+Per row: `amount` is the normal price (cost + the group's median buffer),
+`newprice` is Lizzysub's cost and is what the customer pays, `oldprice` is the
+anchor at ~1.3x the normal price, and `stock_available`/`stock_sold` are
+simulated. Only SME plans are active (`isflashsale`) for now — 44 of them, MTN
+17, AIRTEL 16, GLO 6, 9MOBILE 5 — so switching a plan on is a one-column update.
+
+Two code fixes came with it. `purchaseFlashSaleAction` charged `formData.amount`
+from the browser; it now reads `newprice` off the row it fetches, so the price
+cannot be forged. The `stock_sold` increment was commented out and is back on,
+so a row with `stock_available = stock_sold` really does sell out.
+
+Note for future edits: `flashsale_purchases` has an FK to `lizzy_flashsale`
+(`planid`), so rows referenced by a purchase cannot be deleted — `1`, `100` and
+`113` today. Deactivate instead of deleting.

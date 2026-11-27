@@ -325,9 +325,6 @@ export function FlashSaleClient({
         planid: plan.planid,
         network: plan.network,
         phone: phoneNumber,
-        planName: plan.flashname || plan.planname,
-        amount: plan.newprice || plan.amount,
-        validity: plan.validate,
         pin: "", // PIN will be handled server-side if needed
       });
 

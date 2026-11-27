@@ -59,9 +59,6 @@ export async function purchaseFlashSaleAction(formData: {
   planid: number;
   network: string;
   phone: string;
-  planName: string;
-  amount: number;
-  validity: string;
   pin: string;
 }) {
   try {
@@ -113,6 +110,11 @@ export async function purchaseFlashSaleAction(formData: {
       return { error: "This plan is sold out" };
     }
 
+    // Price and label come from the row, never from the caller: anything the
+    // browser sends can be forged, and the sale price is Lizzysub's cost.
+    const price = Number(flashPlan.newprice ?? flashPlan.amount);
+    const planName = flashPlan.flashname || flashPlan.planname;
+
     // 5. Check wallet balance
     const { data: wallet, error: walletError } = await supabase
       .from("wallet")
@@ -125,9 +127,9 @@ export async function purchaseFlashSaleAction(formData: {
     }
 
     const currentBalance = parseFloat(wallet.balance || "0");
-    if (currentBalance < formData.amount) {
+    if (currentBalance < price) {
       return {
-        error: `Insufficient balance. You have ₦${currentBalance.toLocaleString()}, but need ₦${formData.amount.toLocaleString()}`,
+        error: `Insufficient balance. You have ₦${currentBalance.toLocaleString()}, but need ₦${price.toLocaleString()}`,
       };
     }
 
@@ -187,7 +189,7 @@ export async function purchaseFlashSaleAction(formData: {
     if (lizzysubData.status !== "success") {
       await supabase.from("transactions").insert({
         user_email: profile.email,
-        amount: formData.amount,
+        amount: price,
         reference: requestId,
         status: "failed",
         type: "flash_sale_purchase",
@@ -195,8 +197,8 @@ export async function purchaseFlashSaleAction(formData: {
         metadata: {
           network: formData.network,
           phone_number: formData.phone,
-          plan_name: formData.planName,
-          validity: formData.validity,
+          plan_name: planName,
+          validity: flashPlan.validate,
           error_message: lizzysubData.message,
           planid: formData.planid,
           is_flash_sale: true,
@@ -209,7 +211,7 @@ export async function purchaseFlashSaleAction(formData: {
     }
 
     // 10. Deduct from wallet
-    const newBalance = currentBalance - formData.amount;
+    const newBalance = currentBalance - price;
     const { error: balanceError } = await supabase
       .from("wallet")
       .update({ balance: newBalance })
@@ -221,15 +223,15 @@ export async function purchaseFlashSaleAction(formData: {
     }
 
     // 11. Update stock sold
-    // await supabase
-    //   .from("lizzy_flashsale")
-    //   .update({ stock_sold: flashPlan.stock_sold + 1 })
-    //   .eq("planid", formData.planid);
+    await supabase
+      .from("lizzy_flashsale")
+      .update({ stock_sold: flashPlan.stock_sold + 1 })
+      .eq("planid", formData.planid);
 
     // 12. Create successful transaction record
     await supabase.from("transactions").insert({
       user_email: profile.email,
-      amount: formData.amount,
+      amount: price,
       reference: requestId,
       status: "completed",
       type: "flash_sale_purchase",
@@ -237,9 +239,9 @@ export async function purchaseFlashSaleAction(formData: {
       metadata: {
         network: lizzysubData.network,
         phone_number: lizzysubData.phone_number,
-        plan_name: formData.planName,
+        plan_name: planName,
         dataplan: lizzysubData.dataplan,
-        validity: formData.validity,
+        validity: flashPlan.validate,
         system: lizzysubData.system,
         plan_type: lizzysubData.plan_type,
         oldbal: lizzysubData.oldbal,
@@ -248,7 +250,7 @@ export async function purchaseFlashSaleAction(formData: {
         planid: formData.planid,
         is_flash_sale: true,
         discount_saved: flashPlan.oldprice
-          ? (flashPlan.oldprice - formData.amount).toFixed(2)
+          ? (Number(flashPlan.oldprice) - price).toFixed(2)
           : null,
       },
     });
@@ -258,13 +260,13 @@ export async function purchaseFlashSaleAction(formData: {
       user_id: user.id,
       notification_type: "flash_sale_purchase",
       message: `🔥 Flash Sale: Successfully purchased ${
-        lizzysubData.dataplan || formData.planName
+        lizzysubData.dataplan || planName
       } for ${formData.phone}`,
       is_read: false,
       metadata: {
         network: lizzysubData.network,
         phone: formData.phone,
-        amount: formData.amount,
+        amount: price,
         plan: lizzysubData.dataplan,
         reference: requestId,
         is_flash_sale: true,
@@ -284,7 +286,7 @@ export async function purchaseFlashSaleAction(formData: {
         network: lizzysubData.network,
         phone_number: lizzysubData.phone_number,
         dataplan: lizzysubData.dataplan,
-        amount: formData.amount,
+        amount: price,
         newBalance: newBalance,
         reference: requestId,
       },
