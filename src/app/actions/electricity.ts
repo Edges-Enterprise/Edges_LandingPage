@@ -118,9 +118,18 @@ export async function purchaseElectricityAction(formData: {
     }
 
     const currentBalance = parseFloat(wallet.balance || "0");
-    if (currentBalance < formData.amount) {
+
+    const { data: feeRow } = await supabase
+      .from("service_settings")
+      .select("value")
+      .eq("key", "electricity_service_fee")
+      .maybeSingle();
+    const serviceFee = Math.max(0, Number(feeRow?.value ?? 0));
+    const charge = Math.round((formData.amount + serviceFee) * 100) / 100;
+
+    if (currentBalance < charge) {
       return {
-        error: `Insufficient balance. You have ₦${currentBalance.toLocaleString()}, but need ₦${formData.amount.toLocaleString()}`,
+        error: `Insufficient balance. You have ₦${currentBalance.toLocaleString()}, but need ₦${charge.toLocaleString()}`,
       };
     }
 
@@ -193,8 +202,8 @@ export async function purchaseElectricityAction(formData: {
       };
     }
 
-    // 8. Deduct from wallet
-    const newBalance = currentBalance - formData.amount;
+    // 8. Deduct from wallet, including the service fee
+    const newBalance = Math.round((currentBalance - charge) * 100) / 100;
     const { error: balanceError } = await supabase
       .from("wallet")
       .update({ balance: newBalance })
@@ -210,7 +219,7 @@ export async function purchaseElectricityAction(formData: {
       .from("transactions")
       .insert({
         user_email: profile.email,
-        amount: -formData.amount, // Negative for outflow
+        amount: -charge, // Negative for outflow, fee included
         reference: requestId,
         status: "completed",
         type: "electricity_purchase",
@@ -222,6 +231,7 @@ export async function purchaseElectricityAction(formData: {
           meter_number: formData.meterNumber,
           meter_type: formData.meterType,
           amount: formData.amount,
+          service_fee: serviceFee,
           charges: lizzysubData.charges,
           token: lizzysubData.token || null,
           api_message: lizzysubData.message,

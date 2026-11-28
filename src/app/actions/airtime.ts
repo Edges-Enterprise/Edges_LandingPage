@@ -58,7 +58,17 @@ export async function purchaseAirtimeAction(formData: {
     }
 
     const currentBalance = parseFloat(wallet.balance || "0");
-    const discountedAmount = Math.floor(formData.amount * 0.99); // 1% discount
+
+    const { data: discountRow } = await supabase
+      .from("service_settings")
+      .select("value")
+      .eq("key", "airtime_discount_percent")
+      .maybeSingle();
+    const discountPercent = Math.max(0, Number(discountRow?.value ?? 1));
+    const discountedAmount = Math.floor(
+      formData.amount * (1 - discountPercent / 100),
+    );
+
     if (currentBalance < discountedAmount) {
       return {
         error: `Insufficient balance. You have ₦${currentBalance.toLocaleString()}, but need ₦${discountedAmount.toLocaleString()}`,

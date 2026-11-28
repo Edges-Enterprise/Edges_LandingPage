@@ -10,11 +10,13 @@ import { purchaseExamPinsAction } from "@/app/actions/education";
 interface EducationPurchaseProps {
   initialBalance: number;
   userId: string;
+  plans?: { plan_id: number; name: string; price: number }[];
 }
 
 export default function EducationPurchase({
   initialBalance,
   userId,
+  plans = [],
 }: EducationPurchaseProps) {
   const router = useRouter();
   const [selectedProvider, setSelectedProvider] = useState<number | null>(null);
@@ -40,11 +42,13 @@ export default function EducationPurchase({
       maximumFractionDigits: 0,
     }).format(num);
 
+  const pricePerPin = (id: number | null) =>
+    plans.find((plan) => plan.plan_id === id)?.price ??
+    EXAM_PROVIDERS[(id ?? 1) - 1]?.sellingPrice ??
+    0;
+
   const totalAmount =
-    selectedProvider !== null
-      ? EXAM_PROVIDERS[selectedProvider - 1].sellingPrice *
-        parseInt(quantity || "0")
-      : 0;
+    selectedProvider !== null ? pricePerPin(selectedProvider) * parseInt(quantity || "0") : 0;
 
  const isPurchaseEnabled =
    selectedProvider !== null &&

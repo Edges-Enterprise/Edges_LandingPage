@@ -99,6 +99,7 @@ export default async function AdminPage() {
       price: number | null;
       active: boolean;
       stockLeft?: number | null;
+      stockAvailable?: number | null;
     },
     source: { network: string; name: string; validity: string; planType: string },
   ): AdminPlan => ({
@@ -137,6 +138,7 @@ export default async function AdminPage() {
         cost: row.provider_cost,
         price: row.newprice,
         active: row.isflashsale,
+        stockAvailable: row.stock_available ?? 0,
         stockLeft: (row.stock_available ?? 0) - (row.stock_sold ?? 0),
       },
       {

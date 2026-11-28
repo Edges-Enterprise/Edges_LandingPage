@@ -25,6 +25,17 @@ export async function signInAction(
   if (error) return { error: error.message };
 
   if (data.user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_suspended")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    if (profile?.is_suspended) {
+      await supabase.auth.signOut();
+      return { error: "This account is suspended. Please contact support." };
+    }
+
     const maxAge = rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7;
 
     // Set cookie using cookies() API

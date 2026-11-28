@@ -120,6 +120,19 @@ export default function SettingsClient({
         <div className="w-6" />
       </div>
 
+      {/* Admins only */}
+      {initialProfile?.is_admin && (
+        <button
+          onClick={() => router.push("/admin")}
+          className="w-full bg-[#744925] rounded-xl p-4 text-left hover:bg-[#8a5529] transition-colors"
+        >
+          <span className="font-medium">Admin dashboard</span>
+          <span className="block text-xs text-white/70 mt-1">
+            Prices, plans, refunds, customers and reports
+          </span>
+        </button>
+      )}
+
       {/* Sections */}
       <div className="space-y-4">
         {sections.map((section) => (

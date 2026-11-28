@@ -20,6 +20,12 @@ export default async function EducationPage() {
     .eq("id", user.id)
     .single();
 
+  const { data: planRows } = await supabase
+    .from("education_plans")
+    .select("plan_id,name,price")
+    .eq("is_active", true)
+    .order("plan_id");
+
   let balance = 0;
   if (profile) {
     const { data: wallet } = await supabase
@@ -30,6 +36,12 @@ export default async function EducationPage() {
     balance = parseFloat(wallet?.balance || "0");
   }
 
-  return <EducationPurchase initialBalance={balance} userId={user.id} />;
+  return (
+    <EducationPurchase
+      initialBalance={balance}
+      userId={user.id}
+      plans={planRows ?? []}
+    />
+  );
 }
 

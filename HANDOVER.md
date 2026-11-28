@@ -7189,3 +7189,101 @@ Admins at the time of writing: `bossblingzs@gmail.com`, plus the test accounts
 `newuser@mail.com`, `sweeper-verify@example.com`,
 `platform-admin-access@example.com`, `bossblingzs@example.com`. The test
 accounts should lose `is_admin` before this goes anywhere public.
+
+## Task 16 — admin operations on `/admin` (2026-11-28)
+
+The page grew from three pricing tabs to eight: Overview, Hot, Flash sale, Data
+bundles, Transactions, Customers, Services, Audit.
+
+**Every write is logged.** `admin_audit_log` (service-role only, RLS on, no
+policies) records the admin email, the action, the section, the target, the
+amount, before/after JSON and a note. Price, margin, activation, stock, bulk,
+add, refund, PIN reset, suspend, balance adjustment, service setting, cable and
+exam changes all go through the same `audit()` helper in
+`src/app/actions/admin.ts`, and the Audit tab reads it back with paging and
+search.
+
+**Failed purchases and refunds.** The Transactions tab has a "failed purchases
+(refundable)" view over `status in ('failed','pending')` with the provider's
+error message. Refunding credits the wallet, writes a `transactions` row of type
+`refund` plus a `wallet_ledger` row, stamps `refunded_at`/`refunded_by` on the
+original metadata and refuses a second refund. The modal warns that most
+failures never debited the wallet: in the current code the debit happens after
+the provider confirms, so a blanket refund would hand out money.
+
+**Customers.** Search by email or username, see balance and the last 25
+transactions, clear the transaction PIN, suspend or restore, and adjust the
+balance with a mandatory reason (which writes an `admin_adjustment` transaction
+and a ledger row). Suspension is enforced: `profiles.is_suspended` blocks sign-in
+and the protected layout renders an "account suspended" screen instead of the
+app.
+
+**Flash stock.** `lizzy_flashsale.stock_available` is editable from the Flash
+tab. It cannot be set below `stock_sold`, and the sync still preserves stock for
+existing rows.
+
+**Bulk pricing.** Each section has a bulk bar: "cost + %" or "current price %",
+scoped to one network or all. It only touches listed plans and floors every
+price at cost. One audit row records the mode, the percent and how many plans
+changed.
+
+**Transactions export.** "Export CSV" writes the current range (up to 10,000
+rows) to a download and logs the export.
+
+**Provider health on Overview.** The latest Lizzysub balance comes from
+`metadata.newbal` on the most recent completed data/flash purchase, shown with
+the time it was seen and a warning under ₦5,000. It also shows the last
+`lizzy_catalog_syncs` run. On 2026-11-28 the provider wallet sat at ₦1,465 and
+purchases were failing with "Insufficient Account Kindly Fund Your Wallet".
+
+**Settings link.** The settings page loads `is_admin` and renders an "Admin
+dashboard" button only when it is true.
+
+## Task 17 — Lizzysub catalogue checked against the database (2026-11-28)
+
+The provider dashboard endpoints were re-read from
+`supabase/functions/_shared/catalog/lizzysubClient.ts` and the live API, and the
+public catalogue endpoints were found by grepping the SPA bundle at
+`app.lizzysub.com`. All of these answer to `GET` with no auth:
+
+- `/api/website/app/network` — networks with `network_vtu/sme/cg` flags
+- `/api/website/app/cableplan` — 19 cable packages, `plan_price` is our cost
+- `/api/website/app/exam` — WAEC ₦3,500, NECO ₦1,300, NABTEB ₦850
+- `/api/website/app/disco` — 12 discos, ids 1–12
+
+Findings, and what was changed:
+
+**Cable was pointing at plan ids that no longer exist.** The table held ids
+1,2,34,35,36,38,59–62,65 while Lizzysub now issues 66–84. Only the five
+STARTIMES ids still matched. Cable had never taken a purchase, so nothing was
+lost, but nothing could have worked either. `cable_plans` was rebuilt from the
+catalogue: 19 rows keyed by the provider id, each with `provider_cost`. The five
+STARTIMES packages keep their old selling prices except "Smart (Dish)", which
+sold at ₦4,700 against a ₦5,049 cost — a ₦349 loss on every sale — and is now
+floored at cost. The 14 DSTV/GOTV packages arrive unlisted so an admin prices
+them before they are sold.
+
+**Result checkers had no catalogue and trusted the browser.** The page priced
+pins from `EXAM_PROVIDERS` in the client and `purchaseExamPinsAction` charged
+whatever `totalAmount` the request carried — a crafted request could buy a WAEC
+pin for ₦1. `education_plans` now holds cost and price, the action recomputes
+`price × quantity` server-side and ignores the client amount, and the page reads
+the price from the table. WAEC 3,800 (cost 3,500), NECO 1,500 (1,300), NABTEB
+1,100 (850).
+
+**Electricity ids line up.** Our `DISCO_PROVIDERS` ids 1–10 match Lizzysub's
+1–10. Lizzysub also sells BEDC (11) and Aba (12); they are not exposed because
+the UI needs logos for them. Add them with assets to offer them.
+
+**Airtime has no discount from the provider.** `/api/website/app/network`
+returns only enable flags, no per-network rate. Lizzysub bills face value, so
+our 1% discount is a straight 1% loss unless their invoicing differs
+(`api/topup` is the endpoint to check with them). The discount now lives in
+`service_settings.airtime_discount_percent` (default 1) instead of a hardcoded
+`0.99`. Electricity's new `electricity_service_fee` (default 0) is added on top
+of the customer's amount and included in the wallet debit.
+
+**Costs will drift.** Nothing re-reads cable or exam costs on a schedule, the
+way `lizzy-catalog-sync` does for data. Extending that function to
+`/api/website/app/cableplan` and `/api/website/app/exam` is the next step; until
+then the numbers above are a snapshot from 2026-11-28.

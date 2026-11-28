@@ -10,6 +10,7 @@ interface Profile {
   username: string | null;
   email: string;
   notifications_enabled: boolean;
+  is_admin: boolean;
 }
 
 export default async function SettingsPage() {
@@ -27,7 +28,7 @@ export default async function SettingsPage() {
   const supabase = await createServerClient();
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, username, email, notifications_enabled")
+    .select("id, username, email, notifications_enabled, is_admin")
     .eq("id", user.id)
     .single();
 

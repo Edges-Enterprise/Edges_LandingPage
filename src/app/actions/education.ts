@@ -46,7 +46,26 @@ export async function purchaseExamPinsAction(formData: {
       return { error: "Incorrect transaction PIN" };
     }
 
-    // 4. Check wallet balance
+    // 4. Price the order from the catalogue, never from the browser
+    const quantity = Math.floor(Number(formData.quantity));
+    if (!Number.isFinite(quantity) || quantity < 1 || quantity > 10) {
+      return { error: "Between 1 and 10 pins per order" };
+    }
+
+    const { data: examPlan } = await supabase
+      .from("education_plans")
+      .select("plan_id,name,price,is_active")
+      .eq("plan_id", formData.exam)
+      .maybeSingle();
+
+    if (!examPlan || !examPlan.is_active) {
+      return { error: "That result checker is not available right now" };
+    }
+
+    const totalAmount =
+      Math.round(Number(examPlan.price) * quantity * 100) / 100;
+
+    // 5. Check wallet balance
     const { data: wallet, error: walletError } = await supabase
       .from("wallet")
       .select("balance")
@@ -58,9 +77,9 @@ export async function purchaseExamPinsAction(formData: {
     }
 
     const currentBalance = parseFloat(wallet.balance || "0");
-    if (currentBalance < formData.totalAmount) {
+    if (currentBalance < totalAmount) {
       return {
-        error: `Insufficient balance. You have ₦${currentBalance.toLocaleString()}, but need ₦${formData.totalAmount.toLocaleString()}`,
+        error: `Insufficient balance. You have ₦${currentBalance.toLocaleString()}, but need ₦${totalAmount.toLocaleString()}`,
       };
     }
 
@@ -73,7 +92,7 @@ export async function purchaseExamPinsAction(formData: {
     // 6. Call Lizzysub API via Supabase Edge Function
     const lizzysubPayload = {
       exam: formData.exam,
-      quantity: formData.quantity,
+      quantity: quantity,
     };
 
     console.log("Calling Lizzysub Edge Function:", lizzysubPayload);
@@ -103,15 +122,15 @@ export async function purchaseExamPinsAction(formData: {
       // Create failed transaction record
       await supabase.from("transactions").insert({
         user_email: profile.email,
-        amount: formData.totalAmount,
+        amount: totalAmount,
         reference: requestId,
         status: "failed",
         type: "exam_purchase",
         env: "live",
         metadata: {
           exam_id: formData.exam,
-          quantity: formData.quantity,
-          total_amount: formData.totalAmount,
+          quantity: quantity,
+          total_amount: totalAmount,
           error_message: lizzysubData.message,
           provider: "lizzysub",
         },
@@ -123,7 +142,7 @@ export async function purchaseExamPinsAction(formData: {
     }
 
     // 8. Deduct from wallet
-    const newBalance = currentBalance - formData.totalAmount;
+    const newBalance = currentBalance - totalAmount;
     const { error: balanceError } = await supabase
       .from("wallet")
       .update({ balance: newBalance })
@@ -137,15 +156,15 @@ export async function purchaseExamPinsAction(formData: {
     // 9. Create successful transaction record
     await supabase.from("transactions").insert({
       user_email: profile.email,
-      amount: -formData.totalAmount, // Negative for outflow
+      amount: -totalAmount, // Negative for outflow
       reference: requestId,
       status: "completed",
       type: "exam_purchase",
       env: "live",
       metadata: {
         exam_id: formData.exam,
-        quantity: formData.quantity,
-        total_amount: formData.totalAmount,
+        quantity: quantity,
+        total_amount: totalAmount,
         pins: lizzysubData.pins || [], // Assume response has pins array
         api_message: lizzysubData.message,
         provider: "lizzysub",
@@ -158,12 +177,12 @@ export async function purchaseExamPinsAction(formData: {
       notification_type: "exam_purchase", // Or use "data_purchase" if schema restricts
       message: `Successfully purchased ${
         formData.quantity
-      } exam pins for ₦${formData.totalAmount.toLocaleString()}. Check your email or history for pins.`,
+      } exam pins for ₦${totalAmount.toLocaleString()}. Check your email or history for pins.`,
       is_read: false,
       metadata: {
         exam_id: formData.exam,
-        quantity: formData.quantity,
-        total_amount: formData.totalAmount,
+        quantity: quantity,
+        total_amount: totalAmount,
         pins: lizzysubData.pins || [],
         reference: requestId,
       },
@@ -180,8 +199,8 @@ export async function purchaseExamPinsAction(formData: {
       message: lizzysubData.message,
       data: {
         exam_id: formData.exam,
-        quantity: formData.quantity,
-        total_amount: formData.totalAmount,
+        quantity: quantity,
+        total_amount: totalAmount,
         pins: lizzysubData.pins || [],
         newBalance: newBalance,
         reference: requestId,

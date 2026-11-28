@@ -112,7 +112,22 @@ export async function purchaseCableAction(formData: {
       return { error: "Incorrect transaction PIN" };
     }
 
-    // 4. Check wallet balance
+    // 4. The package, its provider id and its price come from the catalogue
+    const { data: plan } = await supabase
+      .from("cable_plans")
+      .select("id,cableplan_id,name,price,provider,is_active")
+      .eq("id", formData.planId)
+      .maybeSingle();
+
+    if (!plan || !plan.is_active) {
+      return { error: "That package is not available right now" };
+    }
+
+    const price = Number(plan.price);
+    const planName = plan.name as string;
+    const planProvider = plan.provider as string;
+
+    // 5. Check wallet balance
     const { data: wallet, error: walletError } = await supabase
       .from("wallet")
       .select("balance")
@@ -124,9 +139,9 @@ export async function purchaseCableAction(formData: {
     }
 
     const currentBalance = parseFloat(wallet.balance || "0");
-    if (currentBalance < formData.price) {
+    if (currentBalance < price) {
       return {
-        error: `Insufficient balance. You have ₦${currentBalance.toLocaleString()}, but need ₦${formData.price.toLocaleString()}`,
+        error: `Insufficient balance. You have ₦${currentBalance.toLocaleString()}, but need ₦${price.toLocaleString()}`,
       };
     }
 
@@ -143,7 +158,7 @@ export async function purchaseCableAction(formData: {
       STARTIMES: 3,
     };
 
-    const cableId = cableMap[formData.provider.toUpperCase()];
+    const cableId = cableMap[planProvider.toUpperCase()];
     if (!cableId) {
       return { error: "Invalid cable provider" };
     }
@@ -152,7 +167,7 @@ export async function purchaseCableAction(formData: {
     const lizzysubPayload = {
       cable: cableId, // ✅ Now sending numeric ID (1, 2, or 3)
       iuc: formData.iuc,
-      cable_plan: formData.planId,
+      cable_plan: plan.cableplan_id,
       bypass: formData.bypass,
       requestId: requestId,
     };
@@ -186,17 +201,17 @@ export async function purchaseCableAction(formData: {
       // Create failed transaction record
       await supabase.from("transactions").insert({
         user_email: profile.email,
-        amount: formData.price,
+        amount: price,
         reference: requestId,
         status: "failed",
         type: "cable_purchase",
         env: "live",
         metadata: {
-          provider: formData.provider,
+          provider: planProvider,
           cable_id: cableId,
           iuc: formData.iuc,
-          plan_name: formData.planName,
-          plan_id: formData.planId,
+          plan_name: planName,
+          plan_id: plan.cableplan_id,
           error_message: lizzysubData.message,
           api_provider: "lizzysub",
         },
@@ -208,7 +223,7 @@ export async function purchaseCableAction(formData: {
     }
 
     // 9. Deduct from wallet
-    const newBalance = currentBalance - formData.price;
+    const newBalance = currentBalance - price;
     const { error: balanceError } = await supabase
       .from("wallet")
       .update({ balance: newBalance })
@@ -224,17 +239,17 @@ export async function purchaseCableAction(formData: {
       .from("transactions")
       .insert({
         user_email: profile.email,
-        amount: -formData.price, // Negative for outflow
+        amount: -price, // Negative for outflow
         reference: requestId,
         status: "completed",
         type: "cable_purchase",
         env: "live",
         metadata: {
-          provider: formData.provider,
+          provider: planProvider,
           cable_id: cableId,
           iuc: formData.iuc,
-          plan_name: formData.planName,
-          plan_id: formData.planId,
+          plan_name: planName,
+          plan_id: plan.cableplan_id,
           api_message: lizzysubData.message,
           api_provider: "lizzysub",
         },
@@ -245,25 +260,25 @@ export async function purchaseCableAction(formData: {
     // 11. Create cable_purchases record (for specific tracking)
     await supabase.from("cable_purchases").insert({
       user_id: user.id,
-      provider: formData.provider,
-      plan_name: formData.planName,
-      amount: formData.price,
+      provider: planProvider,
+      plan_name: planName,
+      amount: price,
     });
 
     // 12. Create notification
     await supabase.from("notifications").insert({
       user_id: user.id,
       notification_type: "cable_purchase",
-      message: `Successfully subscribed to ${formData.planName} for ${
+      message: `Successfully subscribed to ${planName} for ${
         formData.iuc
-      }. Charged: ₦${formData.price.toLocaleString()}`,
+      }. Charged: ₦${price.toLocaleString()}`,
       is_read: false,
       metadata: {
-        provider: formData.provider,
+        provider: planProvider,
         cable_id: cableId,
         iuc: formData.iuc,
-        plan_name: formData.planName,
-        amount: formData.price,
+        plan_name: planName,
+        amount: price,
         reference: requestId,
       },
     });
@@ -278,10 +293,10 @@ export async function purchaseCableAction(formData: {
       success: true,
       message: lizzysubData.message,
       data: {
-        provider: formData.provider,
+        provider: planProvider,
         iuc: formData.iuc,
-        plan_name: formData.planName,
-        amount: formData.price,
+        plan_name: planName,
+        amount: price,
         newBalance: newBalance,
         reference: requestId,
         transaction_id: transaction?.id,
@@ -304,6 +319,7 @@ export async function getCablePlansAction(provider: string) {
       .from("cable_plans")
       .select("*")
       .eq("provider", provider.toUpperCase())
+      .eq("is_active", true)
       .order("price", { ascending: true });
 
     if (error) {
