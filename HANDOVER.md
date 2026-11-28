@@ -7381,3 +7381,30 @@ Chromium screenshotted `overview`, `data`, `transactions`, `services` and
 
 Not done: the tab is still client state, so `/admin` cannot deep-link to a tab;
 that was only patched in the throwaway copy to take the screenshots.
+
+## Task 20 — previews are public: Vercel Deployment Protection turned off (2026-11-28)
+
+Until now the project used **Standard Protection** (`ssoProtection.deploymentType =
+all_except_custom_domains`), so `edges-landing-page.vercel.app` served the Telcos
+site (main) to anyone, while every preview URL — the `git-main` alias, the
+`git-edges-network` alias and each deployment URL — bounced to a Vercel login.
+
+The project has been switched to **Disabled** (`ssoProtection: null`, via
+`PATCH /v9/projects/prj_jxynbeusJCMYJKscqALL3iVpZKyc`). Nothing else changed:
+production branch is still `main`, and no domain or alias moved.
+
+- Edges Network, always the newest `edges-network` deployment:
+  https://edges-landing-page-git-edges-network-erudite885s-projects.vercel.app
+- Telcos (main, unchanged): https://edges-landing-page.vercel.app
+
+Verified after the change: `/` returns 200 on both aliases with the expected
+titles ("Telcos …" vs "Edges Network …"), the branch alias resolved to commit
+`7840282` on `edges-network`, and `/admin` and `/home` still redirect to the
+app's own `/sign-in` (200), not to Vercel.
+
+The trade-off is worth knowing: Vercel has no per-branch protection, so this
+opens every preview of this project, including previews of `main` pull
+requests. Turning Standard Protection back on is a one-line PATCH away. The
+only way to have one public branch URL while previews stay private would be a
+custom domain assigned to that branch, because `all_except_custom_domains`
+exempts custom domains from SSO.
