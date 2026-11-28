@@ -1177,3 +1177,21 @@ Verify after committing: `getStoreReadiness` must return `canSell: true` (needs
 phone + an active `global_virtual_accounts` row + `global_wallets.balance > 0`),
 and `/ng/<slug>` must render plans with prices. Credits − debits in
 `global_transactions` should equal the carried wallet balance exactly.
+
+## Lizzysub provider: where the truth lives
+
+- **The API docs are behind the dashboard login**, not on a public host:
+  sign in at `app.lizzysub.com`, then `/documentation/{home,data,airtime,
+  cable,bill,exam,bulksms,verify/iuc,verify/meter,data_card,recharge_card,
+  webhook}`. `docs.lizzysub.com` and friends do not resolve; every route on the
+  app host returns the same SPA shell, so server-side fetching gets nothing.
+  Read the docs in a browser.
+- The dashboard keeps its session in `localStorage.accessToken`; the token from
+  `POST /api/login/verify/user` is the same thing.
+- Payload field names matter: every service takes `request-id` (hyphenated).
+  `requestId` is silently ignored.
+- Airtime is billed below face value (docs sample: `"discount": 97` on ₦100;
+  our own topups moved the provider balance by ₦196 on ₦200 and ₦98 on ₦100).
+  Do not add a customer discount without checking this first — it is margin.
+- Exam responses carry `pin` as one `pin<=>serial` string, not a `pins` array.
+- Bill responses carry `charges`, but ours are 0; cable responses carry too.
