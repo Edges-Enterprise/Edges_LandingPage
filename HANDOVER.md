@@ -7120,3 +7120,72 @@ same filter.
 now opens on the first category that has plans (`categories` exported from
 `DataScreenHeader`), falling back to Hot, so a network with no hot deals cannot
 land on a blank tab. GLO has one hot deal again, so it opens on Hot.
+
+## Task 15 — `/admin` on the edges-network branch (2026-11-28)
+
+A back-office at `/admin`, gated on `profiles.is_admin` (the page and every
+action re-check it; non-admins are redirected to `/home`). Five tabs: Overview,
+Hot, Flash sale, Data bundles, Transactions.
+
+**Cost is never editable.** Every section reads cost from `provider_cost`
+(`lizzy`, `lizzy_flashsale`, `hot_deals`) and the actions re-read it
+server-side, so the browser cannot declare what a plan costs.
+
+**Price and margin are two views of one number.** Editing the selling price
+writes it and the margin follows; editing the margin writes `cost + margin`.
+Price writes land on `hot_deals.price`, `lizzy_flashsale.newprice` (with
+`discount_percentage` recomputed against `oldprice`) and `lizzy.sell_price`.
+Both paths refuse a price below cost.
+
+**Activation is per section, on the column that section already uses:**
+
+| section | sells to users | price column | live flag |
+|---|---|---|---|
+| Hot | `hot_deals` | `price` | `is_active` |
+| Flash sale | `lizzy_flashsale` where `isflashsale` | `newprice` | `isflashsale` |
+| Data bundles | `lizzy` where `is_active` | `sell_price` | `is_active` |
+
+`lizzy.is_active` is new: `boolean not null default false`, set to true on the
+220 existing rows. **New plans from the sync therefore arrive unlisted** and
+land in "Not in Data bundles yet", which is the review queue the admin asked
+for — pick a plan, set a price or margin, activate.
+
+**Adding a plan.** Each tab lists what is not in it yet: Hot offers every
+`lizzy` plan with no `hot_deals` row (the row is upserted with the plan's own
+label, validity and network, so a hot card can no longer be mislabelled), Flash
+offers rows with `isflashsale = false`, Data offers `is_active = false`. The
+modal takes price or margin plus "show to users now".
+
+**The sync no longer owns selling prices.** `lizzy-catalog-sync` used to set
+`sell_price = max(existing, cost + markup)` and `newprice = cost` on every run,
+which would have wiped every admin edit. It now keeps whatever price exists and
+only seeds cost+markup (lizzy) or cost (flash) for plans it has not seen, with a
+floor at cost so a wholesale increase cannot create a loss. `is_active` is not
+touched by the sync.
+
+**Overview metrics** come from `admin_overview(p_from, p_to)`, a
+`security definer` SQL function revoked from anon/authenticated and granted to
+`service_role` only. It returns purchases (count, value, failed), deposits
+(count, value), new customers, total customers, wallet float and gross margin
+(completed data + flash sales at `lizzy.provider_cost`, joined through
+`metadata.lizzysub_plan_id`). Ranges are 7 days, 30 days, all time or custom.
+Deposits count both `status = 'completed'` (2025-11-20 onward) and the older
+`status = 'success'` rows; the two eras overlap in Nov 2025 – Jan 2026, so a
+custom range spanning that window can double-count a deposit.
+
+**Transactions tab** lists `transactions` for the range with email/reference
+search and paging, 25 per page.
+
+User-facing reads now honour activation: `getDataPlansAction` and the plan
+lookup inside `purchaseDataAction` filter `lizzy.is_active`, so an unlisted plan
+cannot be bought even with a stale page. Flash already gated on `isflashsale`,
+hot on `hot_deals.is_active`.
+
+**Mobile still ignores the flags**: `expo` reads `lizzy` and `hot_deals`
+directly, so unlisted plans remain visible there until the mobile PR adds the
+same filters.
+
+Admins at the time of writing: `bossblingzs@gmail.com`, plus the test accounts
+`newuser@mail.com`, `sweeper-verify@example.com`,
+`platform-admin-access@example.com`, `bossblingzs@example.com`. The test
+accounts should lose `is_admin` before this goes anywhere public.

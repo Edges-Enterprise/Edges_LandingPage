@@ -42,12 +42,13 @@ export async function getDataPlansAction(
   try {
     const supabase = await createServerClient();
 
-    let query = supabase
+    const query = supabase
       .from("lizzy")
       .select(
         "plan_id,network,plan_type,plan_network,validity,plan,plan_amount,sell_price",
       )
-      .ilike("network", networkName); // Case-insensitive match
+      .ilike("network", networkName) // Case-insensitive match
+      .eq("is_active", true); // Only plans an admin has priced and listed
 
     const { data, error } = await query.order("plan_amount", {
       ascending: true,
@@ -190,6 +191,7 @@ export async function purchaseDataAction(formData: {
       .from("lizzy")
       .select("plan_id,network,plan_network,plan,validity,plan_amount,sell_price")
       .eq("plan_id", formData.data_plan)
+      .eq("is_active", true)
       .single();
 
     if (planError || !plan) {

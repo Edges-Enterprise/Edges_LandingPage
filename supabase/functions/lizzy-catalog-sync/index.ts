@@ -12,14 +12,16 @@
 //
 //   * Upsert on plan_id / planid. Lizzysub plan ids are unique across networks
 //     and types, which is what makes them the natural key.
-//   * plan_amount and newprice track the wholesale cost exactly, so the
-//     generated cost_price columns follow. provider_cost records the price
-//     Lizzysub documents for the bundle, parsed from the plan name, and is
-//     never derived from our own columns. sell_price and amount are cost plus
-//     the network's buffer, and are never lowered: a plan already on sale
-//     keeps its price when the cost drops, so the margin survives.
-//   * The flash sale sells at the provider cost: newprice is what Lizzysub
-//     charges us, with no buffer on top.
+//   * plan_amount tracks the wholesale cost exactly, so the generated
+//     cost_price columns follow. provider_cost records the price Lizzysub
+//     documents for the bundle, parsed from the plan name, and is never
+//     derived from our own columns.
+//   * The selling prices (lizzy.sell_price, lizzy_flashsale.newprice) belong
+//     to the admin page, not to the sync. A plan already on sale keeps whatever
+//     price an operator gave it; the sync only seeds cost plus the network's
+//     buffer for new plans, and floors both at cost so a wholesale increase
+//     cannot turn a listing into a loss. lizzy.is_active is likewise left
+//     alone, so a plan an operator unlisted stays unlisted.
 //   * The flash sale selection is never reset. isflashsale is only seeded for
 //     rows the sync creates (SME, the campaign's current rule); an operator's
 //     decision to switch a plan on or off is preserved. Stock is preserved for
@@ -100,6 +102,7 @@ interface Summary {
 interface ExistingFlashRow {
   planid: number;
   isflashsale: boolean | null;
+  newprice: number | null;
   stock_available: number | null;
   stock_sold: number | null;
   flashname: string | null;
@@ -222,7 +225,7 @@ async function syncCatalog(
 
     const { data: existingFlash, error: flashReadError } = await supabase
       .from("lizzy_flashsale")
-      .select("planid,isflashsale,stock_available,stock_sold,flashname");
+      .select("planid,isflashsale,newprice,stock_available,stock_sold,flashname");
     if (flashReadError) {
       throw new Error(`read lizzy_flashsale: ${flashReadError.message}`);
     }
@@ -247,8 +250,8 @@ async function syncCatalog(
       const id = Number(plan.plan_id);
       const cost = round2(Number(plan.amount));
       const shelf = Math.max(
-        sellByPlan.get(id) ?? 0,
-        round2(cost + markupFor(plan.network, plan.plan_type)),
+        sellByPlan.get(id) ?? round2(cost + markupFor(plan.network, plan.plan_type)),
+        cost,
       );
       const validity = validityOf(plan.name);
       const anchor = anchorOf(shelf);
@@ -267,6 +270,7 @@ async function syncCatalog(
 
       const previous = flashByPlan.get(id);
       const stockAvailable = previous?.stock_available ?? 10 + (id % 11);
+      const flashPrice = Math.max(previous?.newprice ?? cost, cost);
       flashRows.push({
         planid: id,
         network: plan.network,
@@ -276,14 +280,14 @@ async function syncCatalog(
         validate: validity,
         flashname: previous?.flashname ?? null,
         oldprice: anchor,
-        newprice: cost,
+        newprice: flashPrice,
         provider_cost: documentedPriceOf(plan.name, Number(plan.amount)),
         isflashsale: previous
           ? (previous.isflashsale ?? false)
           : plan.plan_type === "SME",
         stock_available: stockAvailable,
         stock_sold: previous?.stock_sold ?? (id * 7) % stockAvailable,
-        discount_percentage: `${Math.round(((anchor - cost) / anchor) * 100)}%`,
+        discount_percentage: `${Math.round(((anchor - flashPrice) / anchor) * 100)}%`,
       });
     }
 
