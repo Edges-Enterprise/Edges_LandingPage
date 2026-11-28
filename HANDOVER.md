@@ -88,6 +88,17 @@ breaks the callers.
 actioned unprompted mid-task. The newest session entry is the last row of the
 log table.
 
+## Standing policy — `edges-network` is never merged into `main` (2026-11-26)
+
+Owner instruction: the web branch `edges-network` stays where it is. Do not
+merge it into `main`, do not push it to `main`, do not open a PR whose purpose
+is to promote it. It is not a staging ref waiting for promotion like
+`handover/supabase-dump`; it is a destination in its own right. Work for the
+storefront and dashboard lands there and is reviewed there.
+
+Nothing in this file, and nothing in the merge policy immediately below,
+changes that. If a task seems to need those commits on `main`, ask first.
+
 ## Standing policy — after every `handover/supabase-dump` update, merge to `main` (applies to every task, both repos)
 
 **Everything is live now, on both the web and the mobile app**, so

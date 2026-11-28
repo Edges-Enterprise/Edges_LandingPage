@@ -10,6 +10,12 @@ reseller dashboard).
   repo-inventory question), `HANDOVER.md` (authoritative narrative + session
   log) and `TASK-8-BOARD.md` (execution checklist). Update `HANDOVER.md` after
   a fix and note the commit hash. Task 8 is the current defect batch.
+- **Never merge `edges-network` into `main`** (or into any other branch) —
+  owner instruction, 2026-11-26. Work for the web app lands on `edges-network`
+  and stays there. No `git merge`, no `git push origin edges-network:main`, no
+  "promote to production" PR. This overrides any general habit of keeping
+  branches level; ask before anything that would put this branch's commits on
+  `main`.
 - **Always merge `handover/supabase-dump` into `main` in the same session you
   push the branch** (standing policy, HANDOVER.md top section) — for both this
   repo and the mobile `reseller-app`. Everything is live on web and mobile, so
