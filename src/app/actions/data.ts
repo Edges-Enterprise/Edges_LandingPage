@@ -17,6 +17,7 @@ export async function getHotDealsAction(networkName: string) {
       .from("hot_deals")
       .select("id,data,price,validity,category,description,plan_type")
       .ilike("plan_type", networkName) // MTN, AIRTEL, GLO, 9MOBILE
+      .eq("is_active", true)
       .order("price", { ascending: true });
 
     if (error) {
@@ -146,6 +147,8 @@ export async function purchaseDataAction(formData: {
   phone: string;
   data_plan: number;
   pin: string;
+  /** Card the user bought from. Hot deals are priced separately. */
+  source?: "data" | "hot";
 }) {
   try {
     const supabase = await createServerClient();
@@ -179,8 +182,10 @@ export async function purchaseDataAction(formData: {
       return { error: "Incorrect transaction PIN" };
     }
 
-    // 4. Resolve the plan and what it costs. The price comes from the row, not
-    // from the caller: anything the browser sends can be forged.
+    // 4. Resolve the plan. The lizzy row decides whether the plan exists and
+    // which network it settles on. The price comes from the card the user is
+    // looking at, never from the caller: anything the browser sends can be
+    // forged.
     const { data: plan, error: planError } = await supabase
       .from("lizzy")
       .select("plan_id,network,plan_network,plan,validity,plan_amount,sell_price")
@@ -191,7 +196,29 @@ export async function purchaseDataAction(formData: {
       return { error: "This plan is no longer available. Please refresh." };
     }
 
-    const price = Number(plan.sell_price ?? plan.plan_amount);
+    // hot_deals.id is the Lizzysub plan id, so one plan can be sold from two
+    // cards at two prices. A hot deal charges the price printed on the card.
+    let price = Number(plan.sell_price ?? plan.plan_amount);
+    let planName = plan.plan;
+    let planValidity = plan.validity;
+
+    if (formData.source === "hot") {
+      const { data: deal, error: dealError } = await supabase
+        .from("hot_deals")
+        .select("data,validity,price")
+        .eq("id", formData.data_plan)
+        .eq("is_active", true)
+        .single();
+
+      if (dealError || !deal) {
+        return { error: "This deal is no longer available. Please refresh." };
+      }
+
+      price = Number(deal.price);
+      planName = deal.data ?? planName;
+      planValidity = deal.validity ?? planValidity;
+    }
+
     if (!(price > 0)) {
       return { error: "This plan is no longer available. Please refresh." };
     }
@@ -278,8 +305,9 @@ export async function purchaseDataAction(formData: {
          metadata: {
            network: lizzysubData.network || "Unknown",
            phone_number: formData.phone,
-           plan_name: plan.plan,
-           validity: plan.validity,
+           plan_name: planName,
+           validity: planValidity,
+           source: formData.source ?? "data",
            error_message: lizzysubData.message,
            lizzysub_plan_id: formData.data_plan,
          },
@@ -313,9 +341,10 @@ export async function purchaseDataAction(formData: {
       metadata: {
         network: lizzysubData.network,
         phone_number: lizzysubData.phone_number,
-        plan_name: plan.plan,
+        plan_name: planName,
         dataplan: lizzysubData.dataplan,
-        validity: plan.validity,
+        validity: planValidity,
+        source: formData.source ?? "data",
         system: lizzysubData.system,
         plan_type: lizzysubData.plan_type,
         oldbal: lizzysubData.oldbal,
@@ -331,7 +360,7 @@ export async function purchaseDataAction(formData: {
       user_id: user.id,
       notification_type: "data_purchase",
       message: `Successfully purchased ${
-        lizzysubData.dataplan || plan.plan
+        lizzysubData.dataplan || planName
       } for ${formData.phone}`,
       is_read: false,
       metadata: {

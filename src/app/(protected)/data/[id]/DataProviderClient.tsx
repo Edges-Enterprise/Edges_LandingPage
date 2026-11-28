@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { DataScreenHeader } from "@/components/DataScreenHeader";
+import { DataScreenHeader, categories } from "@/components/DataScreenHeader";
 import { BundleCard } from "@/components/BundleCard";
 import { PurchaseModal } from "@/components/PurchaseModal";
 import { CreatePinModal } from "@/components/CreatePinModal";
@@ -51,7 +51,12 @@ export function DataProviderClient({
   const [bundles] = useState<DataBundle[]>(initialPlans);
   const [walletBalance, setWalletBalance] = useState(initialWalletBalance);
   const [hasPin, setHasPin] = useState(initialHasPin);
-  const [activeCategory, setActiveCategory] = useState("Hot");
+  // Open on the first tab that has plans: a network with no hot deals (GLO
+  // today) would otherwise land on an empty Hot tab.
+  const [activeCategory, setActiveCategory] = useState<string>(
+    () =>
+      categories.find((c) => initialPlans.some((b) => b.category === c)) ?? "Hot",
+  );
   const [activePlanType, setActivePlanType] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBundle, setSelectedBundle] = useState<DataBundle | null>(null);
@@ -105,6 +110,7 @@ export function DataProviderClient({
         phone: phoneNumber,
         data_plan: selectedBundle.lizzysub_plan_id || selectedBundle.id,
         pin: transactionPin,
+        source: selectedBundle.category === "Hot" ? "hot" : "data",
       });
 
       if (result.error) {

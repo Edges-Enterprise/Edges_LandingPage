@@ -7030,3 +7030,93 @@ Two pricing problems are visible in the table and were left alone:
 * Eleven rows are dearer than the same bundle on the data page — 235 by ₦215,
   236 by ₦200, 229 by ₦150 — which makes the "hot" tab a worse buy than the
   regular one. 233 sits ₦25 above its own ₦350 data page price.
+
+### Hot deals are SME-only and charge the card price (2026-11-27)
+
+Two changes, both requested after the charge/quote mismatch was traced.
+
+**`purchaseDataAction` charges what the hot card shows.** The action took
+`data_plan` and looked the price up in `lizzy`, so a hot deal was charged
+`lizzy.sell_price` while the card showed `hot_deals.price` — 16 rows took more
+than the user agreed to (76: ₦2,820 shown, ₦4,800 taken), 11 took less, 3
+matched. The action now takes `source: "data" | "hot"`; for `hot` it resolves
+the price from `hot_deals` and keeps `lizzy` only for existence, network and
+settlement. `plan_name`, `validity` and `transactions.metadata.source` now
+record what the card said, so the receipt, the wallet and the history agree.
+Mobile already charged `hot_deals.price`, so the two surfaces finally agree.
+
+**Hot deals are SME plans only**, with one agreed exception (GLO, below). 14 of
+the 30 rows pointed at `GIFTING` or `COOPERATE GIFTING` plans and were deleted,
+leaving 16 SME rows:
+
+| id | net | bundle | price | cost | margin |
+|---|---|---|---|---|---|
+| 71 | 9MOBILE | 1GB / 30 Days | 530 | 480 | 50 |
+| 72 | 9MOBILE | 2GB / 30 Days | 1010 | 960 | 50 |
+| 73 | 9MOBILE | 3GB / 30 Days | 1480 | 1430 | 50 |
+| 75 | 9MOBILE | 5GB / 30 Days | 2430 | 2380 | 50 |
+| 76 | 9MOBILE | 10GB / 30 Days | 4800 | 4750 | 50 |
+| 169 | AIRTEL | 10GB / 30 Days | 3065 | 3050 | 15 |
+| 254 | AIRTEL | 1.5GB / 1 Day | 450 | 410 | 40 |
+| 228 | MTN | 1GB / 30 Days | 545 | 470 | 75 |
+| 234 | MTN | 1GB / 7 Days | 500 | 360 | 140 |
+| 216 | MTN | 20GB / 7 Days | 5000 | 4850 | 150 |
+| 233 | MTN | 500MB / 7 Days | 375 | 190 | 185 |
+| 229 | MTN | 2GB / 7 Days | 1000 | 720 | 280 |
+| 235 | MTN | 2GB / 30 Days | 1100 | 810 | 290 |
+| 230 | MTN | 3GB / 7 Days | 1400 | 1100 | 300 |
+| 231 | MTN | 5GB / 30 Days | 1800 | 1500 | 300 |
+| 236 | MTN | 3GB / 30 Days | 1500 | 1150 | 350 |
+
+Six rows were at or below cost and were lifted to `lizzy.sell_price`, the
+catalogue price for the same plan (9Mobile 71/72/73/75/76 and Airtel 169).
+No price went down. Every row now clears cost; the thinnest margins are the
+9Mobile ones at ₦50, which is the catalogue's own markup on those plans.
+
+Deleted (all non-SME, restorable from this table):
+
+| id | net | bundle | price | cost | was |
+|---|---|---|---|---|---|
+| 34 | AIRTEL | 13GB + 2GB-FREE / 30 Days | 4990 | 4875 | GIFTING |
+| 56 | AIRTEL | 10GB / 7 Days | 2990 | 2925 | GIFTING |
+| 148 | AIRTEL | 4GB / 30 Days | 2400 | 2437.5 | GIFTING |
+| 146 | AIRTEL | 2GB / 30 Days | 1450 | 1455 | GIFTING |
+| 246 | MTN | 1.2GB / 30 Days | 450 | 437 | COOPERATE GIFTING |
+| 113 | MTN | 75MB / 1 Day | 73 | 73 | GIFTING |
+| 39 | GLO | 1GB / 30 Days | 395 | 383 | COOPERATE GIFTING |
+| 40 | GLO | 2GB / 30 Days | 790 | 766 | COOPERATE GIFTING |
+| 41 | GLO | 3GB / 30 Days | 1190 | 1149 | COOPERATE GIFTING |
+| 42 | GLO | 5GB / 30 Days | 1970 | 1915 | COOPERATE GIFTING |
+| 43 | GLO | 10GB / 30 Days | 3900 | 3830 | COOPERATE GIFTING |
+| 116 | GLO | 2.5GB / 2 Days | 475 | 473 | GIFTING |
+| 117 | GLO | 10GB / 7 Days | 1900 | 1890 | GIFTING **(restored at 1893)** |
+| 70 | 9MOBILE | 1.5GB / 30 Days | 165 | 715 | COOPERATE GIFTING |
+
+**GLO: one deliberate non-SME row.** GLO does have SME plans, six of them (262
+1000MB/3d, 263 1GB/7d, 264 3000MB/3d, 286 3GB/7d, 287 5000MB/3d, 288 5GB/7d),
+but the largest is 5GB and none matched the deleted rows. GLO's only 10GB plan
+is `GIFTING` (117, 7 days, cost ₦1,890, sell ₦1,910), so at the owner's request
+117 was added back to the hot tab at **₦1,893** — cost + ₦3. That row is the
+exception to the SME-only rule and will be priced by `refresh_hot_deal_costs()`
+like any other; if the GIFTING plan is ever dropped at Lizzysub, the row has to
+go with it.
+
+Nothing enforces SME-only at the database level. `refresh_hot_deal_costs()`
+still prices whatever row is present, so a future hand-added row pointing at a
+GIFTING plan will be sold at that plan's cost. Worth a guard if the table keeps
+being edited by hand.
+
+**`hot_deals.is_active`** (boolean, not null, default true) was added so a row
+can be retired without deleting its history. `getHotDealsAction` filters
+`is_active = true`, and `purchaseDataAction` does the same on the hot lookup, so
+an inactive row neither shows on the tab nor sells if an old tab is still open.
+All 16 current rows are active.
+
+The mobile app reads `hot_deals` directly (`DataBundleList` selects `*` with no
+filter), so inactive rows would still show there until the mobile PR adds the
+same filter.
+
+`DataProviderClient` used to open on the Hot tab whatever the network had. It
+now opens on the first category that has plans (`categories` exported from
+`DataScreenHeader`), falling back to Hot, so a network with no hot deals cannot
+land on a blank tab. GLO has one hot deal again, so it opens on Hot.

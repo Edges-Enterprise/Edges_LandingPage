@@ -3,7 +3,7 @@ import Image from "next/image";
 import { Key } from "react";
 import { IoSearch, IoClose, IoArrowBackOutline } from "react-icons/io5";
 
-const categories = [
+export const categories = [
   "Hot",
   "Daily Plans",
   "Weekly Plans",
