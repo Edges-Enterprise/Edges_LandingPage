@@ -7343,3 +7343,41 @@ prepaid, 2026-01-14) recorded `charges: 0`. `electricity_service_fee` therefore
 starts at 0 and is ours to set, not the provider's.
 
 **Disco ids** run 1–12 and match ours on 1–10 (BEDC 11 and Aba 12 unused).
+
+## Task 19 — `/admin` made responsive, checked at 390 / 768 / 1024 / 1280 (2026-11-28)
+
+The admin console was built desktop-first: eight tabs in a strip that scrolled
+sideways with no affordance, 900px tables whose price and live columns sat off
+screen on a phone, and eight stat cards stacked one per row.
+
+What changed in `src/app/admin/AdminClient.tsx`:
+
+- Tabs wrap instead of scrolling, so every tab stays visible at any width.
+  Header and main padding step down to `px-3.5` under `md`; the meta line
+  truncates; "Back to app" no longer gets pushed onto its own row.
+- Overview stats are `grid-cols-2` on phones and `lg:grid-cols-4` above,
+  replacing the eight-across stack.
+- Every wide table (plans, unlisted plans, transactions, exam prices, cable
+  plans, audit) is `lg:block`; below 1024 it is replaced by a card list. Plan
+  cards collapse: the row shows network, bundle, validity/type, price, chevron
+  and the live toggle, and opening it reveals cost, price, margin (and stock on
+  flash). The customer table is narrow enough to stay a table from `md`.
+- Tables that stay scroll horizontally rather than crush columns
+  (`overflow-x-auto` + `min-w-*`), matching the `[countryCode]` admin pages on
+  `main`.
+- Both modals are bottom sheets on phones (`items-end`, `rounded-t-2xl`,
+  `max-h-[92vh] overflow-y-auto`) and centred dialogs from `sm` up.
+- Customers panel gained a real empty state (before it rendered nothing) and a
+  "no match" line; the adjust-balance fields are full width on phones.
+- Money now prints cents consistently (`₦56.50`, not `₦56.5`).
+- The airtime copy was still saying Lizzysub bills the full amount. It now says
+  what Task 18 proved: a ₦100 topup costs the provider ₦97–98, so the customer
+  discount is paid out of that spread.
+
+How it was checked: a throwaway copy of the repo (not committed) ran `next dev`
+against production Supabase with the preview-tester admin session, and headless
+Chromium screenshotted `overview`, `data`, `transactions`, `services` and
+`audit` at 390, 768, 1024 and 1280 px. `next build` passes.
+
+Not done: the tab is still client state, so `/admin` cannot deep-link to a tab;
+that was only patched in the throwaway copy to take the screenshots.

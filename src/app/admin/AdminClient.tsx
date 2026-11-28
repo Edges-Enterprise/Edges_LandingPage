@@ -76,7 +76,10 @@ const NETWORKS = ["MTN", "AIRTEL", "GLO", "9MOBILE"];
 
 const ngn = (n: number) =>
   Number.isFinite(n)
-    ? `₦${n.toLocaleString("en-NG", { maximumFractionDigits: 2 })}`
+    ? `₦${n.toLocaleString("en-NG", {
+        minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+        maximumFractionDigits: 2,
+      })}`
     : "—";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -172,27 +175,27 @@ export default function AdminClient({
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <header className="border-b border-white/10 bg-[#0f0f0f]">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4">
-          <div>
-            <h1 className="text-lg font-semibold">Admin</h1>
-            <p className="text-xs text-white/50">
+        <div className="mx-auto flex max-w-7xl items-start justify-between gap-3 px-3.5 py-3.5 md:px-6 md:py-4">
+          <div className="min-w-0">
+            <h1 className="text-base font-semibold md:text-lg">Admin</h1>
+            <p className="truncate text-[11px] text-white/50 md:text-xs">
               {adminEmail} · {totals.hot} hot · {totals.flash} flash · {totals.data} data ·{" "}
               {totals.pending} unlisted
             </p>
           </div>
           <Link
             href="/home"
-            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
+            className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
           >
             Back to app
           </Link>
         </div>
-        <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-2">
+        <nav className="mx-auto flex max-w-7xl flex-wrap gap-1 px-3.5 pb-2 md:px-6">
           {TABS.map((item) => (
             <button
               key={item.key}
               onClick={() => setTab(item.key)}
-              className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
+              className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition md:px-3 md:py-2 md:text-sm ${
                 tab === item.key
                   ? "bg-[#744925] text-white"
                   : "text-white/60 hover:bg-white/5"
@@ -201,18 +204,18 @@ export default function AdminClient({
               {item.label}
             </button>
           ))}
-        </div>
+        </nav>
       </header>
 
       {loadErrors.length > 0 && (
-        <div className="mx-auto mt-4 max-w-7xl px-4">
+        <div className="mx-auto mt-3 max-w-7xl px-3.5 md:mt-4 md:px-6">
           <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
             {loadErrors.join(" · ")}
           </p>
         </div>
       )}
 
-      <main className="mx-auto max-w-7xl px-4 py-6">
+      <main className="mx-auto max-w-7xl px-3.5 py-5 md:px-6 md:py-6">
         {tab === "overview" && <OverviewPanel notify={notify} />}
         {tab === "transactions" && <TransactionsPanel notify={notify} />}
         {tab === "customers" && <CustomersPanel notify={notify} />}
@@ -359,13 +362,13 @@ function SectionPanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1 rounded-lg border border-white/10 bg-[#111] p-1">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="-mx-3.5 flex gap-1 overflow-x-auto rounded-lg border border-white/10 bg-[#111] p-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
           {["ALL", ...NETWORKS].map((item) => (
             <button
               key={item}
               onClick={() => setNetwork(item)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+              className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-medium ${
                 network === item ? "bg-[#744925] text-white" : "text-white/60"
               }`}
             >
@@ -377,9 +380,9 @@ function SectionPanel({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search bundle, validity, plan type"
-          className="min-w-[220px] flex-1 rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm outline-none focus:border-[#744925]"
+          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm outline-none focus:border-[#744925]"
         />
-        <span className="text-xs text-white/40">
+        <span className="hidden text-xs text-white/40 lg:inline">
           price writes to{" "}
           <code className="text-white/60">{SECTION_PRICE_COLUMN[section]}</code>
         </span>
@@ -406,14 +409,14 @@ function SectionPanel({
         <button
           onClick={applyBulk}
           disabled={bulkBusy}
-          className="rounded-lg bg-[#744925] px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+          className="w-full rounded-lg bg-[#744925] px-3 py-1.5 text-xs font-medium disabled:opacity-50 sm:w-auto"
         >
           {bulkBusy ? "Applying…" : `Apply to ${network === "ALL" ? "all networks" : network}`}
         </button>
         <span className="text-xs text-white/40">listed plans only, never below cost</span>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+      <div className="hidden overflow-x-auto rounded-xl border border-white/10 lg:block">
         <table className="w-full min-w-[900px] text-sm">
           <thead className="bg-[#141414] text-left text-xs uppercase tracking-wide text-white/40">
             <tr>
@@ -483,6 +486,25 @@ function SectionPanel({
         </table>
       </div>
 
+      <div className="space-y-2 lg:hidden">
+        {listed.map((plan) => (
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            section={section}
+            onPrice={(value) => commitPrice(plan, value)}
+            onMargin={(value) => commitMargin(plan, value)}
+            onStock={(value) => commitStock(plan, value)}
+            onToggle={() => toggleActive(plan)}
+          />
+        ))}
+        {listed.length === 0 && (
+          <p className="rounded-xl border border-white/10 px-3 py-6 text-center text-xs text-white/40">
+            Nothing listed here yet.
+          </p>
+        )}
+      </div>
+
       <div className="rounded-xl border border-white/10 bg-[#0f0f0f]">
         <button
           onClick={() => setShowAvailable((open) => !open)}
@@ -499,7 +521,7 @@ function SectionPanel({
 
         {showAvailable && (
           <div className="max-h-[420px] overflow-y-auto border-t border-white/10">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="hidden w-full min-w-[720px] text-sm lg:table">
               <tbody>
                 {available.map((plan) => (
                   <tr key={plan.id} className="border-b border-white/5 last:border-0">
@@ -533,6 +555,31 @@ function SectionPanel({
                 )}
               </tbody>
             </table>
+            <div className="divide-y divide-white/5 lg:hidden">
+              {available.map((plan) => (
+                <div key={plan.id} className="flex items-center gap-2 px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">
+                      {plan.network} · {plan.name}
+                    </p>
+                    <p className="truncate text-[11px] text-white/40">
+                      {plan.validity} · {plan.planType} · cost {ngn(plan.cost)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setAdding(plan)}
+                    className="shrink-0 rounded-lg bg-[#744925] px-2.5 py-1 text-xs font-medium"
+                  >
+                    Add
+                  </button>
+                </div>
+              ))}
+              {available.length === 0 && (
+                <p className="px-3 py-6 text-center text-xs text-white/40">
+                  Nothing left to add.
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -555,6 +602,113 @@ function SectionPanel({
         />
       )}
     </div>
+  );
+}
+
+function PlanCard({
+  plan,
+  section,
+  onPrice,
+  onMargin,
+  onStock,
+  onToggle,
+}: {
+  plan: AdminPlan;
+  section: Section;
+  onPrice: (value: number) => Promise<boolean>;
+  onMargin: (value: number) => Promise<boolean>;
+  onStock: (value: number) => Promise<boolean>;
+  onToggle: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const belowCost = plan.price < plan.cost;
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#0f0f0f]">
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <button
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          <span className="shrink-0 rounded bg-white/5 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-white/60">
+            {plan.network}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm">{plan.name}</span>
+            <span className="block truncate text-[11px] text-white/40">
+              {plan.validity} · {plan.planType}
+            </span>
+          </span>
+          <span
+            className={`shrink-0 text-sm font-semibold ${
+              belowCost ? "text-red-300" : "text-white/80"
+            }`}
+          >
+            {ngn(plan.price)}
+          </span>
+          <Chevron open={open} />
+        </button>
+        <Toggle on={plan.active} onClick={onToggle} />
+      </div>
+
+      {open && (
+        <div className="space-y-2 border-t border-white/10 px-3 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-white/40">Cost (Lizzysub)</span>
+            <span className="text-sm text-white/70">{ngn(plan.cost)}</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-white/40">Selling price</span>
+            <MoneyInput value={plan.price} onCommit={onPrice} />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-white/40">Margin</span>
+            <MoneyInput
+              value={round2(plan.price - plan.cost)}
+              onCommit={onMargin}
+              tone={belowCost ? "bad" : "ok"}
+            />
+          </div>
+          {section === "flash" && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-white/40">Stock</span>
+              <NumberInput
+                value={plan.stockAvailable ?? 0}
+                onCommit={onStock}
+                hint={`left ${plan.stockLeft ?? 0}`}
+              />
+            </div>
+          )}
+          {belowCost && (
+            <p className="text-[11px] text-red-300">
+              Sells below the Lizzysub cost — every sale loses money.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+      className={`h-4 w-4 shrink-0 text-white/40 transition-transform ${
+        open ? "rotate-180" : ""
+      }`}
+    >
+      <path
+        d="M5 7.5 10 12.5 15 7.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -608,8 +762,8 @@ function AddPlanModal({
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#111] p-5">
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+      <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border border-white/10 bg-[#111] p-5 sm:max-w-sm sm:rounded-2xl">
         <h3 className="text-base font-semibold">
           Add {plan.network} {plan.name} to {SECTION_LABEL[section]}
         </h3>
@@ -920,7 +1074,7 @@ function OverviewPanel({ notify }: { notify: (text: string, bad?: boolean) => vo
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           label="Purchases"
           value={overview ? String(overview.purchases_count) : "—"}
@@ -1001,6 +1155,13 @@ type TransactionRow = {
 };
 
 const TX_STATUSES = ["all", "completed", "failed", "pending"];
+
+const statusTone = (status: string) =>
+  status === "completed" || status === "success"
+    ? "bg-emerald-500/15 text-emerald-300"
+    : status === "failed"
+      ? "bg-red-500/15 text-red-300"
+      : "bg-white/10 text-white/60";
 
 function TransactionsPanel({ notify }: { notify: (text: string, bad?: boolean) => void }) {
   const [preset, setPreset] = useState<Preset>("30d");
@@ -1165,7 +1326,7 @@ function TransactionsPanel({ notify }: { notify: (text: string, bad?: boolean) =
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+      <div className="hidden overflow-x-auto rounded-xl border border-white/10 lg:block">
         <table className="w-full min-w-[900px] text-sm">
           <thead className="bg-[#141414] text-left text-xs uppercase tracking-wide text-white/40">
             <tr>
@@ -1250,6 +1411,85 @@ function TransactionsPanel({ notify }: { notify: (text: string, bad?: boolean) =
         </table>
       </div>
 
+      <div className="space-y-2 lg:hidden">
+        {failedOnly
+          ? failedRows.map((row) => (
+              <div
+                key={row.id}
+                className="rounded-xl border border-white/10 bg-[#0f0f0f] px-3 py-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm">{row.user_email}</p>
+                    <p className="truncate text-[11px] text-white/40">
+                      {when(row.created_at)} · {row.type ?? "—"}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm font-semibold">{ngn(row.amount)}</p>
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[10px] ${statusTone(row.status)}`}
+                    >
+                      {row.status}
+                    </span>
+                  </div>
+                </div>
+                {row.reason && (
+                  <p className="mt-1 text-[11px] text-white/40">{row.reason}</p>
+                )}
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="truncate font-mono text-[10px] text-white/30">
+                    {row.reference}
+                  </span>
+                  {row.refunded_at ? (
+                    <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-300">
+                      refunded
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setRefunding(row)}
+                      className="shrink-0 rounded-lg border border-white/15 px-2 py-1 text-[11px] text-white/70"
+                    >
+                      Refund
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          : rows.map((row) => (
+              <div
+                key={row.id}
+                className="rounded-xl border border-white/10 bg-[#0f0f0f] px-3 py-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm">{row.user_email}</p>
+                    <p className="truncate text-[11px] text-white/40">
+                      {when(row.created_at)} · {row.type ?? "—"}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm font-semibold">{ngn(Number(row.amount))}</p>
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[10px] ${statusTone(row.status)}`}
+                    >
+                      {row.status}
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-1 truncate font-mono text-[10px] text-white/30">
+                  {row.reference}
+                </p>
+              </div>
+            ))}
+        {((failedOnly && failedRows.length === 0) ||
+          (!failedOnly && rows.length === 0)) && (
+          <p className="rounded-xl border border-white/10 px-3 py-6 text-center text-xs text-white/40">
+            Nothing in this range.
+          </p>
+        )}
+      </div>
+
       <div className="flex items-center justify-between text-xs text-white/50">
         <span>
           {totals.total.toLocaleString()} rows · page {page + 1} of {pages}
@@ -1320,8 +1560,8 @@ function RefundModal({
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#111] p-5">
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+      <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border border-white/10 bg-[#111] p-5 sm:max-w-md sm:rounded-2xl">
         <h3 className="text-base font-semibold">Refund a failed purchase</h3>
         <p className="mt-1 text-xs text-white/50">
           {purchase.user_email} · {purchase.reference}
@@ -1389,6 +1629,7 @@ function CustomersPanel({ notify }: { notify: (text: string, bad?: boolean) => v
   const [adjust, setAdjust] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [searched, setSearched] = useState(false);
 
   const search = async () => {
     if (term.trim().length < 2) {
@@ -1402,6 +1643,7 @@ function CustomersPanel({ notify }: { notify: (text: string, bad?: boolean) => v
     }
     setRows((result.rows ?? []) as CustomerRow[]);
     setSelected(null);
+    setSearched(true);
   };
 
   const open = async (row: CustomerRow) => {
@@ -1482,7 +1724,7 @@ function CustomersPanel({ notify }: { notify: (text: string, bad?: boolean) => v
             if (event.key === "Enter") search();
           }}
           placeholder="Search by email or username"
-          className="min-w-[240px] flex-1 rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm outline-none focus:border-[#744925]"
+          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm outline-none focus:border-[#744925]"
         />
         <button
           onClick={search}
@@ -1492,9 +1734,21 @@ function CustomersPanel({ notify }: { notify: (text: string, bad?: boolean) => v
         </button>
       </div>
 
+      {rows.length === 0 && !searched && (
+        <p className="rounded-xl border border-white/10 px-3 py-6 text-center text-xs text-white/40">
+          Search an email or username to pull up a customer&apos;s wallet, PIN and
+          purchase history.
+        </p>
+      )}
+      {rows.length === 0 && searched && (
+        <p className="rounded-xl border border-white/10 px-3 py-6 text-center text-xs text-white/40">
+          No customer matched &ldquo;{term.trim()}&rdquo;.
+        </p>
+      )}
+
       {rows.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-white/10">
-          <table className="w-full text-sm">
+        <div className="hidden overflow-x-auto rounded-xl border border-white/10 md:block">
+          <table className="w-full min-w-[560px] text-sm">
             <thead className="bg-[#141414] text-left text-xs uppercase tracking-wide text-white/40">
               <tr>
                 <th className="px-3 py-2">Customer</th>
@@ -1543,6 +1797,47 @@ function CustomersPanel({ notify }: { notify: (text: string, bad?: boolean) => v
         </div>
       )}
 
+      {rows.length > 0 && (
+        <div className="space-y-2 md:hidden">
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              className="rounded-xl border border-white/10 bg-[#0f0f0f] px-3 py-2.5"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm">{row.email}</p>
+                  <p className="truncate text-[11px] text-white/40">
+                    {row.username ?? "—"} · joined{" "}
+                    {new Date(row.created_at).toLocaleDateString("en-NG")}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-semibold">{ngn(row.balance)}</p>
+                  {row.is_suspended ? (
+                    <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] text-red-300">
+                      suspended
+                    </span>
+                  ) : row.is_admin ? (
+                    <span className="rounded bg-[#744925]/40 px-1.5 py-0.5 text-[10px] text-white/80">
+                      admin
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-white/40">active</span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => open(row)}
+                className="mt-2 w-full rounded-lg border border-white/15 px-2.5 py-1.5 text-xs text-white/70"
+              >
+                Open
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {selected && (
         <div className="rounded-xl border border-white/10 bg-[#0f0f0f] p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1554,7 +1849,7 @@ function CustomersPanel({ notify }: { notify: (text: string, bad?: boolean) => v
                 {ngn(balance)}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex w-full gap-2 sm:w-auto">
               <button
                 onClick={resetPin}
                 className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5"
@@ -1574,14 +1869,14 @@ function CustomersPanel({ notify }: { notify: (text: string, bad?: boolean) => v
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-end gap-2">
+          <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap sm:items-end">
             <label className="text-xs text-white/60">
               Adjust balance (+/−)
               <input
                 type="number"
                 value={adjust}
                 onChange={(event) => setAdjust(event.target.value)}
-                className="mt-1 block w-32 rounded-lg border border-white/10 bg-[#0a0a0a] px-2 py-1.5 text-sm text-white outline-none focus:border-[#744925]"
+                className="mt-1 block w-full rounded-lg border border-white/10 bg-[#0a0a0a] px-2 py-1.5 text-sm text-white outline-none focus:border-[#744925] sm:w-32"
               />
             </label>
             <label className="text-xs text-white/60">
@@ -1589,7 +1884,7 @@ function CustomersPanel({ notify }: { notify: (text: string, bad?: boolean) => v
               <input
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
-                className="mt-1 block w-56 rounded-lg border border-white/10 bg-[#0a0a0a] px-2 py-1.5 text-sm text-white outline-none focus:border-[#744925]"
+                className="mt-1 block w-full rounded-lg border border-white/10 bg-[#0a0a0a] px-2 py-1.5 text-sm text-white outline-none focus:border-[#744925] sm:w-56"
               />
             </label>
             <button
@@ -1601,8 +1896,8 @@ function CustomersPanel({ notify }: { notify: (text: string, bad?: boolean) => v
             </button>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-lg border border-white/10">
-            <table className="w-full text-sm">
+          <div className="mt-4 overflow-x-auto rounded-lg border border-white/10">
+            <table className="w-full min-w-[620px] text-sm">
               <thead className="bg-[#141414] text-left text-xs uppercase tracking-wide text-white/40">
                 <tr>
                   <th className="px-3 py-2">When</th>
@@ -1742,9 +2037,10 @@ function ServicesPanel({ notify }: { notify: (text: string, bad?: boolean) => vo
       <div>
         <h3 className="text-sm font-semibold">Airtime and electricity</h3>
         <p className="mt-1 text-xs text-white/40">
-          Airtime is sold below face value while Lizzysub bills the full amount, so the
-          discount comes straight out of margin. Electricity adds a flat fee on top of the
-          amount the customer enters.
+          Lizzysub bills airtime below face value — a ₦100 topup moves their balance by
+          about ₦98, and ₦200 by ₦196 — so the customer discount here is paid out of that
+          spread, not out of your margin. Keep it at or under the provider discount.
+          Electricity adds a flat fee on top of the amount the customer enters.
         </p>
         <div className="mt-3 space-y-2">
           {settings.map((setting) => (
@@ -1787,8 +2083,8 @@ function ServicesPanel({ notify }: { notify: (text: string, bad?: boolean) => vo
           server charges the price below times the quantity; the browser no longer sends
           the amount.
         </p>
-        <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
-          <table className="w-full text-sm">
+        <div className="mt-3 hidden overflow-x-auto rounded-xl border border-white/10 lg:block">
+          <table className="w-full min-w-[520px] text-sm">
             <thead className="bg-[#141414] text-left text-xs uppercase tracking-wide text-white/40">
               <tr>
                 <th className="px-3 py-2">Exam</th>
@@ -1824,6 +2120,38 @@ function ServicesPanel({ notify }: { notify: (text: string, bad?: boolean) => vo
             </tbody>
           </table>
         </div>
+
+        <div className="mt-3 space-y-2 lg:hidden">
+          {education.map((plan) => (
+            <div
+              key={plan.planId}
+              className="rounded-xl border border-white/10 bg-[#0f0f0f] px-3 py-2.5"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{plan.name}</p>
+                  <p className="text-[11px] text-white/40">cost {ngn(plan.cost)}</p>
+                </div>
+                <Toggle on={plan.active} onClick={() => toggleExam(plan)} />
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="text-xs text-white/40">Price</span>
+                <MoneyInput
+                  value={plan.price}
+                  onCommit={(value) => saveExamPrice(plan, value)}
+                />
+              </div>
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                <span className="text-xs text-white/40">Margin</span>
+                <MoneyInput
+                  value={round2(plan.price - plan.cost)}
+                  onCommit={(value) => saveExamPrice(plan, round2(plan.cost + value))}
+                  tone={plan.price < plan.cost ? "bad" : "ok"}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div>
@@ -1832,7 +2160,7 @@ function ServicesPanel({ notify }: { notify: (text: string, bad?: boolean) => vo
           {listed} of {cable.length} listed. Cost is Lizzysub&apos;s price for the package;
           anything unlisted has never been sold and waits for a price.
         </p>
-        <div className="mt-3 max-h-[520px] overflow-auto rounded-xl border border-white/10">
+        <div className="mt-3 hidden max-h-[520px] overflow-auto rounded-xl border border-white/10 lg:block">
           <table className="w-full min-w-[760px] text-sm">
             <thead className="sticky top-0 bg-[#141414] text-left text-xs uppercase tracking-wide text-white/40">
               <tr>
@@ -1874,6 +2202,42 @@ function ServicesPanel({ notify }: { notify: (text: string, bad?: boolean) => vo
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="mt-3 space-y-2 lg:hidden">
+          {cable.map((plan) => (
+            <div
+              key={plan.id}
+              className="rounded-xl border border-white/10 bg-[#0f0f0f] px-3 py-2.5"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{plan.name}</p>
+                  <p className="truncate text-[11px] text-white/40">
+                    {plan.provider} · cost {ngn(plan.providerCost)}
+                  </p>
+                </div>
+                <Toggle on={plan.is_active} onClick={() => toggleCable(plan)} />
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="text-xs text-white/40">Price</span>
+                <MoneyInput
+                  value={plan.price}
+                  onCommit={(value) => saveCablePrice(plan, value)}
+                />
+              </div>
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                <span className="text-xs text-white/40">Margin</span>
+                <MoneyInput
+                  value={round2(plan.price - plan.providerCost)}
+                  onCommit={(value) =>
+                    saveCablePrice(plan, round2(plan.providerCost + value))
+                  }
+                  tone={plan.price < plan.providerCost ? "bad" : "ok"}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -1917,7 +2281,7 @@ function AuditPanel({ notify }: { notify: (text: string, bad?: boolean) => void 
         className="w-full max-w-md rounded-lg border border-white/10 bg-[#111] px-3 py-2 text-sm outline-none focus:border-[#744925]"
       />
 
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+      <div className="hidden overflow-x-auto rounded-xl border border-white/10 lg:block">
         <table className="w-full min-w-[820px] text-sm">
           <thead className="bg-[#141414] text-left text-xs uppercase tracking-wide text-white/40">
             <tr>
@@ -1961,6 +2325,41 @@ function AuditPanel({ notify }: { notify: (text: string, bad?: boolean) => void 
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="space-y-2 lg:hidden">
+        {rows.map((row) => (
+          <div
+            key={row.id}
+            className="rounded-xl border border-white/10 bg-[#0f0f0f] px-3 py-2.5"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-white/70">
+                {row.action}
+              </span>
+              {row.amount !== null && (
+                <span className="shrink-0 text-sm font-semibold">
+                  {ngn(Number(row.amount))}
+                </span>
+              )}
+            </div>
+            <p className="mt-1 truncate font-mono text-[11px] text-white/50">
+              {row.target ?? "—"}
+            </p>
+            {row.note && (
+              <p className="mt-1 text-[11px] text-white/40">{row.note}</p>
+            )}
+            <p className="mt-1 truncate text-[10px] text-white/30">
+              {when(row.created_at)} · {row.admin_email}
+              {row.section ? ` · ${row.section}` : ""}
+            </p>
+          </div>
+        ))}
+        {rows.length === 0 && (
+          <p className="rounded-xl border border-white/10 px-3 py-6 text-center text-xs text-white/40">
+            Nothing logged yet.
+          </p>
+        )}
       </div>
 
       <div className="flex items-center justify-between text-xs text-white/50">
