@@ -7275,10 +7275,10 @@ the price from the table. WAEC 3,800 (cost 3,500), NECO 1,500 (1,300), NABTEB
 1–10. Lizzysub also sells BEDC (11) and Aba (12); they are not exposed because
 the UI needs logos for them. Add them with assets to offer them.
 
-**Airtime has no discount from the provider.** `/api/website/app/network`
-returns only enable flags, no per-network rate. Lizzysub bills face value, so
-our 1% discount is a straight 1% loss unless their invoicing differs
-(`api/topup` is the endpoint to check with them). The discount now lives in
+**Airtime is discounted by Lizzysub (corrected below).** The public catalogue
+returns only enable flags, but the documented response and our own completed
+purchases show the provider debiting below face value, so the 1% we give away
+is not a straight loss. See Task 18. The discount now lives in
 `service_settings.airtime_discount_percent` (default 1) instead of a hardcoded
 `0.99`. Electricity's new `electricity_service_fee` (default 0) is added on top
 of the customer's amount and included in the wallet debit.
@@ -7287,3 +7287,48 @@ of the customer's amount and included in the wallet debit.
 way `lizzy-catalog-sync` does for data. Extending that function to
 `/api/website/app/cableplan` and `/api/website/app/exam` is the next step; until
 then the numbers above are a snapshot from 2026-11-28.
+
+## Task 18 — the logged-in docs, checked against our payloads (2026-11-28)
+
+The docs live behind the dashboard login at `/documentation`, not on a public
+site: sign in at `app.lizzysub.com`, then
+`/documentation/{home,data,airtime,cable,bill,exam,bulksms,verify/iuc,verify/meter,data_card,recharge_card,webhook}`.
+
+**What each endpoint wants** (all `POST`, header `Authorization: Token <token>`):
+
+| Service | Endpoint | Payload |
+| --- | --- | --- |
+| Data | `/api/data` | `network`, `phone`, `data_plan`, `bypass`, `request-id` |
+| Airtime | `/api/topup` | `network`, `phone`, `plan_type: "VTU"`, `amount`, `bypass`, `request-id` |
+| Cable | `/api/cable` | `cable` (DSTV 2, GOTV 1, STARTIME 3), `iuc`, `cable_plan`, `bypass`, `request-id` |
+| Bill | `/api/bill` | `disco`, `meter_type`, `meter_number`, `amount`, `bypass`, `request-id` |
+| Exam | `/api/exam` | `exam` (WAEC 1, NECO 2, NABTEB 3), `quantity` |
+
+**Three fixes came out of reading it.**
+
+- `purchaseCableAction` sent `requestId`. The field is `request-id`, so the
+  provider was never given a reference to echo back. Airtime and electricity
+  already used the right key.
+- The exam response returns `pin` as one string of `pin<=>serial` pairs, not a
+  `pins` array, and the action only looked for `pins`. A successful purchase
+  would charge the customer and hand back an empty list.
+  `extractPins()` now reads `pins`, falls back to `pin`, and pairs the tokens
+  as `pin (serial)`.
+- Cable's numeric ids on the docs page (DSTV 2, GOTV 1, STARTIME 3) confirm the
+  map in the action, and the cable plan table is the same 19 rows that were
+  loaded into `cable_plans`.
+
+**Airtime really is discounted.** The docs' airtime sample answers a ₦100 topup
+with `"discount": 97` and a balance drop of 97, i.e. the provider bills below
+face value. Our own completed purchases agree at roughly 2%: a ₦200 topup moved
+the provider balance from 1,720.50 to 1,524.50 (₦196) and a ₦100 topup from
+4,405.50 to 4,307.50 (₦98). So selling at a 1% customer discount still leaves a
+margin, and the `airtime_discount_percent` setting can safely go to 2 or 3 if
+there is headroom.
+
+**Electricity has no provider charge for us.** The docs' sample shows
+`charges: 21` on a ₦300 bill, but our one completed bill (₦1,500, Kaduna
+prepaid, 2026-01-14) recorded `charges: 0`. `electricity_service_fee` therefore
+starts at 0 and is ours to set, not the provider's.
+
+**Disco ids** run 1–12 and match ours on 1–10 (BEDC 11 and Aba 12 unused).

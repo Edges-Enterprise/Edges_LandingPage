@@ -6,6 +6,32 @@ import { createServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 /**
+ * Lizzysub returns a single `pin` string of `pin<=>serial` pairs, not the
+ * `pins` array the rest of this file was written against.
+ */
+function extractPins(payload: any): string[] {
+  if (Array.isArray(payload?.pins)) return payload.pins.map(String);
+
+  const raw = typeof payload?.pin === "string" ? payload.pin.trim() : "";
+  if (!raw) return [];
+
+  const tokens = raw
+    .split("<=>")
+    .map((token: string) => token.trim())
+    .filter(Boolean);
+
+  if (tokens.length % 2 === 0 && tokens.length > 0) {
+    const pairs: string[] = [];
+    for (let index = 0; index < tokens.length; index += 2) {
+      pairs.push(`${tokens[index]} (${tokens[index + 1]})`);
+    }
+    return pairs;
+  }
+
+  return tokens;
+}
+
+/**
  * Purchase Exam Pins via Lizzysub API
  */
 export async function purchaseExamPinsAction(formData: {
@@ -165,7 +191,7 @@ export async function purchaseExamPinsAction(formData: {
         exam_id: formData.exam,
         quantity: quantity,
         total_amount: totalAmount,
-        pins: lizzysubData.pins || [], // Assume response has pins array
+        pins: extractPins(lizzysubData),
         api_message: lizzysubData.message,
         provider: "lizzysub",
       },
@@ -183,7 +209,7 @@ export async function purchaseExamPinsAction(formData: {
         exam_id: formData.exam,
         quantity: quantity,
         total_amount: totalAmount,
-        pins: lizzysubData.pins || [],
+        pins: extractPins(lizzysubData),
         reference: requestId,
       },
     });
@@ -201,7 +227,7 @@ export async function purchaseExamPinsAction(formData: {
         exam_id: formData.exam,
         quantity: quantity,
         total_amount: totalAmount,
-        pins: lizzysubData.pins || [],
+        pins: extractPins(lizzysubData),
         newBalance: newBalance,
         reference: requestId,
       },

@@ -169,7 +169,7 @@ export async function purchaseCableAction(formData: {
       iuc: formData.iuc,
       cable_plan: plan.cableplan_id,
       bypass: formData.bypass,
-      requestId: requestId,
+      "request-id": requestId,
     };
 
     console.log("Calling Lizzysub Cable API:", {
